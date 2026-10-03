@@ -60,8 +60,8 @@ function model(scope,{station,wagons=1,unresolved=0}={}){
 
 test("client projection is Admin-compatible and deal-isolated",()=>{
   const scopes=[
-    {deal_key:DEAL_A,deal_id:"DEAL-QA-A",business_status:"DEAL",lifecycle_state:"ACTIVE"},
-    {deal_key:DEAL_B,deal_id:"DEAL-QA-B",business_status:"DEAL",lifecycle_state:"ACTIVE"},
+    {deal_key:DEAL_A,deal_id:"DEAL-QA-A",business_status:"DEAL",lifecycle_state:"ACTIVE",rail_monitoring_state:"ACTIVE"},
+    {deal_key:DEAL_B,deal_id:"DEAL-QA-B",business_status:"DEAL",lifecycle_state:"ACTIVE",rail_monitoring_state:"COMPLETED",rail_monitoring_completed_at:"2026-10-03T18:30:24.998Z",rail_monitoring_completion_wagon_count:1},
   ];
   const data=projectClientRailCanonical({
     context:{client_id:"CLIENT-QA",contract_id:"CONTRACT-QA"},
@@ -88,8 +88,19 @@ test("client projection is Admin-compatible and deal-isolated",()=>{
   assert.equal(data.actualRouteByDeal["DEAL-QA-A"].status,"OBSERVED_HISTORY");
   assert.equal(data.remainingRouteByDeal["DEAL-QA-B"].status,"ROUTE_REMAINDER");
   assert.equal(data.routeCohortsByDeal[DEAL_A][0].cohortKey,"COHORT-DEAL-QA-A");
-  assert.equal(data.exchange.active_targets,2);
-  assert.equal(data.exchange.conflicts,1);
+  const completed=data.deals.find(d=>d.deal_id==="DEAL-QA-B");
+  assert.equal(completed.dealKey,DEAL_B);
+  assert.equal(completed.dealId,"DEAL-QA-B");
+  assert.equal(completed.monitoringState,"COMPLETED");
+  assert.equal(completed.completedAt,"2026-10-03T18:30:24.998Z");
+  assert.equal(completed.completionReady,false);
+  assert.equal(completed.wagonCount,1);
+  assert.equal(completed.trustedCount,1);
+  assert.equal(completed.atDestinationCount,1);
+  assert.equal(data.exchange.active_targets,1);
+  assert.equal(data.exchange.conflicts,0);
+  assert.equal(data.exchange.by_deal[DEAL_B].active_targets,0);
+  assert.equal(data.exchange.by_deal[DEAL_B].monitoring_state,"COMPLETED");
 });
 
 test("authorized application-only context is a ready zero-deal projection",()=>{
@@ -123,6 +134,8 @@ test("production wrapper preserves v56 and authorizes before the internal Rail c
     "client_user_has_contract_access",
     "client_user_has_deal_access",
     "d.lifecycle_state='ACTIVE'",
+    "rail_deal_monitoring_control_v1",
+    "rail_monitoring_state",
     "rona_rail_deal_map_read_model_core_v2",
     "${deal.deal_key}::uuid",
     "${deal.deal_id}::text",
@@ -215,6 +228,11 @@ test("Client adapter consumes only canonical endpoint and inherits the Admin can
   assert.ok(source.includes("CLIENT_RAIL_EVENT_DRIVEN_REFRESH_V2"));
   assert.ok(source.includes("window.__RONA_CLIENT_RAIL_REFRESH_POLICY__='OPEN_CONTEXT_CHANGE_INVALIDATION'"));
   assert.ok(source.includes("rona:client-rail-invalidated"));
+  assert.ok(source.includes("Мониторинг завершен"));
+  assert.ok(source.includes("window.__RONA_CLIENT_RAIL_FOCUS_REFRESH_BOUND__"));
+  assert.ok(source.includes("railMonitoringIsCompleted(selectedDeal&&selectedDeal.dealKey,selectedDeal&&selectedDeal.dealId)?0:monitorState.count"));
+  assert.ok(source.includes("monitorCompleted=railMonitoringIsCompleted(context&&context.dealKey,context&&context.dealId)"));
+  assert.equal(source.includes("railMonitoringIsCompleted(key,String(d.deal_id||key))||seen[key]"),false,"Client LK must keep completed Rail deals visible");
   assert.equal(source.includes("function clientRailRenderAuthoritativeRouteOverlay"),false,"Client must not own route geometry");
   assert.equal(source.includes("function clientRailPatchRouteDraw"),false,"Client must not wrap canonical railMapRequestDraw");
   assert.equal(source.includes("clientRailRouteOverlayPolyline"),false,"Client split-route overlay must be retired");
