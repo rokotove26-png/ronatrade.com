@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const gitBlobSha=p=>{const bytes=readFileSync(new URL('../'+p,import.meta.url));return createHash('sha1').update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest('hex')};
 
 test('Stage 2C.1 keeps MESSAGE canonical and restricts NOTIFICATION to client audiences',()=>{
   const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
@@ -82,8 +84,7 @@ test('Portal shell injects Stage 2C.1 broadcast runtime for real Client and Agen
 });
 
 test('Stage 2C.1 does not mutate frozen Client message or Admin Radio visual assets',()=>{
-  const stage2b=read('tests/admin-radio-stage2b-notification-announcement.test.mjs');
-  assert.match(stage2b,/client-messages-archive-v1\.js/);
-  assert.match(stage2b,/portal-admin-radio-final-v9\.js/);
-  assert.match(stage2b,/portal-admin-radio-wide-v10\.js/);
+  assert.equal(gitBlobSha('assets/client-messages-archive-v1.js'),'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca');
+  assert.equal(gitBlobSha('assets/portal-admin-radio-final-v9.js'),'89391945e49e49570e22e6cbfecd5a6e7e46b40c');
+  assert.equal(gitBlobSha('assets/portal-admin-radio-wide-v10.js'),'1e32655109534962580e96057def98208f69eaa4');
 });
