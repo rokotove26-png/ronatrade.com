@@ -119,7 +119,8 @@ const adminBytes=await readFile(adminPath);
 if(adminBytes.length>ADMIN_CURRENT.max_bytes) throw new Error(`CURRENT_ADMIN_PAYLOAD_TOO_LARGE: ${adminBytes.length}`);
 const adminText=adminBytes.toString('utf8');
 for(const marker of FORBIDDEN_ADMIN_MARKERS) if(adminText.includes(marker)) throw new Error(`CURRENT_ADMIN_FORBIDDEN_LEGACY_MARKER: ${marker}`);
-for(const required of ['rona-admin-shell" content="current-only-v2','data-rona-admin-shell="current-only-v2','id="nav"','id="page-home"','id="page-prices"','id="page-access"','id="page-claims"','portal-admin-shell-fast-v1.js','current-only-router-v2']) if(!adminText.includes(required)) throw new Error(`CURRENT_ADMIN_REQUIRED_MARKER_MISSING: ${required}`);
+for(const required of ['rona-admin-shell" content="current-only-v2','data-rona-admin-shell="current-only-v2','id="nav"','id="page-home"','id="page-prices"','id="page-access"','portal-admin-shell-fast-v1.js','current-only-router-v2']) if(!adminText.includes(required)) throw new Error(`CURRENT_ADMIN_REQUIRED_MARKER_MISSING: ${required}`);
+for(const retired of ['data-page="claims"','id="page-claims"','rona-admin-approved-claims-v455-loader']) if(adminText.includes(retired)) throw new Error(`CURRENT_ADMIN_RETIRED_CLAIMS_MARKER_PRESENT: ${retired}`);
 
 const assetBytes={};
 for(const [kind,spec] of Object.entries(ASSETS)){
