@@ -8,20 +8,7 @@ const OWNER='/portal/owner-api?path='+encodeURIComponent(role==='CLIENT'?'/clien
 const READ_ENDPOINT=id=>'/portal/owner-api?path='+encodeURIComponent('/client/radio/'+encodeURIComponent(String(id))+'/read');
 const POLL_MS=60000;
 const MAX_POLLS=10;
-const READ_KEY='rona_radio_notification_read_v1';
-function loadRead(){
-  try{
-    const raw=JSON.parse(localStorage.getItem(READ_KEY)||'[]');
-    return new Set(Array.isArray(raw)?raw.map(String):[]);
-  }catch{return new Set()}
-}
-function persistRead(set){
-  try{
-    const rows=[...set].slice(-500);
-    localStorage.setItem(READ_KEY,JSON.stringify(rows));
-  }catch{}
-}
-const dismissed=loadRead();
+const dismissed=new Set();
 const state={role,loading:false,radio:[],lastLoadedAt:0,error:null,timer:0,pollCount:0,requestSeq:0};
 window.__RONA_PORTAL_RADIO_BROADCAST_STATE__=state;
 const norm=v=>String(v??'').trim();
@@ -129,7 +116,6 @@ async function persistServerRead(id){
 async function closeModal(id){
   if(id){
     dismissed.add(String(id));
-    persistRead(dismissed);
     await persistServerRead(id);
   }
   document.getElementById('ronaRadioNotificationOverlay')?.remove();
@@ -169,13 +155,6 @@ async function refresh(reason='poll'){
     if(!response.ok||body?.ok===false)throw new Error(String(body?.code||('HTTP_'+response.status)));
     if(seq!==state.requestSeq)return;
     state.radio=Array.isArray(body?.data?.radio)?body.data.radio:[];
-    if(role==='CLIENT'){
-      const migrate=state.radio.filter(x=>upper(x?.item_kind)==='NOTIFICATION'&&dismissed.has(String(x?.id||'')));
-      if(migrate.length){
-        await Promise.allSettled(migrate.map(x=>persistServerRead(String(x.id||''))));
-        state.radio=state.radio.filter(x=>!dismissed.has(String(x?.id||'')));
-      }
-    }
     state.lastLoadedAt=Date.now();state.error=null;render();
   }catch(error){state.error=String(error?.message||error||'RADIO_BROADCAST_LOAD_FAILED')}
   finally{state.loading=false}
