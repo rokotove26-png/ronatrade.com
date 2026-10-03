@@ -131,6 +131,15 @@ test('Assistant authorization uses the same native gateway POST form as working 
   assert.doesNotMatch(base, /AUTH_PREPARE_FAILED/);
 });
 
+
+test('Assistant administrative writes preserve JSONB object and array shapes', () => {
+  const admin = readFileSync('supabase/functions/rona-mcp-gateway/assistant-admin-tools.mjs','utf8');
+  assert.match(admin, /ids\.correlationId,core,idemHash,payloadHash,data\]/);
+  assert.match(admin, /payloadHash,sourceRefs,payload,ids\.correlationId/);
+  assert.doesNotMatch(admin, /ids\.correlationId,JSON\.stringify\(core\),idemHash,payloadHash,JSON\.stringify\(data\)/);
+  assert.doesNotMatch(admin, /payloadHash,JSON\.stringify\(sourceRefs\),JSON\.stringify\(payload\),ids\.correlationId/);
+});
+
 test('Assistant token and revoke endpoints are routed through the shared token bridge', () => {
   assert.match(base, /rona-mcp-oauth-token','assistant','token'/);
   assert.match(base, /rona-mcp-oauth-token','assistant','revoke'/);
