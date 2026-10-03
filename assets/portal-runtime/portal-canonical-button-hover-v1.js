@@ -25,14 +25,7 @@ html body :is(button,input[type="button"],input[type="submit"],input[type="reset
   grid-template-columns:repeat(3,minmax(0,1fr))!important;
   gap:12px!important;
 }
-#page-deals[data-rona-deals-frame-alignment="title-frame-v14"] > [data-rona-deal-stage-tabs]{
-  width:var(--rona-client-deals-frame-width)!important;
-  max-width:var(--rona-client-deals-frame-width)!important;
-  margin-left:var(--rona-client-deals-frame-left)!important;
-  margin-right:auto!important;
-  box-sizing:border-box!important;
-}
-#page-deals[data-rona-deals-frame-alignment="title-frame-v14"] > [data-rona-deals-authoritative-list]{
+#page-deals[data-rona-deals-frame-alignment="title-frame-v14"] > [data-rona-deals-frame-aligned="true"]{
   width:var(--rona-client-deals-frame-width)!important;
   max-width:var(--rona-client-deals-frame-width)!important;
   margin-left:var(--rona-client-deals-frame-left)!important;
@@ -118,9 +111,9 @@ function alignDealsFrames(){
   if(!root||!root.isConnected)return;
   const tabs=root.querySelector(':scope > [data-rona-deal-stage-tabs]');
   const list=root.querySelector(':scope > [data-rona-deals-authoritative-list]');
-  if(!tabs&&!list)return;
   const anchor=dealsTitleFrame(root);
   if(!anchor||!anchor.isConnected)return;
+  const anchorTop=directDealsChild(root,anchor)||anchor;
   const rootRect=root.getBoundingClientRect();
   const anchorRect=anchor.getBoundingClientRect();
   const rootStyle=getComputedStyle(root);
@@ -131,11 +124,24 @@ function alignDealsFrames(){
   const left=Math.max(0,Math.min(contentWidth,anchorRect.left-contentLeft));
   const width=Math.max(0,Math.min(anchorRect.width,contentWidth-left));
   if(width<1)return;
+  const candidates=[...root.children].filter(node=>{
+    if(node===anchorTop||node.matches?.('script,style,[role="dialog"],[aria-modal="true"]'))return false;
+    const tag=node.tagName?.toLowerCase();
+    if(['input','select','button','option'].includes(tag))return false;
+    const s=getComputedStyle(node),rect=node.getBoundingClientRect();
+    if(s.display==='none'||s.visibility==='hidden'||s.position==='fixed'||s.position==='absolute')return false;
+    if(rect.width<Math.min(260,contentWidth*.30)||rect.height<1)return false;
+    return rect.top>=anchorRect.bottom-4;
+  });
+  const targets=new Set([tabs,list,...candidates].filter(Boolean));
+  for(const node of root.querySelectorAll(':scope > [data-rona-deals-frame-aligned="true"]')){
+    if(!targets.has(node))node.removeAttribute('data-rona-deals-frame-aligned');
+  }
   root.style.setProperty('--rona-client-deals-frame-left',left.toFixed(2)+'px');
   root.style.setProperty('--rona-client-deals-frame-width',width.toFixed(2)+'px');
   root.setAttribute(DEALS_ALIGN_ATTR,'title-frame-v14');
   anchor.setAttribute('data-rona-deals-frame-anchor','title');
-  for(const target of [tabs,list].filter(Boolean))target.setAttribute('data-rona-deals-frame-aligned','true');
+  for(const target of targets)target.setAttribute('data-rona-deals-frame-aligned','true');
   document.documentElement.dataset.ronaClientDealsFrameAlignment=DEALS_ALIGN_MARK;
   watchDealsFrames(root,anchor);
 }
