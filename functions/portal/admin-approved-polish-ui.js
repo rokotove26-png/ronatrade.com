@@ -15,7 +15,6 @@ function ensureStyle(){
     '#page-claims .rona-claims-side{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:14px!important}',
     '#page-claims .rona-claims-side>.rona-claims-detail-card{grid-column:auto!important}',
     '#page-messages.rona-radio-single-owner-ready>*:not(.rona-rs-root[data-kind="radio"]){display:none!important}',
-    '#page-messages.rona-radio-single-owner-ready>.rona-rs-root[data-kind="radio"]{display:grid!important;visibility:visible!important;opacity:1!important}',
 
     '#page-access #rona-ca4{--ca-cyan:#63d8ff;--ca-aqua:#5ee7d5;--ca-green:#61dda0;--ca-amber:#ffc86a;--ca-text:#f2f8fc;--ca-muted:#8da7b9;--ca-line:rgba(105,183,219,.17);--ca-line-strong:rgba(99,216,255,.34);width:min(100%,1480px)!important;max-width:1480px!important;margin:0 auto!important;padding:24px 26px 48px!important;gap:16px!important;font-family:"Segoe UI Variable Text","Segoe UI",Inter,Arial,sans-serif!important;font-feature-settings:"tnum" 1;font-variant-numeric:tabular-nums}',
     '#page-access #rona-ca4 .ca-hero{position:relative!important;overflow:hidden!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:28px!important;min-height:132px!important;padding:24px 26px!important;margin:0!important;border:1px solid rgba(102,188,226,.20)!important;border-radius:20px!important;background:radial-gradient(620px 170px at 86% 0%,rgba(57,193,242,.13),transparent 60%),linear-gradient(145deg,rgba(8,24,39,.96),rgba(5,16,28,.91))!important;box-shadow:0 18px 46px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.035)!important}',
@@ -183,7 +182,6 @@ function enforceRadioSingleOwner(){
   const current=q(':scope>.rona-rs-root[data-kind="radio"]',page);
   if(!current){page.classList.remove('rona-radio-single-owner-ready');return false}
   page.classList.add('rona-radio-single-owner-ready');
-  current.style.removeProperty('display');current.removeAttribute('aria-hidden');
   window.__RONA_RADIO_SINGLE_OWNER__='remaining-sections-r2';
   return true
 }
