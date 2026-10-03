@@ -36,6 +36,7 @@ ${CANONICAL_ROUTE_RENDERER_MARKER}
 ${ROUTE_LAYER_FIX_MARKER}
 window.__RONA_CLIENT_RAIL_COMPAT__='CLIENT_ADMIN_ROUTE_PARITY_V5 CLIENT_RAIL_CANONICAL_ROUTE_INHERIT_V1 CLIENT_RAIL_EVENT_DRIVEN_REFRESH_V2';
 window.__RONA_CLIENT_RAIL_REFRESH_POLICY__='OPEN_CONTEXT_CHANGE_INVALIDATION';
+window.__RONA_CLIENT_RAIL_MONITORING_PARITY__='20261003-completed-v1';
 window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1';
 function clientRailOuter(){
   var selectors=['#page-rail','#page-monitoring','[data-page-panel="rail"]','[data-page-panel="monitoring"]','[data-page-id="rail"]','[data-page-id="monitoring"]'];
@@ -274,7 +275,7 @@ export async function onRequest(context){
     if(!source.includes(from))return new Response('CLIENT_RAIL_MONITORING_PARITY_SOURCE_MISMATCH:'+label,{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
     source=source.replace(from,to);
   }
-  if(!source.includes('Мониторинг завершен')||!source.includes('railMonitoringState')&&false){
+  if(!source.includes('Мониторинг завершен')||!source.includes("window.__RONA_CLIENT_RAIL_MONITORING_PARITY__='20261003-completed-v1'")||!source.includes("window.__RONA_CLIENT_RAIL_FOCUS_REFRESH_BOUND__")){
     return new Response('CLIENT_RAIL_MONITORING_PARITY_GENERATION_FAILED',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
   if(source.includes(ADMIN_SINGLE_TITLE_HIDDEN_HERO)){
