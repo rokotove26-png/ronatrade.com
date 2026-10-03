@@ -107,6 +107,7 @@ test('Portal shell injects Stage 2C.1 broadcast runtime for real and impersonate
   assert.match(shell,/x-rona-client-impersonation-shell/);
   assert.match(shell,/static-plus-radio-runtime-and-header-bridge-v2/);
   assert.match(shell,/x-rona-admin-radio-visual-owner','canonical-v11'/);
+  assert.match(shell,/x-rona-admin-radio-specific-stop','v1'/);
   assert.match(shell,/if\(impersonation\?\.data\)\{\s*const transformed=new HTMLRewriter\(\)\s*\.on\('head',new HeadPrepend\(bridge\)\)\s*\.on\('body',new BodyAppend\(RADIO_BROADCAST_RUNTIME\)\)/);
   assert.match(shell,/h\.set\('x-rona-impersonation-tab',SESSION\)/);
   assert.doesNotMatch(shell,/static-unmodified-v1/);
