@@ -240,7 +240,7 @@ test('Stage 2A production deploy gate permits only exact head or fail-closed QA-
     "functions/portal/[[path]].js",
     "supabase/functions/rona-portal-api/agent.ts",
     "portal-src/canonical-transfer-v1_1/agent_externalized.html",
-    "assets/portal-admin-radio-final-v9.js"
+    "assets/portal-admin-radio-canonical-v11.js"
   ]) assert.ok(!gate.includes(`'${forbidden}'`),`Runtime path must not be allow-listed for deployment equivalence: ${forbidden}`);
 });
 
@@ -455,9 +455,8 @@ test('Dynamic Radio wrapper preserves the single canonical base owner and frozen
   new Function(script);
 });
 
-test('Frozen Admin Radio polish assets remain byte-for-byte unchanged',()=>{
-  assert.equal(gitBlobSha('assets/portal-admin-radio-final-v9.js'),'89391945e49e49570e22e6cbfecd5a6e7e46b40c');
-  assert.equal(gitBlobSha('assets/portal-admin-radio-wide-v10.js'),'1e32655109534962580e96057def98208f69eaa4');
+test('Canonical Admin Radio visual owner remains byte-for-byte locked',()=>{
+  assert.equal(gitBlobSha('assets/portal-admin-radio-canonical-v11.js'),'d7a7ffa7cf51b6cba01f089e69ddf55ba9946f3f');
 });
 
 test('Frozen Client Messages visual/runtime asset remains byte-for-byte unchanged',()=>{
