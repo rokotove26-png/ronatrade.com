@@ -1,0 +1,54 @@
+name: Deal execution exit exclusive stage QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/deals-current-state-ui.js'
+      - 'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts'
+      - 'tests/admin-deal-attention-after-rail-paid-v1.test.mjs'
+      - 'tests/admin-deal-execution-exit-exclusive-v1.test.mjs'
+      - '.github/workflows/deal-execution-exit-exclusive-stage-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  execution-exit-exclusive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Syntax and type checks
+        run: |
+          set -euo pipefail
+          node --check functions/portal/deals-current-state-ui.js
+          deno check --node-modules-dir=auto supabase/functions/rona-portal-api/payments-v8-production-hardening.ts
+      - name: Lifecycle contracts
+        run: |
+          set -euo pipefail
+          node --test tests/admin-deal-attention-after-rail-paid-v1.test.mjs
+          node --test tests/admin-deal-execution-exit-exclusive-v1.test.mjs
+      - name: Generated Deals runtime compiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' '{"type":"module"}' > functions/portal/package.json
+          node --input-type=module <<'NODE'
+          const m=await import('./functions/portal/deals-current-state-ui.js?qa='+Date.now());
+          const r=await m.onRequest();
+          if(r.status!==200) throw new Error('DEALS_UI_HTTP_'+r.status);
+          const s=await r.text();
+          new Function(s);
+          if(!s.includes('isExecutionMonitoringActive')) throw new Error('EXECUTION_SCOPE_MISSING');
+          if(!s.includes('var active=ds.filter(isExecutionMonitoringActive).length')) throw new Error('ACTIVE_EXCLUSIVITY_MISSING');
+          console.log('DEAL_EXECUTION_EXIT_EXCLUSIVE_STAGE=PASS');
+          NODE
