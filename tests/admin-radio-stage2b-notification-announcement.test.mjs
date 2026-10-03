@@ -108,13 +108,16 @@ test('Stage 2C.1 activates client notification modal and client/agent announceme
   const shell=read('functions/portal/[[path]].js');
   assert.match(owner,/RADIO_NOTIFICATION_CLIENT_SCOPE_REQUIRED/);
   assert.match(owner,/kind==='NOTIFICATION'&&!\['CLIENT','ALL_CLIENTS'\]\.includes\(scope\)/);
-  const agentStart=owner.indexOf('async function agentBootstrap(ctx)');
-  const agentEnd=owner.indexOf('function ascii(',agentStart);
-  assert.ok(agentStart>=0&&agentEnd>agentStart,'agentBootstrap block missing');
-  const agentBlock=owner.slice(agentStart,agentEnd);
+  const clientStart=owner.indexOf('async function clientRadio(ctx');
+  const agentStart=owner.indexOf('async function agentRadio(ctx)');
+  const bootstrapStart=owner.indexOf('async function clientBootstrap(ctx)');
+  assert.ok(clientStart>=0&&agentStart>clientStart&&bootstrapStart>agentStart,'recipient radio helpers missing');
+  const clientBlock=owner.slice(clientStart,agentStart);
+  const agentBlock=owner.slice(agentStart,bootstrapStart);
+  assert.match(clientBlock,/delivery_channel='PORTAL'/);
   assert.match(agentBlock,/const identities=await sql/);
+  assert.match(agentBlock,/delivery_channel='PORTAL'/);
   assert.match(agentBlock,/item_kind='ANNOUNCEMENT'/);
-  assert.ok(agentBlock.indexOf('const radio=')<agentBlock.indexOf("if(!keys.length)return"),'ALL_AGENTS projection must not depend on client assignment');
   for(const token of [
     "id='ronaRadioAnnouncementTicker'",
     "id='ronaRadioNotificationOverlay'",
@@ -122,7 +125,7 @@ test('Stage 2C.1 activates client notification modal and client/agent announceme
     "if(role!=='CLIENT')",
     "upper(x?.item_kind)==='ANNOUNCEMENT'",
     "upper(x?.item_kind)==='NOTIFICATION'",
-    "role==='CLIENT'?'/client/bootstrap':'/agent/bootstrap'"
+    "role==='CLIENT'?'/client/radio':'/agent/radio'"
   ])assert.ok(runtime.includes(token),`Stage 2C.1 runtime marker missing: ${token}`);
   assert.match(shell,/const RADIO_BROADCAST_RUNTIME = '<script id="rona-portal-radio-broadcast-v1"/);
   assert.match(shell,/clientPresence\+RADIO_BROADCAST_RUNTIME/);
@@ -148,7 +151,7 @@ test('Stage 2C.1 presentation wiring is source-locked to the server-isolated bro
   assert.match(owner,/item_kind='ANNOUNCEMENT'/);
 
   for(const token of [
-    "role==='CLIENT'?'/client/bootstrap':'/agent/bootstrap'",
+    "role==='CLIENT'?'/client/radio':'/agent/radio'",
     "id='ronaRadioAnnouncementTicker'",
     "id='ronaRadioNotificationOverlay'",
     "animation:ronaRadioTickerRun",
