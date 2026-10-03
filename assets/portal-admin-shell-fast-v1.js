@@ -88,7 +88,6 @@ const MODULES=Object.freeze({
   rail:{src:'/portal/rail-current-v81-maplibre-ui?v=20260921-primary-selfheal-v1'},
   railFallback:{src:'/portal/rail-safe-fallback-ui?v=20260826-rail-safe-fallback'},
   applications:{src:'/portal/applications-total-kpi-ui?v=20260826-single-owner'},
-  claims:{src:'/portal/claims-r2-ui?v=20260826-single-owner'},
   remaining:{src:'/portal/remaining-sections-ui?v=20260826-single-owner'},
   analytics:{src:'/portal/analytics-v2-ui?v=20260826-approved-analytics'},
   prices:{src:'/portal/prices-current-ui?v=20260826-single-owner'},
@@ -157,7 +156,7 @@ async function bootUi(){
     accessWarm,loadModule('deals',MODULES.deals.src),loadModule('deals-r11',MODULES.dealsR11.src),loadModule('cash',MODULES.cash.src),loadRail(),loadModule('applications',MODULES.applications.src)
   ]);
   await Promise.allSettled([
-    loadAccess(),loadModule('claims',MODULES.claims.src),loadModule('remaining',MODULES.remaining.src),loadModule('prices',MODULES.prices.src)
+    loadAccess(),loadModule('remaining',MODULES.remaining.src),loadModule('prices',MODULES.prices.src)
   ]);
   await loadAnalytics();
   window.__RONA_ADMIN_FAST_UI_LOADED__=true;window.__RONA_POSTCORE_ENHANCEMENTS_READY__=true;restoreSelectedPage();revealShell('ui-ready');window.dispatchEvent(new CustomEvent('rona:admin-single-owner-ready'))
@@ -166,7 +165,6 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 window.addEventListener('rona:admin-pagechange',event=>{
   const p=String(event?.detail?.page||'');
-  if(p==='claims')loadModule('claims',MODULES.claims.src);
   if(['agent-settlements','messages','market-news'].includes(p))loadModule('remaining',MODULES.remaining.src);
   if(p==='analytics')loadAnalytics();
   if(p==='monitoring')loadRail();
@@ -193,7 +191,7 @@ window.addEventListener('rona:admin-module-retry',event=>{
     const st=window.__RONA_ADMIN_MODULES__.analytics;if(st){st.status='PENDING';st.promise=null}
     loadAnalytics().then(restoreSelectedPage);return
   }
-  const key=p==='claims'?'claims':['agent-settlements','messages','market-news'].includes(p)?'remaining':p==='prices'?'prices':'';
+  const key=['agent-settlements','messages','market-news'].includes(p)?'remaining':p==='prices'?'prices':'';
   if(key){const st=window.__RONA_ADMIN_MODULES__[key];if(st){st.status='PENDING';st.promise=null}loadModule(key,MODULES[key].src).then(restoreSelectedPage)}
 });
 
