@@ -750,8 +750,10 @@ if(clientDealsStageTabsExceptionAuthorized){
     'assets/portal-runtime/client-deals-authoritative-v1.js',
     'assets/portal-runtime/client-sidebar-command-nav-v1.js',
     'assets/portal-runtime/client-content-responsive-v1.css',
+    'assets/portal-runtime/portal-canonical-button-hover-v1.js',
     'scripts/attach-client-deals-authoritative-v1.mjs',
-    'scripts/attach-portal-canonical-button-hover-v1.mjs'
+    'scripts/attach-portal-canonical-button-hover-v1.mjs',
+    'scripts/attach-client-content-responsive-v1.mjs'
   ];
   let matched=0;
   for(const path of required){
@@ -766,6 +768,7 @@ if(clientDealsStageTabsExceptionAuthorized){
     approvedNewRuntime.add('client-sidebar-command-nav-v1.js');
     approvedNewAttach.add('attach-client-deals-authoritative-v1.mjs');
     approvedModifiedFiles.add('assets/portal-runtime/client-content-responsive-v1.css');
+    approvedModifiedFiles.add('scripts/attach-client-content-responsive-v1.mjs');
   }
 }
 
