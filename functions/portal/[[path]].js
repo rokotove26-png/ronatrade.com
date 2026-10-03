@@ -458,6 +458,9 @@ async function serveStaticProtected(context, session, kind) {
         .on('[data-page="claims"]',new RemoveCanonicalLegacyAuthNode())
         .on('#page-claims',new RemoveCanonicalLegacyAuthNode())
         .on('[data-section="claims"]',new RemoveCanonicalLegacyAuthNode())
+        .on('script[src*="claims"]',new RemoveCanonicalLegacyAuthNode())
+        .on('script[id*="claims"]',new RemoveCanonicalLegacyAuthNode())
+        .on('link[href*="claims"]',new RemoveCanonicalLegacyAuthNode())
         .on('body',new BodyAppend(RADIO_BROADCAST_RUNTIME+CLAIMS_SECTION_RETIRE_RUNTIME))
         .transform(response);
       const headers=new Headers(transformed.headers);
@@ -471,6 +474,9 @@ async function serveStaticProtected(context, session, kind) {
       .on('[data-page="claims"]',new RemoveCanonicalLegacyAuthNode())
       .on('#page-claims',new RemoveCanonicalLegacyAuthNode())
       .on('[data-section="claims"]',new RemoveCanonicalLegacyAuthNode())
+      .on('script[src*="claims"]',new RemoveCanonicalLegacyAuthNode())
+      .on('script[id*="claims"]',new RemoveCanonicalLegacyAuthNode())
+      .on('link[href*="claims"]',new RemoveCanonicalLegacyAuthNode())
       .on('body',new BodyAppend(clientPresence+RADIO_BROADCAST_RUNTIME+CLAIMS_SECTION_RETIRE_RUNTIME))
       .transform(response);
     return secureResponse(transformed,session.setCookies,true);
