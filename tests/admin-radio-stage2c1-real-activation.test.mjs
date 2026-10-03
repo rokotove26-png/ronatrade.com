@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
@@ -111,10 +111,26 @@ test('Portal shell injects Stage 2C.1 broadcast runtime for real and impersonate
   assert.doesNotMatch(shell,/static-unmodified-v1/);
 });
 
-test('Stage 2C.1 does not mutate frozen Client message or Admin Radio visual assets',()=>{
+test('Stage 2C.1 keeps Client messages frozen and Admin Radio on one canonical visual owner',()=>{
   assert.equal(gitBlobSha('assets/portal-runtime/client-messages-archive-v1.js'),'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca');
-  assert.equal(gitBlobSha('assets/portal-admin-radio-final-v9.js'),'89391945e49e49570e22e6cbfecd5a6e7e46b40c');
-  assert.equal(gitBlobSha('assets/portal-admin-radio-wide-v10.js'),'1e32655109534962580e96057def98208f69eaa4');
+  assert.equal(gitBlobSha('assets/portal-admin-radio-canonical-v11.js'),'d7a7ffa7cf51b6cba01f089e69ddf55ba9946f3f');
+  const visual=read('assets/portal-admin-radio-canonical-v11.js');
+  const admin=read('portal-src/current/admin.html');
+  assert.match(visual,/__RONA_ADMIN_RADIO_VISUAL_OWNER__='CANONICAL_V11'/);
+  assert.match(visual,/data-radio-canonical-v11/);
+  assert.doesNotMatch(visual,/setTimeout\(boot|setTimeout\(apply|cleanupOld/);
+  assert.match(admin,/portal-admin-radio-canonical-v11\.js\?v=20261003-single-visual-owner-v11/);
+  for(const legacy of [
+    'assets/portal-admin-radio-compact-v4.js',
+    'assets/portal-admin-radio-designer-v5.js',
+    'assets/portal-admin-radio-designer-v6.js',
+    'assets/portal-admin-radio-designer-v7.js',
+    'assets/portal-admin-radio-designer-v8.js',
+    'assets/portal-admin-radio-final-v9.js',
+    'assets/portal-admin-radio-icc-v1.js',
+    'assets/portal-admin-radio-space-center-v3.js',
+    'assets/portal-admin-radio-wide-v10.js'
+  ]) assert.equal(existsSync(new URL('../'+legacy,import.meta.url)),false,legacy+' must be retired');
 });
 
 
