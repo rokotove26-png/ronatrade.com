@@ -95,7 +95,7 @@ test('Admin Radio static owner uses canonical broadcast projection without chang
     "el('div','rona-rs-form')",
     "card('Новое сообщение'",
     "card('Активные сообщения'",
-    "['Тип','Кому','Сообщение','Дата']"
+    "['Тип','Кому','Сообщение','Дата','Действие']"
   ]) assert.ok(radio.includes(token),`Canonical Radio visual structure token missing: ${token}`);
   assert.doesNotMatch(radio,/radioRoot\(\)|radio-command-bar|radio-kpi-grid|radio-workspace|radio-compose-panel|radio-link-panel|radio-active-panel/);
 });
