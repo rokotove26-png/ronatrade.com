@@ -395,7 +395,11 @@ async function validateRadioPublicationTarget(scope,targetId){
       from portal_private.agent_persons ap
       where ap.agent_person_id=${targetId}
         and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-        and ap.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+        and ap.authority_state in (
+          'SOURCE_RECEIVED'::portal_private.authority_state_enum,
+          'VERIFIED'::portal_private.authority_state_enum,
+          'CONFIRMED'::portal_private.authority_state_enum
+        )
       limit 1`;
     if(rows.length!==1)throw Object.assign(new Error('RADIO_AGENT_TARGET_NOT_CURRENT'),{status:409});
   }
@@ -412,6 +416,7 @@ async function postRadio(ctx, req) {
   if(kind==='MESSAGE')throw Object.assign(new Error('RADIO_MESSAGE_CANONICAL_ROUTE_REQUIRED'),{status:409});
   if(!['NOTIFICATION','ANNOUNCEMENT'].includes(kind))throw Object.assign(new Error('INVALID_KIND'),{status:400});
   if(!['CLIENT','AGENT','ALL_CLIENTS','ALL_AGENTS'].includes(scope))throw Object.assign(new Error('INVALID_SCOPE'),{status:400});
+  if(kind==='NOTIFICATION'&&!['CLIENT','ALL_CLIENTS'].includes(scope))throw Object.assign(new Error('RADIO_NOTIFICATION_CLIENT_SCOPE_REQUIRED'),{status:400});
   if(idempotencyKey.length>160)throw Object.assign(new Error('INVALID_IDEMPOTENCY_KEY'),{status:400});
   if(['CLIENT','AGENT'].includes(scope)&&!targetId)throw Object.assign(new Error('TARGET_REQUIRED'),{status:400});
   if(['ALL_CLIENTS','ALL_AGENTS'].includes(scope)&&targetId)throw Object.assign(new Error('TARGET_FORBIDDEN_FOR_BROADCAST'),{status:400});
@@ -489,6 +494,51 @@ async function paymentHandoff(ctx,req,dealId){const rows=await sql`select d.id d
 async function signedUrlForDocument(ctx,documentId,mode){let allowed=[];if(mode==='client')allowed=(await clientScope(ctx)).map(x=>String(x.client_key));else if(mode==='agent')allowed=(await agentScope(ctx)).map(x=>String(x.client_key));
   const rows=await sql`select d.id,d.document_id,d.client_key,d.document_type,d.authoritative_filename,dv.storage_path,so.bucket_id from portal_private.documents d join portal_private.document_versions dv on dv.id=d.current_version_id and dv.document_key=d.id join portal_private.storage_objects so on so.document_version_key=dv.id and so.storage_state='VERIFIED' where d.document_id=${documentId} and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and dv.is_current and dv.is_effective limit 1`;if(!rows.length)throw Object.assign(new Error('DOCUMENT_NOT_FOUND'),{status:404});const r=rows[0];if(mode!=='admin'&&!allowed.includes(String(r.client_key)))throw Object.assign(new Error('DOCUMENT_ACCESS_DENIED'),{status:403});const {data,error}=await service.storage.from(String(r.bucket_id||BUCKET)).createSignedUrl(String(r.storage_path),120,{download:String(r.authoritative_filename||'document.pdf')});if(error||!data?.signedUrl)throw Object.assign(new Error('SIGNED_URL_FAILED'),{status:502});return{documentId:String(r.document_id),filename:String(r.authoritative_filename),url:data.signedUrl,expiresIn:120}}
 
+async function clientRadio(ctx,scopeInput=null){
+  const scope=Array.isArray(scopeInput)?scopeInput:await clientScope(ctx);
+  const ids=scope.map(x=>String(x.client_id));
+  if(!ids.length)return{radio:[]};
+  const radio=await sql`
+    select id,item_kind,target_scope,target_id,body_text,active_from,active_until,created_at
+    from portal_private.owner_radio_items
+    where delivery_channel='PORTAL'
+      and item_kind in ('NOTIFICATION','ANNOUNCEMENT')
+      and active_from<=now() and (active_until is null or active_until>now())
+      and (target_scope='ALL_CLIENTS' or (target_scope='CLIENT' and target_id = any(${ids}::text[])))
+    order by created_at desc
+  `;
+  return{radio};
+}
+
+async function agentRadio(ctx){
+  const bound=ctx.impersonation?.effectiveRole==="AGENT"?ctx.impersonation.targetAgentPersonKey:null;
+  const identities=await sql`
+    select distinct ap.agent_person_id
+    from portal_private.agent_user_bindings aub
+    join portal_private.agent_persons ap on ap.id=aub.agent_person_key
+    where aub.user_id=${ctx.userId}::uuid
+      and (${bound}::uuid is null or aub.agent_person_key=${bound}::uuid)
+      and aub.status='ACTIVE'::portal_private.binding_status_enum
+      and aub.revoked_at is null
+      and aub.valid_from<=now() and (aub.valid_to is null or aub.valid_to>now())
+      and aub.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and aub.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+      and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and ap.authority_state in ('SOURCE_RECEIVED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+  `;
+  const ids=identities.map(x=>String(x.agent_person_id));
+  const radio=ids.length?await sql`
+    select id,item_kind,target_scope,target_id,body_text,active_from,active_until,created_at
+    from portal_private.owner_radio_items
+    where delivery_channel='PORTAL'
+      and item_kind='ANNOUNCEMENT'
+      and active_from<=now() and (active_until is null or active_until>now())
+      and (target_scope='ALL_AGENTS' or (target_scope='AGENT' and target_id = any(${ids}::text[])))
+    order by created_at desc
+  `:[];
+  return{radio};
+}
+
 async function clientBootstrap(ctx){const scope=await clientScope(ctx),keys=scope.map(x=>String(x.client_key));if(!keys.length)return{companies:[],prices:[],applications:[],deals:[],documents:[],analytics:[],news:[],radio:[]};
   const adminEntity=ctx.impersonation?.subjectMode==="ADMIN_ENTITY";
   const contracts=adminEntity
@@ -498,15 +548,17 @@ async function clientBootstrap(ctx){const scope=await clientScope(ctx),keys=scop
   const applications=await sql`select a.application_id,a.product,a.quantity_tonnes,a.status::text,a.proposed_price,a.proposed_currency,d.deal_id,w.counter_price,w.counter_currency,w.client_counter_response from portal_private.client_applications a left join portal_private.deals d on d.id=a.linked_deal_key left join portal_private.owner_application_workflow w on w.application_key=a.id where a.client_key = any(${keys}::uuid[]) and a.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by a.updated_at desc`;
   const deals=await sql`select d.deal_id,d.business_status,cl.legal_name,ct.contract_id from portal_private.deals d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key where d.client_key = any(${keys}::uuid[]) and d.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by d.updated_at desc`;
   const documents=await sql`select d.deal_id,doc.document_id,doc.authoritative_filename,odd.document_kind from portal_private.owner_deal_documents odd join portal_private.deals d on d.id=odd.deal_key join portal_private.documents doc on doc.id=odd.document_key where d.client_key = any(${keys}::uuid[]) and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum order by odd.updated_at desc`;
-  const ids=scope.map(x=>String(x.client_id));const radio=await sql`select id,item_kind,target_scope,target_id,body_text,active_from,active_until from portal_private.owner_radio_items where item_kind in ('NOTIFICATION','ANNOUNCEMENT') and active_from<=now() and (active_until is null or active_until>now()) and (target_scope='ALL_CLIENTS' or (target_scope='CLIENT' and target_id = any(${ids}::text[]))) order by created_at desc`;
+  const {radio}=await clientRadio(ctx,scope);
   return{companies:contracts,prices,applications,deals,documents,analytics:[],news:[],radio};
 }
 
-async function agentBootstrap(ctx){const scope=await agentScope(ctx),keys=scope.map(x=>String(x.client_key));const prices=await sql`select id,product,producer,basis,final_station,sale_price,currency,payment_terms,commercial_terms,agreed_at from portal_private.owner_price_snapshots where publish_agent=true and business_status='PUBLISHED' order by agreed_at desc`;
-  if(!keys.length)return{companies:[],prices,applications:[],documents:[],radio:[]};
+async function agentBootstrap(ctx){
+  const scope=await agentScope(ctx),keys=scope.map(x=>String(x.client_key));
+  const prices=await sql`select id,product,producer,basis,final_station,sale_price,currency,payment_terms,commercial_terms,agreed_at from portal_private.owner_price_snapshots where publish_agent=true and business_status='PUBLISHED' order by agreed_at desc`;
+  const {radio}=await agentRadio(ctx);
+  if(!keys.length)return{companies:[],prices,applications:[],documents:[],radio};
   const applications=await sql`select a.application_id,a.product,a.quantity_tonnes,a.status::text,d.deal_id,cl.client_id,cl.legal_name from portal_private.client_applications a join portal_private.clients cl on cl.id=a.client_key left join portal_private.deals d on d.id=a.linked_deal_key where a.client_key = any(${keys}::uuid[]) and a.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by a.updated_at desc`;
   const documents=await sql`select d.deal_id,cl.client_id,doc.document_id,doc.authoritative_filename,odd.document_kind from portal_private.owner_deal_documents odd join portal_private.deals d on d.id=odd.deal_key join portal_private.clients cl on cl.id=d.client_key join portal_private.documents doc on doc.id=odd.document_key where d.client_key = any(${keys}::uuid[]) and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum order by odd.updated_at desc`;
-  const ids=scope.map(x=>String(x.agent_person_id));const radio=await sql`select id,item_kind,target_scope,target_id,body_text,active_from,active_until from portal_private.owner_radio_items where item_kind in ('NOTIFICATION','ANNOUNCEMENT') and active_from<=now() and (active_until is null or active_until>now()) and (target_scope='ALL_AGENTS' or (target_scope='AGENT' and target_id = any(${ids}::text[]))) order by created_at desc`;
   return{companies:scope,prices,applications,documents,radio};
 }
 
@@ -645,6 +697,7 @@ Deno.serve(async req=>{
     m=path.match(/^\/admin\/deals\/([^/]+)\/send-to-payments$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await paymentHandoff(ctx,req,decodeURIComponent(m[1]))})}
     m=path.match(/^\/admin\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'admin')})}
 
+    if(path==='/client/radio'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientRadio(ctx)})}
     if(path==='/client/bootstrap'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientBootstrap(ctx)})}
     if(path==='/client/workflow-bootstrap'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientWorkflowBootstrap(ctx)})}
     if(path==='/client/analytics-feed'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientAnalyticsFeed()})}
@@ -655,6 +708,7 @@ Deno.serve(async req=>{
     m=path.match(/^\/client\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'client')})}
     m=path.match(/^\/client\/contracts\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'CLIENT');const c=(await clientScope(ctx)).find(x=>String(x.contract_id)===decodeURIComponent(m[1]));if(!c||!c.current_signed_document_id)throw Object.assign(new Error('CONTRACT_DOCUMENT_NOT_FOUND'),{status:404});const d=(await sql`select document_id from portal_private.documents where id=${c.current_signed_document_id}::uuid limit 1`)[0];if(!d)throw Object.assign(new Error('CONTRACT_DOCUMENT_NOT_FOUND'),{status:404});return send(200,{ok:true,data:await signedUrlForDocument(ctx,String(d.document_id),'client')})}
 
+    if(path==='/agent/radio'&&method==='GET'){requireRole(ctx,'AGENT');return send(200,{ok:true,data:await agentRadio(ctx)})}
     if(path==='/agent/bootstrap'&&method==='GET'){requireRole(ctx,'AGENT');return send(200,{ok:true,data:await agentBootstrap(ctx)})}
     if(path==='/agent/price-list.pdf'&&method==='GET'){requireRole(ctx,'AGENT');const data=await agentBootstrap(ctx),pdf=buildPricePdf(data.prices);return new Response(pdf,{status:200,headers:{'content-type':'application/pdf','content-disposition':'attachment; filename="RONA_Trade_Agent_Price_List.pdf"','cache-control':'no-store'}})}
     m=path.match(/^\/agent\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'AGENT');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'agent')})}
