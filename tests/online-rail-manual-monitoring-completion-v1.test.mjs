@@ -30,7 +30,7 @@ assert.match(railUi,/Завершить мониторинг/);
 assert.match(railUi,/completionReady/);
 assert.match(railUi,/railMonitoringIsCompleted/);
 assert.match(railUi,/admin\/rail-monitoring/);
-assert.match(railUi,/manual-admin-completion-v1/);
+assert.match(railUi,/manual-admin-completion-v2-timeout-safe/);
 assert.match(railUi,/MONITOR_LIFECYCLE_STATE_ANCHOR/);
 assert.match(railUi,/RAIL_V82_LIFECYCLE_RUNTIME_GENERATION_FAILED/);
 assert.match(railUi,/railMonitoringLifecycleReady/);
