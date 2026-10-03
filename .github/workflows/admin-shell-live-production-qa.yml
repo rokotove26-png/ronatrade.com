@@ -32,7 +32,8 @@ jobs:
           grep -q 'data-rona-admin-shell="current-only-v2"' dist/portal/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
           grep -q 'data-page="agent-settlements"' dist/portal/admin.html
-          grep -q 'data-page="claims"' dist/portal/admin.html
+          ! grep -q 'data-page="claims"' dist/portal/admin.html
+          ! grep -q 'id="page-claims"' dist/portal/admin.html
           ! grep -q 'adminLoginGate' dist/portal/admin.html
           ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
           ! grep -q 'Временный автономный вход' dist/portal/admin.html

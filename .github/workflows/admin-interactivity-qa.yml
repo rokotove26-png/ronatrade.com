@@ -39,7 +39,9 @@ jobs:
           grep -q 'grid-template-columns:272px minmax(0,1fr)' portal-src/current/admin.html
           grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           grep -q 'id="nav"' portal-src/current/admin.html
-          for p in home prices applications deals payments accounting monitoring messages access agent-settlements claims analytics market-news; do grep -q "data-page=\"$p\"" portal-src/current/admin.html; grep -q "id=\"page-$p\"" portal-src/current/admin.html; done
+          for p in home prices applications deals payments accounting monitoring messages access agent-settlements analytics market-news; do grep -q "data-page=\"$p\"" portal-src/current/admin.html; grep -q "id=\"page-$p\"" portal-src/current/admin.html; done
+          ! grep -q 'data-page="claims"' portal-src/current/admin.html
+          ! grep -q 'id="page-claims"' portal-src/current/admin.html
           grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'" functions/portal/clients-agents-current-ui.js
           grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           grep -q 'История и права' functions/portal/clients-agents-current-ui.js
@@ -78,10 +80,14 @@ jobs:
           const src=await access.text();
           for(const marker of ["window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'","window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'",'ronaCreateAccess','admin-authority','rona-ca4','История и права','Сменить пароль'])assert(src.includes(marker),'current access marker '+marker);
           for(const legacy of ['clients-agents-v4-ui','openCanonicalAccessModal','installCanonicalAccessCreate'])assert(!src.includes(legacy),'legacy access marker '+legacy);
-          const claims=await fetch(base+'/portal/claims-r2-ui?_qa='+Date.now(),{cache:'no-store'});
-          assert(claims.ok,'claims runtime '+claims.status);
-          const claimsSrc=await claims.text();
-          assert(claimsSrc.includes('#page-claims')&&claimsSrc.includes('__RONA_CLAIMS_R2_UI__'),'claims runtime contract missing');
+          const adminRuntime=await fetch(base+'/assets/portal-admin-shell-fast-v1.js?_qa='+Date.now(),{cache:'no-store'});
+          assert(adminRuntime.ok,'Admin runtime '+adminRuntime.status);
+          const adminRuntimeSrc=await adminRuntime.text();
+          assert(!adminRuntimeSrc.includes('/portal/claims-r2-ui')&&!adminRuntimeSrc.includes('MODULES.claims'),'retired Claims runtime returned to active Admin shell');
+          const claimsGuard=await fetch(base+'/assets/portal-runtime/retire-claims-section-v1.js?_qa='+Date.now(),{cache:'no-store'});
+          assert(claimsGuard.ok,'retired Claims guard '+claimsGuard.status);
+          const claimsGuardSrc=await claimsGuard.text();
+          assert(claimsGuardSrc.includes('__RONA_CLAIMS_SECTION_RETIRED_V1__')&&claimsGuardSrc.includes('[data-page="claims"]'),'Claims retirement guard missing');
           const remaining=await fetch(base+'/portal/remaining-sections-ui?_qa='+Date.now(),{cache:'no-store'});
           assert(remaining.ok,'remaining-sections runtime '+remaining.status);
           const remainingSrc=await remaining.text();

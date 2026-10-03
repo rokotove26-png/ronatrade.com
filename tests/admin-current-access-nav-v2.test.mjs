@@ -17,7 +17,7 @@ assert(!source.includes('agentScope'),'Legacy Agent profile/scope payload must b
 assert(!source.includes('Профиль агента'),'Legacy Agent profile field must be absent');
 assert(source.includes("Компании назначаются агентам отдельно"),'Agent creation must state that company assignment is separate');
 assert(source.includes("contractIds:isAgent?[]:ids"),'Client/Agent contract policy missing');
-assert(source.includes("openWithoutContract:!isAgent&&openWithout.checked"),'Fail-closed pre-contract onboarding option missing');
+assert(!source.includes('openWithoutContract'),'Retired pre-PDF access flag must remain absent');
 assert(source.includes("bindingRole:bindingRole.value"),'Client representation role payload missing');
 assert(source.includes("makeField('Единый логин',login)"),'Separate unified-login field missing');
 assert(source.includes("makeField('Электронная почта',email)"),'Separate email field missing');
@@ -43,7 +43,7 @@ assert(!source.includes('installNavigationStability'),'Access page must not inst
 assert(!source.includes('installShellParity'),'Access page must not restyle the global shell');
 assert(shell.includes("window.__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'"),'Navigation must be owned by current shell');
 assert(shell.includes('grid-template-columns:272px minmax(0,1fr)'),'Canonical Home-scale sidebar must live in shell');
-assert(shell.includes('/assets/portal-admin-shell-fast-v1.js?v=20260919-admin-access-stability-v3'),'Admin shell must cache-bust the stability shell runtime');
+assert(shell.includes('/assets/portal-admin-shell-fast-v1.js?v=20261003-remove-claims-v1'),'Admin shell must cache-bust the Claims-retired shell runtime');
 assert(shell.includes('/portal/clients-agents-current-ui?v=20260919-admin-access-stability-v3'),'Admin shell must cache-bust the Access current runtime');
 assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js?v=20260919-admin-access-stability-v3'),'Admin shell must cache-bust the stability watchdog runtime');
 assert(source.includes("window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING'"),'Access runtime boot lifecycle marker missing');
