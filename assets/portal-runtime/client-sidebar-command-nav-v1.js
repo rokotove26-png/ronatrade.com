@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const VERSION='20260921-client-sidebar-command-nav-v1';
+const VERSION='20261003-client-sidebar-command-nav-v2-no-closing-page';
 const OWNER='command-nav-v1';
 if(window.__RONA_CLIENT_SIDEBAR_COMMAND_NAV__===VERSION)return;
 window.__RONA_CLIENT_SIDEBAR_COMMAND_NAV__=VERSION;
@@ -28,6 +28,15 @@ if(manualAttention.has(page))return manualAttention.get(page)===true;
 if(button?.dataset?.ronaAttention==='true'||button?.dataset?.attention==='true')return true;
 const root=q('#page-'+page);return Boolean(root&&q('[data-rona-attention="true"],[data-attention="true"]',root))
 }
+function removeStandaloneClosingSection(n){
+const closing=q(':scope>button[data-page="closing"]',n);
+if(closing&&(closing.classList.contains('active')||closing.getAttribute('aria-current')==='page')){
+  const deals=q(':scope>button[data-page="deals"]',n);if(deals)deals.click();
+}
+if(closing)closing.remove();
+for(const selector of ['#page-closing','#closingPage','[data-page-panel="closing"]','[data-page-id="closing"]'])for(const page of qa(selector))page.remove();
+document.documentElement.dataset.ronaClientStandaloneClosing='removed';
+}
 function ensureButton(button){
 const page=String(button?.dataset?.page||''),icon=ICONS[page];if(!icon)return;
 let slot=q(':scope>.nav-icon',button),label=q(':scope>.nav-label',button);const labelText=norm(label?.textContent||LABELS[page]||button.textContent);
@@ -43,10 +52,11 @@ if(attention){const reason=manualAttention.get(page+'::reason');if(reason)button
 function apply(){
 ensureStyle();const n=nav();if(!n)return;const side=n.closest('.sidebar');if(!side)return;
 side.dataset.ronaClientSidebarOwner=OWNER;n.dataset.ronaClientSidebarOwner=OWNER;
+removeStandaloneClosingSection(n);
 for(const group of qa(':scope>.nav-group',n))group.dataset.ronaClientNavGroupOwner=OWNER;
 const buttons=qa(':scope>button[data-page]',n);for(const button of buttons)ensureButton(button);
 const missing=buttons.filter(b=>!q(':scope>.nav-icon>svg',b)).map(b=>b.dataset.page);
-window.__RONA_CLIENT_SIDEBAR_DIAGNOSTIC__={version:VERSION,owner:OWNER,buttons:buttons.length,icons:qa(':scope>button[data-page]>.nav-icon>svg',n).length,active:buttons.find(b=>b.classList.contains('active')||b.getAttribute('aria-current')==='page')?.dataset?.page||'',attention:buttons.filter(b=>b.classList.contains('rona-client-nav-attention')).map(b=>b.dataset.page),missing};
+window.__RONA_CLIENT_SIDEBAR_DIAGNOSTIC__={version:VERSION,owner:OWNER,buttons:buttons.length,icons:qa(':scope>button[data-page]>.nav-icon>svg',n).length,active:buttons.find(b=>b.classList.contains('active')||b.getAttribute('aria-current')==='page')?.dataset?.page||'',attention:buttons.filter(b=>b.classList.contains('rona-client-nav-attention')).map(b=>b.dataset.page),closingRemoved:!q(':scope>button[data-page="closing"]',n),claimsPresent:!!q(':scope>button[data-page="claims"]',n),missing};
 document.documentElement.dataset.ronaClientSidebarOwner=OWNER
 }
 let queued=false;function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})}
