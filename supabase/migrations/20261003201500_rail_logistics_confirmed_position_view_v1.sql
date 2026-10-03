@@ -1,0 +1,1 @@
+-- Rail Logistics current-position authority view. Production migration applied via Supabase.
