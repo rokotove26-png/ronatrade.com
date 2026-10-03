@@ -199,6 +199,7 @@ test("Client adapter consumes only canonical endpoint and inherits the Admin can
   const response=await clientRailAdapter({});
   assert.equal(response.status,200);
   const source=await response.text();
+  assert.doesNotThrow(()=>new Function(source),"generated Client Rail runtime must remain syntactically valid");
   assert.ok(source.includes("/portal/api/v1/client/rail-canonical"));
   assert.ok(source.includes("AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1"));
   assert.ok(source.includes("CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD"));
