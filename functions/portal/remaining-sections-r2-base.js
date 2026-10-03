@@ -136,10 +136,18 @@ function renderRadio(){
   const d=snap();if(!d)return;
   const draft=radioCaptureDraft();radioStyle();
   const canonical=radioCanonicalItems(),broadcasts=radioCanonicalBroadcasts();
+  const snapshotBroadcasts=(Array.isArray(d?.radio)?d.radio:[]).filter(x=>{
+    const kind=String(x?.item_kind||'').toUpperCase(),channel=String(x?.delivery_channel||'PORTAL').toUpperCase();
+    const from=Date.parse(String(x?.active_from||'')),until=x?.active_until?Date.parse(String(x.active_until)):NaN,now=Date.now();
+    return ['NOTIFICATION','ANNOUNCEMENT'].includes(kind)&&channel==='PORTAL'&&(!Number.isFinite(from)||from<=now)&&(!Number.isFinite(until)||until>now)
+  });
+  const broadcastById=new Map();
+  [...snapshotBroadcasts,...broadcasts].forEach(x=>{const key=String(x?.id||[x?.item_kind,x?.target_scope,x?.target_id,x?.body_text,x?.active_from].join('|'));broadcastById.set(key,x)});
+  const effectiveBroadcasts=[...broadcastById.values()].sort((a,b)=>new Date(b?.created_at||b?.active_from||0)-new Date(a?.created_at||a?.active_from||0));
   const canonicalRows=canonical.map(x=>({item_kind:'MESSAGE',target_id:radioCanonicalTargetText(x),body_text:radioCanonicalBody(x),created_at:x.created_at,__canonical_event_id:x.event_id}));
-  const broadcastRows=broadcasts.map(x=>({item_kind:String(x?.item_kind||'').toUpperCase(),target_id:radioBroadcastTargetText(x),target_scope:x?.target_scope||null,body_text:x?.body_text||'—',created_at:x?.created_at||x?.active_from}));
+  const broadcastRows=effectiveBroadcasts.map(x=>({item_kind:String(x?.item_kind||'').toUpperCase(),target_id:radioBroadcastTargetText(x),target_scope:x?.target_scope||null,body_text:x?.body_text||'—',created_at:x?.created_at||x?.active_from}));
   const activeRows=[...canonicalRows,...broadcastRows],r=radioRoot();if(!r)return;r.classList.add('rona-radio-command');
-  const count=k=>k==='MESSAGE'?canonical.length:broadcasts.filter(x=>String(x?.item_kind||'').toUpperCase()===k).length;
+  const count=k=>k==='MESSAGE'?canonical.length:effectiveBroadcasts.filter(x=>String(x?.item_kind||'').toUpperCase()===k).length;
   const bar=el('div','radio-command-bar');bar.append(radioState('Контур связи готов','Передача сообщений доступна',''),radioState('Маршрутизация активна','Клиенты и агенты в едином канале','blue'),radioState(activeRows.length?'В эфире '+activeRows.length:'Эфир свободен',activeRows.length?'Есть активные записи':'Очередь сообщений пуста','amber'));r.append(bar);
   const kg=grid(kpi('Всего активно',activeRows.length,'Текущие записи радиорубки','info'),kpi('Сообщения',count('MESSAGE'),'Оперативные сообщения','info'),kpi('Уведомления',count('NOTIFICATION'),'Служебные уведомления','warn'),kpi('Объявления',count('ANNOUNCEMENT'),'Публичные объявления','success'));kg.classList.add('radio-kpi-grid');const cards=Array.from(kg.children);['radio-kpi-cyan','radio-kpi-blue','radio-kpi-violet','radio-kpi-amber'].forEach((c,i)=>cards[i]?.classList.add(c));r.append(kg);
   const workspace=el('div','radio-workspace'),compose=el('section','radio-compose-panel'),chead=el('div','radio-panel-head');chead.append(el('h2','','Новое сообщение'),el('span','radio-ready','Готово к передаче'));const cbody=el('div','radio-compose-body'),controls=el('div','radio-compose-controls'),kind=el('select'),scope=el('select'),target=el('select'),body=el('textarea'),send=el('button','radio-send','Отправить'),counter=el('span','','0 символов');
