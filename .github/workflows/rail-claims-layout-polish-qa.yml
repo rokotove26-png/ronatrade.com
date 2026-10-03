@@ -7,7 +7,7 @@ on:
       - assets/portal-admin-shell-fast-v1.js
       - assets/portal-runtime/retire-claims-section-v1.js
       - assets/portal-admin-runtime-watchdog-v1.js
-      - 'functions/portal/[[path]].js'
+      - 'functions/portal/**'
       - functions/portal/admin-approved-shell-v455-ui.js
       - functions/portal/rail-current-v81-maplibre-ui.js
       - functions/portal/claims-r2-ui.js
