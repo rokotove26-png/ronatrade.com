@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'assets/portal-runtime/client-deals-authoritative-v1.js'
+      - 'assets/portal-runtime/client-sidebar-command-nav-v1.js'
+      - 'supabase/functions/rona-portal-api/index.ts'
+      - 'tests/client-deals-lifecycle-tabs-v1.test.mjs'
       - 'assets/portal-runtime/client-deal-lifecycle-v1.js'
       - 'scripts/attach-client-deals-authoritative-v1.mjs'
       - 'scripts/attach-client-deal-documents.mjs'
@@ -34,12 +37,13 @@ jobs:
       - name: Parse Client runtimes
         run: |
           node --check assets/portal-runtime/client-deals-authoritative-v1.js
+          node --check assets/portal-runtime/client-sidebar-command-nav-v1.js
           node --check assets/portal-runtime/client-deal-lifecycle-v1.js
           node --check scripts/attach-client-deals-authoritative-v1.mjs
           node --check scripts/attach-client-deal-documents.mjs
           node --check supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs
           deno check --node-modules-dir=auto supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts
       - name: Test canonical deal state projector
-        run: node --test tests/client-deal-state-v1.test.mjs
+        run: node --test tests/client-deal-state-v1.test.mjs tests/client-deals-lifecycle-tabs-v1.test.mjs
       - name: Verify canonical realization ownership
         run: node scripts/qa-client-realization-status-authoritative.mjs
