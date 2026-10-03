@@ -107,7 +107,7 @@ try{
   const adminPage=await openPortal(adminCtx,'/portal/admin'),root=await adminComposer(adminPage);
   const clientAPage=await openPortal(clientACtx,'/portal/client'),clientBPage=await openPortal(clientBCtx,'/portal/client');
   const agentAPage=await openPortal(agentACtx,'/portal/agent'),agentBPage=await openPortal(agentBCtx,'/portal/agent');
-  await waitUntil(()=>clientAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v3-inline-ticker'),'CLIENT_RUNTIME',30000,300);
+  await waitUntil(()=>clientAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v4-durable-read'),'CLIENT_RUNTIME',30000,300);
   await waitUntil(()=>agentAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v3-inline-ticker'),'AGENT_RUNTIME',30000,300);
   await waitUntil(async()=>clientAPage.evaluate(()=>{const el=document.getElementById('ronaRadioAnnouncementTicker');if(!el)return true;const cs=getComputedStyle(el);return cs.position!=='fixed'&&el.parentElement!==document.body}),'CLIENT_TICKER_INLINE_LAYOUT_READY',30000,300);
 
@@ -144,6 +144,16 @@ try{
   await clientBPage.reload({waitUntil:'domcontentloaded'});await waitText(clientBPage,'#ronaRadioNotificationOverlay',nAll.body,true);
   assert(!(await portalText(agentAPage,'body')).includes(nAll.body),'AGENT_SEES_ALL_CLIENT_NOTIFICATION');
   proof.scenarios.N_ALL_CLIENTS.allClientsModal=true;
+
+  await clientAPage.locator('#ronaRadioNotificationOverlay .rona-radio-modal-close').click();
+  await waitText(clientAPage,'#ronaRadioNotificationOverlay',nAll.body,false);
+  await clientAPage.reload({waitUntil:'domcontentloaded'});
+  await waitText(clientAPage,'#ronaRadioNotificationOverlay',nAll.body,false);
+  const clientAAfterRead=await ownerApi(clientACtx,'/client/radio',{referer:'/portal/client'});
+  assert(clientAAfterRead.status===200&&!((clientAAfterRead.body?.data?.radio||[]).some(x=>String(x.id)===String(proof.scenarios.N_ALL_CLIENTS.id))),'CLIENT_NOTIFICATION_READ_NOT_DURABLE');
+  await waitText(clientBPage,'#ronaRadioNotificationOverlay',nAll.body,true);
+  proof.scenarios.N_ALL_CLIENTS.readReceiptDurable=true;
+  proof.scenarios.N_ALL_CLIENTS.otherClientUnaffected=true;
 
   const announcementScenarios=[
     {key:'A_CLIENT',kind:'ANNOUNCEMENT',scope:'CLIENT',target:CLIENT_A,body:'QA2C1 A CLIENT '+tag},
