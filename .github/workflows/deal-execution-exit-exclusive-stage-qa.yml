@@ -7,7 +7,6 @@ on:
     paths:
       - 'functions/portal/deals-current-state-ui.js'
       - 'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts'
-      - 'functions/portal/api/[[path]].js'
       - 'assets/portal-runtime/client-payments-authoritative-v1.js'
       - 'tests/admin-deal-attention-after-rail-paid-v1.test.mjs'
       - 'tests/admin-deal-execution-exit-exclusive-v1.test.mjs'
