@@ -30,7 +30,7 @@ assert.ok(projection.includes('routeCohortContractVersion:"RAIL_ROUTE_COHORTS_V1
 assert.ok(candidate.includes("clientDealState(req:Request,u:URL)"),'canonical Deal State handler missing');
 assert.ok(candidate.includes("route==='/v1/client/deal-state'"),'canonical Deal State route missing');
 assert.ok(candidate.includes("CLIENT_DEAL_STATE_CONTRACT"),'canonical Deal State contract missing');
-assert.ok(candidate.includes("PRODUCTION_CONTEXT_FINANCE_V8_RESOURCE_RAIL_V4_MONITORING_CONTROL_V1"),'canonical Deal State lineage marker missing');
+assert.ok(candidate.includes("PRODUCTION_CONTEXT_FINANCE_V7_RESOURCE_RAIL_V4_MONITORING_CONTROL_V1"),'canonical Deal State lineage marker missing');
 assert.ok(candidate.includes("x-rona-admin-impersonation-token"),'Client impersonation header forwarding missing');
 
 assert.ok(!candidate.includes("owner_r1_actor('ADMIN')"),'Client isolated backend must not impersonate Admin');
