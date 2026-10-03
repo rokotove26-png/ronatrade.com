@@ -108,7 +108,7 @@ try{
   const clientAPage=await openPortal(clientACtx,'/portal/client'),clientBPage=await openPortal(clientBCtx,'/portal/client');
   const agentAPage=await openPortal(agentACtx,'/portal/agent'),agentBPage=await openPortal(agentBCtx,'/portal/agent');
   await waitUntil(()=>clientAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v4-durable-read'),'CLIENT_RUNTIME',30000,300);
-  await waitUntil(()=>agentAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v3-inline-ticker'),'AGENT_RUNTIME',30000,300);
+  await waitUntil(()=>agentAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v4-durable-read'),'AGENT_RUNTIME',30000,300);
   await waitUntil(async()=>clientAPage.evaluate(()=>{const el=document.getElementById('ronaRadioAnnouncementTicker');if(!el)return true;const cs=getComputedStyle(el);return cs.position!=='fixed'&&el.parentElement!==document.body}),'CLIENT_TICKER_INLINE_LAYOUT_READY',30000,300);
 
   const tag=Date.now().toString(36);
