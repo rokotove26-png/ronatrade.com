@@ -9,9 +9,9 @@ const nav=readFileSync('assets/portal-runtime/client-sidebar-command-nav-v1.js',
 
 test('Client deal lifecycle UI remains generic while the heavy backend lifecycle query is held',()=>{
   assert.match(renderer,/client_deal_stage/);
-  assert.match(renderer,/CANONICAL_DEAL_EXECUTION_LIFECYCLE_V1/);
   assert.match(renderer,/function dealStage\(d\)/);
   assert.match(renderer,/function stageCounts\(data\)/);
+  assert.match(renderer,/client_deal_stage_source/);
   assert.doesNotMatch(renderer,/DEAL-2026-004/);
   assert.doesNotMatch(backend,/DEAL-2026-004/);
 });
