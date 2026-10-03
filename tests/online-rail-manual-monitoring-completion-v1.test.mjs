@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { onRequest as generateRailV81 } from '../functions/portal/rail-current-v81-maplibre-ui.js';
 
 const migration=fs.readFileSync('supabase/migrations/20261003190000_admin_online_rail_manual_monitoring_completion_v1.sql','utf8');
 const ownerApi=fs.readFileSync('functions/portal/owner-api.js','utf8');
@@ -24,5 +25,16 @@ assert.match(railUi,/completionReady/);
 assert.match(railUi,/railMonitoringIsCompleted/);
 assert.match(railUi,/admin\/rail-monitoring/);
 assert.match(railUi,/manual-admin-completion-v1/);
+assert.match(railUi,/MONITOR_LIFECYCLE_STATE_ANCHOR/);
+assert.match(railUi,/RAIL_V82_LIFECYCLE_RUNTIME_GENERATION_FAILED/);
+
+const generatedResponse=await generateRailV81({});
+assert.equal(generatedResponse.status,200,'Online Rail generated runtime must return HTTP 200');
+const generated=await generatedResponse.text();
+assert.match(generated,/var railMonitoringLifecycle=\{deals:\[\]\};/,'generated runtime lost lifecycle state');
+assert.match(generated,/function railMonitoringIsCompleted\(/,'generated runtime lost completed-deal filter');
+assert.match(generated,/function railMonitoringCompleteButton\(/,'generated runtime lost completion action');
+assert.match(generated,/api\('\/admin\/rail-monitoring-lifecycle'\)/,'generated runtime lost lifecycle read');
+assert.doesNotThrow(()=>new Function(generated),'generated Online Rail runtime must remain valid JavaScript');
 
 console.log('online rail manual monitoring completion contract: PASS');
