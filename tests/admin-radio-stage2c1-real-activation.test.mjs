@@ -30,6 +30,9 @@ test('Recipient broadcast projections are lightweight, binding-scoped and PORTAL
   assert.match(agentBlock,/target_scope='ALL_AGENTS'/);
   assert.match(agentBlock,/target_scope='AGENT'/);
   assert.match(owner,/path==='\/client\/radio'/);
+  assert.match(owner,/markClientRadioNotificationRead/);
+  assert.match(owner,/owner_radio_notification_reads/);
+  assert.ok(owner.includes("m=path.match(/^\\/client\\/radio\\/([0-9a-f-]+)\\/read$/i)"));
   assert.match(owner,/path==='\/agent\/radio'/);
 });
 
@@ -72,12 +75,11 @@ test('Client and Agent portal runtime presents central notification modal and to
     "if(role!=='CLIENT')",
     "upper(x?.item_kind)==='ANNOUNCEMENT'",
     "upper(x?.item_kind)==='NOTIFICATION'",
-    "const READ_KEY='rona_radio_notification_read_v1'",
-    "localStorage.getItem(READ_KEY)",
-    "localStorage.setItem(READ_KEY,JSON.stringify(rows))",
-    "persistRead(dismissed)",
     "credentials:'same-origin'",
-    "const MARK='20261003-stage2c1-v3-inline-ticker'",
+    "const MARK='20261003-stage2c1-v4-durable-read'",
+    "READ_ENDPOINT=id=>'/portal/owner-api?path='+encodeURIComponent('/client/radio/'",
+    "async function persistServerRead(id)",
+    "method:'POST'",
     "function tickerHost()",
     "function mountTicker(root)",
     "position:relative;z-index:20;width:100%",
@@ -88,7 +90,8 @@ test('Client and Agent portal runtime presents central notification modal and to
   assert.doesNotMatch(runtime,/#ronaRadioAnnouncementTicker\{position:fixed|top:0;z-index:2147482500|document\.body\.prepend\(root\)/);
   assert.match(runtime,/window\.addEventListener\('rona:radio-refresh'/);
   assert.doesNotMatch(runtime,/DELETE|delete\s+from/i);
-  assert.match(runtime,/function closeModal\(id\)\{[\s\S]*dismissed\.add\(String\(id\)\)[\s\S]*persistRead\(dismissed\)/);
+  assert.match(runtime,/async function closeModal\(id\)\{[\s\S]*dismissed\.add\(String\(id\)\)[\s\S]*await persistServerRead\(id\)/);
+  assert.doesNotMatch(runtime,/localStorage|sessionStorage/);
   assert.match(runtime,/const rows=currentRows\(\)\.filter\(x=>upper\(x\?\.item_kind\)==='NOTIFICATION'&&!dismissed\.has\(String\(x\?\.id\|\|''\)\)\)/);
 });
 
@@ -109,4 +112,18 @@ test('Stage 2C.1 does not mutate frozen Client message or Admin Radio visual ass
   assert.equal(gitBlobSha('assets/portal-runtime/client-messages-archive-v1.js'),'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca');
   assert.equal(gitBlobSha('assets/portal-admin-radio-final-v9.js'),'89391945e49e49570e22e6cbfecd5a6e7e46b40c');
   assert.equal(gitBlobSha('assets/portal-admin-radio-wide-v10.js'),'1e32655109534962580e96057def98208f69eaa4');
+});
+
+
+test('Client notification read receipt migration is durable and scoped by portal user plus client context',()=>{
+  const migration=read('supabase/migrations/20261003035000_owner_radio_notification_reads_v1.sql');
+  assert.match(migration,/create table if not exists portal_private\.owner_radio_notification_reads/);
+  assert.match(migration,/primary key \(viewer_user_id, viewer_client_key, radio_item_id\)/);
+  assert.match(migration,/references portal_private\.owner_radio_items\(id\) on delete cascade/);
+  assert.match(migration,/read_via in \('CLIENT_PORTAL','ADMIN_IMPERSONATION'\)/);
+  const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
+  const block=owner.slice(owner.indexOf('async function clientRadio(ctx'),owner.indexOf('async function agentRadio(ctx)'));
+  assert.match(block,/not exists \([\s\S]*owner_radio_notification_reads rr[\s\S]*rr\.viewer_user_id=\$\{viewerUserId\}::uuid/);
+  assert.match(owner,/insert into portal_private\.owner_radio_notification_reads/);
+  assert.match(owner,/on conflict\(viewer_user_id,viewer_client_key,radio_item_id\)/);
 });
