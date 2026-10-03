@@ -33,14 +33,29 @@ select d.deal_id,d.business_status,d.lifecycle_state::text as lifecycle_state,d.
          and coalesce(f.source_locked,false)=true
          and coalesce(f.is_terminal,false)=true
          and coalesce(f.total_to_receive,0)>0
-         and abs(coalesce(f.due_now,999999999999::numeric))<=0.01
-         and abs(coalesce(f.expected_not_due,999999999999::numeric))<=0.01
-         and abs(coalesce(f.future_conditional,999999999999::numeric))<=0.01
+         and coalesce(fs.obligation_amount,0)>0
+         and abs(coalesce(fs.client_remaining_amount,999999999999::numeric))<=0.01
+         and coalesce(fs.received_amount,0)+0.01>=coalesce(fs.obligation_amount,0)
        ) as post_rail_completion_attention,
        c.completed_at as rail_monitoring_completed_at
   from portal_private.deals d
   left join portal_private.rail_deal_monitoring_control_v1 c on c.deal_key=d.id
-  left join portal_private.deal_finance_authority_payments_v8_read_v1 f on f.deal_key=d.id
+  left join lateral (
+    select x.*
+      from portal_private.deal_finance_authority_payments_v8_read_v1 x
+     where x.deal_key=d.id
+     order by x.effective_at desc,x.created_at desc
+     limit 1
+  ) f on true
+  left join lateral (
+    select x.obligation_amount,x.received_amount,x.client_remaining_amount
+      from portal_private.owner_deal_finance_summary x
+     where x.deal_id=d.deal_id
+       and x.authority_state in ('CONFIRMED','VERIFIED')
+       and x.lifecycle_state='ACTIVE'
+     order by x.updated_at desc
+     limit 1
+  ) fs on true
  where d.deal_id in (select value from jsonb_array_elements_text(${sql.json(ids)}::jsonb))
 `;const financeByDeal=new Map(financeRows.map((r:any)=>[String(r.deal_id),r])),commercialByDeal=new Map(commercialRows.map((r:any)=>[String(r.deal_id),r])),resourceByDeal=new Map(resourceRows.map((r:any)=>[String(r.deal_id),r])),lifecycleByDeal=new Map(lifecycleRows.map((r:any)=>[String(r.deal_id),r])),paymentByDeal=new Map<string,any>();for(const p of safePayments||[]){const id=String(p.deal_id||"");if(id&&!paymentByDeal.has(id))paymentByDeal.set(id,p)}return(rows||[]).map((row:any)=>{const id=String(row.deal_id),commercial=commercialByDeal.get(id),lifecycle=lifecycleByDeal.get(id)||{},stage=clientDealStage(row,lifecycle),commercialAmount=finiteNumber(commercial?.obligation_amount),commercialCurrency=String(commercial?.currency||"").trim().toUpperCase()||null,passportReady=commercialAmount!==null&&commercialAmount>0&&Boolean(commercialCurrency);return{deal_id:id,business_status:String(row.business_status),lifecycle_state:String(lifecycle?.lifecycle_state||''),accounting_closure_status:String(row?.accounting_closure_status||lifecycle?.accounting_closure_status||''),client_deal_stage:stage,client_deal_stage_label:clientDealStageLabel(stage),client_deal_stage_source:'CANONICAL_DEAL_EXECUTION_LIFECYCLE_V1',post_rail_completion_attention:lifecycle?.post_rail_completion_attention===true,rail_monitoring_completed_at:lifecycle?.rail_monitoring_completed_at||null,...currentDealStatus(row),...currentPaymentStatus(row,financeByDeal.get(id),paymentByDeal.get(id)),passport_amount:passportReady?commercialAmount:null,passport_currency:passportReady?commercialCurrency:null,passport_amount_source:passportReady?'FINALIZED_APPLICATION_COMMERCIAL_TERMS':null,passport_application_id:passportReady&&commercial?.application_id?String(commercial.application_id):null,...currentResourceStatus(resourceByDeal.get(id)),opened_at:row.opened_at,closed_at:row.closed_at,updated_at:row.updated_at}})}
 async function clientContextProjection(data:any){const safePayments=await filterAuthoritativeClientPayments(data.payments||[]),safePrices=await filterAuthoritativePublishedRows(data.prices||[]),safeDeals=await projectClientDeals(data.deals||[],safePayments);return{projection_contract:'ADMIN_CLIENT_SERVER_V1',contract:clientContractProjection(data.contract),applications:(data.applications||[]).map((row:any)=>({application_id:String(row.application_id),product:row.product,quantity_tonnes:row.quantity_tonnes,delivery_period_from:row.delivery_period_from,delivery_period_to:row.delivery_period_to,delivery_basis:row.delivery_basis,destination:row.destination,payment_terms:row.payment_terms,price_mode:row.price_mode,proposed_price:row.proposed_price,proposed_currency:row.proposed_currency,status:row.status,deal_id:row.deal_id,submitted_at:row.submitted_at,updated_at:row.updated_at})),deals:safeDeals,documents:(data.documents||[]).map((row:any)=>({document_id:String(row.document_id),document_type:String(row.document_type),authoritative_filename:String(row.authoritative_filename),deal_id:row.deal_id?String(row.deal_id):null,updated_at:row.updated_at,storage_object_id:row.storage_object_id?String(row.storage_object_id):null})),payments:safePayments.map((row:any)=>({payment_id:String(row.payment_id),payment_at:row.payment_at,amount:row.allocated_amount??row.amount,currency:row.currency,deal_id:row.deal_id?String(row.deal_id):null,updated_at:row.updated_at})),prices:safePrices}}
