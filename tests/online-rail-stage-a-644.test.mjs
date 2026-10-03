@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import { onRequest as railV6 } from '../functions/portal/rail-current-v6-ui.js';
 import { onRequest as railV7 } from '../functions/portal/rail-current-v7-real-map-ui.js';
@@ -22,6 +23,30 @@ const [v6,v7,v81,admin]=await Promise.all([
   scriptOf(railV81),
   scriptOf(adminMainUi),
 ]);
+
+test('Rail Logistics is the current-position authority and other roles are notification/read consumers',()=>{
+  const confirmed=fs.readFileSync('supabase/migrations/20261003201500_rail_logistics_confirmed_position_view_v1.sql','utf8');
+  const operational=fs.readFileSync('supabase/migrations/20261003201600_rail_operational_current_position_view_v1.sql','utf8');
+  const readModel=fs.readFileSync('supabase/migrations/20261003201700_rail_read_model_use_rail_logistics_current_position_v1.sql','utf8');
+  const lifecycle=fs.readFileSync('supabase/migrations/20261003201800_rail_monitoring_lifecycle_use_rail_logistics_position_v1.sql','utf8');
+  const dealsRail=fs.readFileSync('supabase/migrations/20261003201900_admin_deals_rail_execution_use_rail_logistics_position_v1.sql','utf8');
+
+  assert.match(confirmed,/functional_role::text='RAIL_LOGISTICS'/);
+  assert.match(confirmed,/AI-RAIL-LOGISTICS/);
+  assert.match(confirmed,/CURRENT_POSITION_CONFIRMED_BY_RAIL_LOGISTICS/);
+  assert.match(confirmed,/OWNER_CONFIRMED_DESTINATION_POSITION/);
+  assert.doesNotMatch(confirmed,/OPERATIONS_DIRECTOR.*APPROV/i);
+
+  assert.match(operational,/rail_logistics_confirmed_position_v1/);
+  assert.match(operational,/RAIL_LOGISTICS_AUTHORITY_CURRENT_POSITION_V1/);
+  assert.match(operational,/CONFIRMATION_TIMESTAMP_NOT_MOVEMENT_EVENT/);
+  assert.match(operational,/arrivalTimestampAsserted',false/);
+
+  assert.match(readModel,/rail_operational_current_position_v1/);
+  assert.doesNotMatch(readModel,/from portal_private\.rail_xlsx_dislocation_current_position_v1 cp\s+join scoped_deals/);
+  assert.match(lifecycle,/rail_operational_current_position_v1/);
+  assert.match(dealsRail,/rail_operational_current_position_v1/);
+});
 
 test('Issue 644 Stage A generated rail runtimes compile',()=>{
   new Function(v6);
