@@ -10,7 +10,7 @@ assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v10
 assert(watchdog.includes("n.querySelector(':scope > .rona-owner-page-content')"),'Home finalized owner content check missing');
 assert(watchdog.includes("n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Hidden fallback-safe Home loading check missing');
 assert(!watchdog.includes("window.__RONA_OWNER_ADMIN_READY__===true&&!n.querySelector(':scope > .current-loading')"),'Legacy false-positive Home readiness check must be removed');
-assert(watchdog.includes("if(p==='claims')return'claims'"),'Claims recovery mapping missing');
+assert(!watchdog.includes("if(p==='claims')"),'Claims recovery mapping must remain retired');
 assert(watchdog.includes("if(p==='access')return'clients-agents-current'"),'Access recovery mapping missing');
 assert(watchdog.includes("if(p==='access')return window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!n.querySelector(':scope > #rona-ca4')"),'Access stable workspace readiness missing');
 assert(watchdog.includes("if(p==='monitoring')return'rail'"),'Rail recovery mapping missing');
