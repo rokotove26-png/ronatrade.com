@@ -103,3 +103,41 @@ test('missing canonical deal price does not fall back to application proposal',(
   assert.equal(state.deal.currency,null);
   assert.equal(state.deal.economics_source,'FINALIZED_COUNTEROFFER_NOT_ACCEPTED');
 });
+
+
+test('authoritative Rail monitoring completion advances active deal to closing-current',()=>{
+  const deal={
+    deal_id:'DEAL-2099-106',business_status:'EXECUTING',accounting_closure_status:'OPEN',confirmed_quantity_tonnes:315,
+    passport_unit_price:750,passport_amount:236250,passport_currency:'USD',
+    payment_authority_state:'AUTHORITATIVE',payment_obligation_amount:236250,payment_received_amount:236250,payment_remaining_amount:0,payment_currency:'USD',payment_percent:100,
+    payment_finance_status:'PAID',payment_due_now:0,payment_expected_not_due:0,payment_future_conditional:0
+  };
+  const app={...application,application_id:'QA-APP-6',deal_id:'DEAL-2099-106',quantity_tonnes:315,destination:'Киргили'};
+  const meta={
+    ...resource,
+    rail_monitoring_state:'COMPLETED',
+    rail_monitoring_completed_at:'2099-01-03T18:30:24Z',
+    rail_monitoring_completion_wagon_count:9,
+    rail_monitoring_completion_destination_esr_code:'742705',
+    rail_monitoring_source_authority:'OWNER_INSTRUCTION:QA'
+  };
+  const railModel={modelVersion:'RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4',generatedAt:'2099-01-03T18:31:00Z',sourcePolicy:'QA_RAIL',deals:[{
+    dealId:'DEAL-2099-106',
+    railDocuments:[{documentId:'QA-GU12'}],
+    wagonPositions:Array.from({length:9},(_,i)=>({wagonNumber:String(100+i),station:'Киргили',stationCode:'742705',eventTimestamp:'2099-01-03T17:21:50Z'})),
+    actualRoute:{points:[{lat:1,lng:1},{lat:2,lng:2}]},
+    remainingRoute:{points:[]},
+    routeAssignment:{resolutionState:'RESOLVED'}
+  }]};
+  const state=projectClientCanonicalDealState({context,deal,application:app,meta,railModel,generatedAt:'2099-01-03T18:31:01Z'});
+  assert.equal(state.facts.rail.completed,true);
+  assert.equal(state.facts.rail.monitoring_state,'COMPLETED');
+  assert.equal(state.facts.rail.completion_wagon_count,9);
+  assert.equal(state.facts.rail.completion_destination_esr_code,'742705');
+  assert.equal(state.realization_status.current_stage_key,'close');
+  assert.equal(state.realization_status.stages.find(x=>x.key==='logistics').state,'DONE');
+  assert.match(state.realization_status.stages.find(x=>x.key==='logistics').detail,/9 ваг/);
+  assert.equal(state.realization_status.stages.find(x=>x.key==='close').state,'CURRENT');
+  assert.equal(state.realization_status.completed_count,5);
+  assert.equal(state.next_step,'Ожидаются закрывающие документы и завершение сделки');
+});
