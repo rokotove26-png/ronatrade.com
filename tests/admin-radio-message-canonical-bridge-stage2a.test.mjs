@@ -73,7 +73,7 @@ test('Radio history and KPI consume chat-only projection',()=>{
   assert.match(admin,/radio_messages:radioMessages/);
   const radio=read('functions/portal/remaining-sections-r2-base.js');
   assert.match(radio,/const canonical=radioCanonicalItems\(\),broadcasts=radioCanonicalBroadcasts\(\)/);
-  assert.match(radio,/const count=k=>k==='MESSAGE'\?canonical\.length:broadcasts\.filter/);
+  assert.match(radio,/const count=k=>k==='MESSAGE'\?canonical\.length:effectiveBroadcasts\.filter/);
   assert.match(radio,/kpi\('Сообщения',count\('MESSAGE'\)/);
 });
 
