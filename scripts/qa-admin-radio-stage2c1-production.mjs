@@ -104,8 +104,8 @@ try{
   const adminPage=await openPortal(adminCtx,'/portal/admin'),root=await adminComposer(adminPage);
   const clientAPage=await openPortal(clientACtx,'/portal/client'),clientBPage=await openPortal(clientBCtx,'/portal/client');
   const agentAPage=await openPortal(agentACtx,'/portal/agent'),agentBPage=await openPortal(agentBCtx,'/portal/agent');
-  await waitUntil(()=>clientAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20260925-stage2c1-v1'),'CLIENT_RUNTIME',30000,300);
-  await waitUntil(()=>agentAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20260925-stage2c1-v1'),'AGENT_RUNTIME',30000,300);
+  await waitUntil(()=>clientAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v2'),'CLIENT_RUNTIME',30000,300);
+  await waitUntil(()=>agentAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v2'),'AGENT_RUNTIME',30000,300);
 
   const tag=Date.now().toString(36);
   const publishScenario=async scenario=>{
