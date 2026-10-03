@@ -439,7 +439,10 @@ async function serveStaticProtected(context, session, kind) {
       .on('#adminLoginGate', new RemoveCanonicalLegacyAuthNode())
       .on('#rona-admin-auth-v3413', new RemoveCanonicalLegacyAuthNode())
       .transform(response);
-    return secureResponse(transformed, session.setCookies, true);
+    const headers=new Headers(transformed.headers);
+    headers.set('x-rona-admin-radio-visual-owner','canonical-v11');
+    const marked=new Response(transformed.body,{status:transformed.status,statusText:transformed.statusText,headers});
+    return secureResponse(marked, session.setCookies, true);
   }
   const bridge=impersonation?.data?impersonationReturnBridge(String(impersonation.data.returnView||''),String(impersonation.data.id||'')):'';
   if(kind==='client'){
