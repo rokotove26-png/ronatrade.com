@@ -44,3 +44,18 @@ test('bridge source remains parseable around Finance intake SQL tags',()=>{
   assert.equal(block.includes('\\${'),false);
   assert.match(block,/finance_mail_intake_claim_v1\(8\)/);
 });
+
+
+test('mail intake passes JSON snapshots as objects, not JSON strings',()=>{
+  assert.match(bridge,/finance_mail_intake_complete_v1\(\$\{item\.id\}::uuid,\$\{sql\.json\(snapshot\)\}::jsonb,\$\{checksum\}\)/);
+  assert.match(bridge,/role_mail_intake_complete_v1\(\$\{item\.id\}::uuid,\$\{sql\.json\(snapshot\)\}::jsonb,\$\{checksum\}\)/);
+  assert.doesNotMatch(bridge,/finance_mail_intake_complete_v1\([^\n]*JSON\.stringify\(snapshot\)/);
+  assert.doesNotMatch(bridge,/role_mail_intake_complete_v1\([^\n]*JSON\.stringify\(snapshot\)/);
+});
+
+test('source-controlled role mail bridge preserves deployed generic role intake',()=>{
+  assert.match(bridge,/async function processRoleIntake\(mailbox:string\)/);
+  assert.match(bridge,/role_mail_intake_discover_v1/);
+  assert.match(bridge,/role_mail_intake_claim_v1/);
+  assert.match(bridge,/role_mail_intake_complete_v1/);
+});
