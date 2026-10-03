@@ -75,6 +75,20 @@ async function waitText(page,selector,text,present=true,timeout=45000){
 async function openPortal(context,path){
   const page=await context.newPage();await page.goto(ORIGIN+path+'?_qa_radio_stage2c1='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});return page;
 }
+async function startCompanyPreview(context,clientId){
+  const r=await contextApi(context,'/portal/admin-authority/impersonation/start',{
+    method:'POST',
+    body:{kind:'COMPANY',entityId:clientId,targetPortalUserId:null},
+    referer:'/portal/admin'
+  });
+  assert(r.status===200&&r.body?.ok===true&&r.body?.data?.impersonation?.id,'ADMIN_CLIENT_PREVIEW_START_FAILED_'+r.status);
+  return String(r.body.data.impersonation.id);
+}
+async function openClientPreview(context,sessionId){
+  const page=await context.newPage();
+  await page.goto(ORIGIN+'/portal/client?impSession='+encodeURIComponent(sessionId)+'&_qa_radio_stage2c1='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
+  return page;
+}
 async function refreshRadioPages(...pages){
   for(const page of pages)await page.evaluate(()=>window.dispatchEvent(new Event('rona:radio-refresh')));
 }
@@ -107,8 +121,8 @@ try{
   const adminPage=await openPortal(adminCtx,'/portal/admin'),root=await adminComposer(adminPage);
   const clientAPage=await openPortal(clientACtx,'/portal/client'),clientBPage=await openPortal(clientBCtx,'/portal/client');
   const agentAPage=await openPortal(agentACtx,'/portal/agent'),agentBPage=await openPortal(agentBCtx,'/portal/agent');
-  await waitUntil(()=>clientAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v4-durable-read'),'CLIENT_RUNTIME',30000,300);
-  await waitUntil(()=>agentAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v4-durable-read'),'AGENT_RUNTIME',30000,300);
+  await waitUntil(()=>clientAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v5-read-on-display'),'CLIENT_RUNTIME',30000,300);
+  await waitUntil(()=>agentAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v5-read-on-display'),'AGENT_RUNTIME',30000,300);
   await waitUntil(async()=>clientAPage.evaluate(()=>{const el=document.getElementById('ronaRadioAnnouncementTicker');if(!el)return true;const cs=getComputedStyle(el);return cs.position!=='fixed'&&el.parentElement!==document.body}),'CLIENT_TICKER_INLINE_LAYOUT_READY',30000,300);
 
   const tag=Date.now().toString(36);
@@ -145,15 +159,48 @@ try{
   assert(!(await portalText(agentAPage,'body')).includes(nAll.body),'AGENT_SEES_ALL_CLIENT_NOTIFICATION');
   proof.scenarios.N_ALL_CLIENTS.allClientsModal=true;
 
-  await clientAPage.locator('#ronaRadioNotificationOverlay .rona-radio-modal-close').click();
-  await waitText(clientAPage,'#ronaRadioNotificationOverlay',nAll.body,false);
+  await waitUntil(()=>clientAPage.evaluate(id=>window.__RONA_PORTAL_RADIO_BROADCAST_STATE__?.radio?.some(x=>String(x?.id)===String(id)),proof.scenarios.N_ALL_CLIENTS.id),'CLIENT_NOTIFICATION_DISPLAY_STATE',15000,250);
+  await sleep(800);
   await clientAPage.reload({waitUntil:'domcontentloaded'});
   await waitText(clientAPage,'#ronaRadioNotificationOverlay',nAll.body,false);
   const clientAAfterRead=await ownerApi(clientACtx,'/client/radio',{referer:'/portal/client'});
-  assert(clientAAfterRead.status===200&&!((clientAAfterRead.body?.data?.radio||[]).some(x=>String(x.id)===String(proof.scenarios.N_ALL_CLIENTS.id))),'CLIENT_NOTIFICATION_READ_NOT_DURABLE');
+  assert(clientAAfterRead.status===200&&!((clientAAfterRead.body?.data?.radio||[]).some(x=>String(x.id)===String(proof.scenarios.N_ALL_CLIENTS.id))),'CLIENT_NOTIFICATION_READ_ON_DISPLAY_NOT_DURABLE');
   await waitText(clientBPage,'#ronaRadioNotificationOverlay',nAll.body,true);
-  proof.scenarios.N_ALL_CLIENTS.readReceiptDurable=true;
+  proof.scenarios.N_ALL_CLIENTS.readOnDisplayDurable=true;
   proof.scenarios.N_ALL_CLIENTS.otherClientUnaffected=true;
+
+  const nPreview={key:'N_ADMIN_ENTITY_PREVIEW',kind:'NOTIFICATION',scope:'CLIENT',target:CLIENT_B,body:'QA2C1 N ADMIN PREVIEW '+tag};
+  await publishScenario(nPreview);
+  const previewSession1=await startCompanyPreview(adminCtx,CLIENT_B);
+  const previewPage1=await adminCtx.newPage();
+  const previewReadResponse=previewPage1.waitForResponse(response=>{
+    try{
+      const u=new URL(response.url());
+      const path=decodeURIComponent(u.searchParams.get('path')||'');
+      return response.request().method()==='POST'&&path===('/client/radio/'+proof.scenarios.N_ADMIN_ENTITY_PREVIEW.id+'/read');
+    }catch{return false}
+  },{timeout:30000});
+  await previewPage1.goto(ORIGIN+'/portal/client?impSession='+encodeURIComponent(previewSession1)+'&_qa_radio_stage2c1='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
+  await waitUntil(()=>previewPage1.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v5-read-on-display'),'ADMIN_PREVIEW_RUNTIME',30000,300);
+  await waitText(previewPage1,'#ronaRadioNotificationOverlay',nPreview.body,true);
+  const previewRead=await previewReadResponse;
+  assert(previewRead.status()===200,'ADMIN_PREVIEW_READ_RECEIPT_HTTP_'+previewRead.status());
+  await previewPage1.close();
+  const previewSession2=await startCompanyPreview(adminCtx,CLIENT_B);
+  const previewPage2=await openClientPreview(adminCtx,previewSession2);
+  await waitUntil(()=>previewPage2.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20261003-stage2c1-v5-read-on-display'),'ADMIN_PREVIEW_RUNTIME_REOPEN',30000,300);
+  await waitText(previewPage2,'#ronaRadioNotificationOverlay',nPreview.body,false);
+  proof.scenarios.N_ADMIN_ENTITY_PREVIEW.firstOpenVisible=true;
+  proof.scenarios.N_ADMIN_ENTITY_PREVIEW.readOnDisplayPost=true;
+  proof.scenarios.N_ADMIN_ENTITY_PREVIEW.reopenSuppressed=true;
+  await previewPage2.close();
+  const previewEnd=await contextApi(adminCtx,'/portal/admin-authority/impersonation/end',{
+    method:'POST',
+    body:{},
+    headers:{'x-rona-impersonation-tab':previewSession2},
+    referer:'/portal/client'
+  });
+  assert(previewEnd.status===200&&previewEnd.body?.ok===true,'ADMIN_CLIENT_PREVIEW_END_FAILED');
 
   const announcementScenarios=[
     {key:'A_CLIENT',kind:'ANNOUNCEMENT',scope:'CLIENT',target:CLIENT_A,body:'QA2C1 A CLIENT '+tag},
@@ -215,6 +262,8 @@ try{
   proof.pass=true;
   await writeFile('admin-radio-stage2c1-production-proof.json',JSON.stringify(proof,null,2));
   console.log('RADIO_STAGE2C1_NOTIFICATION_MODAL=PASS');
+  console.log('RADIO_STAGE2C1_NOTIFICATION_READ_ON_DISPLAY=PASS');
+  console.log('RADIO_STAGE2C1_ADMIN_ENTITY_PREVIEW_REOPEN=PASS');
   console.log('RADIO_STAGE2C1_ANNOUNCEMENT_TICKER=PASS');
   console.log('RADIO_STAGE2C1_CLIENT_AGENT_ISOLATION=PASS');
   console.log('RADIO_STAGE2C1_IDEMPOTENCY=PASS');
