@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {projectClientCanonicalDealState,CLIENT_DEAL_STATE_CONTRACT} from '../supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs';
 
 const context={client_id:'QA-CLIENT',contract_id:'QA-CONTRACT',legal_name:'QA Client',current_external_contract_number:'QA-EXT'};
@@ -140,4 +141,16 @@ test('authoritative Rail monitoring completion advances active deal to closing-c
   assert.equal(state.realization_status.stages.find(x=>x.key==='close').state,'CURRENT');
   assert.equal(state.realization_status.completed_count,5);
   assert.equal(state.next_step,'Ожидаются закрывающие документы и завершение сделки');
+});
+
+
+test('candidate deal-state runtime passes authoritative Rail monitoring control into passport projector',()=>{
+  const source=readFileSync(new URL('../supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts',import.meta.url),'utf8');
+  assert.match(source,/MONITORING_PARITY_V3/);
+  assert.match(source,/rail_deal_monitoring_control_v1/);
+  assert.match(source,/rail_monitoring_state:meta\.rail_monitoring_state/);
+  assert.match(source,/rail_monitoring_completion_wagon_count:meta\.rail_monitoring_completion_wagon_count/);
+  assert.match(source,/rail_monitoring_completion_destination_esr_code:meta\.rail_monitoring_completion_destination_esr_code/);
+  assert.match(source,/rona_rail_deal_map_read_model_core_v2/);
+  assert.match(source,/PRODUCTION_CONTEXT_FINANCE_V8_RESOURCE_RAIL_V4_MONITORING_CONTROL_V1/);
 });
