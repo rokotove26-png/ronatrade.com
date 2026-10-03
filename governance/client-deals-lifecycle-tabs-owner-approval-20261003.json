@@ -1,0 +1,39 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-03",
+  "scope": "CLIENT_DEALS_LIFECYCLE_TABS_AND_REMOVE_STANDALONE_CLOSING_V1",
+  "owner_instruction": "В клиентском кабинете в разделе Сделки также нужно добавить разделы Активные, Требуют внимание, Завершенные. Разделы Закрывающие документы нужно удалить.",
+  "approved_exact_blobs": {
+    "assets/portal-runtime/client-deals-authoritative-v1.js": {
+      "sha": "e6e544f6fc452912f3dada776c095a726bbb311e",
+      "required_marker": "20261003-client-deals-authoritative-lifecycle-tabs-v11"
+    },
+    "assets/portal-runtime/client-sidebar-command-nav-v1.js": {
+      "sha": "da54a5d853c9930a0faf17f90c0f569ec2f0ee11",
+      "required_marker": "20261003-client-sidebar-command-nav-v2-no-closing-page"
+    },
+    "scripts/attach-client-deals-authoritative-v1.mjs": {
+      "sha": "f981537502e2103e047106947e2c36af33138bc5",
+      "required_marker": "20261003-client-deals-authoritative-lifecycle-tabs-v11"
+    },
+    "scripts/attach-portal-canonical-button-hover-v1.mjs": {
+      "sha": "8166f2d7d367c78ead4f33d36ea46562a3ebb559",
+      "required_marker": "20261003-client-sidebar-command-nav-v2-no-closing-page"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "client_deal_tabs": ["ACTIVE", "ATTENTION", "COMPLETED"],
+    "standalone_closing_documents_removed": true,
+    "deal_documents_preserved": true,
+    "internal_deal_closing_stage_preserved": true,
+    "claims_section_preserved": true,
+    "canonical_client_source_changed": false,
+    "sidebar_width_changed": false,
+    "images_added": false,
+    "hardcoded_deal_ids": false,
+    "unrelated_visual_change": false
+  }
+}
