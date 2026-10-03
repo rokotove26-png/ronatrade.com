@@ -6,6 +6,9 @@ on:
     paths:
       - 'functions/portal/remaining-sections-ui.js'
       - 'functions/portal/remaining-sections-r2-base.js'
+      - 'assets/portal-admin-radio-canonical-v11.js'
+      - 'functions/portal/admin-approved-polish-ui.js'
+      - 'portal-src/current/admin.html'
       - 'functions/portal/*path*.js'
       - 'assets/portal-runtime/portal-radio-broadcast-v1.js'
       - 'supabase/functions/rona-owner-acceptance/index.ts'

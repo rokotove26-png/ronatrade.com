@@ -1,18 +1,19 @@
 (()=>{'use strict';
-if(window.__RONA_ADMIN_RADIO_FINAL_V9__)return;
-window.__RONA_ADMIN_RADIO_FINAL_V9__='20260915-final-v9-clean-header-r2';
+if(window.__RONA_ADMIN_RADIO_CANONICAL_V11__)return;
+window.__RONA_ADMIN_RADIO_CANONICAL_V11__='20261003-canonical-v11-single-visual-owner';
+window.__RONA_ADMIN_RADIO_VISUAL_OWNER__='CANONICAL_V11';
 
 const PAGE_ID='page-messages';
-const STYLE_ID='rona-admin-radio-final-v9-style';
+const STYLE_ID='rona-admin-radio-canonical-v11-style';
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const txt=n=>String(n?.textContent||'').replace(/\s+/g,' ').trim();
-let busy=false,timer=0,observer=null;
+let busy=false,observer=null;
 
 function style(){
   if(document.getElementById(STYLE_ID))return;
   const s=document.createElement('style');s.id=STYLE_ID;s.textContent=`
-#${PAGE_ID}{background:transparent!important;background-image:none!important;min-height:calc(100vh - 66px)}
+#${PAGE_ID}{background:transparent!important;background-image:none!important;min-height:calc(100vh - 66px)}\n#${PAGE_ID}.rona-radio-single-owner-ready>.rona-rs-root[data-kind=\"radio\"]:not([data-radio-canonical-v11=\"1\"]){visibility:hidden!important;opacity:0!important;pointer-events:none!important}
 #${PAGE_ID}:before,#${PAGE_ID}:after{display:none!important;content:none!important}
 #${PAGE_ID}>.rona-radio-clean-head{width:min(calc(100% - 42px),1040px)!important;max-width:1040px!important;margin:18px auto 0!important;padding:0!important;display:flex!important;align-items:flex-end!important;justify-content:space-between!important;gap:24px!important;background:none!important;background-image:none!important;border:0!important;box-shadow:none!important;filter:none!important;position:relative!important;overflow:visible!important}
 #${PAGE_ID}>.rona-radio-clean-head:before,#${PAGE_ID}>.rona-radio-clean-head:after,#${PAGE_ID}>.rona-radio-clean-head>*:before,#${PAGE_ID}>.rona-radio-clean-head>*:after{display:none!important;content:none!important}
@@ -90,14 +91,13 @@ function style(){
 function headingCard(root,label){const h=$$('h1,h2,h3,h4,h5,h6',root).find(x=>txt(x)===label);if(!h)return null;let n=h;while(n&&n.parentElement&&n.parentElement!==root){if(n.matches('section,.rona-owner-card,.radio-compose-panel,.radio-active-panel'))return n;n=n.parentElement}return h.parentElement}
 function field(label,control){const w=document.createElement('label');w.className='rf-field';const s=document.createElement('span');s.textContent=label;w.append(s,control);return w}
 function panelHead(title){const h=document.createElement('div');h.className='rf-panel-head';const t=document.createElement('div');t.className='rf-panel-title';t.textContent=title;const ready=document.createElement('div');ready.className='rf-ready';ready.textContent='Канал готов';h.append(t,ready);return h}
-function cleanupOld(){['rona-admin-radio-icc-v1-style','rona-admin-radio-mission-control-v3-style','rona-admin-radio-designer-v5-style','rona-admin-radio-designer-v6-style','rona-admin-radio-designer-v7-style','rona-admin-radio-designer-v8-style','ronaRadioCommandStyle'].forEach(id=>document.getElementById(id)?.remove())}
 function ensureCleanHead(page,root){let head=$(':scope>.rona-radio-clean-head',page);if(head)return head;head=document.createElement('div');head.className='rona-radio-clean-head';const title=document.createElement('h1');title.className='rona-radio-clean-title';title.textContent='Радиорубка';const sub=document.createElement('div');sub.className='rona-radio-clean-sub';sub.textContent='Оперативные сообщения, уведомления и объявления клиентам и агентам.';head.append(title,sub);page.insertBefore(head,root);return head}
 
 function apply(){
   if(busy)return;const page=document.getElementById(PAGE_ID);const root=$(':scope>.rona-rs-root[data-kind="radio"]',page);if(!page||!root)return;
-  if($('.rf-main',root)&&$('.rf-bottom',root)){const old=$(':scope>.rona-rs-hero',root)||$('.rf-hero',root);old?.remove();ensureCleanHead(page,root);return}
+  if($('.rf-main',root)&&$('.rf-bottom',root)){const old=$(':scope>.rona-rs-hero',root)||$('.rf-hero',root);old?.remove();ensureCleanHead(page,root);root.dataset.radioCanonicalV11='1';return}
   busy=true;try{
-    cleanupOld();style();ensureCleanHead(page,root);root.dataset.radioFinalV9='1';
+    style();ensureCleanHead(page,root);
     const hero=$(':scope>.rona-rs-hero',root)||$('.rona-rs-hero',root);hero?.remove();
     let kgrid=$(':scope>.rona-rs-kpis',root)||$('.radio-kpi-grid',root);const kpis=kgrid?$$(':scope>.rona-rs-kpi',kgrid):$$('.rona-rs-kpi',root).slice(0,4);const compact=document.createElement('div');compact.className='rf-kpis';kpis.forEach(x=>compact.append(x));
 
@@ -116,10 +116,18 @@ function apply(){
 
     const routing=document.createElement('aside');routing.className='rf-routing';routing.append(panelHead('Каналы доставки'));const rb=document.createElement('div');rb.className='rf-routing-body';[['r1','Сообщения','Оперативный канал'],['r2','Уведомления','Служебный канал'],['r3','Объявления','Публичный канал']].forEach(([c,a,b])=>{const n=document.createElement('div');n.className='rf-route '+c;const i=document.createElement('i');const bx=document.createElement('b');bx.textContent=a;const sp=document.createElement('span');sp.textContent=b;n.append(i,bx,sp);rb.append(n)});const aud=document.createElement('div');aud.className='rf-audience';const sm=document.createElement('small');sm.textContent='Текущая аудитория';const av=document.createElement('strong');const updateAudience=()=>{const op=scope.options?.[scope.selectedIndex];av.textContent=op?.textContent||'Все клиенты'};updateAudience();scope.addEventListener('change',updateAudience);aud.append(sm,av);rb.append(aud);routing.append(rb);bottom.append(feed,routing);
 
-    const nodes=[compact,main,bottom].filter(Boolean);root.replaceChildren(...nodes);
+    const nodes=[compact,main,bottom].filter(Boolean);root.replaceChildren(...nodes);root.dataset.radioCanonicalV11='1';
   }finally{busy=false}
 }
-function schedule(){clearTimeout(timer);timer=setTimeout(apply,70)}
-function boot(){style();const page=document.getElementById(PAGE_ID);if(page&&!observer){observer=new MutationObserver(()=>{const root=$(':scope>.rona-rs-root[data-kind="radio"]',page);if(root&&!$('.rf-main',root))schedule()});observer.observe(page,{childList:true,subtree:true})}schedule()}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();window.addEventListener('rona:admin-pagechange',e=>{if(String(e?.detail?.page||'')==='messages')[0,80,250,700].forEach(ms=>setTimeout(boot,ms))},{passive:true});setTimeout(boot,500);setTimeout(boot,1500);
+function boot(){
+  style();
+  const page=document.getElementById(PAGE_ID);
+  if(page&&!observer){
+    observer=new MutationObserver(()=>apply());
+    observer.observe(page,{childList:true,subtree:true});
+  }
+  apply();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+window.addEventListener('rona:admin-pagechange',e=>{if(String(e?.detail?.page||'')==='messages'){boot();queueMicrotask(apply)}},{passive:true});
 })();

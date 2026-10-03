@@ -7,6 +7,8 @@ on:
       - 'functions/portal/admin-main-ui-current.js'
       - 'functions/portal/remaining-sections-ui.js'
       - 'functions/portal/remaining-sections-r2-base.js'
+      - 'assets/portal-admin-radio-canonical-v11.js'
+      - 'portal-src/current/admin.html'
       - 'functions/portal/api/**'
       - 'scripts/materialize-admin-current-modules.mjs'
       - 'supabase/functions/rona-portal-api/admin.ts'
