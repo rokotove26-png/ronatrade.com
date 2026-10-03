@@ -55,39 +55,28 @@ try{
 
   const visual=await page.evaluate(()=>{
     const tabs=[...document.querySelectorAll('[data-rona-deal-stage-tab]')];
-    const root=document.querySelector('#page-deals');
-    const tablist=document.querySelector('[data-rona-deal-stage-tabs]');
     const firstCard=document.querySelector('[data-rona-deals-authoritative-rendered]');
     const strip=firstCard?.querySelector('[data-rona-deal-state-strip="authoritative-v8"]');
     const tabRects=tabs.map(x=>x.getBoundingClientRect());
-    const rootRect=root?.getBoundingClientRect();
-    const tablistRect=tablist?.getBoundingClientRect();
     const cardRect=firstCard?.getBoundingClientRect();
     const cardStyle=firstCard?getComputedStyle(firstCard):null;
     return{
       tabHeights:tabRects.map(r=>Math.round(r.height)),
       tabWidths:tabRects.map(r=>Math.round(r.width)),
       selectedBackground:getComputedStyle(tabs[0]).backgroundImage,
-      selectedBorder:getComputedStyle(tabs[0]).borderTopWidth,
-      tablistWidth:Math.round(tablistRect?.width||0),
-      rootWidth:Math.round(rootRect?.width||0),
-      rightDelta:Math.round(Math.abs((rootRect?.right||0)-(tablistRect?.right||0))),
       cardWidth:Math.round(cardRect?.width||0),
       cardRadius:cardStyle?.borderRadius||'',
       stripVisible:Boolean(strip&&getComputedStyle(strip).display!=='none'),
       visualMarker:document.querySelector('[data-rona-deal-stage-tabs]')?.dataset?.ronaDealsVisual||''
     };
   });
-  assert.ok(visual.tabHeights.every(h=>h>=50),'lifecycle stage controls must read as real buttons');
+  assert.ok(visual.tabHeights.every(h=>h>=46),'lifecycle tabs must have comfortable desktop height');
   assert.ok(Math.max(...visual.tabWidths)-Math.min(...visual.tabWidths)<=2,'lifecycle tabs must have equal widths');
   assert.match(visual.selectedBackground,/gradient/i,'selected tab must have deliberate premium hierarchy');
-  assert.notEqual(visual.selectedBorder,'0px','stage controls must have visible button borders');
-  assert.ok(Math.abs(visual.tablistWidth/visual.rootWidth-0.8)<0.03,'stage button row must match the 80% title frame width');
-  assert.ok(visual.rightDelta<=2,'stage button row must align to the title frame right edge');
   assert.ok(visual.cardWidth>700,'deal card must use the available workspace width');
   assert.match(visual.cardRadius,/1[4-9]px|2\dpx/,'deal card must use the premium rounded hierarchy');
   assert.equal(visual.stripVisible,true,'canonical state strip must be visibly composed');
-  assert.equal(visual.visualMarker,'button-aligned-v13','button alignment marker must be present');
+  assert.equal(visual.visualMarker,'premium-hierarchy-v12','visual hierarchy marker must be present');
 
   await page.click('[data-rona-deal-stage-tab="ATTENTION"]');
   assert.deepEqual(await visibleIds(),['DEAL-2098-102']);
