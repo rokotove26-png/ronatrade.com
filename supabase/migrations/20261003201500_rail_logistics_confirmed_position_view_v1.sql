@@ -55,3 +55,9 @@ where r.record_type='BUSINESS_CHANGE_PROPOSAL'
   and nullif(btrim(r.payload#>>'{proposed_state,station_name}'),'') is not null
   and nullif(btrim(r.payload#>>'{proposed_state,station_code}'),'') is not null
 order by d.id,w.wagon_number,r.created_at desc,r.record_id desc;
+
+revoke all on portal_private.rail_logistics_confirmed_position_v1 from public, anon, authenticated;
+grant select on portal_private.rail_logistics_confirmed_position_v1 to service_role;
+
+comment on view portal_private.rail_logistics_confirmed_position_v1 is
+'Latest explicit confirmed current wagon position emitted by RAIL_LOGISTICS coordination authority; other roles do not gate this Rail fact.';
