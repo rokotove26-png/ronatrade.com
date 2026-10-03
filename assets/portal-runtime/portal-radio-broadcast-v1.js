@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20261003-stage2c1-v2';
+const MARK='20261003-stage2c1-v3-inline-ticker';
 if(window.__RONA_PORTAL_RADIO_BROADCAST_V1__===MARK)return;
 const role=location.pathname==='/portal/agent'?'AGENT':(location.pathname==='/portal/client'?'CLIENT':'');
 if(!role)return;
@@ -27,7 +27,7 @@ function ensureStyle(){
   const s=document.createElement('style');
   s.id='ronaRadioBroadcastStage2c1Style';
   s.textContent=`
-#ronaRadioAnnouncementTicker{position:fixed;left:0;right:0;top:0;z-index:2147482500;height:36px;display:flex;align-items:center;overflow:hidden;pointer-events:none;background:linear-gradient(90deg,rgba(5,15,25,.985),rgba(8,28,42,.985),rgba(5,15,25,.985));border-bottom:1px solid rgba(84,205,244,.28);box-shadow:0 8px 28px rgba(0,0,0,.30);font-family:Inter,Arial,sans-serif;color:#eaf7fb}
+#ronaRadioAnnouncementTicker{position:relative;z-index:20;width:100%;min-height:30px;height:30px;display:flex;align-items:center;overflow:hidden;pointer-events:none;margin:0 0 10px 0;background:linear-gradient(90deg,rgba(5,15,25,.94),rgba(8,28,42,.96),rgba(5,15,25,.94));border:1px solid rgba(84,205,244,.22);border-radius:9px;box-shadow:0 5px 18px rgba(0,0,0,.18);font-family:Inter,Arial,sans-serif;color:#eaf7fb}
 #ronaRadioAnnouncementTicker .rona-radio-ticker-label{height:100%;display:flex;align-items:center;flex:0 0 auto;padding:0 13px;font-size:10px;font-weight:900;letter-spacing:.10em;text-transform:uppercase;color:#7ee4ff;background:rgba(26,119,154,.20);border-right:1px solid rgba(84,205,244,.20);z-index:2}
 #ronaRadioAnnouncementTicker .rona-radio-ticker-window{position:relative;min-width:0;flex:1;height:100%;display:flex;align-items:center;overflow:hidden}
 #ronaRadioAnnouncementTicker .rona-radio-ticker-track{display:flex;align-items:center;width:max-content;min-width:max-content;white-space:nowrap;will-change:transform;animation:ronaRadioTickerRun 28s linear infinite}
@@ -42,12 +42,31 @@ function ensureStyle(){
 #ronaRadioNotificationOverlay .rona-radio-modal-close{appearance:none;border:1px solid rgba(116,190,220,.24);border-radius:10px;background:rgba(255,255,255,.035);color:#d8e9f0;padding:8px 11px;font:800 11px Inter,Arial,sans-serif;cursor:pointer}
 #ronaRadioNotificationOverlay .rona-radio-modal-body{padding:21px 22px 22px;font-size:14px;line-height:1.65;color:#d9e8ee;white-space:pre-wrap;overflow-wrap:anywhere}
 #ronaRadioNotificationOverlay .rona-radio-modal-meta{padding:0 22px 20px;font-size:10px;color:#708d9d}
-@media(max-width:640px){#ronaRadioAnnouncementTicker{height:34px}#ronaRadioAnnouncementTicker .rona-radio-ticker-label{padding:0 9px;font-size:9px}#ronaRadioAnnouncementTicker .rona-radio-ticker-copy{font-size:11px;padding-left:46px;padding-right:46px}#ronaRadioNotificationOverlay{padding:14px}#ronaRadioNotificationOverlay .rona-radio-modal-card{width:100%}}
+@media(max-width:640px){#ronaRadioAnnouncementTicker{height:28px;min-height:28px;margin-bottom:8px;border-radius:7px}#ronaRadioAnnouncementTicker .rona-radio-ticker-label{padding:0 9px;font-size:9px}#ronaRadioAnnouncementTicker .rona-radio-ticker-copy{font-size:11px;padding-left:46px;padding-right:46px}#ronaRadioNotificationOverlay{padding:14px}#ronaRadioNotificationOverlay .rona-radio-modal-card{width:100%}}
 @media(prefers-reduced-motion:reduce){#ronaRadioAnnouncementTicker .rona-radio-ticker-track{animation-duration:70s}}
 `;
   document.head.appendChild(s);
 }
 function removeTicker(){document.getElementById('ronaRadioAnnouncementTicker')?.remove()}
+function tickerHost(){
+  const candidates=[
+    document.querySelector('main'),
+    document.querySelector('[role="main"]'),
+    document.querySelector('#main'),
+    document.querySelector('.main'),
+    document.querySelector('.main-content'),
+    document.querySelector('.content-main'),
+    document.querySelector('.page-content'),
+    document.querySelector('.workspace-main')
+  ].filter(Boolean);
+  return candidates.find(el=>el&&el !== document.body&&el.clientWidth>320)||document.body;
+}
+function mountTicker(root){
+  const host=tickerHost();
+  if(root.parentElement===host&&root===host.firstElementChild)return;
+  if(host===document.body){host.prepend(root);return}
+  host.insertBefore(root,host.firstElementChild);
+}
 function renderTicker(){
   const rows=currentRows().filter(x=>upper(x?.item_kind)==='ANNOUNCEMENT').sort(byTime);
   if(!rows.length){removeTicker();return}
@@ -64,8 +83,9 @@ function renderTicker(){
     const label=document.createElement('div');label.className='rona-radio-ticker-label';label.textContent='RONA Trade';
     const win=document.createElement('div');win.className='rona-radio-ticker-window';
     root.append(label,win);
-    document.body.prepend(root);
+    mountTicker(root);
   }
+  mountTicker(root);
   root.dataset.signature=signature;
   const win=root.querySelector('.rona-radio-ticker-window');win.replaceChildren();
   const text=rows.map(x=>norm(x?.body_text)).filter(Boolean).join('   •   ');
