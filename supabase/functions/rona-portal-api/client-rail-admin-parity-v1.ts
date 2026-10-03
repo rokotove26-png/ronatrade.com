@@ -74,8 +74,12 @@ async function authorizedDeals(c:any, context:any) {
       d.id as deal_key,
       d.deal_id,
       d.business_status,
-      d.lifecycle_state::text as lifecycle_state
+      d.lifecycle_state::text as lifecycle_state,
+      coalesce(mc.monitoring_state,'ACTIVE') as rail_monitoring_state,
+      mc.completed_at as rail_monitoring_completed_at,
+      mc.completion_wagon_count as rail_monitoring_completion_wagon_count
     from portal_private.deals d
+    left join portal_private.rail_deal_monitoring_control_v1 mc on mc.deal_key=d.id
     where d.client_key=${context.client_key}::uuid
       and d.contract_key=${context.contract_key}::uuid
       and d.lifecycle_state='ACTIVE'
