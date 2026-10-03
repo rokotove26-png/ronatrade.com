@@ -497,17 +497,75 @@ async function signedUrlForDocument(ctx,documentId,mode){let allowed=[];if(mode=
 async function clientRadio(ctx,scopeInput=null){
   const scope=Array.isArray(scopeInput)?scopeInput:await clientScope(ctx);
   const ids=scope.map(x=>String(x.client_id));
+  const clientKeys=scope.map(x=>String(x.client_key));
   if(!ids.length)return{radio:[]};
+  const viewerUserId=ctx.userId;
   const radio=await sql`
-    select id,item_kind,target_scope,target_id,body_text,active_from,active_until,created_at
-    from portal_private.owner_radio_items
-    where delivery_channel='PORTAL'
-      and item_kind in ('NOTIFICATION','ANNOUNCEMENT')
-      and active_from<=now() and (active_until is null or active_until>now())
-      and (target_scope='ALL_CLIENTS' or (target_scope='CLIENT' and target_id = any(${ids}::text[])))
-    order by created_at desc
+    select r.id,r.item_kind,r.target_scope,r.target_id,r.body_text,r.active_from,r.active_until,r.created_at
+    from portal_private.owner_radio_items r
+    where r.delivery_channel='PORTAL'
+      and r.item_kind in ('NOTIFICATION','ANNOUNCEMENT')
+      and r.active_from<=now() and (r.active_until is null or r.active_until>now())
+      and (r.target_scope='ALL_CLIENTS' or (r.target_scope='CLIENT' and r.target_id = any(${ids}::text[])))
+      and (
+        r.item_kind<>'NOTIFICATION'
+        or not exists (
+          select 1
+          from portal_private.owner_radio_notification_reads rr
+          where rr.viewer_user_id=${viewerUserId}::uuid
+            and rr.radio_item_id=r.id
+            and rr.viewer_client_key = any(${clientKeys}::uuid[])
+        )
+      )
+    order by r.created_at desc
   `;
   return{radio};
+}
+
+async function markClientRadioNotificationRead(ctx,req,itemId){
+  if(!UUID_RE.test(itemId))throw Object.assign(new Error('INVALID_RADIO_ITEM_ID'),{status:400});
+  const scope=await clientScope(ctx);
+  const ids=scope.map(x=>String(x.client_id));
+  const clientKeys=scope.map(x=>String(x.client_key));
+  if(!ids.length)throw Object.assign(new Error('CLIENT_CONTEXT_NOT_AUTHORIZED'),{status:403});
+  const rows=await sql`
+    select id,item_kind,target_scope,target_id
+    from portal_private.owner_radio_items
+    where id=${itemId}::uuid
+      and delivery_channel='PORTAL'
+      and item_kind='NOTIFICATION'
+      and active_from<=now() and (active_until is null or active_until>now())
+      and (target_scope='ALL_CLIENTS' or (target_scope='CLIENT' and target_id = any(${ids}::text[])))
+    limit 1
+  `;
+  if(rows.length!==1)throw Object.assign(new Error('RADIO_NOTIFICATION_NOT_FOUND_OR_OUT_OF_SCOPE'),{status:404});
+  const row=rows[0];
+  const matchingClientKeys=String(row.target_scope)==='CLIENT'
+    ?scope.filter(x=>String(x.client_id)===String(row.target_id)).map(x=>String(x.client_key))
+    :clientKeys;
+  if(!matchingClientKeys.length)throw Object.assign(new Error('RADIO_NOTIFICATION_NOT_FOUND_OR_OUT_OF_SCOPE'),{status:404});
+  const actorUserId=ctx.actorUserId||ctx.userId;
+  const readVia=ctx.impersonation?'ADMIN_IMPERSONATION':'CLIENT_PORTAL';
+  await sql.begin(async tx=>{
+    for(const clientKey of matchingClientKeys){
+      await tx`
+        insert into portal_private.owner_radio_notification_reads(
+          viewer_user_id,viewer_client_key,radio_item_id,read_at,read_by_actor_user_id,read_via
+        ) values(
+          ${ctx.userId}::uuid,${clientKey}::uuid,${itemId}::uuid,now(),${actorUserId}::uuid,${readVia}
+        )
+        on conflict(viewer_user_id,viewer_client_key,radio_item_id)
+        do update set read_at=excluded.read_at,read_by_actor_user_id=excluded.read_by_actor_user_id,read_via=excluded.read_via
+      `;
+    }
+    await audit(tx,ctx,'CLIENT_RADIO_NOTIFICATION_READ','RADIO',itemId,req,{
+      targetScope:String(row.target_scope),
+      targetId:row.target_id||null,
+      clientKeys:matchingClientKeys,
+      readVia
+    });
+  });
+  return{id:itemId,read:true,readVia};
 }
 
 async function agentRadio(ctx){
@@ -698,6 +756,7 @@ Deno.serve(async req=>{
     m=path.match(/^\/admin\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'admin')})}
 
     if(path==='/client/radio'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientRadio(ctx)})}
+    m=path.match(/^\/client\/radio\/([0-9a-f-]+)\/read$/i);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await markClientRadioNotificationRead(ctx,req,m[1])})}
     if(path==='/client/bootstrap'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientBootstrap(ctx)})}
     if(path==='/client/workflow-bootstrap'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientWorkflowBootstrap(ctx)})}
     if(path==='/client/analytics-feed'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientAnalyticsFeed()})}
