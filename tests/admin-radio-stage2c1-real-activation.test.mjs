@@ -32,7 +32,7 @@ test('Recipient broadcast projections are lightweight, binding-scoped and PORTAL
   assert.match(owner,/path==='\/client\/radio'/);
   assert.match(owner,/markClientRadioNotificationRead/);
   assert.match(owner,/owner_radio_notification_reads/);
-  assert.match(owner,/\/client\\/radio\\/\(\[0-9a-f-\]\+\)\\/read/);
+  assert.ok(owner.includes("m=path.match(/^\\/client\\/radio\\/([0-9a-f-]+)\\/read$/i)"));
   assert.match(owner,/path==='\/agent\/radio'/);
 });
 
