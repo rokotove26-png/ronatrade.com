@@ -5,6 +5,7 @@ import {chromium} from 'playwright';
 
 const runtime=await readFile('dist/assets/portal-runtime/client-deals-authoritative-v1.js','utf8');
 const responsiveCss=await readFile('dist/assets/portal-runtime/client-content-responsive-v1.css','utf8');
+const buttonRuntime=await readFile('dist/assets/portal-runtime/portal-canonical-button-hover-v1.js','utf8');
 const projection={
   contract:{client_id:'RONA-QA-CLIENT',contract_id:'RONA-QA-CONTRACT',legal_name:'QA Client'},
   applications:[],
@@ -15,8 +16,17 @@ const projection={
     {deal_id:'DEAL-2098-104',business_status:'CANCELLED',current_status:'CANCELLED',client_deal_stage:'ARCHIVED',client_deal_stage_source:'CANONICAL_DEAL_EXECUTION_LIFECYCLE_V1',closed_at:'2098-03-02T00:00:00Z'}
   ]
 };
-const html=`<!doctype html><html><head><meta charset="utf-8"><style>body{background:#06111c;color:#fff}.active{display:block}.rona-deal-card-v5{padding:8px;margin:4px;border:1px solid #345}[hidden]{display:none!important}</style><link rel="stylesheet" href="/client-content-responsive-v1.css"></head><body>
-<section id="page-deals" class="active"><input placeholder="ИД сделки / товар / станция"><select><option>Все этапы</option></select></section>
+const html=`<!doctype html><html><head><meta charset="utf-8"><style>
+body{background:#06111c;color:#fff;margin:0}.active{display:block}.rona-deal-card-v5{padding:8px;margin:4px;border:1px solid #345}[hidden]{display:none!important}
+#page-deals{width:1100px;padding:0 20px;box-sizing:border-box}
+.qa-title-frame{width:80%;margin-left:auto;border:1px solid #456;border-radius:12px;padding:14px;box-sizing:border-box}
+.qa-company-frame,.qa-filter-frame{width:100%;border:1px solid #345;box-sizing:border-box;margin-top:12px;padding:8px}
+</style><link rel="stylesheet" href="/client-content-responsive-v1.css"></head><body>
+<section id="page-deals" class="active">
+  <section class="qa-title-frame"><h1>Сделки</h1></section>
+  <div class="qa-company-frame">Выбрана компания · QA Client</div>
+  <div class="qa-filter-frame"><input placeholder="ИД сделки / товар / станция"><select><option>Все этапы</option></select><button>Сбросить</button></div>
+</section>
 <script>
 const projection=${JSON.stringify(projection)};
 const ctx={client_id:'RONA-QA-CLIENT',contract_id:'RONA-QA-CONTRACT',legal_name:'QA Client'};
@@ -28,12 +38,14 @@ window.RONA_CLIENT_CONTEXT={
 };
 </script>
 <script src="/client-deals-authoritative-v1.js"></script>
+<script src="/portal-canonical-button-hover-v1.js"></script>
 </body></html>`;
 
 const server=http.createServer((req,res)=>{
   if(req.url==='/portal/client'){res.writeHead(200,{'content-type':'text/html; charset=utf-8'});res.end(html);return}
   if(req.url==='/client-deals-authoritative-v1.js'){res.writeHead(200,{'content-type':'application/javascript; charset=utf-8'});res.end(runtime);return}
   if(req.url==='/client-content-responsive-v1.css'){res.writeHead(200,{'content-type':'text/css; charset=utf-8'});res.end(responsiveCss);return}
+  if(req.url==='/portal-canonical-button-hover-v1.js'){res.writeHead(200,{'content-type':'application/javascript; charset=utf-8'});res.end(buttonRuntime);return}
   res.writeHead(404);res.end('not found');
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -45,6 +57,7 @@ try{
   await page.goto(origin+'/portal/client',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>document.querySelectorAll('[data-rona-deal-stage-tab]').length===3);
   await page.waitForFunction(()=>document.querySelectorAll('[data-rona-deals-authoritative-rendered]').length===3);
+  await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsFrameAlignment==='20261004-client-deals-title-frame-align-v14');
 
   async function visibleIds(){
     return page.evaluate(()=>[...document.querySelectorAll('[data-rona-deals-authoritative-rendered]')].filter(x=>!x.hidden).map(x=>x.dataset.ronaCanonicalDealId));
@@ -77,6 +90,21 @@ try{
   assert.match(visual.cardRadius,/1[4-9]px|2\dpx/,'deal card must use the premium rounded hierarchy');
   assert.equal(visual.stripVisible,true,'canonical state strip must be visibly composed');
   assert.equal(visual.visualMarker,'premium-hierarchy-v12','visual hierarchy marker must be present');
+
+  const frameAlignment=await page.evaluate(()=>{
+    const title=document.querySelector('.qa-title-frame').getBoundingClientRect();
+    const selectors=['.qa-company-frame','.qa-filter-frame','[data-rona-deal-stage-tabs]','[data-rona-deals-authoritative-list]'];
+    const rects=selectors.map(selector=>{
+      const node=document.querySelector(selector),rect=node?.getBoundingClientRect();
+      return {selector,aligned:node?.getAttribute('data-rona-deals-frame-aligned'),left:rect?.left||0,right:rect?.right||0,width:rect?.width||0};
+    });
+    return{title:{left:title.left,right:title.right,width:title.width},rects};
+  });
+  for(const rect of frameAlignment.rects){
+    assert.equal(rect.aligned,'true',rect.selector+' must be owned by title-frame alignment');
+    assert.ok(Math.abs(rect.left-frameAlignment.title.left)<=1.5,rect.selector+' left edge must match title frame '+JSON.stringify(frameAlignment));
+    assert.ok(Math.abs(rect.right-frameAlignment.title.right)<=1.5,rect.selector+' right edge must match title frame '+JSON.stringify(frameAlignment));
+  }
 
   await page.click('[data-rona-deal-stage-tab="ATTENTION"]');
   assert.deepEqual(await visibleIds(),['DEAL-2098-102']);
