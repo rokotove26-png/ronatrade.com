@@ -51,6 +51,31 @@ try{
   const counts=await page.evaluate(()=>Object.fromEntries([...document.querySelectorAll('[data-rona-deal-stage-count]')].map(x=>[x.dataset.ronaDealStageCount,x.textContent])));
   assert.deepEqual(counts,{ACTIVE:'1',ATTENTION:'1',COMPLETED:'1'});
 
+  const visual=await page.evaluate(()=>{
+    const tabs=[...document.querySelectorAll('[data-rona-deal-stage-tab]')];
+    const firstCard=document.querySelector('[data-rona-deals-authoritative-rendered]');
+    const strip=firstCard?.querySelector('[data-rona-deal-state-strip="authoritative-v8"]');
+    const tabRects=tabs.map(x=>x.getBoundingClientRect());
+    const cardRect=firstCard?.getBoundingClientRect();
+    const cardStyle=firstCard?getComputedStyle(firstCard):null;
+    return{
+      tabHeights:tabRects.map(r=>Math.round(r.height)),
+      tabWidths:tabRects.map(r=>Math.round(r.width)),
+      selectedBackground:getComputedStyle(tabs[0]).backgroundImage,
+      cardWidth:Math.round(cardRect?.width||0),
+      cardRadius:cardStyle?.borderRadius||'',
+      stripVisible:Boolean(strip&&getComputedStyle(strip).display!=='none'),
+      visualMarker:document.querySelector('[data-rona-deal-stage-tabs]')?.dataset?.ronaDealsVisual||''
+    };
+  });
+  assert.ok(visual.tabHeights.every(h=>h>=46),'lifecycle tabs must have comfortable desktop height');
+  assert.ok(Math.max(...visual.tabWidths)-Math.min(...visual.tabWidths)<=2,'lifecycle tabs must have equal widths');
+  assert.match(visual.selectedBackground,/gradient/i,'selected tab must have deliberate premium hierarchy');
+  assert.ok(visual.cardWidth>700,'deal card must use the available workspace width');
+  assert.match(visual.cardRadius,/1[4-9]px|2\dpx/,'deal card must use the premium rounded hierarchy');
+  assert.equal(visual.stripVisible,true,'canonical state strip must be visibly composed');
+  assert.equal(visual.visualMarker,'premium-hierarchy-v12','visual hierarchy marker must be present');
+
   await page.click('[data-rona-deal-stage-tab="ATTENTION"]');
   assert.deepEqual(await visibleIds(),['DEAL-2098-102']);
   await page.click('[data-rona-deal-stage-tab="COMPLETED"]');
