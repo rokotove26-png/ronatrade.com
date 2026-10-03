@@ -40,10 +40,10 @@ window.addEventListener('pageshow',schedule,{passive:true});if(document.readySta
 })();
 `;
 
-  const forbidden=["'аналитика':'analytics'","'новости топливного рынка снг':'news'",'function renderAnalytics(){','function renderNews(){','function publicationCard(){',"root('analytics'","root('news'","kind==='analytics'","r=root('radio','Радиорубка'",'ronaMarketNewsTopRuntimeV8','__RONA_MARKET_NEWS_TOP_RUNTIME_V8__'];
+  const forbidden=["'аналитика':'analytics'","'новости топливного рынка снг':'news'",'function renderAnalytics(){','function renderNews(){','function publicationCard(){',"root('analytics'","root('news'","kind==='analytics'",'radio-command-bar','radio-kpi-grid','radio-workspace','radio-compose-panel','radio-link-panel','radio-active-panel','ronaMarketNewsTopRuntimeV8','__RONA_MARKET_NEWS_TOP_RUNTIME_V8__'];
   if(forbidden.some(token=>source.includes(token)))return new Response('REMAINING_CANONICAL_SPLIT_FAILED',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
 
   const headers=new Headers(response.headers);
-  headers.set('cache-control','no-store, no-cache, must-revalidate');headers.set('pragma','no-cache');headers.set('expires','0');headers.set('x-rona-remaining-sections','r2-radio-clean-header-command-body-v4');headers.set('x-rona-radio-owner','clean-header-direct-body-v4');headers.set('x-rona-radio-message-bridge','stage2a-corrective-client-chat-v3-dedicated-bootstrap');headers.set('x-rona-market-news-owner','dedicated-current-content-health-v6');headers.delete('content-length');headers.delete('etag');
+  headers.set('cache-control','no-store, no-cache, must-revalidate');headers.set('pragma','no-cache');headers.set('expires','0');headers.set('x-rona-remaining-sections','r2-radio-canonical-owner-restored-v5');headers.set('x-rona-radio-owner','canonical-r2-body-v5');headers.set('x-rona-radio-message-bridge','stage2a-corrective-client-chat-v3-dedicated-bootstrap');headers.set('x-rona-market-news-owner','dedicated-current-content-health-v6');headers.delete('content-length');headers.delete('etag');
   return new Response(source,{status:response.status,statusText:response.statusText,headers});
 }
