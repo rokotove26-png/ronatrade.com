@@ -14,19 +14,23 @@ test('Stage 2C.1 keeps MESSAGE canonical and restricts NOTIFICATION to client au
   assert.match(owner,/\['NOTIFICATION','ANNOUNCEMENT'\]\.includes\(kind\)/);
 });
 
-test('Agent broadcast projection is binding-scoped and supports ALL_AGENTS without requiring a client assignment',()=>{
+test('Recipient broadcast projections are lightweight, binding-scoped and PORTAL-only',()=>{
   const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
-  const start=owner.indexOf('async function agentBootstrap(ctx)');
-  const end=owner.indexOf('function ascii(',start);
-  assert.ok(start>=0&&end>start,'agentBootstrap block missing');
-  const block=owner.slice(start,end);
-  assert.match(block,/from portal_private\.agent_user_bindings aub/);
-  assert.match(block,/const identities=await sql/);
-  assert.match(block,/const radio=ids\.length\?await sql/);
-  assert.match(block,/item_kind='ANNOUNCEMENT'/);
-  assert.match(block,/target_scope='ALL_AGENTS'/);
-  assert.match(block,/target_scope='AGENT'/);
-  assert.ok(block.indexOf('const radio=')<block.indexOf("if(!keys.length)return"),'ALL_AGENTS projection must be resolved before empty client-assignment return');
+  const clientStart=owner.indexOf('async function clientRadio(ctx');
+  const agentStart=owner.indexOf('async function agentRadio(ctx)');
+  const bootstrapStart=owner.indexOf('async function clientBootstrap(ctx)');
+  assert.ok(clientStart>=0&&agentStart>clientStart&&bootstrapStart>agentStart,'radio projection helpers missing');
+  const clientBlock=owner.slice(clientStart,agentStart);
+  const agentBlock=owner.slice(agentStart,bootstrapStart);
+  assert.match(clientBlock,/delivery_channel='PORTAL'/);
+  assert.match(clientBlock,/item_kind in \('NOTIFICATION','ANNOUNCEMENT'\)/);
+  assert.match(agentBlock,/from portal_private\.agent_user_bindings aub/);
+  assert.match(agentBlock,/delivery_channel='PORTAL'/);
+  assert.match(agentBlock,/item_kind='ANNOUNCEMENT'/);
+  assert.match(agentBlock,/target_scope='ALL_AGENTS'/);
+  assert.match(agentBlock,/target_scope='AGENT'/);
+  assert.match(owner,/path==='\/client\/radio'/);
+  assert.match(owner,/path==='\/agent\/radio'/);
 });
 
 test('Admin Radio has one canonical owner with frozen visual geometry and Stage 2C.1 broadcast data',()=>{
@@ -59,7 +63,7 @@ test('Client and Agent portal runtime presents central notification modal and to
   const runtime=read('assets/portal-runtime/portal-radio-broadcast-v1.js');
   for(const token of [
     "role=location.pathname==='/portal/agent'?'AGENT':(location.pathname==='/portal/client'?'CLIENT':'')",
-    "role==='CLIENT'?'/client/bootstrap':'/agent/bootstrap'",
+    "role==='CLIENT'?'/client/radio':'/agent/radio'",
     "id='ronaRadioAnnouncementTicker'",
     "id='ronaRadioNotificationOverlay'",
     "animation:ronaRadioTickerRun",
@@ -67,9 +71,11 @@ test('Client and Agent portal runtime presents central notification modal and to
     "upper(x?.item_kind)==='ANNOUNCEMENT'",
     "upper(x?.item_kind)==='NOTIFICATION'",
     "credentials:'same-origin'",
-    'POLL_MS=30000'
+    'POLL_MS=60000',
+    'MAX_POLLS=10'
   ]) assert.ok(runtime.includes(token),'Portal runtime marker missing: '+token);
-  assert.doesNotMatch(runtime,/\/portal\/api\/v1\/client\/bootstrap/);
+  assert.doesNotMatch(runtime,/\/client\/bootstrap|\/agent\/bootstrap/);
+  assert.match(runtime,/window\.addEventListener\('rona:radio-refresh'/);
   assert.doesNotMatch(runtime,/DELETE|delete\s+from/i);
 });
 
