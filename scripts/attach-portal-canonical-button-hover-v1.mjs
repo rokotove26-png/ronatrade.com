@@ -12,8 +12,8 @@ const marker='20260830-portal-canonical-button-hover-v1';
 const clientSidebar={
   path:'dist/assets/portal-runtime/client-sidebar-command-nav-v1.js',
   id:'rona-client-sidebar-command-nav-v1',
-  src:'/assets/portal-runtime/client-sidebar-command-nav-v1.js?v=20261003-command-nav-v2-no-closing',
-  marker:'20261003-client-sidebar-command-nav-v2-no-closing-page',
+  src:'/assets/portal-runtime/client-sidebar-command-nav-v1.js?v=20261004-command-nav-v3-no-closing-no-archive',
+  marker:'20261004-client-sidebar-command-nav-v3-no-closing-no-archive',
 };
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
@@ -56,7 +56,7 @@ integrity.client_runtime.sidebar_command_navigation={
   id:clientSidebar.id,
   src:clientSidebar.src,
   marker:clientSidebar.marker,
-  scope:'CLIENT_SIDEBAR_NAV_WITHOUT_STANDALONE_CLOSING',
+  scope:'CLIENT_SIDEBAR_NAV_WITHOUT_STANDALONE_CLOSING_OR_DEAL_ARCHIVE',
   presentation_only:false,
   navigation_behavior_changed:true,
   business_logic_changed:false,

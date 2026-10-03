@@ -9,16 +9,16 @@
       "required_marker": "20261003-client-deals-authoritative-lifecycle-tabs-v11"
     },
     "assets/portal-runtime/client-sidebar-command-nav-v1.js": {
-      "sha": "da54a5d853c9930a0faf17f90c0f569ec2f0ee11",
-      "required_marker": "20261003-client-sidebar-command-nav-v2-no-closing-page"
+      "sha": "198faa47921ae83613ecae68bd46522af64eaaf0",
+      "required_marker": "20261004-client-sidebar-command-nav-v3-no-closing-no-archive"
     },
     "scripts/attach-client-deals-authoritative-v1.mjs": {
       "sha": "f981537502e2103e047106947e2c36af33138bc5",
       "required_marker": "20261003-client-deals-authoritative-lifecycle-tabs-v11"
     },
     "scripts/attach-portal-canonical-button-hover-v1.mjs": {
-      "sha": "30ab3b0f31f448ed2d439bf8abc75d789fd4b483",
-      "required_marker": "20261004-client-deals-button-v15"
+      "sha": "70773c1eb44d719cc40ca6fdb75a15c6de928812",
+      "required_marker": "20261004-command-nav-v3-no-closing-no-archive"
     },
     "assets/portal-runtime/client-content-responsive-v1.css": {
       "sha": "7f4a5677b4de6738a28c01d3737b4306c2a323a6",
@@ -66,9 +66,15 @@
     "dynamic_title_frame_geometry": true,
     "outer_title_frame_is_alignment_authority": true,
     "nested_title_decoration_must_not_control_width": true,
-    "left_and_right_edges_match_outer_title_frame": true
+    "left_and_right_edges_match_outer_title_frame": true,
+    "standalone_deal_archive_removed": true,
+    "archived_deal_business_state_preserved": true,
+    "deal_archive_backend_data_changed": false
   },
   "owner_instruction_current": "Все разделы и рамки должны быть выровнены по ширине границ рамки заголовка.",
   "visual_correction_authorized_at": "2026-10-04",
-  "visual_correction_scope": "CLIENT_DEALS_ALL_FRAMES_OUTER_TITLE_ALIGNMENT_V15"
+  "visual_correction_scope": "CLIENT_DEALS_ALL_FRAMES_OUTER_TITLE_ALIGNMENT_V15",
+  "owner_instruction_archive_removal": "Удали в клиентском кабинете раздел \"Архив сделок\"",
+  "archive_removal_authorized_at": "2026-10-04",
+  "archive_removal_scope": "CLIENT_REMOVE_STANDALONE_DEAL_ARCHIVE_V1"
 }

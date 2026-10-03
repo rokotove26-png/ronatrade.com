@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const VERSION='20261003-client-sidebar-command-nav-v2-no-closing-page';
+const VERSION='20261004-client-sidebar-command-nav-v3-no-closing-no-archive';
 const OWNER='command-nav-v1';
 if(window.__RONA_CLIENT_SIDEBAR_COMMAND_NAV__===VERSION)return;
 window.__RONA_CLIENT_SIDEBAR_COMMAND_NAV__=VERSION;
@@ -12,13 +12,12 @@ deals:'<svg data-rona-client-nav-svg="deals" viewBox="0 0 24 24" aria-hidden="tr
 payments:'<svg data-rona-client-nav-svg="payments" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg>',
 monitoring:'<svg data-rona-client-nav-svg="monitoring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h11l3 4h2v6H4z"/><path d="M7 7V4h6v3"/><circle cx="8" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M4 14h16"/></svg>',
 closing:'<svg data-rona-client-nav-svg="closing" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/><path d="m9 8 1.4 1.4L13 6.8"/></svg>',
-archive:'<svg data-rona-client-nav-svg="archive" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="6" width="16" height="14" rx="2"/><path d="M3 4h18v4H3zM9 12h6"/></svg>',
 claims:'<svg data-rona-client-nav-svg="claims" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 2.8 19h18.4L12 3Z"/><path d="M12 9v4.5M12 17h.01"/></svg>',
 messages:'<svg data-rona-client-nav-svg="messages" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v12H8l-4 4z"/><path d="M8 9h8M8 13h5"/></svg>',
 analytics:'<svg data-rona-client-nav-svg="analytics" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
 'market-news':'<svg data-rona-client-nav-svg="market-news" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h14v15H5a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1Z"/><path d="M18 8h3v10a2 2 0 0 1-2 2M7 9h7M7 13h7M7 17h4"/></svg>'
 });
-const LABELS=Object.freeze({home:'Главная',companies:'Мои компании',prices:'Цены',applications:'Заявки',deals:'Сделки',payments:'Платежи и взаиморасчёты',monitoring:'Онлайн ЖД',closing:'Закрывающие документы',archive:'Архив сделок',claims:'Претензии',messages:'Сообщения',analytics:'Аналитика','market-news':'Новости топливного рынка СНГ'});
+const LABELS=Object.freeze({home:'Главная',companies:'Мои компании',prices:'Цены',applications:'Заявки',deals:'Сделки',payments:'Платежи и взаиморасчёты',monitoring:'Онлайн ЖД',closing:'Закрывающие документы',claims:'Претензии',messages:'Сообщения',analytics:'Аналитика','market-news':'Новости топливного рынка СНГ'});
 const manualAttention=new Map();
 const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>Array.from(r.querySelectorAll(s)),norm=v=>String(v??'').replace(/\s+/gu,' ').trim();
 function nav(){return q('aside.sidebar #nav[aria-label="Разделы кабинета клиента"]')||q('aside.sidebar #nav')}
@@ -28,14 +27,20 @@ if(manualAttention.has(page))return manualAttention.get(page)===true;
 if(button?.dataset?.ronaAttention==='true'||button?.dataset?.attention==='true')return true;
 const root=q('#page-'+page);return Boolean(root&&q('[data-rona-attention="true"],[data-attention="true"]',root))
 }
-function removeStandaloneClosingSection(n){
-const closing=q(':scope>button[data-page="closing"]',n);
-if(closing&&(closing.classList.contains('active')||closing.getAttribute('aria-current')==='page')){
-  const deals=q(':scope>button[data-page="deals"]',n);if(deals)deals.click();
+function removeRetiredStandaloneSections(n){
+const retired=[
+  {page:'closing',selectors:['#page-closing','#closingPage','[data-page-panel="closing"]','[data-page-id="closing"]'],dataset:'ronaClientStandaloneClosing'},
+  {page:'archive',selectors:['#page-archive','#archivePage','[data-page-panel="archive"]','[data-page-id="archive"]'],dataset:'ronaClientStandaloneDealArchive'}
+];
+for(const item of retired){
+  const button=q(':scope>button[data-page="'+item.page+'"]',n);
+  if(button&&(button.classList.contains('active')||button.getAttribute('aria-current')==='page')){
+    const deals=q(':scope>button[data-page="deals"]',n);if(deals)deals.click();
+  }
+  if(button)button.remove();
+  for(const selector of item.selectors)for(const page of qa(selector))page.remove();
+  document.documentElement.dataset[item.dataset]='removed';
 }
-if(closing)closing.remove();
-for(const selector of ['#page-closing','#closingPage','[data-page-panel="closing"]','[data-page-id="closing"]'])for(const page of qa(selector))page.remove();
-document.documentElement.dataset.ronaClientStandaloneClosing='removed';
 }
 function ensureButton(button){
 const page=String(button?.dataset?.page||''),icon=ICONS[page];if(!icon)return;
@@ -52,11 +57,11 @@ if(attention){const reason=manualAttention.get(page+'::reason');if(reason)button
 function apply(){
 ensureStyle();const n=nav();if(!n)return;const side=n.closest('.sidebar');if(!side)return;
 side.dataset.ronaClientSidebarOwner=OWNER;n.dataset.ronaClientSidebarOwner=OWNER;
-removeStandaloneClosingSection(n);
+removeRetiredStandaloneSections(n);
 for(const group of qa(':scope>.nav-group',n))group.dataset.ronaClientNavGroupOwner=OWNER;
 const buttons=qa(':scope>button[data-page]',n);for(const button of buttons)ensureButton(button);
 const missing=buttons.filter(b=>!q(':scope>.nav-icon>svg',b)).map(b=>b.dataset.page);
-window.__RONA_CLIENT_SIDEBAR_DIAGNOSTIC__={version:VERSION,owner:OWNER,buttons:buttons.length,icons:qa(':scope>button[data-page]>.nav-icon>svg',n).length,active:buttons.find(b=>b.classList.contains('active')||b.getAttribute('aria-current')==='page')?.dataset?.page||'',attention:buttons.filter(b=>b.classList.contains('rona-client-nav-attention')).map(b=>b.dataset.page),closingRemoved:!q(':scope>button[data-page="closing"]',n),claimsPresent:!!q(':scope>button[data-page="claims"]',n),missing};
+window.__RONA_CLIENT_SIDEBAR_DIAGNOSTIC__={version:VERSION,owner:OWNER,buttons:buttons.length,icons:qa(':scope>button[data-page]>.nav-icon>svg',n).length,active:buttons.find(b=>b.classList.contains('active')||b.getAttribute('aria-current')==='page')?.dataset?.page||'',attention:buttons.filter(b=>b.classList.contains('rona-client-nav-attention')).map(b=>b.dataset.page),closingRemoved:!q(':scope>button[data-page="closing"]',n),archiveRemoved:!q(':scope>button[data-page="archive"]',n),claimsPresent:!!q(':scope>button[data-page="claims"]',n),missing};
 document.documentElement.dataset.ronaClientSidebarOwner=OWNER
 }
 let queued=false;function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})}

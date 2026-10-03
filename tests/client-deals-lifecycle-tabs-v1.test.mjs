@@ -50,10 +50,14 @@ test('Client Deals stage controls are explicit buttons aligned to the title fram
   assert.match(buttonVisual,/\[aria-selected="true"\]/);
 });
 
-test('standalone Closing Documents is removed but Claims remains',()=>{
-  assert.match(nav,/function removeStandaloneClosingSection\(n\)/);
+test('standalone Closing Documents and Deal Archive are removed but Claims remains',()=>{
+  assert.match(nav,/function removeRetiredStandaloneSections\(n\)/);
   assert.match(nav,/button\[data-page="closing"\]/);
   assert.match(nav,/page-closing/);
+  assert.match(nav,/button\[data-page="archive"\]/);
+  assert.match(nav,/page-archive/);
+  assert.match(nav,/archiveRemoved/);
   assert.match(nav,/claimsPresent/);
   assert.doesNotMatch(nav,/button\[data-page="claims"\].*remove\(\)/s);
+  assert.doesNotMatch(nav,/Архив сделок/);
 });
