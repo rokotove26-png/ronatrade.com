@@ -43,6 +43,14 @@ test('Stage 2B provides audit-safe expiry instead of deleting radio evidence',()
   assert.doesNotMatch(owner,/delete\s+from\s+portal_private\.owner_radio_items/i);
 });
 
+test('Admin Radio stop control uses the approved ruby treatment',()=>{
+  const radio=read('functions/portal/remaining-sections-r2-base.js');
+  assert.match(radio,/\.rona-rs-radio-stop\{[^}]*color:#fff[^}]*background:#9B111E[^}]*border:1px solid #C73645/);
+  assert.match(radio,/\.rona-rs-radio-stop:hover\{background:#B2182B;border-color:#E05A67\}/);
+  assert.match(radio,/\.rona-rs-radio-stop:active\{background:#7E0D18\}/);
+  assert.match(radio,/rona-rs-radio-stop','Остановить'/);
+});
+
 test('Stage 2B schema adds only publication lineage and idempotency controls',()=>{
   const migration=read('supabase/migrations/20260923164500_admin_radio_stage2b_notification_announcement_v1.sql');
   for(const token of [
