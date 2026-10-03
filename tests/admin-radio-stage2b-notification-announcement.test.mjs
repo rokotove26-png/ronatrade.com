@@ -188,6 +188,18 @@ test('Stage 2B production QA retries transient bootstrap reads without retrying 
   assert.doesNotMatch(qa,/retryTransientRead\([\s\S]{0,500}\/admin\/radio[^\n]*method:'POST'/);
 });
 
+test('Admin Radio stops one selected announcement without deleting history',()=>{
+  const radio=read('functions/portal/remaining-sections-r2-base.js');
+  assert.match(radio,/rona-rs-radio-stop/);
+  assert.match(radio,/String\(x\.item_kind\|\|'\'\)\.toUpperCase\(\)==='ANNOUNCEMENT'&&x\.id/);
+  assert.match(radio,/post\('\/admin\/radio\/'\+encodeURIComponent\(String\(x\.id\)\)\+'\/expire',\{\}\)/);
+  assert.match(radio,/\['Тип','Кому','Сообщение','Дата','Действие'\]/);
+  const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
+  assert.match(owner,/async function expireRadio/);
+  assert.match(owner,/OWNER_RADIO_ITEM_EXPIRED/);
+  assert.doesNotMatch(owner,/delete\s+from\s+portal_private\.owner_radio_items/i);
+});
+
 test('Canonical Radio visual owner remains byte-for-byte locked',()=>{
   assert.equal(gitBlobSha('assets/portal-admin-radio-canonical-v11.js'),'d7a7ffa7cf51b6cba01f089e69ddf55ba9946f3f');
 });
