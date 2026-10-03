@@ -43,19 +43,19 @@ const has=(s,x)=>s.includes(x);
 
 need(has(admin,'content="current-only-v2"'),'Admin is not current-only-v2');
 need(has(admin,'data-page="access"')&&has(admin,'data-action="create-access"')&&has(admin,'Создать доступ'),'Create access entry is missing from current shell');
-need(has(admin,'data-page="claims"')&&has(admin,'id="page-claims"'),'Claims route/page is missing');
+need(!has(admin,'data-page="claims"')&&!has(admin,'id="page-claims"'),'Claims route/page must remain retired');
 need(has(admin,'data-page="agent-settlements"')&&has(admin,'id="page-agent-settlements"'),'Agent settlements route/page is missing');
 need(has(admin,'data-page="market-news"')&&has(admin,'id="page-market-news"'),'Market News route/page is missing');
 need(has(admin,'grid-template-columns:272px')&&has(admin,'min-height:48px')&&has(admin,'font-size:14.5px'),'Canonical desktop sidebar sizing is missing');
 need(has(admin,'current-only-router-v2')&&has(admin,'MutationObserver'),'Single current router guard is missing');
-need(has(admin,'/assets/portal-admin-shell-fast-v1.js?v=20260919-admin-access-stability-v3'),'Admin shell does not cache-bust the stable fast shell');
+need(has(admin,'/assets/portal-admin-shell-fast-v1.js?v=20261003-remove-claims-v1'),'Admin shell does not cache-bust the Claims-retired fast shell');
 need(has(admin,'/portal/clients-agents-current-ui?v=20260919-admin-access-stability-v3'),'Admin shell does not cache-bust the stable Access runtime');
 need(has(admin,'/assets/portal-admin-runtime-watchdog-v1.js?v=20260919-admin-access-stability-v3'),'Admin shell does not cache-bust the stable watchdog');
 
 need(has(shell,"__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'"),'Single-owner shell marker is missing');
 need(has(shell,"ADMIN_SHELL_BOOT")&&has(shell,"RETRY_ONLY_ON_FAILURE")&&has(shell,"const snapshot=await refreshAuthority();if(snapshot)return")&&!has(shell,"[400,1800,5000].forEach"),'Admin authority bootstrap still performs unconditional triple refresh');
 
-need(has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-ui")&&has(shell,"'/portal/prices-current-ui")&&has(shell,"'/portal/analytics-v2-ui"),'Required current modules are not loaded');
+need(!has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-ui")&&has(shell,"'/portal/prices-current-ui")&&has(shell,"'/portal/analytics-v2-ui"),'Required current modules / retired Claims contract is invalid');
 need(has(shell,"access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'}"),'Clients/Agents current runtime is not managed by the fast shell');
 need(has(shell,"const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost()")&&has(shell,"async function loadAccess()"),'Clients/Agents stable access readiness/self-heal contract is missing');
 need(has(shell,"const accessWarm=loadAccess();")&&has(shell,"if(p==='access')loadAccess();"),'Clients/Agents access module is not warmed on boot and page navigation');
@@ -146,7 +146,7 @@ need(has(watchdog,"retryCooldownMs:60000")&&has(watchdog,"autoRetryLimit:3")&&ha
 need(has(watchdog,"n.querySelector(':scope > .rona-owner-page-content')")&&has(watchdog,"n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Home hidden-fallback-safe readiness contract is missing');
 need(has(watchdog,"if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')&&!!n.querySelector('#rona-analytics-v2 .an2-controls')&&!!n.querySelector('#rona-analytics-v2 .an2-main')"),'Analytics rendered readiness contract is missing');
 need(!has(watchdog,'location.reload(')&&!has(watchdog,'location.replace('),'Watchdog still performs destructive navigation/reload');
-need(has(watchdog,"p==='claims'")&&has(watchdog,"p==='agent-settlements'")&&has(watchdog,'rona:admin-module-retry'),'Watchdog does not recover Claims/Rewards in-place');
+need(!has(watchdog,"p==='claims'")&&has(watchdog,"p==='agent-settlements'")&&has(watchdog,'rona:admin-module-retry'),'Watchdog Claims retirement / Rewards recovery contract is invalid');
 need(has(watchdog,"if(p==='market-news')return'market-news-current'")&&has(watchdog,"root.querySelector(':scope > .mn-masthead')")&&has(watchdog,"activateMarketNews('watchdog-content-repair')"),'Watchdog does not repair an emptied current Market News owner');
 need(has(remaining,"__RONA_MARKET_NEWS_OWNER_GUARD_V6__='20260827-content-health-v6'")&&has(remaining,"if(!healthy(root))emitRepair('market-news-owner-guard-v6-content-repair')"),'No-store Market News content-health guard is missing');
 
@@ -193,7 +193,7 @@ need(has(productionVerify,'CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN')&&has(pro
 
 if(failures.length){console.error('ADMIN_SINGLE_OWNER_QA=FAIL');for(const f of failures)console.error('- '+f);process.exit(1)}
 console.log('ADMIN_SINGLE_OWNER_QA=PASS');
-console.log('routes=access,claims,agent-settlements,analytics,market-news');
+console.log('routes=access,agent-settlements,analytics,market-news; claims=retired');
 console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v5');
 console.log('operations-command-center=v10-operations-current-v2-single-owner; legacy-runtime=disabled; source=OPERATIONS_CURRENT_V2; visual=flightdeck-v5-full-rebuild');
