@@ -225,7 +225,7 @@ test('The dominant five-wagon-style cohort is a detour while the route still ter
   assert.match(v81,/rejoinMin=Math\.min\(planned\.length-1,Math\.max\(diverge\+1,0\)\)/);
   assert.match(v81,/rejoinMax=Math\.max\(rejoinMin,Math\.min\(target,planned\.length-1\)\)/);
   assert.match(v81,/mode:'DOMINANT_COHORT_REJOIN_BASE_TO_DESTINATION'/);
-  assert.match(v81,/version:'20260921-single-canonical-route-destination-v3'/);
+  assert.match(v81,/version:'20261003-full-planned-route-base-v4'/);
   assert.match(v81,/__RONA_RAIL_ROUTE_COHORTS__='20260921-route-cohorts-v1'/);
   assert.match(v81,/__RONA_RAIL_ROUTE_REJOIN__='20260921-dominant-rejoin-v2'/);
   assert.doesNotMatch(v81,/function railMapRenderLegend\(state\)/);
