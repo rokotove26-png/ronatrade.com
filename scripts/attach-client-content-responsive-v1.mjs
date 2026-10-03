@@ -5,7 +5,7 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const cssPath='dist/assets/portal-runtime/client-content-responsive-v1.css';
 const id='rona-client-content-responsive-v1';
-const href='/assets/portal-runtime/client-content-responsive-v1.css?v=20260830-content-width-aware-v1';
+const href='/assets/portal-runtime/client-content-responsive-v1.css?v=20261004-client-deals-layout-v13';
 const marker='20260830-content-width-aware-v1';
 const sha256=value=>createHash('sha256').update(value).digest('hex');
 
