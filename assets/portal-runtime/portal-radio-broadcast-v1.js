@@ -1,10 +1,11 @@
 (()=>{'use strict';
-const MARK='20261003-stage2c1-v3-inline-ticker';
+const MARK='20261003-stage2c1-v4-durable-read';
 if(window.__RONA_PORTAL_RADIO_BROADCAST_V1__===MARK)return;
 const role=location.pathname==='/portal/agent'?'AGENT':(location.pathname==='/portal/client'?'CLIENT':'');
 if(!role)return;
 window.__RONA_PORTAL_RADIO_BROADCAST_V1__=MARK;
 const OWNER='/portal/owner-api?path='+encodeURIComponent(role==='CLIENT'?'/client/radio':'/agent/radio');
+const READ_ENDPOINT=id=>'/portal/owner-api?path='+encodeURIComponent('/client/radio/'+encodeURIComponent(String(id))+'/read');
 const POLL_MS=60000;
 const MAX_POLLS=10;
 const READ_KEY='rona_radio_notification_read_v1';
@@ -106,10 +107,30 @@ function renderTicker(){
   for(let i=0;i<2;i++){const copy=document.createElement('span');copy.className='rona-radio-ticker-copy';copy.textContent=text;track.appendChild(copy)}
   win.appendChild(track);
 }
-function closeModal(id){
+async function persistServerRead(id){
+  if(role!=='CLIENT'||!id)return false;
+  try{
+    const response=await fetch(READ_ENDPOINT(id),{
+      method:'POST',
+      credentials:'same-origin',
+      cache:'no-store',
+      keepalive:true,
+      headers:{accept:'application/json','content-type':'application/json','x-rona-client-source':'RADIO_NOTIFICATION_READ_V1'},
+      body:'{}'
+    });
+    const body=await response.json().catch(()=>null);
+    if(!response.ok||body?.ok===false)throw new Error(String(body?.code||('HTTP_'+response.status)));
+    return true;
+  }catch(error){
+    state.error=String(error?.message||error||'RADIO_NOTIFICATION_READ_PERSIST_FAILED');
+    return false;
+  }
+}
+async function closeModal(id){
   if(id){
     dismissed.add(String(id));
     persistRead(dismissed);
+    await persistServerRead(id);
   }
   document.getElementById('ronaRadioNotificationOverlay')?.remove();
   queueMicrotask(renderModal);
@@ -132,7 +153,7 @@ function renderModal(){
   const card=document.createElement('section');card.className='rona-radio-modal-card';card.setAttribute('role','dialog');card.setAttribute('aria-modal','true');card.setAttribute('aria-labelledby','ronaRadioNotificationTitle');
   const head=document.createElement('div');head.className='rona-radio-modal-head';
   const title=document.createElement('div');title.className='rona-radio-modal-title';title.id='ronaRadioNotificationTitle';title.textContent='Уведомление RONA Trade';
-  const close=document.createElement('button');close.className='rona-radio-modal-close';close.type='button';close.textContent='Закрыть';close.addEventListener('click',()=>closeModal(id));
+  const close=document.createElement('button');close.className='rona-radio-modal-close';close.type='button';close.textContent='Закрыть';close.addEventListener('click',()=>{void closeModal(id)});
   head.append(title,close);
   const body=document.createElement('div');body.className='rona-radio-modal-body';body.textContent=norm(item.body_text)||'—';
   const meta=document.createElement('div');meta.className='rona-radio-modal-meta';meta.textContent=item.active_from?'Опубликовано: '+new Date(item.active_from).toLocaleString('ru-RU'):'';
@@ -148,6 +169,13 @@ async function refresh(reason='poll'){
     if(!response.ok||body?.ok===false)throw new Error(String(body?.code||('HTTP_'+response.status)));
     if(seq!==state.requestSeq)return;
     state.radio=Array.isArray(body?.data?.radio)?body.data.radio:[];
+    if(role==='CLIENT'){
+      const migrate=state.radio.filter(x=>upper(x?.item_kind)==='NOTIFICATION'&&dismissed.has(String(x?.id||'')));
+      if(migrate.length){
+        await Promise.allSettled(migrate.map(x=>persistServerRead(String(x.id||''))));
+        state.radio=state.radio.filter(x=>!dismissed.has(String(x?.id||'')));
+      }
+    }
     state.lastLoadedAt=Date.now();state.error=null;render();
   }catch(error){state.error=String(error?.message||error||'RADIO_BROADCAST_LOAD_FAILED')}
   finally{state.loading=false}
@@ -169,7 +197,7 @@ function start(){
   window.addEventListener('pageshow',()=>wake('pageshow'),{passive:true});
   window.addEventListener('rona:radio-refresh',()=>wake('event'),{passive:true});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)wake('visible')},{passive:true});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'){const root=document.getElementById('ronaRadioNotificationOverlay');if(root)closeModal(root.dataset.itemId||'')}})
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'){const root=document.getElementById('ronaRadioNotificationOverlay');if(root)void closeModal(root.dataset.itemId||'')}})
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
