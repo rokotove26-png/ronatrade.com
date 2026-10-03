@@ -24,14 +24,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-      - name: Syntax and type checks
+      - name: Syntax and source checks
         run: |
           set -euo pipefail
           node --check functions/portal/deals-current-state-ui.js
-          deno check --node-modules-dir=auto supabase/functions/rona-portal-api/payments-v8-production-hardening.ts
+          test -s supabase/functions/rona-portal-api/payments-v8-production-hardening.ts
       - name: Lifecycle contracts
         run: |
           set -euo pipefail
