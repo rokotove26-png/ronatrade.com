@@ -160,7 +160,7 @@ if(!SCRIPT.includes("function isPostExecutionAttention(d){return !!(d&&d.post_ra
 if(!SCRIPT.includes("function isExecutionMonitoringActive(d){return isActive(d)&&!isPostExecutionAttention(d)}"))throw new Error('DEALS_EXECUTION_MONITORING_SCOPE_MISSING');
 if(!SCRIPT.includes("var active=ds.filter(isExecutionMonitoringActive).length"))throw new Error('DEALS_ACTIVE_EXCLUSIVITY_MISSING');
 if(!SCRIPT.includes("return ds.filter(isExecutionMonitoringActive)"))throw new Error('DEALS_ACTIVE_FILTER_EXCLUSIVITY_MISSING');
-if(!SCRIPT.includes("return !!(d&&d.post_rail_completion_attention===true)||structuralIssue(d)||needsPaymentHandoffAction(d)"))throw new Error('DEALS_POST_RAIL_PAID_ATTENTION_RULE_MISSING');
+if(!SCRIPT.includes("function needsAttention(d){if(isPostExecutionAttention(d))return true;if(!isExecutionMonitoringActive(d))return false;return structuralIssue(d)||needsPaymentHandoffAction(d)}"))throw new Error('DEALS_POST_RAIL_PAID_ATTENTION_RULE_MISSING');
 if(!SCRIPT.includes('return !(add||signed)||!inv'))throw new Error('DEALS_RONA_DOCUMENT_PAIR_RULE_MISSING');
 if(!SCRIPT.includes("function hasClientSignedAddendum(d){return !!docKind(d&&d.deal_id,'SIGNED_ADDENDUM')}"))throw new Error('DEALS_CLIENT_SIGNED_ADDENDUM_STATUS_SOURCE_MISSING');
 if(!SCRIPT.includes("if(d&&d.post_rail_completion_attention===true||structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'"))throw new Error('DEALS_POST_RAIL_PAID_HOLD_RULE_MISSING');
