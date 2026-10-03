@@ -17,16 +17,16 @@
       "required_marker": "20261003-client-deals-authoritative-lifecycle-tabs-v11"
     },
     "scripts/attach-portal-canonical-button-hover-v1.mjs": {
-      "sha": "b1dd48d76bb5a366356257159e7e54fb53439ee2",
-      "required_marker": "20261004-client-deals-button-v13"
+      "sha": "ff1aa909ab334a045960f0bfdd20325d5258cfe0",
+      "required_marker": "20261004-client-deals-button-v14"
     },
     "assets/portal-runtime/client-content-responsive-v1.css": {
       "sha": "7f4a5677b4de6738a28c01d3737b4306c2a323a6",
       "required_marker": "RONA_CLIENT_DEALS_VISUAL_HIERARCHY_V12"
     },
     "assets/portal-runtime/portal-canonical-button-hover-v1.js": {
-      "sha": "f4437f1f84d4648d079140071f66848d32ce1973",
-      "required_marker": "min-height:54px!important"
+      "sha": "be5de028f3adaa28e4b92d528aa2fe27e659eaa7",
+      "required_marker": "20261004-client-deals-title-frame-align-v14"
     },
     "scripts/attach-client-content-responsive-v1.mjs": {
       "sha": "b51bec5d1b01cd45881471a0be6e5460a4e49f1c",
@@ -58,9 +58,14 @@
     "stage_controls_explicit_button_design": true,
     "stage_controls_title_frame_width_alignment": true,
     "stage_controls_title_frame_right_edge_alignment": true,
-    "cache_bust_visual_assets": true
+    "cache_bust_visual_assets": true,
+    "all_deals_main_frames_title_frame_width_alignment": true,
+    "company_context_frame_title_alignment": true,
+    "filter_frame_title_alignment": true,
+    "authoritative_deal_list_title_frame_alignment": true,
+    "dynamic_title_frame_geometry": true
   },
-  "owner_instruction_current": "Разделы должны иметь явный кнопочный дизайн и быть выровнены по ширине рамки заголовка.",
+  "owner_instruction_current": "Все рамки раздела должны быть строго выровнены по ширине рамки заголовка.",
   "visual_correction_authorized_at": "2026-10-04",
-  "visual_correction_scope": "CLIENT_DEALS_BUTTON_TABS_ALIGNED_V13"
+  "visual_correction_scope": "CLIENT_DEALS_ALL_FRAMES_TITLE_ALIGNMENT_V14"
 }
