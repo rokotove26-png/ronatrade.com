@@ -10,10 +10,6 @@ const SCRIPT=RAW
     "function waitsAction(d){if(!isActive(d))return false;return Number(d&&d.client_remaining_amount||0)>0||String(d&&d.payment_expectation_state||'').toUpperCase()==='ACTIVE'||needsAttention(d)}",
     "function numericValue(v){if(v===null||v===undefined||v==='')return null;var n=Number(v);return Number.isFinite(n)?n:null}function knownRemaining(d){return numericValue(d&&d.client_remaining_amount)}function waitsPayment(d){if(!isActive(d))return false;var due=numericValue(d&&d.due_now),projection=String(d&&d.finance_projection_version||'').toUpperCase();if(projection==='FINANCE_V8')return due!==null&&due>0;var expectation=String(d&&d.payment_expectation_state||'').toUpperCase(),remaining=knownRemaining(d),expected=numericValue(d&&d.payment_expectation_amount);if(expectation!=='ACTIVE')return false;if(remaining!==null)return remaining>0;if(expected!==null)return expected>0;return true}"
   )
-  .replace(
-    "function needsAttention(d){if(!isActive(d))return false;return contractNeedsAction(d)||financeNeedsAction(d)||!d.product_confirmed_at||!d.quantity_confirmed_at||!String(d.delivery_basis||'').trim()||missingDocuments(d)}",
-    "function needsAttention(d){if(!isActive(d))return false;return !!(d&&d.post_rail_completion_attention===true)||contractNeedsAction(d)||financeNeedsAction(d)||!d.product_confirmed_at||!d.quantity_confirmed_at||!String(d.delivery_basis||'').trim()||missingDocuments(d)}"
-  )
   .replaceAll('waitsAction','waitsPayment')
   .replace("api('/admin/workflow-bootstrap')","api('/admin/deals-current-v4')")
   .replace(
@@ -46,7 +42,7 @@ const SCRIPT=RAW
   )
   .replace(
     "function needsAttention(d){if(!isActive(d))return false;return contractNeedsAction(d)||financeNeedsAction(d)||!d.product_confirmed_at||!d.quantity_confirmed_at||!String(d.delivery_basis||'').trim()||missingDocuments(d)}",
-    "function structuralIssue(d){if(!isActive(d))return false;return contractNeedsAction(d)||financeNeedsAction(d)||!d.product_confirmed_at||!d.quantity_confirmed_at||!String(d.delivery_basis||'').trim()||missingDocuments(d)}function needsPaymentHandoffAction(d){if(!isActive(d)||structuralIssue(d))return false;if(String(d&&d.finance_projection_version||'').toUpperCase()==='FINANCE_V8')return false;var remaining=knownRemaining(d),handoff=String(d&&d.payment_handoff_state||'NOT_SENT').toUpperCase(),expectation=String(d&&d.payment_expectation_state||'NOT_CREATED').toUpperCase();if(remaining!==null&&remaining<=0)return false;return handoff!=='SENT'&&expectation!=='ACTIVE'}function needsAttention(d){if(!isActive(d))return false;return structuralIssue(d)||needsPaymentHandoffAction(d)}"
+    "function structuralIssue(d){if(!isActive(d))return false;return contractNeedsAction(d)||financeNeedsAction(d)||!d.product_confirmed_at||!d.quantity_confirmed_at||!String(d.delivery_basis||'').trim()||missingDocuments(d)}function needsPaymentHandoffAction(d){if(!isActive(d)||structuralIssue(d))return false;if(String(d&&d.finance_projection_version||'').toUpperCase()==='FINANCE_V8')return false;var remaining=knownRemaining(d),handoff=String(d&&d.payment_handoff_state||'NOT_SENT').toUpperCase(),expectation=String(d&&d.payment_expectation_state||'NOT_CREATED').toUpperCase();if(remaining!==null&&remaining<=0)return false;return handoff!=='SENT'&&expectation!=='ACTIVE'}function needsAttention(d){if(!isActive(d))return false;return !!(d&&d.post_rail_completion_attention===true)||structuralIssue(d)||needsPaymentHandoffAction(d)}"
   )
   .replace(
     "kpi('Ожидают оплаты или действий',String(metrics.waiting),'Только текущее состояние действующих сделок','waiting')",
@@ -58,7 +54,7 @@ const SCRIPT=RAW
   )
   .replace(
     "function overall(d){if(isCancelled(d))return'NO-GO';if(isArchived(d))return'ARCHIVE';if(isCompleted(d))return'COMPLETE';if(contractConflict(d))return'HOLD';if(needsAttention(d)||waitsPayment(d))return'HOLD';return'GO'}",
-    "function hasClientSignedAddendum(d){return !!docKind(d&&d.deal_id,'SIGNED_ADDENDUM')}function paymentAlreadySettled(d){var remaining=knownRemaining(d);return remaining!==null&&remaining<=0}function overall(d){if(isCancelled(d))return'NO-GO';if(isArchived(d))return'ARCHIVE';if(isCompleted(d))return'COMPLETE';if(structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'}"
+    "function hasClientSignedAddendum(d){return !!docKind(d&&d.deal_id,'SIGNED_ADDENDUM')}function paymentAlreadySettled(d){var remaining=knownRemaining(d);return remaining!==null&&remaining<=0}function overall(d){if(isCancelled(d))return'NO-GO';if(isArchived(d))return'ARCHIVE';if(isCompleted(d))return'COMPLETE';if(d&&d.post_rail_completion_attention===true||structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'}"
   )
   .replace(
     "function totalAmount(ds){var scope=ds.filter(includedForTotals),missing=false,totals={};scope.forEach(function(d){var raw=d&&d.obligation_amount,c=String(d&&d.finance_currency||'').trim();if(raw===null||raw===undefined||raw===''||!c){missing=true;return}var n=Number(raw);if(!Number.isFinite(n)){missing=true;return}totals[c]=(totals[c]||0)+n});var entries=Object.entries(totals);if(missing)return{value:'—',caption:'Есть сделки без подтверждённой суммы'};if(!entries.length)return{value:'—',caption:'Подтверждённые суммы не сформированы'};return{value:entries.map(function(p){return money(p[1],p[0])}).join(' · '),caption:'Без отменённых, удалённых и архивных сделок'}}",
@@ -148,10 +144,10 @@ if(!SCRIPT.includes('локальное время источника'))throw ne
 if(!SCRIPT.includes("left.append(commercial,logistics);right.append(finance,documents)"))throw new Error('DEALS_DRAWER_INDEPENDENT_COLUMNS_MISSING');
 if(!SCRIPT.includes('.rona-current-deal-detail-column{display:grid'))throw new Error('DEALS_DRAWER_COLUMN_LAYOUT_MISSING');
 if(!SCRIPT.includes("function needsPaymentHandoffAction(d)"))throw new Error('DEALS_PAYMENT_HANDOFF_ACTION_RULE_MISSING');
-if(!SCRIPT.includes("return structuralIssue(d)||needsPaymentHandoffAction(d)"))throw new Error('DEALS_ATTENTION_ACTION_SPLIT_MISSING');
+if(!SCRIPT.includes("return !!(d&&d.post_rail_completion_attention===true)||structuralIssue(d)||needsPaymentHandoffAction(d)"))throw new Error('DEALS_POST_RAIL_PAID_ATTENTION_RULE_MISSING');
 if(!SCRIPT.includes('return !(add||signed)||!inv'))throw new Error('DEALS_RONA_DOCUMENT_PAIR_RULE_MISSING');
 if(!SCRIPT.includes("function hasClientSignedAddendum(d){return !!docKind(d&&d.deal_id,'SIGNED_ADDENDUM')}"))throw new Error('DEALS_CLIENT_SIGNED_ADDENDUM_STATUS_SOURCE_MISSING');
-if(!SCRIPT.includes("if(structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'"))throw new Error('DEALS_STRUCTURAL_GO_HOLD_RULE_MISSING');
+if(!SCRIPT.includes("if(d&&d.post_rail_completion_attention===true||structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'"))throw new Error('DEALS_POST_RAIL_PAID_HOLD_RULE_MISSING');
 if(!SCRIPT.includes("send.disabled=overall(d)!=='GO'||String(d.payment_handoff_state||'')==='SENT'||String(d.finance_projection_version||'').toUpperCase()==='FINANCE_V8'||paymentAlreadySettled(d)"))throw new Error('DEALS_PAYMENT_HANDOFF_GO_GATE_MISSING');
 if(!SCRIPT.includes("if(String(d&&d.finance_projection_version||'').toUpperCase()==='FINANCE_V8')return false"))throw new Error('DEALS_GO_READINESS_FREEZE_AFTER_FINANCE_MISSING');
 if(!SCRIPT.includes("inFinance?'В платежном контуре'"))throw new Error('DEALS_FINANCE_HANDOFF_REPLAY_GUARD_MISSING');
