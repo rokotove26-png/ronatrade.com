@@ -10,7 +10,7 @@
     "assets/portal-runtime/client-payments-authoritative-v1.js": {
       "visual_freeze_baseline_blob_sha": "63a03da68bfce4ed43da236a3f66cbfadec3bdd9",
       "authorized_parent_blob_sha": "482b1876593ac5fcb3b034c9735e86e2078bd3fa",
-      "authorized_post_blob_sha": "66cb8cfb0d3f356c073ab5845fd7a06acf3e5e44",
+      "authorized_post_blob_sha": "60e2b489452dcbf8417a72297b6b80d0f3e104be",
       "required_marker": "20261004-client-payments-authoritative-v4-execution-exit"
     }
   },
