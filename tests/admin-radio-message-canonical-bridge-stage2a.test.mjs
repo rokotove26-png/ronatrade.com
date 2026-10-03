@@ -255,8 +255,12 @@ test('Stage 2A production proof waits for a quiet release branch and cancels sup
   assert.match(workflow,/node scripts\/qa-admin-radio-stage2a-production-quiet-gate\.mjs/);
 
   assert.match(gate,/RELEASE_HEAD_CHANGED/);
-  assert.match(gate,/Number\(run\.id\)!==runId/);
-  assert.match(gate,/String\(run\.status\)!=='completed'/);
+  assert.match(gate,/Number\(run\.id\)===runId/);
+  assert.match(gate,/String\(run\.status\)==='completed'/);
+  assert.match(gate,/staleWrapperGraceMs=2\*60\*1000/);
+  assert.match(gate,/actions\/runs\/\$\{run\.id\}\/jobs\?per_page=100/);
+  assert.match(gate,/jobs\.every\(job=>String\(job\.status\)==='completed'\)/);
+  assert.match(gate,/PRODUCTION_QUIET_GATE=STALE_RUN_IGNORED/);
   assert.match(gate,/PRODUCTION_QUIET_GATE=PASS/);
   assert.match(gate,/25\*60\*1000/);
   assert.match(gate,/await sleep\(15000\)/);
