@@ -212,7 +212,7 @@ const MONITOR_LIFECYCLE_STATUS_FROM="function status(x,exchange){var ws=Array.is
 const MONITOR_LIFECYCLE_STATUS_TO="function status(x,exchange){var ws=Array.isArray(x&&x.wagons)?x.wagons:[],m=railDealMonitoringState(ws),life=railMonitoringSelectedLifecycle();if(!m.active)return pill('Мониторинг не запущен','warn');if(life&&life.completionReady===true)return railMonitoringCompleteButton(life);if(m.attention>0)return pill('Требуют внимания','warn');return pill('Мониторинг активен','success')}";
 const MONITOR_LIFECYCLE_SYNC_FROM="async function sync(){try{var next=await api('/admin/bootstrap');";
 const MONITOR_LIFECYCLE_SYNC_TO="async function sync(){try{var pair=await Promise.all([api('/admin/bootstrap'),api('/admin/rail-monitoring-lifecycle').catch(function(){return{deals:[]}})]);var next=pair[0];railMonitoringLifecycle=pair[1]||{deals:[]};";
-const MONITOR_LIFECYCLE_HELPER_ANCHOR="function railDealOptions(data,rail){";
+const MONITOR_LIFECYCLE_STATE_ANCHOR="var API='/portal/owner-api',snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
 const MONITOR_LIFECYCLE_HELPERS=String.raw`var railMonitoringLifecycle={deals:[]};
 function railMonitoringRows(){return Array.isArray(railMonitoringLifecycle&&railMonitoringLifecycle.deals)?railMonitoringLifecycle.deals:[]}
 function railMonitoringLifecycleFor(dealKey,dealId){var key=String(dealKey||''),id=String(dealId||'');return railMonitoringRows().find(function(x){return String(x&&x.dealKey||'')===key||String(x&&x.dealId||'')===id})||null}
@@ -240,7 +240,7 @@ export async function onRequest(context){
     !source.includes(MONITOR_LIFECYCLE_RAIL_OPTIONS_FROM)||
     !source.includes(MONITOR_LIFECYCLE_STATUS_FROM)||
     !source.includes(MONITOR_LIFECYCLE_SYNC_FROM)||
-    !source.includes(MONITOR_LIFECYCLE_HELPER_ANCHOR)||
+    !source.includes(MONITOR_LIFECYCLE_STATE_ANCHOR)||
     !source.includes('host.replaceChildren(root);if(matrix)host.append(matrix);isolate(page,host);dedupeOnlineRail(host);')
   ){
     return new Response('RAIL_V82_SOURCE_MISMATCH',{status:500,headers:{
@@ -258,13 +258,24 @@ export async function onRequest(context){
     .replace(NOTE_STYLE_FROM,NOTE_STYLE_TO)
     .replace(REPAIR_ANCHOR,REPAIR_RUNTIME)
     .replace(POLL_FROM,POLL_TO)
-    .replace(MONITOR_LIFECYCLE_HELPER_ANCHOR,MONITOR_LIFECYCLE_HELPERS+MONITOR_LIFECYCLE_HELPER_ANCHOR)
+    .replace(MONITOR_LIFECYCLE_STATE_ANCHOR,MONITOR_LIFECYCLE_STATE_ANCHOR+'\n'+MONITOR_LIFECYCLE_HELPERS)
     .replace(MONITOR_LIFECYCLE_OPTIONS_FROM,MONITOR_LIFECYCLE_OPTIONS_TO)
     .replace(MONITOR_LIFECYCLE_RAIL_OPTIONS_FROM,MONITOR_LIFECYCLE_RAIL_OPTIONS_TO)
     .replace(MONITOR_LIFECYCLE_STATUS_FROM,MONITOR_LIFECYCLE_STATUS_TO)
     .replace(MONITOR_LIFECYCLE_SYNC_FROM,MONITOR_LIFECYCLE_SYNC_TO)
     .replace('host.replaceChildren(root);if(matrix)host.append(matrix);isolate(page,host);dedupeOnlineRail(host);','host.replaceChildren(root);isolate(page,host);dedupeOnlineRail(host);if(typeof removeRailTariffPanel===\'function\')removeRailTariffPanel();if(typeof scheduleRailMapHeightAlignment===\'function\')scheduleRailMapHeightAlignment();');
   source=source.split('if(matrix)host.append(matrix);').join('if(matrix)matrix.remove();');
+  if(
+    !source.includes('var railMonitoringLifecycle={deals:[]};')||
+    !source.includes('function railMonitoringIsCompleted(')||
+    !source.includes('function railMonitoringCompleteButton(')||
+    !source.includes("api('/admin/rail-monitoring-lifecycle')")
+  ){
+    return new Response('RAIL_V82_LIFECYCLE_RUNTIME_GENERATION_FAILED',{status:500,headers:{
+      'content-type':'text/plain; charset=utf-8',
+      'cache-control':'no-store'
+    }});
+  }
 
   const headers=new Headers(response.headers);
   headers.set('cache-control','no-store, no-cache, must-revalidate');
