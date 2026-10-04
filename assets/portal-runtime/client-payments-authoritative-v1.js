@@ -1,5 +1,6 @@
 (()=>{'use strict';
 const MARK='20260922-client-payments-authoritative-v3-event-driven';
+const EXECUTION_EXIT_MARK='20261004-client-payments-authoritative-v4-execution-exit';
 if(window.__RONA_CLIENT_PAYMENTS_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_PAYMENTS_RUNTIME__=MARK;
 window.__RONA_CLIENT_PAYMENTS_REFRESH_POLICY__={mode:'EVENT_DRIVEN',polling:false,events:['PAYMENTS_OPEN','CONTEXT_CHANGE','PAGE_SHOW','VISIBLE_WHILE_OPEN']};
@@ -88,6 +89,7 @@ function paymentLabel(deal){
   if(!resourceConfirmed(deal))return'Ожидается подтверждение ресурса';
   return norm(deal?.payment_label)||norm(deal?.payment_status)||'Статус оплаты уточняется';
 }
+function monitoringDeal(deal){return deal?.client_payments_monitoring_active!==false}
 function aggregate(deals){
   const by=new Map();
   for(const d of deals){
@@ -104,7 +106,8 @@ function render(detail,ctx){
   let host=root.querySelector('[data-rona-client-payments-owner="finance-authoritative-v1"]');
   if(!host){host=document.createElement('section');host.setAttribute('data-rona-client-payments-owner','finance-authoritative-v1');root.appendChild(host)}
   host.removeAttribute('data-rona-payments-legacy-hidden');
-  const deals=Array.isArray(detail?.deals)?detail.deals:[];
+  const allDeals=Array.isArray(detail?.deals)?detail.deals:[];
+  const deals=allDeals.filter(monitoringDeal);
   const payments=(Array.isArray(detail?.payments)?detail.payments:[]).filter(confirmedPayment);
   const totals=aggregate(deals);
   const totalBlock=totals.length?totals.map(a=>`<div class="rona-payments-kpi"><span>К оплате</span><b>${esc(money(a.obligation,a.currency==='—'?'':a.currency))}</b><small>По сделкам выбранного договора</small></div><div class="rona-payments-kpi"><span>Получено</span><b>${esc(money(a.received,a.currency==='—'?'':a.currency))}</b><small>Подтверждённые поступления</small></div><div class="rona-payments-kpi"><span>Остаток</span><b>${esc(money(a.remaining,a.currency==='—'?'':a.currency))}</b><small>До полного исполнения</small></div><div class="rona-payments-kpi"><span>Прогресс</span><b>${Math.round(a.percent)}%</b><small>${esc(a.currency==='—'?'':a.currency)}</small></div>`).join(''):`<div class="rona-payments-empty">По выбранному договору нет сделок с платёжными обязательствами.</div>`;

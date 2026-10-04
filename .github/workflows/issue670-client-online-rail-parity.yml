@@ -102,6 +102,10 @@ jobs:
             echo 'supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs'
             echo 'tests/client-deal-state-v1.test.mjs'
             echo 'tests/client-load-feedback-loop-hotfix-v1.test.mjs'
+            echo '.github/workflows/deal-execution-exit-exclusive-stage-qa.yml'
+            echo 'governance/client-deal-attention-payments-exit-owner-approval-20261004.json'
+            echo 'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts'
+            echo 'tests/client-deal-attention-payments-exit-v1.test.mjs'
           } | sort -u > /tmp/issue670-allowed.txt
           comm -23 /tmp/issue670-changed.txt /tmp/issue670-allowed.txt | tee /tmp/issue670-unexpected.txt
           if test -s /tmp/issue670-unexpected.txt; then
@@ -196,7 +200,20 @@ jobs:
             supabase/functions/rona-owner-acceptance/rail-admin-read-model-overlay.mjs; do
             test -z "$(git diff "$base"...HEAD -- "$path")" || { echo "ISSUE670_ADMIN_RAIL_FROZEN=FAIL $path"; exit 1; }
           done
-          if git diff --name-only "$base"...HEAD | grep -E '(^|/)(finance|payments|prices|access)(/|\.|-)'; then
+          git diff --name-only "$base"...HEAD > /tmp/issue670-domain-candidates.txt
+          : > /tmp/issue670-unrelated-domain.txt
+          while IFS= read -r changed; do
+            case "$changed" in
+              ".github/workflows/client-payments-authoritative-qa.yml"|"assets/portal-runtime/client-payments-authoritative-v1.js"|"governance/client-deal-attention-payments-exit-owner-approval-20261004.json"|"supabase/functions/rona-portal-api/payments-v8-production-hardening.ts"|"tests/client-deal-attention-payments-exit-v1.test.mjs")
+                continue
+                ;;
+            esac
+            if printf '%s\n' "$changed" | grep -Eq '(^|/)(finance|payments|prices|access)(/|\.|-)'; then
+              printf '%s\n' "$changed" >> /tmp/issue670-unrelated-domain.txt
+            fi
+          done < /tmp/issue670-domain-candidates.txt
+          if test -s /tmp/issue670-unrelated-domain.txt; then
+            cat /tmp/issue670-unrelated-domain.txt
             echo 'ISSUE670_UNRELATED_DOMAIN_CHANGE=FAIL'
             exit 1
           fi
@@ -240,5 +257,6 @@ jobs:
             /tmp/issue670-changed.txt
             /tmp/issue670-allowed.txt
             /tmp/issue670-unexpected.txt
+            /tmp/issue670-unrelated-domain.txt
             /tmp/issue670-frontend-fixture-browser.log
             /tmp/issue670-final.txt
