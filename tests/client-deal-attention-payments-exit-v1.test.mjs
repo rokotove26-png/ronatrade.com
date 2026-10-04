@@ -47,3 +47,24 @@ test('Client execution exit remains projection-only',()=>{
   assert.doesNotMatch(hardening,/delete\s+from\s+portal_private\.(deals|payments|payment_allocations|rail_deal_monitoring_control_v1)/i);
   assert.doesNotMatch(hardening,/truncate\s+table|drop\s+table/i);
 });
+
+
+test('Cloudflare Client context composes authoritative Rail completion for execution exit',()=>{
+  assert.match(proxy,/CLIENT_DEAL_RAIL_COMPLETION_ATTENTION_AND_PAYMENTS_EXIT_EDGE_V1/);
+  assert.match(proxy,/function enrichClientExecutionExitAtEdge\(/);
+  assert.match(proxy,/CANDIDATE_API}\/v1\/client\/rail-canonical\?clientId=/);
+  assert.match(proxy,/clientRailAuthority/);
+  assert.match(proxy,/authority\?\.serverDerived!==true/);
+  assert.match(proxy,/String\(authority\?\.clientId\|\|''\)!==clientId/);
+  assert.match(proxy,/String\(authority\?\.contractId\|\|''\)!==contractId/);
+  assert.match(proxy,/deal\.post_rail_completion_attention=railCompleted&&!terminal/);
+  assert.match(proxy,/deal\.client_deal_stage='ATTENTION'/);
+  assert.match(proxy,/deal\.client_deal_stage_label='Требует внимания'/);
+  assert.match(proxy,/function clientDealFullyPaidForExit\(deal\)/);
+  assert.match(proxy,/FINANCE_V7_AUTHORITATIVE/);
+  assert.match(proxy,/const paymentsExit=railCompleted&&clientDealFullyPaidForExit\(deal\)/);
+  assert.match(proxy,/deal\.client_payments_monitoring_active=!paymentsExit/);
+  assert.match(proxy,/RAIL_COMPLETED_AND_100_PERCENT_PAID/);
+  assert.match(proxy,/if\(path==='\/v1\/client\/context'\)response=await enrichClientExecutionExitAtEdge/);
+  assert.match(proxy,/catch\{return response\}/);
+});
