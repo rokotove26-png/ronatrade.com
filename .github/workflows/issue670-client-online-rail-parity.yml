@@ -200,53 +200,18 @@ jobs:
             supabase/functions/rona-owner-acceptance/rail-admin-read-model-overlay.mjs; do
             test -z "$(git diff "$base"...HEAD -- "$path")" || { echo "ISSUE670_ADMIN_RAIL_FROZEN=FAIL $path"; exit 1; }
           done
-          git diff --name-only "$base"...HEAD \
-            | grep -E '(^|/)(finance|payments|prices|access)(/|\.|-)' \
-            | grep -v -E '^(\.github/workflows/client-payments-authoritative-qa\.yml|assets/portal-runtime/client-payments-authoritative-v1\.js|governance/client-deal-attention-payments-exit-owner-approval-20261004\.json|supabase/functions/rona-portal-api/payments-v8-production-hardening\.ts|tests/client-deal-attention-payments-exit-v1\.test\.mjs)          echo 'ISSUE670_ADMIN_RAIL_FROZEN=PASS'
-          echo 'ISSUE670_UNRELATED_DOMAINS_FROZEN=PASS'
-
-      - name: Final #670 summary
-        shell: bash
-        run: |
-          {
-            echo 'CURRENT_STATE_FIRST=PASS'
-            echo 'DELTA_ONLY=PASS'
-            echo 'CLIENT_CANONICAL_ENDPOINT=PASS'
-            echo 'SERVER_AUTHORITY_SOURCE_CONTRACT=PASS'
-            echo 'INTERNAL_CANONICAL_CORE=PASS'
-            echo 'REAL_BACKEND_ACCEPTANCE=SEPARATE_REQUIRED'
-            echo 'MOCK_BROWSER_BACKEND_ACCEPTANCE=NOT_CLAIMED'
-            echo 'HARD_RELOAD_READY=PASS'
-            echo 'DEAL_SWITCH_ISOLATION=PASS'
-            echo 'ADMIN_ROUTE_GEOMETRY=PASS'
-            echo 'ADMIN_CANONICAL_ROUTE_INHERIT=PASS'
-            echo 'PREMIUM_MAP_MARKERS=PASS'
-            echo 'ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS'
-            echo 'IDLE_NO_POLLING=PASS'
-            echo 'EVENT_DRIVEN_REFRESH=PASS'
-            echo 'DEGRADED_REFRESH_PRESERVE=PASS'
-            echo 'CONTEXT_TAMPER_FAIL_CLOSED=PASS'
-            echo 'NO_TARIFF_MATRIX=PASS'
-            echo 'ADMIN_RAIL_FROZEN=PASS'
-            echo 'NO_BUSINESS_DATA_WRITE=PASS'
-            echo 'FINAL=PASS'
-          } | tee /tmp/issue670-final.txt
-
-      - name: Upload #670 evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: issue670-client-online-rail-parity
-          retention-days: 14
-          if-no-files-found: error
-          path: |
-            /tmp/issue670-changed.txt
-            /tmp/issue670-allowed.txt
-            /tmp/issue670-unexpected.txt
-            /tmp/issue670-unrelated-domain.txt
-            /tmp/issue670-frontend-fixture-browser.log
-            /tmp/issue670-final.txt
- \
-            > /tmp/issue670-unrelated-domain.txt || true
+          git diff --name-only "$base"...HEAD > /tmp/issue670-domain-candidates.txt
+          : > /tmp/issue670-unrelated-domain.txt
+          while IFS= read -r changed; do
+            case "$changed" in
+              ".github/workflows/client-payments-authoritative-qa.yml"|"assets/portal-runtime/client-payments-authoritative-v1.js"|"governance/client-deal-attention-payments-exit-owner-approval-20261004.json"|"supabase/functions/rona-portal-api/payments-v8-production-hardening.ts"|"tests/client-deal-attention-payments-exit-v1.test.mjs")
+                continue
+                ;;
+            esac
+            if printf '%s\n' "$changed" | grep -Eq '(^|/)(finance|payments|prices|access)(/|\.|-)'; then
+              printf '%s\n' "$changed" >> /tmp/issue670-unrelated-domain.txt
+            fi
+          done < /tmp/issue670-domain-candidates.txt
           if test -s /tmp/issue670-unrelated-domain.txt; then
             cat /tmp/issue670-unrelated-domain.txt
             echo 'ISSUE670_UNRELATED_DOMAIN_CHANGE=FAIL'
@@ -292,5 +257,6 @@ jobs:
             /tmp/issue670-changed.txt
             /tmp/issue670-allowed.txt
             /tmp/issue670-unexpected.txt
+            /tmp/issue670-unrelated-domain.txt
             /tmp/issue670-frontend-fixture-browser.log
             /tmp/issue670-final.txt
