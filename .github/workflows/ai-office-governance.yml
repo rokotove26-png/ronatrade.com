@@ -1,0 +1,24 @@
+name: AI Office Governance QA
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/*ai_office_governance*'
+      - 'tests/ai-office-governance/**'
+      - 'package.json'
+      - '.github/workflows/ai-office-governance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  governance-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: AI Office governance contract tests
+        run: npm run test:ai-office-governance

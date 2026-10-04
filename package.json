@@ -7,6 +7,7 @@
     "test:payments-v7": "node --test tests/admin-payments-v7/*.test.mjs",
     "test:finance-global-payment-semantics": "node --test tests/finance-global-payment-semantics/*.test.mjs",
     "test:operations-center-v5": "node --test tests/admin-operations-center-v5.test.mjs",
-    "scan:payments-v7": "node scripts/check-admin-payments-v7-no-hardcode.mjs"
+    "scan:payments-v7": "node scripts/check-admin-payments-v7-no-hardcode.mjs",
+    "test:ai-office-governance": "node --test tests/ai-office-governance/*.test.mjs"
   }
 }
