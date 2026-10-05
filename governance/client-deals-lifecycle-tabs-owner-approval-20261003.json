@@ -5,16 +5,16 @@
   "owner_instruction": "В клиентском кабинете в разделе Сделки также нужно добавить разделы Активные, Требуют внимание, Завершенные. Разделы Закрывающие документы нужно удалить.",
   "approved_exact_blobs": {
     "assets/portal-runtime/client-deals-authoritative-v1.js": {
-      "sha": "ab3ac90a2f6a5ae2078944b6269aed1aa296a150",
-      "required_marker": "20261003-client-deals-authoritative-lifecycle-tabs-v11"
+      "sha": "c12edca86195834a1b30dcf8ac9575169c3ca395",
+      "required_marker": "20261005-client-deals-authoritative-lifecycle-tabs-v12-stage-filter-inline-hidden"
     },
     "assets/portal-runtime/client-sidebar-command-nav-v1.js": {
       "sha": "198faa47921ae83613ecae68bd46522af64eaaf0",
       "required_marker": "20261004-client-sidebar-command-nav-v3-no-closing-no-archive"
     },
     "scripts/attach-client-deals-authoritative-v1.mjs": {
-      "sha": "f981537502e2103e047106947e2c36af33138bc5",
-      "required_marker": "20261003-client-deals-authoritative-lifecycle-tabs-v11"
+      "sha": "c3e76815f041661f8d5aab9e147dfbbce45f29f4",
+      "required_marker": "20261005-client-deals-authoritative-lifecycle-tabs-v12-stage-filter-inline-hidden"
     },
     "scripts/attach-portal-canonical-button-hover-v1.mjs": {
       "sha": "70773c1eb44d719cc40ca6fdb75a15c6de928812",
@@ -69,12 +69,19 @@
     "left_and_right_edges_match_outer_title_frame": true,
     "standalone_deal_archive_removed": true,
     "archived_deal_business_state_preserved": true,
-    "deal_archive_backend_data_changed": false
+    "deal_archive_backend_data_changed": false,
+    "lifecycle_tab_exclusive_rendering": true,
+    "hidden_card_inline_important_override": true,
+    "canonical_visual_css_changed": false,
+    "business_data_changed": false
   },
   "owner_instruction_current": "Все разделы и рамки должны быть выровнены по ширине границ рамки заголовка.",
   "visual_correction_authorized_at": "2026-10-04",
   "visual_correction_scope": "CLIENT_DEALS_ALL_FRAMES_OUTER_TITLE_ALIGNMENT_V15",
   "owner_instruction_archive_removal": "Удали в клиентском кабинете раздел \"Архив сделок\"",
   "archive_removal_authorized_at": "2026-10-04",
-  "archive_removal_scope": "CLIENT_REMOVE_STANDALONE_DEAL_ARCHIVE_V1"
+  "archive_removal_scope": "CLIENT_REMOVE_STANDALONE_DEAL_ARCHIVE_V1",
+  "owner_instruction_filter_correction": "При переключении разделов ничего не происходит, отражаются все 3 сделки. Это не правильно.",
+  "filter_correction_authorized_at": "2026-10-05",
+  "filter_correction_scope": "CLIENT_DEALS_LIFECYCLE_TABS_EXCLUSIVE_VISIBILITY_V1"
 }
