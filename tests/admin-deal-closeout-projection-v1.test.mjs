@@ -5,6 +5,8 @@ import {onRequest as closeoutRuntime} from '../functions/portal/deals-current-st
 
 const migration=readFileSync('supabase/migrations/20261005055000_admin_deal_closeout_projection_v1.sql','utf8');
 const uiSource=readFileSync('functions/portal/deals-current-state-ui.js','utf8');
+const closingRuntime=readFileSync('assets/portal-runtime/admin-closeout-documents-v1.js','utf8');
+const ownerAcceptance=readFileSync('supabase/functions/rona-owner-acceptance/index.ts','utf8');
 
 test('Admin CLOSEOUT read model is projection-only and source locked',()=>{
   assert.match(migration,/create or replace function public\.owner_deals_current_v4\(\)/i);
@@ -56,4 +58,40 @@ test('Generated Admin CLOSEOUT runtime is isolated to ATTENTION and preserves st
   assert.match(ui,/Статус/);
   assert.doesNotMatch(ui,/DEAL-2026-004/);
   assert.doesNotMatch(uiSource,/DEAL-2026-004/);
+});
+
+
+test('Admin CLOSEOUT closing documents are a separate Owner workspace',async()=>{
+  const response=await closeoutRuntime();
+  const ui=await response.text();
+  assert.match(ui,/ADMIN_CLOSEOUT_DOCUMENTS_V1/);
+  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v1/);
+  for(const label of [
+    'Закрывающие документы',
+    'Подписанное дополнительное соглашение',
+    'Инвойс',
+    'Инструкция по возврату порожних вагонов',
+    'ЖД коды на возврат порожних вагонов',
+    'СМГС с отметкой о выдаче груза',
+    'СМГС №2 на порожние вагоны',
+    'Завершить сделку'
+  ]) assert.ok(closingRuntime.includes(label),label);
+  assert.match(closingRuntime,/EMPTY_WAGON_RETURN_INSTRUCTION/);
+  assert.match(closingRuntime,/EMPTY_WAGON_RETURN_RAIL_CODES/);
+  assert.match(closingRuntime,/SMGS_DELIVERY_STAMP/);
+  assert.match(closingRuntime,/SMGS_EMPTY_WAGONS/);
+  assert.match(ui,/function buildDetail\(d\)/);
+});
+
+test('Admin CLOSEOUT completion is gated by the canonical CLOSEOUT projection and audited',()=>{
+  assert.match(ownerAcceptance,/async function completeDealFromCloseout/);
+  assert.match(ownerAcceptance,/select public\.owner_deals_current_v4\(\) as data/);
+  assert.match(ownerAcceptance,/post_rail_completion_attention!==true/);
+  assert.match(ownerAcceptance,/closeout_stage/);
+  assert.match(ownerAcceptance,/DEAL_NOT_IN_CLOSEOUT/);
+  assert.match(ownerAcceptance,/for update/);
+  assert.match(ownerAcceptance,/business_status='CLOSED'/);
+  assert.match(ownerAcceptance,/lifecycle_state='CLOSED'::portal_private\.lifecycle_state_enum/);
+  assert.match(ownerAcceptance,/OWNER_DEAL_COMPLETED/);
+  assert.match(ownerAcceptance,/ADMIN_CLOSEOUT_DOCUMENT_KINDS/);
 });

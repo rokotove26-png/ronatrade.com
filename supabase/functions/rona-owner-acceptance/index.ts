@@ -489,6 +489,45 @@ async function uploadRaw(prefix,parsed){const objectName=`${prefix}/${crypto.ran
 async function registerDealPdf(ctx,req,dealId,kind,isClientUpload=false){const parsed=await parsePdf(req);const d=(await sql`select d.id deal_key,d.client_key,d.contract_key,d.deal_id,cl.client_id from portal_private.deals d join portal_private.clients cl on cl.id=d.client_key where d.deal_id=${dealId} limit 1`)[0];if(!d)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});if(isClientUpload){const scope=await clientScope(ctx);if(!scope.some(x=>String(x.client_key)===String(d.client_key)))throw Object.assign(new Error('DEAL_ACCESS_DENIED'),{status:403})}
   const raw=await uploadRaw(`deals/${d.client_id}/${dealId}/${kind.toLowerCase()}`,parsed);try{return await sql.begin(async tx=>{const docKey=crypto.randomUUID(),docId=`${dealId}-${kind}-${crypto.randomUUID().slice(0,8)}`,versionKey=crypto.randomUUID();await tx`insert into portal_private.documents(id,document_id,document_type,client_key,contract_key,deal_key,authoritative_filename,source_system,source_version,source_timestamp,authority_state,lifecycle_state) values(${docKey}::uuid,${docId},${kind},${d.client_key}::uuid,${d.contract_key}::uuid,${d.deal_key}::uuid,${parsed.file.name},${isClientUpload?'CLIENT_PORTAL':'ADMIN_PORTAL'},'OWNER_ACCEPTANCE_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;await tx`insert into portal_private.document_versions(id,document_key,version_number,authoritative_filename,sha256,storage_path,uploaded_by,is_current,is_effective,source_system,source_version,source_timestamp,authority_state,lifecycle_state) values(${versionKey}::uuid,${docKey}::uuid,1,${parsed.file.name},${parsed.sha256},${raw.objectName},${ctx.impersonation?ctx.actorUserId:ctx.userId}::uuid,true,true,${isClientUpload?'CLIENT_PORTAL':'ADMIN_PORTAL'},'OWNER_ACCEPTANCE_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;await tx`insert into portal_private.storage_objects(bucket_id,object_name,storage_object_id,object_kind,client_key,contract_key,deal_key,document_version_key,content_type,byte_size,sha256,storage_state,created_by,verified_by,verified_at) values(${BUCKET},${raw.objectName},${raw.rawId}::uuid,'DOCUMENT',${d.client_key}::uuid,${d.contract_key}::uuid,${d.deal_key}::uuid,${versionKey}::uuid,'application/pdf',${parsed.file.size},${parsed.sha256},'VERIFIED',${ctx.impersonation?ctx.actorUserId:ctx.userId}::uuid,${ctx.impersonation?ctx.actorUserId:ctx.userId}::uuid,now())`;await tx`update portal_private.documents set current_version_id=${versionKey}::uuid,updated_at=now() where id=${docKey}::uuid`;await tx`insert into portal_private.owner_deal_documents(deal_key,document_key,document_kind) values(${d.deal_key}::uuid,${docKey}::uuid,${kind})`;if(kind==='SIGNED_ADDENDUM')await tx`insert into portal_private.owner_deal_workflow(deal_key,signed_supplement_document_key) values(${d.deal_key}::uuid,${docKey}::uuid) on conflict(deal_key) do update set signed_supplement_document_key=excluded.signed_supplement_document_key,updated_at=now()`;await audit(tx,ctx,`OWNER_${kind}_UPLOADED`,'DEAL',dealId,req,{documentId:docId,sha256:parsed.sha256});return{dealId,documentId:docId,kind,filename:parsed.file.name}})}catch(e){await service.storage.from(BUCKET).remove([raw.objectName]).catch(()=>{});throw e}}
 
+const ADMIN_CLOSEOUT_DOCUMENT_KINDS=Object.freeze({
+  'return-instruction':'EMPTY_WAGON_RETURN_INSTRUCTION',
+  'return-rail-codes':'EMPTY_WAGON_RETURN_RAIL_CODES'
+});
+
+async function completeDealFromCloseout(ctx,req,dealId){
+  const snapshot=(await sql`select public.owner_deals_current_v4() as data`)[0]?.data;
+  const deal=Array.isArray(snapshot?.deals)?snapshot.deals.find(x=>String(x?.deal_id||'')===String(dealId)):null;
+  if(!deal)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
+  if(deal.post_rail_completion_attention!==true||String(deal.closeout_stage||'').toUpperCase()!=='CLOSEOUT'){
+    throw Object.assign(new Error('DEAL_NOT_IN_CLOSEOUT'),{status:409});
+  }
+  return sql.begin(async tx=>{
+    const rows=await tx`select id,deal_id,business_status,lifecycle_state::text lifecycle_state,closed_at
+      from portal_private.deals where deal_id=${dealId} for update`;
+    if(rows.length!==1)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
+    const current=rows[0],business=String(current.business_status||'').toUpperCase(),life=String(current.lifecycle_state||'').toUpperCase();
+    if(life==='CLOSED'||['CLOSED','COMPLETED','SETTLED'].includes(business)){
+      return{dealId,status:'CLOSED',reused:true,closedAt:current.closed_at||null};
+    }
+    if(life!=='ACTIVE'||['CANCELLED','CANCELED','ANNULLED','VOID','TERMINATED','ARCHIVED'].includes(business)){
+      throw Object.assign(new Error('DEAL_NOT_ACTIVE'),{status:409});
+    }
+    const changed=await tx`update portal_private.deals
+      set business_status='CLOSED',
+          lifecycle_state='CLOSED'::portal_private.lifecycle_state_enum,
+          closed_at=coalesce(closed_at,now()),
+          updated_at=now()
+      where id=${current.id}::uuid
+      returning deal_id,business_status,lifecycle_state::text lifecycle_state,closed_at`;
+    await audit(tx,ctx,'OWNER_DEAL_COMPLETED','DEAL',dealId,req,{
+      source:'ADMIN_LK_CLOSEOUT',
+      closeoutStage:'CLOSEOUT',
+      closeoutProjectionVersion:String(snapshot?.closeoutProjectionVersion||'ADMIN_DEAL_CLOSEOUT_PROJECTION_V1')
+    });
+    return{dealId:String(changed[0].deal_id),status:String(changed[0].business_status),lifecycleState:String(changed[0].lifecycle_state),closedAt:changed[0].closed_at,reused:false};
+  });
+}
+
 async function paymentHandoff(ctx,req,dealId){const rows=await sql`select d.id deal_key,odd.document_key from portal_private.deals d left join portal_private.owner_deal_documents odd on odd.deal_key=d.id and odd.document_kind='SIGNED_ADDENDUM' where d.deal_id=${dealId} order by odd.updated_at desc nulls last limit 1`;if(!rows.length)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});if(!rows[0].document_key)throw Object.assign(new Error('SIGNED_ADDENDUM_REQUIRED'),{status:409});return sql.begin(async tx=>{await tx`insert into portal_private.owner_deal_workflow(deal_key,payment_handoff_state,payment_handoff_at,payment_handoff_by,signed_supplement_document_key,signed_supplement_checked_at,signed_supplement_checked_by) values(${rows[0].deal_key}::uuid,'SENT',now(),${ctx.userId}::uuid,${rows[0].document_key}::uuid,now(),${ctx.userId}::uuid) on conflict(deal_key) do update set payment_handoff_state='SENT',payment_handoff_at=now(),payment_handoff_by=${ctx.userId}::uuid,signed_supplement_document_key=${rows[0].document_key}::uuid,signed_supplement_checked_at=now(),signed_supplement_checked_by=${ctx.userId}::uuid,updated_at=now()`;await tx`update portal_private.owner_deal_documents set checked_by_admin=true,checked_at=now(),checked_by=${ctx.userId}::uuid,updated_at=now() where deal_key=${rows[0].deal_key}::uuid and document_key=${rows[0].document_key}::uuid and document_kind='SIGNED_ADDENDUM'`;await audit(tx,ctx,'OWNER_DEAL_SENT_TO_PAYMENTS','DEAL',dealId,req,{});return{dealId,status:'SENT'}})}
 
 async function signedUrlForDocument(ctx,documentId,mode){let allowed=[];if(mode==='client')allowed=(await clientScope(ctx)).map(x=>String(x.client_key));else if(mode==='agent')allowed=(await agentScope(ctx)).map(x=>String(x.client_key));
@@ -757,6 +796,8 @@ Deno.serve(async req=>{
     m=path.match(/^\/admin\/clients\/([^/]+)\/agent$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await setAgentAssignment(ctx,req,decodeURIComponent(m[1]))})}
     if(path==='/admin/radio'&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await postRadio(ctx,req)})}m=path.match(/^\/admin\/radio\/([0-9a-f-]+)\/expire$/i);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await expireRadio(ctx,req,m[1])})}
     m=path.match(/^\/admin\/deals\/([^/]+)\/(addendum|invoice)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await registerDealPdf(ctx,req,decodeURIComponent(m[1]),m[2]==='addendum'?'ADDENDUM':'INVOICE',false)})}
+    m=path.match(/^\/admin\/deals\/([^/]+)\/closeout-documents\/(return-instruction|return-rail-codes)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await registerDealPdf(ctx,req,decodeURIComponent(m[1]),ADMIN_CLOSEOUT_DOCUMENT_KINDS[m[2]],false)})}
+    m=path.match(/^\/admin\/deals\/([^/]+)\/complete$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await completeDealFromCloseout(ctx,req,decodeURIComponent(m[1]))})}
     m=path.match(/^\/admin\/deals\/([^/]+)\/send-to-payments$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await paymentHandoff(ctx,req,decodeURIComponent(m[1]))})}
     m=path.match(/^\/admin\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'admin')})}
 
