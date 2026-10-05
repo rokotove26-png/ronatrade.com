@@ -19,6 +19,7 @@ const CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH='governance/client-contract-eve
 const CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH='governance/client-background-manifest-event-driven-owner-approval-20260921.json';
 const CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH='governance/client-sidebar-command-nav-owner-approval-20260921.json';
 const CLIENT_DEALS_STAGE_TABS_APPROVAL_PATH='governance/client-deals-lifecycle-tabs-owner-approval-20261003.json';
+const CLIENT_DEALS_CLOSEOUT_APPROVAL_PATH='governance/client-deals-attention-closeout-owner-approval-20261005.json';
 const CLIENT_DEAL_ATTENTION_PAYMENTS_EXIT_APPROVAL_PATH='governance/client-deal-attention-payments-exit-owner-approval-20261004.json';
 const policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));
 const applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APPROVAL_PATH,'utf8'));
@@ -38,6 +39,7 @@ const clientContractEventDrivenApproval=JSON.parse(await readFile(CLIENT_CONTRAC
 const clientBackgroundManifestEventDrivenApproval=JSON.parse(await readFile(CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientSidebarCommandNavApproval=JSON.parse(await readFile(CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH,'utf8'));
 const clientDealsStageTabsApproval=JSON.parse(await readFile(CLIENT_DEALS_STAGE_TABS_APPROVAL_PATH,'utf8'));
+const clientDealsCloseoutApproval=JSON.parse(await readFile(CLIENT_DEALS_CLOSEOUT_APPROVAL_PATH,'utf8'));
 const clientDealAttentionPaymentsExitApproval=JSON.parse(await readFile(CLIENT_DEAL_ATTENTION_PAYMENTS_EXIT_APPROVAL_PATH,'utf8'));
 
 if(policy.policy!=='RONA_CLIENT_PORTAL_VISUAL_FREEZE_V1')throw new Error('CLIENT_VISUAL_FREEZE_POLICY_ID_MISMATCH');
@@ -91,6 +93,27 @@ const clientDealsStageTabsExceptionAuthorized=
   clientDealsStageTabsApproval?.requirements?.internal_deal_closing_stage_preserved===true&&
   clientDealsStageTabsApproval?.requirements?.claims_section_preserved===true&&
   clientDealsStageTabsApproval?.requirements?.hardcoded_deal_ids===false;
+
+const CLIENT_DEALS_CLOSEOUT_FILES=[
+  'assets/portal-runtime/client-deals-authoritative-v1.js',
+  'scripts/attach-client-deals-authoritative-v1.mjs'
+];
+const clientDealsCloseoutExceptionAuthorized=
+  clientDealsCloseoutApproval?.approval==='OWNER_IN_CHAT'&&
+  clientDealsCloseoutApproval?.authorized_at==='2026-10-05'&&
+  clientDealsCloseoutApproval?.scope==='CLIENT_DEALS_ATTENTION_CLOSEOUT_PARITY_V1'&&
+  clientDealsCloseoutApproval?.decision==='SCOPED_VISUAL_FREEZE_RELEASE'&&
+  clientDealsCloseoutApproval?.requirements?.scope_attention_only===true&&
+  clientDealsCloseoutApproval?.requirements?.active_deals_preserved===true&&
+  clientDealsCloseoutApproval?.requirements?.passport_open_preserved===true&&
+  clientDealsCloseoutApproval?.requirements?.canonical_visual_css_changed===false&&
+  clientDealsCloseoutApproval?.requirements?.business_data_changed===false&&
+  clientDealsCloseoutApproval?.requirements?.business_record_mutation===false&&
+  clientDealsCloseoutApproval?.requirements?.hardcoded_deal_ids===false&&
+  clientDealsCloseoutApproval?.requirements?.wildcard_exception===false&&
+  clientDealsCloseoutApproval?.requirements?.exact_blob_enforcement===true&&
+  clientDealsCloseoutApproval?.requirements?.scoped_unfreeze_only===true&&
+  CLIENT_DEALS_CLOSEOUT_FILES.every(path=>Boolean(clientDealsCloseoutApproval?.exact_post_blobs?.[path]));
 
 const applicationExceptionAuthorized=
   applicationsApproval?.approval==='OWNER_IN_CHAT'&&
@@ -776,6 +799,7 @@ if(clientSidebarCommandNavExceptionAuthorized){
 let clientDealsStageTabsExact=false;
 if(clientDealsStageTabsExceptionAuthorized){
   const exact=clientDealsStageTabsApproval.approved_exact_blobs||{};
+  const closeoutExact=clientDealsCloseoutExceptionAuthorized?(clientDealsCloseoutApproval.exact_post_blobs||{}):{};
   const required=[
     'assets/portal-runtime/client-deals-authoritative-v1.js',
     'assets/portal-runtime/client-sidebar-command-nav-v1.js',
@@ -789,8 +813,19 @@ if(clientDealsStageTabsExceptionAuthorized){
   for(const path of required){
     const body=await readFile(path);
     const actual=createHash('sha1').update(Buffer.from(`blob ${body.length}\0`)).update(body).digest('hex');
-    const entry=exact[path];
-    if(entry&&entry.sha===actual&&typeof entry.required_marker==='string'&&body.toString('utf8').includes(entry.required_marker))matched+=1;
+    const legacyEntry=exact[path];
+    const closeoutEntry=closeoutExact[path];
+    const legacyExact=Boolean(legacyEntry&&legacyEntry.sha===actual&&typeof legacyEntry.required_marker==='string'&&body.toString('utf8').includes(legacyEntry.required_marker));
+    const closeoutExactMatch=Boolean(
+      closeoutEntry&&
+      legacyEntry&&
+      closeoutEntry.baseline_blob_sha===legacyEntry.sha&&
+      closeoutEntry.authorized_post_blob_sha===actual&&
+      typeof closeoutEntry.required_marker==='string'&&
+      closeoutEntry.required_marker.length>0&&
+      body.toString('utf8').includes(closeoutEntry.required_marker)
+    );
+    if(legacyExact||closeoutExactMatch)matched+=1;
   }
   clientDealsStageTabsExact=matched===required.length;
   if(clientDealsStageTabsExact){
@@ -807,6 +842,7 @@ const errors=[];
 if(!clientSidebarCommandNavExceptionAuthorized)errors.push('CLIENT_SIDEBAR_COMMAND_NAV_GOVERNANCE_NOT_AUTHORIZED');
 if(clientSidebarCommandNavExceptionAuthorized&&!approvedNewRuntime.has('client-sidebar-command-nav-v1.js'))errors.push('CLIENT_SIDEBAR_COMMAND_NAV_EXACT_RUNTIME_NOT_AUTHORIZED');
 if(!clientDealsStageTabsExceptionAuthorized)errors.push('CLIENT_DEALS_STAGE_TABS_OWNER_APPROVAL_NOT_AUTHORIZED');
+if(!clientDealsCloseoutExceptionAuthorized)errors.push('CLIENT_DEALS_CLOSEOUT_SCOPED_UNFREEZE_NOT_AUTHORIZED');
 if(clientDealsStageTabsExceptionAuthorized&&!clientDealsStageTabsExact)errors.push('CLIENT_DEALS_STAGE_TABS_EXACT_BLOBS_NOT_AUTHORIZED');
 let ownerVisualDeltaAppliedFiles=0;
 let clientMultiContext430AppliedFiles=0;

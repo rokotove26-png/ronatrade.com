@@ -20,7 +20,9 @@ test('Client deal lifecycle UI remains generic while the heavy backend lifecycle
 test('Client API gateway preserves canonical lifecycle stage fields',()=>{
   for(const field of [
     'client_deal_stage','client_deal_stage_label','client_deal_stage_source',
-    'post_rail_completion_attention','rail_monitoring_completed_at','lifecycle_state','accounting_closure_status'
+    'post_rail_completion_attention','rail_monitoring_completed_at','lifecycle_state','accounting_closure_status',
+    'closeout_stage','closeout_product_status_label','closeout_projection_state','closeout_actual_quantity_tonnes',
+    'closeout_deal_unit_price','closeout_paid_amount','closeout_actual_amount','closeout_balance_amount','closeout_balance_direction'
   ]) assert.ok(gateway.includes(field),field+' missing from sanitized Client context');
 });
 
@@ -43,9 +45,9 @@ test('Client Deals lifecycle filter remains visually exclusive even when canonic
   assert.ok(renderer.includes("n.style.setProperty('display','none','important')"));
   assert.ok(renderer.includes("else n.style.removeProperty('display')"));
   assert.ok(renderer.includes("setDealCardHidden(c,!(bucketOk&&searchOk&&stageOk))"));
-  assert.ok(renderer.includes("const MARK='20261005-client-deals-authoritative-lifecycle-tabs-v12-stage-filter-inline-hidden'"));
-  assert.ok(rendererAttach.includes('client-deals-authoritative-v1.js?v=20261005-authoritative-v15-stage-filter-inline-hidden'));
-  assert.ok(rendererAttach.includes('20261005-client-deals-authoritative-lifecycle-tabs-v12-stage-filter-inline-hidden'));
+  assert.ok(renderer.includes("const MARK='20261005-client-deals-authoritative-closeout-v13'"));
+  assert.ok(rendererAttach.includes('client-deals-authoritative-v1.js?v=20261005-authoritative-v16-client-closeout'));
+  assert.ok(rendererAttach.includes('20261005-client-deals-authoritative-closeout-v13'));
 });
 
 test('Client Deals stage controls are explicit buttons aligned to the title frame',()=>{

@@ -5,8 +5,8 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-deals-authoritative-v1.js';
 const scriptId='rona-client-deals-authoritative-v1';
-const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20261005-authoritative-v15-stage-filter-inline-hidden';
-const marker='20261005-client-deals-authoritative-lifecycle-tabs-v12-stage-filter-inline-hidden';
+const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20261005-authoritative-v16-client-closeout';
+const marker='20261005-client-deals-authoritative-closeout-v13';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
@@ -19,7 +19,7 @@ for(const required of [
   'function contextMatchesPayload(data,ctx,deal)','function passportSlotsReady(r)','function clearDrawerBinding(drawer','function waitForExactDrawer(id,key,token',
   'ronaAuthoritativeClientId','ronaAuthoritativeContractId','deal-state-v1','unauthorized-deal','canonical-deal-state-binding','state.payload=projection',
   'data-rona-current-context-slot','deal_state:canonical',
-  'data-rona-deal-stage-tabs','data-rona-deal-stage-tab','Активные','Требуют внимания','Завершенные','function dealStage(d)','function authorizedDealFor(data,id)'
+  'data-rona-deal-stage-tabs','data-rona-deal-stage-tab','Активные','Требуют внимания','Завершенные','function dealStage(d)','function authorizedDealFor(data,id)','function closeoutCard(d,a)','data-rona-client-closeout','Факт. объём','Фактическая сумма','Клиент должен RONA','RONA должна клиенту','CLOSEOUT','Отгружено'
 ]){
   if(!runtime.includes(required))throw new Error(`CLIENT_DEALS_AUTHORITATIVE_RENDER_CONTRACT_MISSING:${required}`);
 }
