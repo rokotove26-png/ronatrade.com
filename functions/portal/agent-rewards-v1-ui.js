@@ -191,7 +191,7 @@ function render(){
   const data=state.data,root=el('div','rona-ar');
   if(!data){root.append(el('div','rona-ar-loader','Загрузка финансового контура AI-FINANCE…'));replace(root);return}
   const deals=Array.isArray(data.deals)?data.deals:[];
-  if(!state.selectedDealId&&deals.length)state.selectedDealId=deals[0].dealId;
+  if(state.selectedDealId&&!deals.some(d=>d.dealId===state.selectedDealId))state.selectedDealId=null;
   const hero=el('div','rona-ar-hero'),copy=el('div');
   copy.append(el('div','rona-ar-title','Вознаграждения агентов'),el('div','rona-ar-sub','Финансовая экономика сделки в валюте поступления: поступления, расходы, конвертация, курсовая разница и агентское вознаграждение. Слева — неизменный AS IS от AI-FINANCE, справа — ваша управляемая версия.'));
   hero.append(copy,el('div','rona-ar-live','FINANCE LIVE'));root.append(hero);
@@ -201,9 +201,11 @@ function render(){
   root.append(kpis);
   if(!deals.length){root.append(el('div','rona-ar-empty','Сделок в агентском контуре пока нет.'));replace(root);return}
   renderDealCards(root,deals);
-  const deal=selectedDeal();if(deal){
+  const deal=selectedDeal();if(state.selectedDealId&&deal){
     const status=el('div','rona-ar-statusline');status.append(el('span','',deal.dealId+' · '+deal.clientName),el('strong','',deal.receiptCurrency?'Базовая валюта: '+deal.receiptCurrency:'Валюта поступления: TO_VERIFY'));root.append(status);
     const workspace=el('div','rona-ar-workspace');workspace.append(renderAsIs(deal),renderOwner(deal));root.append(workspace)
+  }else{
+    const prompt=el('div','rona-ar-statusline');prompt.append(el('span','','Выберите сделку на дашборде для открытия финансового паспорта'),el('strong','','AS IS → OWNER CONTROL'));root.append(prompt)
   }
   replace(root)
 }
