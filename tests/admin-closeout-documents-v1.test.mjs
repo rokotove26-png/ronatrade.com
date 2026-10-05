@@ -18,7 +18,7 @@ test('Admin CLOSEOUT loads a separate closing-documents runtime without replacin
   assert.match(uiSource,/admin-closeout-documents-v1\.js\?v=20261005-v4/);
 });
 
-test('Closing-documents workspace uses the exact Owner document set and keeps client upload UI unchanged',()=>{
+test('Closing-documents workspace uses the exact Owner document set and Client CLOSEOUT gets only its two upload kinds',()=>{
   for(const label of [
     'Закрывающие документы',
     'Подписанное дополнительное соглашение',
@@ -34,7 +34,12 @@ test('Closing-documents workspace uses the exact Owner document set and keeps cl
   assert.match(closeoutRuntime,/SMGS_DELIVERY_STAMP/);
   assert.match(closeoutRuntime,/SMGS_EMPTY_WAGONS/);
   assert.match(closeoutRuntime,/Загружает клиент/);
-  assert.doesNotMatch(ownerAcceptance,/\/client\/deals\/\(\[\^\/\]\+\)\/closeout-documents/);
+  assert.match(ownerAcceptance,/CLIENT_CLOSEOUT_DOCUMENT_KINDS/);
+  assert.match(ownerAcceptance,/'delivery-stamp':'SMGS_DELIVERY_STAMP'/);
+  assert.match(ownerAcceptance,/'empty-wagons':'SMGS_EMPTY_WAGONS'/);
+  assert.match(ownerAcceptance,/clientCloseoutDocuments/);
+  assert.match(ownerAcceptance,/registerClientCloseoutPdf/);
+  assert.doesNotMatch(ownerAcceptance,/\/client\/deals\/\(\[\^\/\]\+\)\/complete/);
 });
 
 test('Admin closeout document uploads persist through the existing document storage workflow',()=>{

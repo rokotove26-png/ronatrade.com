@@ -3,16 +3,22 @@
   "authorized_at": "2026-10-05",
   "scope": "CLIENT_DEALS_ATTENTION_CLOSEOUT_PARITY_V1",
   "decision": "SCOPED_VISUAL_FREEZE_RELEASE",
+  "owner_instruction": "Теперь примененную нами логику в разделе сделки \"Требует внимание\" в соответствующий раздел клиентского кабинета",
   "exact_post_blobs": {
     "assets/portal-runtime/client-deals-authoritative-v1.js": {
       "baseline_blob_sha": "c12edca86195834a1b30dcf8ac9575169c3ca395",
-      "authorized_post_blob_sha": "a753fcd6ab9e611421cdccb0ad70c156a3bb2a9f",
-      "required_marker": "20261005-client-deals-authoritative-closeout-v13"
+      "authorized_post_blob_sha": "5a3614b743268abf165a4fba1b6047700fb2f35a",
+      "required_marker": "20261005-client-deals-authoritative-closeout-v14"
     },
     "scripts/attach-client-deals-authoritative-v1.mjs": {
       "baseline_blob_sha": "c3e76815f041661f8d5aab9e147dfbbce45f29f4",
-      "authorized_post_blob_sha": "b69ae11091b20a8474cb0495db534111809568ed",
-      "required_marker": "20261005-client-deals-authoritative-closeout-v13"
+      "authorized_post_blob_sha": "c30c713df36ce357d519c21e057e6645e5220895",
+      "required_marker": "20261005-client-deals-authoritative-closeout-v14"
+    },
+    "assets/portal-runtime/client-closeout-documents-v1.js": {
+      "baseline_blob_sha": null,
+      "authorized_post_blob_sha": "600352a525ecb5481ed31e5e48d2c15a8b0e8fac",
+      "required_marker": "20261005-client-closeout-documents-v1"
     }
   },
   "requirements": {
@@ -20,8 +26,17 @@
     "active_deals_preserved": true,
     "passport_open_preserved": true,
     "canonical_visual_css_changed": false,
+    "dedicated_closeout_workspace_allowed": true,
+    "client_closeout_smgs_upload_allowed": true,
+    "upload_kinds": [
+      "SMGS_DELIVERY_STAMP",
+      "SMGS_EMPTY_WAGONS"
+    ],
+    "owner_completion_authority_preserved": true,
+    "admin_impersonation_read_only": true,
     "business_data_changed": false,
     "business_record_mutation": false,
+    "deal_completion_mutation_from_client": false,
     "hardcoded_deal_ids": false,
     "wildcard_exception": false,
     "exact_blob_enforcement": true,
