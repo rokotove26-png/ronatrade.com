@@ -1,6 +1,6 @@
 (()=>{'use strict';
 if(window.__RONA_ADMIN_RADIO_CANONICAL_V11__)return;
-window.__RONA_ADMIN_RADIO_CANONICAL_V11__='20261005-canonical-v11-full-width-owner';
+window.__RONA_ADMIN_RADIO_CANONICAL_V11__='20261005-canonical-v11-balanced-width-owner';
 window.__RONA_ADMIN_RADIO_VISUAL_OWNER__='CANONICAL_V11';
 
 const PAGE_ID='page-messages';
@@ -15,11 +15,11 @@ function style(){
   const s=document.createElement('style');s.id=STYLE_ID;s.textContent=`
 #${PAGE_ID}{background:transparent!important;background-image:none!important;min-height:calc(100vh - 66px)}\n#${PAGE_ID}.rona-radio-single-owner-ready>.rona-rs-root[data-kind=\"radio\"]:not([data-radio-canonical-v11=\"1\"]){visibility:hidden!important;opacity:0!important;pointer-events:none!important}
 #${PAGE_ID}:before,#${PAGE_ID}:after{display:none!important;content:none!important}
-#${PAGE_ID}>.rona-radio-clean-head{width:calc(100% - 42px)!important;max-width:none!important;margin:18px auto 0!important;padding:0!important;display:flex!important;align-items:flex-end!important;justify-content:space-between!important;gap:24px!important;background:none!important;background-image:none!important;border:0!important;box-shadow:none!important;filter:none!important;position:relative!important;overflow:visible!important}
+#${PAGE_ID}>.rona-radio-clean-head{width:min(calc(100% - 56px),1360px)!important;max-width:1360px!important;margin:18px auto 0!important;padding:0!important;display:flex!important;align-items:flex-end!important;justify-content:space-between!important;gap:24px!important;background:none!important;background-image:none!important;border:0!important;box-shadow:none!important;filter:none!important;position:relative!important;overflow:visible!important}
 #${PAGE_ID}>.rona-radio-clean-head:before,#${PAGE_ID}>.rona-radio-clean-head:after,#${PAGE_ID}>.rona-radio-clean-head>*:before,#${PAGE_ID}>.rona-radio-clean-head>*:after{display:none!important;content:none!important}
 #${PAGE_ID} .rona-radio-clean-title{margin:0!important;padding:0!important;font-size:28px!important;line-height:1.05!important;font-weight:900!important;letter-spacing:-.04em!important;color:#f7fbff!important;background:none!important;background-image:none!important;border:0!important;box-shadow:none!important;filter:none!important;text-shadow:0 3px 24px rgba(79,211,255,.10)!important}
 #${PAGE_ID} .rona-radio-clean-sub{margin:0 0 3px!important;padding:0!important;max-width:520px!important;font-size:11.5px!important;line-height:1.45!important;color:#7895a6!important;text-align:right!important;background:none!important;background-image:none!important;border:0!important;box-shadow:none!important;filter:none!important}
-#${PAGE_ID}>.rona-rs-root[data-kind="radio"]{width:calc(100% - 42px)!important;max-width:none!important;margin:12px auto 34px!important;display:grid!important;gap:14px!important;background:transparent!important;background-image:none!important;position:relative!important}
+#${PAGE_ID}>.rona-rs-root[data-kind="radio"]{width:min(calc(100% - 56px),1360px)!important;max-width:1360px!important;margin:12px auto 34px!important;display:grid!important;gap:14px!important;background:transparent!important;background-image:none!important;position:relative!important}
 #${PAGE_ID}>.rona-rs-root[data-kind="radio"]:before{content:"";position:absolute;inset:-12px -16px;z-index:0;pointer-events:none;border-radius:30px;background-image:linear-gradient(rgba(93,218,255,.026) 1px,transparent 1px),linear-gradient(90deg,rgba(93,218,255,.026) 1px,transparent 1px);background-size:32px 32px;mask-image:linear-gradient(to bottom,#000,transparent 88%)}
 #${PAGE_ID}>.rona-rs-root[data-kind="radio"]>*{position:relative;z-index:1}
 #${PAGE_ID} .rf-hero,#${PAGE_ID}>.rona-rs-root[data-kind="radio"]>.rona-rs-hero{display:none!important;background:none!important;background-image:none!important;border:0!important;box-shadow:none!important;filter:none!important}
