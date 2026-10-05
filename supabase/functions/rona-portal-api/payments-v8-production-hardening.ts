@@ -139,12 +139,14 @@ function clientFullyPaidAuthoritative(deal:any){
   const total=paymentMoneyAmount(deal?.payment_obligation_amount);
   const received=paymentMoneyAmount(deal?.payment_received_amount);
   const remaining=paymentMoneyAmount(deal?.payment_remaining_amount);
-  return String(deal?.payment_source||'').trim().toUpperCase()==='FINANCE_V7_AUTHORITATIVE'
-    && String(deal?.payment_authority_state||'').trim().toUpperCase()==='AUTHORITATIVE'
-    && String(deal?.payment_status||'').trim().toUpperCase()==='PAID'
-    && total!==null && total>0
-    && remaining!==null && Math.abs(remaining)<=0.01
-    && received!==null && received+0.01>=total;
+  const percent=paymentMoneyAmount(deal?.payment_percent);
+  const source=String(deal?.payment_source||'').trim().toUpperCase();
+  const authority=String(deal?.payment_authority_state||'').trim().toUpperCase();
+  const status=String(deal?.payment_status||'').trim().toUpperCase();
+  if(status!=='PAID'||total===null||total<=0||received===null||received+0.01<total)return false;
+  if(source==='FINANCE_V7_AUTHORITATIVE')return authority==='AUTHORITATIVE'&&remaining!==null&&Math.abs(remaining)<=0.01;
+  if(source==='OWNER_DEAL_FINANCE_SUMMARY')return percent!==null&&percent>=100;
+  return false;
 }
 async function hardenClientExecutionExit(req:Request,response:Response){
   if(req.method!=='GET'||apiRoute(new URL(req.url))!=='/v1/client/context'||!response.ok||!(response.headers.get('content-type')||'').includes('application/json'))return response;

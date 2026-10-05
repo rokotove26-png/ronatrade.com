@@ -19,13 +19,15 @@ test('Client deal moves to ATTENTION immediately after authoritative Rail comple
   assert.match(dealsRuntime,/stage==='ATTENTION'\?'Требует внимания':'Завершена'/);
 });
 
-test('Client Payments exits a deal only after Rail completion and authoritative 100 percent payment',()=>{
+test('Client Payments exits a deal only after Rail completion and source-locked 100 percent payment',()=>{
   assert.match(hardening,/function clientFullyPaidAuthoritative\(deal:any\)/);
-  assert.match(hardening,/payment_source\|\|''\)\.trim\(\)\.toUpperCase\(\)==='FINANCE_V7_AUTHORITATIVE'/);
-  assert.match(hardening,/payment_authority_state\|\|''\)\.trim\(\)\.toUpperCase\(\)==='AUTHORITATIVE'/);
-  assert.match(hardening,/payment_status\|\|''\)\.trim\(\)\.toUpperCase\(\)==='PAID'/);
-  assert.match(hardening,/Math\.abs\(remaining\)<=0\.01/);
-  assert.match(hardening,/received\+0\.01>=total/);
+  assert.match(hardening,/source==='FINANCE_V7_AUTHORITATIVE'/);
+  assert.match(hardening,/authority==='AUTHORITATIVE'/);
+  assert.match(hardening,/remaining!==null&&Math\.abs\(remaining\)<=0\.01/);
+  assert.match(hardening,/source==='OWNER_DEAL_FINANCE_SUMMARY'/);
+  assert.match(hardening,/percent!==null&&percent>=100/);
+  assert.match(hardening,/status!=='PAID'/);
+  assert.match(hardening,/received\+0\.01<total/);
   assert.match(hardening,/const paymentsExit=railCompleted&&clientFullyPaidAuthoritative\(deal\)/);
   assert.match(hardening,/client_payments_monitoring_active=!paymentsExit/);
   assert.match(hardening,/RAIL_COMPLETED_AND_100_PERCENT_PAID/);
