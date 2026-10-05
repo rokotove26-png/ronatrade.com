@@ -12,10 +12,10 @@ test('Admin CLOSEOUT loads a separate closing-documents runtime without replacin
   assert.equal(response.status,200);
   const ui=await response.text();
   assert.match(ui,/ADMIN_CLOSEOUT_DOCUMENTS_V1/);
-  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v2/);
+  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v3/);
   assert.match(ui,/function buildDetail\(d\)/);
   assert.match(ui,/Карточка сделки/);
-  assert.match(uiSource,/admin-closeout-documents-v1\.js\?v=20261005-v2/);
+  assert.match(uiSource,/admin-closeout-documents-v1\.js\?v=20261005-v3/);
 });
 
 test('Closing-documents workspace uses the exact Owner document set and keeps client upload UI unchanged',()=>{
@@ -67,4 +67,21 @@ test('CLOSEOUT runtime DOM patch is idempotent and cannot self-trigger a Mutatio
   assert.match(closeoutRuntime,/if\(b\.textContent!==label\)b\.textContent=label/);
   assert.match(closeoutRuntime,/if\(b\.dataset\.ronaCloseoutDocsBound==='1'\)return/);
   assert.match(closeoutRuntime,/new MutationObserver\(schedule\)/);
+});
+
+
+test('Admin CLOSEOUT visual v2 has balanced hierarchy and restrained final action',()=>{
+  const runtime=closeoutRuntime;
+  assert.match(runtime,/ADMIN_CLOSEOUT_VISUAL_V2/);
+  assert.match(runtime,/width:clamp\(760px,48vw,1040px\)/);
+  assert.match(runtime,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(runtime,/rona-closeout-doc-status--ready/);
+  assert.match(runtime,/rona-closeout-doc-status--required/);
+  assert.match(runtime,/rona-closeout-doc-status--waiting/);
+  assert.match(runtime,/Документы сделки/);
+  assert.match(runtime,/Загружает администратор/);
+  assert.match(runtime,/Документы от клиента/);
+  assert.match(runtime,/position:sticky;bottom:-1px/);
+  assert.match(runtime,/width:220px/);
+  assert.match(runtime,/RONA Trade · финальная стадия/);
 });
