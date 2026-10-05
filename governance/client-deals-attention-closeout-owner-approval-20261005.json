@@ -12,13 +12,13 @@
     },
     "scripts/attach-client-deals-authoritative-v1.mjs": {
       "baseline_blob_sha": "c3e76815f041661f8d5aab9e147dfbbce45f29f4",
-      "authorized_post_blob_sha": "ca7ccb719155ca472d02eb1b78f729b0574a4f09",
+      "authorized_post_blob_sha": "b41ddf73e8b398ad29dd4d3145fe8ed1cb856dd3",
       "required_marker": "20261005-client-deals-authoritative-closeout-v14"
     },
     "assets/portal-runtime/client-closeout-documents-v1.js": {
       "baseline_blob_sha": null,
-      "authorized_post_blob_sha": "931e46a2b041366c190bc5d5be2cd81bfde0eb15",
-      "required_marker": "20261005-client-closeout-documents-v2"
+      "authorized_post_blob_sha": "ffad668757310b0c481dc8b0d1140fe690bf815d",
+      "required_marker": "20261005-client-closeout-documents-v3"
     }
   },
   "requirements": {
@@ -44,8 +44,8 @@
   },
   "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_DEALS_ATTENTION_CLOSEOUT_PARITY_V1",
   "corrective_uat_20261005": {
-    "observed_error": "PORTAL_ACCESS_DENIED",
-    "correction": "Route Client CLOSEOUT via canonical /portal/api bridge with impersonation propagation",
-    "owner_evidence": "UAT screenshot 2026-10-05"
+    "observed_error": "PORTAL_ACCESS_DENIED persisted on custom-domain Admin Entity preview",
+    "correction": "Client CLOSEOUT uses canonical /portal/api and explicitly binds x-rona-impersonation-tab from the validated impSession query value; cache marker bumped to v3",
+    "owner_evidence": "UAT screenshots 2026-10-05"
   }
 }
