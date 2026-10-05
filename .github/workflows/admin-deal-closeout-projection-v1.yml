@@ -1,0 +1,32 @@
+name: Admin Deal CLOSEOUT Projection QA
+
+on:
+  pull_request:
+    paths:
+      - 'functions/portal/deals-current-state-ui.js'
+      - 'supabase/migrations/20261005055000_admin_deal_closeout_projection_v1.sql'
+      - 'tests/admin-deal-closeout-projection-v1.test.mjs'
+      - '.github/workflows/admin-deal-closeout-projection-v1.yml'
+  push:
+    branches:
+      - 'release/public-go-live-v1.1'
+    paths:
+      - 'functions/portal/deals-current-state-ui.js'
+      - 'supabase/migrations/20261005055000_admin_deal_closeout_projection_v1.sql'
+      - 'tests/admin-deal-closeout-projection-v1.test.mjs'
+      - '.github/workflows/admin-deal-closeout-projection-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  closeout-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify Admin CLOSEOUT projection contract
+        run: node --test tests/admin-deal-closeout-projection-v1.test.mjs
