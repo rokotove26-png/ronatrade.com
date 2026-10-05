@@ -5,13 +5,13 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-deals-authoritative-v1.js';
 const scriptId='rona-client-deals-authoritative-v1';
-const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20261003-authoritative-v14-lifecycle-tabs';
-const marker='20261003-client-deals-authoritative-lifecycle-tabs-v11';
+const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20261005-authoritative-v15-fresh-context';
+const marker='20261005-client-deals-authoritative-lifecycle-tabs-v12-fresh-context';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
 for(const required of [
-  marker,'RONA_CLIENT_CONTEXT','getCurrentProjection','currentProjection','adoptCurrentProjection','rona:client-current-projection','RONA_CLIENT_CONTEXT_CURRENT_PROJECTION',
+  marker,'RONA_CLIENT_CONTEXT','getCurrentProjection','currentProjection','adoptCurrentProjection','rona:client-current-projection','RONA_CLIENT_CONTEXT_CURRENT_PROJECTION','RONA_CLIENT_CONTEXT_FRESH_PROJECTION','whenCurrentProjection','invalidateCurrentProjection','freshCurrentProjection','scheduleFresh',
   '/v1/client/deal-state?clientId=','RONA_CLIENT_DEAL_STATE_V1','CLIENT_DEAL_STATE_V1',
   'data-rona-deals-authoritative-list','data-rona-deals-authoritative-rendered','data-rona-canonical-deal-id','data-open-deal',
   'classList.contains(\'active\')','function visible(','function canonicalIn(r,id)',
@@ -49,7 +49,9 @@ integrity.client_runtime.deals_authoritative_renderer={
   source:'RONA_CLIENT_CONTEXT_CURRENT_PROJECTION',
   projection_network_owner:'RONA_CLIENT_CONTEXT',
   own_context_fetch:false,
-  current_projection_adopted_on_open:false,
+  current_projection_adopted_on_open:true,
+  current_projection_refresh:'EVENT_DRIVEN_FRESH_ON_DEALS_OPEN_PAGESHOW_VISIBLE_STARTUP',
+  polling:false,
   passport_projection_freshness:'CANONICAL_DEAL_STATE_NO_STORE_ON_EVERY_OPEN',
   passport_projection_refresh_authority:'/v1/client/deal-state',
   current_projection_event_replaces_state_payload:false,

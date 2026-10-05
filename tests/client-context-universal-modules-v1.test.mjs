@@ -8,6 +8,7 @@ if (!authority.includes('CLIENT_CONTEXT_SELECTION_REQUIRED')) throw new Error('c
 const modules = [
   'assets/portal-runtime/client-home-command-center-v2.js',
   'assets/portal-runtime/client-payments-authoritative-v1.js',
+  'assets/portal-runtime/client-deals-authoritative-v1.js',
   'assets/portal-runtime/client-deal-documents-v5.js',
   'assets/portal-runtime/client-deal-lifecycle-v1.js',
   'assets/portal-runtime/client-application-lifecycle-v1.js',

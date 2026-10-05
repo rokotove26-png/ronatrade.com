@@ -8,6 +8,8 @@ on:
       - 'functions/portal/deals-current-state-ui.js'
       - 'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts'
       - 'assets/portal-runtime/client-payments-authoritative-v1.js'
+      - 'assets/portal-runtime/client-deals-authoritative-v1.js'
+      - 'scripts/attach-client-deals-authoritative-v1.mjs'
       - 'tests/admin-deal-attention-after-rail-paid-v1.test.mjs'
       - 'tests/admin-deal-execution-exit-exclusive-v1.test.mjs'
       - 'tests/client-deal-attention-payments-exit-v1.test.mjs'

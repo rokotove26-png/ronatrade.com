@@ -23,6 +23,20 @@ test('Client API gateway preserves canonical lifecycle stage fields',()=>{
   ]) assert.ok(gateway.includes(field),field+' missing from sanitized Client context');
 });
 
+test('Client Deals owns fresh event-driven projection on section re-entry',()=>{
+  assert.match(renderer,/20261005-client-deals-authoritative-lifecycle-tabs-v12-fresh-context/);
+  assert.match(renderer,/function freshCurrentProjection\(reason='event'\)/);
+  assert.match(renderer,/invalidateCurrentProjection\?\.\(\)/);
+  assert.match(renderer,/whenCurrentProjection\(\`client-deals-authoritative-v1:/);
+  assert.match(renderer,/RONA_CLIENT_CONTEXT_FRESH_PROJECTION/);
+  assert.match(renderer,/function scheduleFresh\(reason='event'\)/);
+  assert.match(renderer,/function onDealsOpenTrigger\(event\)/);
+  assert.match(renderer,/visibilitychange/);
+  assert.match(renderer,/pageshow/);
+  assert.doesNotMatch(renderer,/setInterval\(/);
+  assert.doesNotMatch(renderer,/DEAL-2026-004/);
+});
+
 test('Client Deals renderer has three exclusive lifecycle tabs',()=>{
   assert.match(renderer,/data-rona-deal-stage-tabs/);
   assert.match(renderer,/data-rona-deal-stage-tab/);
