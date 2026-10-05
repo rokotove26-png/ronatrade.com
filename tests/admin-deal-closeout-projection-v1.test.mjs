@@ -65,7 +65,7 @@ test('Admin CLOSEOUT closing documents are a separate Owner workspace',async()=>
   const response=await closeoutRuntime();
   const ui=await response.text();
   assert.match(ui,/ADMIN_CLOSEOUT_DOCUMENTS_V1/);
-  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v1/);
+  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v2/);
   for(const label of [
     'Закрывающие документы',
     'Подписанное дополнительное соглашение',
