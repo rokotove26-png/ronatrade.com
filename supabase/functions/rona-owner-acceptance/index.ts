@@ -493,6 +493,114 @@ const ADMIN_CLOSEOUT_DOCUMENT_KINDS=Object.freeze({
   'return-instruction':'EMPTY_WAGON_RETURN_INSTRUCTION',
   'return-rail-codes':'EMPTY_WAGON_RETURN_RAIL_CODES'
 });
+const CLIENT_CLOSEOUT_DOCUMENT_KINDS=Object.freeze({
+  'delivery-stamp':'SMGS_DELIVERY_STAMP',
+  'empty-wagons':'SMGS_EMPTY_WAGONS'
+});
+const CLOSEOUT_DOCUMENT_KINDS=Object.freeze([
+  'SIGNED_ADDENDUM',
+  'INVOICE',
+  'EMPTY_WAGON_RETURN_INSTRUCTION',
+  'EMPTY_WAGON_RETURN_RAIL_CODES',
+  'SMGS_DELIVERY_STAMP',
+  'SMGS_EMPTY_WAGONS'
+]);
+
+async function clientCloseoutDealAccess(ctx,dealId){
+  const rows=await sql`
+    select d.id deal_key,d.deal_id,d.client_key,d.contract_key,cl.client_id,cl.legal_name,ct.contract_id
+    from portal_private.deals d
+    join portal_private.clients cl on cl.id=d.client_key
+    join portal_private.contracts ct on ct.id=d.contract_key
+    where d.deal_id=${dealId}
+    limit 1
+  `;
+  if(rows.length!==1)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
+  const d=rows[0],scope=await clientScope(ctx);
+  const inScope=scope.some(x=>String(x.client_key)===String(d.client_key)&&String(x.contract_key)===String(d.contract_key));
+  if(!inScope)throw Object.assign(new Error('DEAL_ACCESS_DENIED'),{status:403});
+  const adminEntity=ctx.impersonation?.subjectMode==='ADMIN_ENTITY';
+  if(!adminEntity){
+    const access=await sql`select portal_private.client_user_has_deal_access(${ctx.userId}::uuid,${d.deal_key}::uuid,now()) as allowed`;
+    if(access[0]?.allowed!==true)throw Object.assign(new Error('DEAL_ACCESS_DENIED'),{status:403});
+  }
+  const snapshot=(await sql`select public.owner_deals_current_v4() as data`)[0]?.data;
+  const projected=Array.isArray(snapshot?.deals)?snapshot.deals.find(x=>String(x?.deal_id||'')===String(dealId)):null;
+  if(!projected)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
+  if(projected.post_rail_completion_attention!==true||String(projected.closeout_stage||'').toUpperCase()!=='CLOSEOUT'){
+    throw Object.assign(new Error('DEAL_NOT_IN_CLOSEOUT'),{status:409});
+  }
+  return{...d,projected,readOnly:Boolean(adminEntity)};
+}
+
+async function clientCloseoutDocuments(ctx,dealId){
+  const access=await clientCloseoutDealAccess(ctx,dealId);
+  const docs=await sql`
+    select upper(coalesce(odd.document_kind,'')) document_kind,
+           doc.document_id,doc.authoritative_filename,doc.source_system,doc.created_at
+    from portal_private.owner_deal_documents odd
+    join portal_private.documents doc on doc.id=odd.document_key
+    where odd.deal_key=${access.deal_key}::uuid
+      and upper(coalesce(odd.document_kind,'')) in (
+        'SIGNED_ADDENDUM','INVOICE','EMPTY_WAGON_RETURN_INSTRUCTION',
+        'EMPTY_WAGON_RETURN_RAIL_CODES','SMGS_DELIVERY_STAMP','SMGS_EMPTY_WAGONS'
+      )
+      and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    order by doc.created_at desc
+  `;
+  const latest=[];
+  const seen=new Set();
+  for(const row of docs){
+    const kind=String(row.document_kind||'').toUpperCase();
+    if(seen.has(kind))continue;
+    seen.add(kind);
+    latest.push({
+      kind,
+      documentId:String(row.document_id||''),
+      filename:String(row.authoritative_filename||''),
+      sourceSystem:String(row.source_system||''),
+      createdAt:row.created_at||null
+    });
+  }
+  const p=access.projected||{};
+  return{
+    contract:'CLIENT_DEAL_CLOSEOUT_DOCUMENTS_V1',
+    readOnly:access.readOnly,
+    deal:{
+      dealId:String(access.deal_id),
+      clientName:String(access.legal_name||''),
+      contractId:String(access.contract_id||''),
+      stage:'CLOSEOUT',
+      product:String(p.closeout_product||p.source_product||p.product_value||''),
+      productStatus:String(p.closeout_product_status_label||'Отгружено'),
+      actualQuantityTonnes:p.closeout_actual_quantity_tonnes??null,
+      deliveryBasis:String(p.closeout_delivery_basis||''),
+      currency:String(p.closeout_currency||''),
+      paidAmount:p.closeout_paid_amount??null,
+      actualAmount:p.closeout_actual_amount??null,
+      balanceAmount:p.closeout_balance_amount??null,
+      balanceDirection:String(p.closeout_balance_direction||'')
+    },
+    documents:latest,
+    requiredKinds:CLOSEOUT_DOCUMENT_KINDS
+  };
+}
+
+async function registerClientCloseoutPdf(ctx,req,dealId,kind){
+  const access=await clientCloseoutDealAccess(ctx,dealId);
+  if(access.readOnly)throw Object.assign(new Error('ADMIN_ENTITY_PREVIEW_READ_ONLY'),{status:403});
+  const existing=await sql`
+    select 1
+    from portal_private.owner_deal_documents odd
+    join portal_private.documents doc on doc.id=odd.document_key
+    where odd.deal_key=${access.deal_key}::uuid
+      and upper(coalesce(odd.document_kind,''))=${kind}
+      and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    limit 1
+  `;
+  if(existing.length)throw Object.assign(new Error('CLIENT_CLOSEOUT_DOCUMENT_ALREADY_UPLOADED'),{status:409});
+  return registerDealPdf(ctx,req,dealId,kind,true);
+}
 
 async function ensureCloseoutAssistantArchiveTask(tx,ctx,current,dealId){
   const documents=await tx`
@@ -916,6 +1024,8 @@ Deno.serve(async req=>{
     if(path==='/client/claims'||path.startsWith('/client/claims/')){requireRole(ctx,'CLIENT');const cr=await claimsRuntime.handle(ctx,req,path,method);if(cr)return send(cr.status,cr.body)}
     m=path.match(/^\/client\/applications\/([^/]+)\/counter-offer\/(accept|decline)$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientCounterDecision(ctx,req,decodeURIComponent(m[1]),m[2])})}
     m=path.match(/^\/client\/deals\/([^/]+)\/signed-addendum$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await registerDealPdf(ctx,req,decodeURIComponent(m[1]),'SIGNED_ADDENDUM',true)})}
+    m=path.match(/^\/client\/deals\/([^/]+)\/closeout-documents$/);if(m&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientCloseoutDocuments(ctx,decodeURIComponent(m[1]))})}
+    m=path.match(/^\/client\/deals\/([^/]+)\/closeout-documents\/(delivery-stamp|empty-wagons)$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await registerClientCloseoutPdf(ctx,req,decodeURIComponent(m[1]),CLIENT_CLOSEOUT_DOCUMENT_KINDS[m[2]])})}
     m=path.match(/^\/client\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'client')})}
     m=path.match(/^\/client\/contracts\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'CLIENT');const c=(await clientScope(ctx)).find(x=>String(x.contract_id)===decodeURIComponent(m[1]));if(!c||!c.current_signed_document_id)throw Object.assign(new Error('CONTRACT_DOCUMENT_NOT_FOUND'),{status:404});const d=(await sql`select document_id from portal_private.documents where id=${c.current_signed_document_id}::uuid limit 1`)[0];if(!d)throw Object.assign(new Error('CONTRACT_DOCUMENT_NOT_FOUND'),{status:404});return send(200,{ok:true,data:await signedUrlForDocument(ctx,String(d.document_id),'client')})}
 
