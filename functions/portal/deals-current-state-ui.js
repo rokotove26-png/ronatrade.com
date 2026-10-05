@@ -201,7 +201,7 @@ if(!SCRIPT.includes("filter==='ATTENTION'?visible.filter(isPostExecutionAttentio
 if(!SCRIPT.includes("closeout_actual_quantity_tonnes"))throw new Error('DEALS_CLOSEOUT_ACTUAL_QUANTITY_MISSING');
 if(!SCRIPT.includes("closeout_balance_amount"))throw new Error('DEALS_CLOSEOUT_BALANCE_MISSING');
 if(!SCRIPT.includes("queue=card('CLOSEOUT'"))throw new Error('DEALS_CLOSEOUT_CARD_MISSING');
-if(!SCRIPT.includes("['Deal ID','Клиент / Компания','Продукт','Факт. объём','Базис поставки','Контракт','Оплачено','Фактическая сумма','Задолженность','Этап']"))throw new Error('DEALS_CLOSEOUT_COLUMNS_MISSING');
+if(!SCRIPT.includes("['Deal ID','Клиент / Компания','Продукт','Факт. объём','Базис поставки','Контракт','Оплачено','Фактическая сумма','Задолженность','Этап','Паспорт']"))throw new Error('DEALS_CLOSEOUT_COLUMNS_MISSING');
 if(!SCRIPT.includes("direction==='CLIENT_OWES_RONA'?'Клиент должен RONA':direction==='RONA_OWES_CLIENT'?'RONA должна клиенту':'Баланс закрыт'"))throw new Error('DEALS_CLOSEOUT_BALANCE_SEMANTICS_MISSING');
 if(!SCRIPT.includes("function productOperationalStatus(d)"))throw new Error('DEALS_PRODUCT_OPERATIONAL_STATUS_MISSING');
 if(!SCRIPT.includes("return{text:'Отгружено',tone:'success'}"))throw new Error('DEALS_PRODUCT_SHIPPED_STATUS_MISSING');
