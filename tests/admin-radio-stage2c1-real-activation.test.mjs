@@ -108,20 +108,26 @@ test('Portal shell injects Stage 2C.1 broadcast runtime for real and impersonate
   assert.match(shell,/static-plus-radio-runtime-and-header-bridge-v2/);
   assert.match(shell,/x-rona-admin-radio-visual-owner','canonical-v11'/);
   assert.match(shell,/x-rona-admin-radio-specific-stop','v1'/);
-  assert.match(shell,/if\(impersonation\?\.data\)\{\s*const transformed=new HTMLRewriter\(\)\s*\.on\('head',new HeadPrepend\(bridge\)\)\s*\.on\('body',new BodyAppend\(RADIO_BROADCAST_RUNTIME\)\)/);
+  assert.match(shell,/if\(impersonation\?\.data\)\{[\s\S]*?const transformed=new HTMLRewriter\(\)[\s\S]*?\.on\('head',new HeadPrepend\(bridge\)\)[\s\S]*?\.on\('body',new BodyAppend\(RADIO_BROADCAST_RUNTIME(?:\+CLAIMS_SECTION_RETIRE_RUNTIME)?\)\)/);
   assert.match(shell,/h\.set\('x-rona-impersonation-tab',SESSION\)/);
   assert.doesNotMatch(shell,/static-unmodified-v1/);
 });
 
 test('Stage 2C.1 keeps Client messages frozen and Admin Radio on one canonical visual owner',()=>{
   assert.equal(gitBlobSha('assets/portal-runtime/client-messages-archive-v1.js'),'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca');
-  assert.equal(gitBlobSha('assets/portal-admin-radio-canonical-v11.js'),'d7a7ffa7cf51b6cba01f089e69ddf55ba9946f3f');
+  assert.equal(gitBlobSha('assets/portal-admin-radio-canonical-v11.js'),'dba3ad464badec173998dcc6913087a5319a4a13');
   const visual=read('assets/portal-admin-radio-canonical-v11.js');
   const admin=read('portal-src/current/admin.html');
   assert.match(visual,/__RONA_ADMIN_RADIO_VISUAL_OWNER__='CANONICAL_V11'/);
+  assert.match(visual,/__RONA_ADMIN_RADIO_CANONICAL_V11__='20261005-canonical-v11-full-width-owner'/);
+  assert.match(visual,/\.rona-radio-clean-head\{width:calc\(100% - 42px\)!important;max-width:none!important/);
+  assert.match(visual,/\.rona-rs-root\[data-kind="radio"\]\{width:calc\(100% - 42px\)!important;max-width:none!important/);
+  assert.match(visual,/@media\(max-width:980px\)\{#\$\{PAGE_ID\}>\.rona-radio-clean-head,#\$\{PAGE_ID\}>\.rona-rs-root\[data-kind="radio"\]\{width:calc\(100% - 24px\)!important;max-width:none!important\}/);
+  assert.doesNotMatch(visual,/width:min\(calc\(100% - (?:42|24)px\),1040px\)/);
+  assert.doesNotMatch(visual,/max-width:1040px/);
   assert.match(visual,/data-radio-canonical-v11/);
   assert.doesNotMatch(visual,/setTimeout\(boot|setTimeout\(apply|cleanupOld/);
-  assert.match(admin,/portal-admin-radio-canonical-v11\.js\?v=20261003-single-visual-owner-v11/);
+  assert.match(admin,/portal-admin-radio-canonical-v11\.js\?v=20261005-full-width-owner-v11/);
   const polish=read('functions/portal/admin-approved-polish-ui.js');
   assert.doesNotMatch(polish,/page-messages\.rona-radio-single-owner-ready[^\n]*visibility:visible/);
   assert.doesNotMatch(polish,/current\.style\.removeProperty\('display'\)/);

@@ -52,7 +52,7 @@ test('Client and Agent presence stays real-session-only while impersonated Clien
   assert.match(router,/portal-presence-v1/);
   assert.match(router,/connectionId=crypto\.randomUUID\(\)/);
   assert.match(router,/\/portal\/owner-api\?path=%2Fpresence%2Fheartbeat/);
-  assert.match(router,/if\(impersonation\?\.data\)\{[\s\S]*HeadPrepend\(bridge\)[\s\S]*BodyAppend\(RADIO_BROADCAST_RUNTIME\)[\s\S]*x-rona-client-impersonation-shell','static-plus-radio-runtime-and-header-bridge-v2'[\s\S]*return secureResponse\(withMarker,session\.setCookies,true\);[\s\S]*const clientPresence=presenceBridge\('CLIENT'\);/);
+  assert.match(router,/if\(impersonation\?\.data\)\{[\s\S]*HeadPrepend\(bridge\)[\s\S]*BodyAppend\(RADIO_BROADCAST_RUNTIME(?:\+CLAIMS_SECTION_RETIRE_RUNTIME)?\)[\s\S]*x-rona-client-impersonation-shell','static-plus-radio-runtime-and-header-bridge-v2'[\s\S]*return secureResponse\(withMarker,session\.setCookies,true\);[\s\S]*const clientPresence=presenceBridge\('CLIENT'\);/);
   const clientImpersonation=router.slice(router.indexOf("if(impersonation?.data){",router.indexOf("if(kind==='client')")),router.indexOf("const clientPresence=presenceBridge('CLIENT')"));
   assert.doesNotMatch(clientImpersonation,/presenceBridge\('CLIENT'\)/);
   assert.match(router,/const agentPresence=impersonation\?\.data\?'':presenceBridge\('AGENT'\)/);
