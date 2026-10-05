@@ -35,7 +35,7 @@ jobs:
           ! grep -q '.rona-rail-grid' assets/portal-runtime/client-content-responsive-v1.css
           npm run build
           grep -q 'id="rona-client-content-responsive-v1"' dist/portal/client.html
-          grep -q '/assets/portal-runtime/client-content-responsive-v1.css?v=20261004-client-deals-layout-v13' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-content-responsive-v1.css?v=20261005-client-deals-visual-v14' dist/portal/client.html
           node - <<'NODE'
           const i=require('./dist/canonical-visual-integrity.json');
           const r=i.client_runtime?.content_responsive;
