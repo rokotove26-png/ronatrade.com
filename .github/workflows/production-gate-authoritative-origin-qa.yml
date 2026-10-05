@@ -1,0 +1,31 @@
+name: Production gate authoritative origin QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'scripts/verify-client-contract-v5-production.mjs'
+      - 'scripts/qa-production-gate-origin-v1.mjs'
+      - '.github/workflows/final-production-activation-synchronized-v2.yml'
+      - '.github/workflows/production-gate-authoritative-origin-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-origin-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Capture both production origin responses and prove authoritative target
+        run: node scripts/qa-production-gate-origin-v1.mjs
+      - name: Prove existing fail-closed Client v11 verifier on authoritative production
+        env:
+          TARGET_ORIGIN: https://ronaoil.com
+        run: node scripts/verify-client-contract-v5-production.mjs
