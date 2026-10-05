@@ -17,7 +17,7 @@
     },
     "assets/portal-runtime/client-closeout-documents-v1.js": {
       "baseline_blob_sha": null,
-      "authorized_post_blob_sha": "600352a525ecb5481ed31e5e48d2c15a8b0e8fac",
+      "authorized_post_blob_sha": "7d42a636f896a6dc0efa24b863ad1a474c00b4c8",
       "required_marker": "20261005-client-closeout-documents-v1"
     }
   },
@@ -42,5 +42,10 @@
     "exact_blob_enforcement": true,
     "scoped_unfreeze_only": true
   },
-  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_DEALS_ATTENTION_CLOSEOUT_PARITY_V1"
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_DEALS_ATTENTION_CLOSEOUT_PARITY_V1",
+  "corrective_uat_20261005": {
+    "observed_error": "PORTAL_ACCESS_DENIED",
+    "correction": "Route Client CLOSEOUT via canonical /portal/api bridge with impersonation propagation",
+    "owner_evidence": "UAT screenshot 2026-10-05"
+  }
 }
