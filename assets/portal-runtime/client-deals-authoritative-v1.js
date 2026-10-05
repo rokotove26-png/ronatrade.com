@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261003-client-deals-authoritative-lifecycle-tabs-v11';
+const MARK='20261005-client-deals-authoritative-lifecycle-tabs-v12-stage-filter-inline-hidden';
 if(window.__RONA_CLIENT_DEALS_AUTHORITATIVE__===MARK)return;
 window.__RONA_CLIENT_DEALS_AUTHORITATIVE__=MARK;
 window.__RONA_CLIENT_DEAL_PASSPORT_FRESHNESS__='20260922-deal-state-v1-fresh-on-open';
@@ -27,6 +27,7 @@ const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
 const numberText=(n,max=2)=>{const v=Number(n);if(!Number.isFinite(v))return'';return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:max}).format(v)};
 function setHidden(n,value){if(n&&n.hidden!==Boolean(value))n.hidden=Boolean(value)}
+function setDealCardHidden(n,value){if(!n)return;const hidden=Boolean(value);setHidden(n,hidden);if(hidden)n.style.setProperty('display','none','important');else n.style.removeProperty('display')}
 function setAttr(n,name,value){if(!n)return;if(value===null){if(n.hasAttribute(name))n.removeAttribute(name);return}const next=String(value);if(n.getAttribute(name)!==next)n.setAttribute(name,next)}
 function setData(n,name,value){if(!n)return;if(value===null){if(Object.hasOwn(n.dataset,name))delete n.dataset[name];return}const next=String(value);if(n.dataset[name]!==next)n.dataset[name]=next}
 function setText(n,value){if(!n)return;const next=String(value??'');if(n.textContent!==next)n.textContent=next}
@@ -89,7 +90,7 @@ function retireNonCanonicalDealLayers(r,expected){
   }
   suppressForeignDrawers(allowed);
 }
-function applyFilters(){const r=root(),list=r?.querySelector?.(`:scope > [${LIST_ATTR}]`);if(!r||!list)return;const search=[...r.querySelectorAll('input')].find(n=>/ИД\s+сделки|товар|станц/iu.test(norm(n.placeholder)))||null;const stage=[...r.querySelectorAll('select')][0]||null;const q=norm(search?.value).toLocaleLowerCase('ru-RU'),stageValue=norm(stage?.value||stage?.selectedOptions?.[0]?.textContent);for(const c of list.querySelectorAll(`[${CARD_ATTR}]`)){const text=norm(c.textContent).toLocaleLowerCase('ru-RU');const bucketOk=upper(c.dataset.ronaClientDealStage)===state.bucket,searchOk=!q||text.includes(q),stageOk=!stageValue||/^все\s+этап/iu.test(stageValue)||text.includes(stageValue.toLocaleLowerCase('ru-RU'));setHidden(c,!(bucketOk&&searchOk&&stageOk))}const tabs=r.querySelector(':scope > [data-rona-deal-stage-tabs]');if(tabs)paintStageTabs(tabs)}
+function applyFilters(){const r=root(),list=r?.querySelector?.(`:scope > [${LIST_ATTR}]`);if(!r||!list)return;const search=[...r.querySelectorAll('input')].find(n=>/ИД\s+сделки|товар|станц/iu.test(norm(n.placeholder)))||null;const stage=[...r.querySelectorAll('select')][0]||null;const q=norm(search?.value).toLocaleLowerCase('ru-RU'),stageValue=norm(stage?.value||stage?.selectedOptions?.[0]?.textContent);for(const c of list.querySelectorAll(`[${CARD_ATTR}]`)){const text=norm(c.textContent).toLocaleLowerCase('ru-RU');const bucketOk=upper(c.dataset.ronaClientDealStage)===state.bucket,searchOk=!q||text.includes(q),stageOk=!stageValue||/^все\s+этап/iu.test(stageValue)||text.includes(stageValue.toLocaleLowerCase('ru-RU'));setDealCardHidden(c,!(bucketOk&&searchOk&&stageOk))}const tabs=r.querySelector(':scope > [data-rona-deal-stage-tabs]');if(tabs)paintStageTabs(tabs)}
 function scheduleFilters(){clearTimeout(state.filterTimer);state.filterTimer=setTimeout(applyFilters,40)}
 function drawerFor(id,key){const all=drawers().filter(r=>visible(r)&&norm(r.textContent).includes('Паспорт сделки'));const exact=all.filter(r=>drawerId(r)===id&&(!norm(r.dataset.ronaAuthoritativeContext)||norm(r.dataset.ronaAuthoritativeContext)===key));return exact.length===1?exact[0]:null}
 function passportSlotsReady(r){if(!r)return false;for(const kind of FIELD_LABELS.values())if(!r.querySelector(`[data-rona-command-field="${kind}"] [data-rona-command-field-value]`))return false;return true}
