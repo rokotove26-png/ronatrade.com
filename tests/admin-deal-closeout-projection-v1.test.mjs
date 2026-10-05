@@ -95,3 +95,12 @@ test('Admin CLOSEOUT completion is gated by the canonical CLOSEOUT projection an
   assert.match(ownerAcceptance,/OWNER_DEAL_COMPLETED/);
   assert.match(ownerAcceptance,/ADMIN_CLOSEOUT_DOCUMENT_KINDS/);
 });
+
+
+test('Completed CLOSEOUT deals are exclusive to Completed and cannot remain in Attention',async()=>{
+  const response=await closeoutRuntime();
+  const ui=await response.text();
+  assert.match(ui,/function isCompleted\(d\).*\['CLOSED','COMPLETED','SETTLED'\]\.includes\(bs\)\|\|ls==='CLOSED'/s);
+  assert.match(ui,/function needsAttention\(d\)\{if\(isActive\(d\)&&isPostExecutionAttention\(d\)\)return true;if\(!isExecutionMonitoringActive\(d\)\)return false;/);
+  assert.match(ui,/if\(filter==='COMPLETED'\)return ds\.filter\(isCompleted\)/);
+});
