@@ -1119,7 +1119,7 @@ for(const [path,expected] of Object.entries(protectedFiles)){
   }
 }
 
-if(clientDealsVisualHierarchyExceptionAuthorized&&clientDealsVisualHierarchyAppliedFiles!==1)errors.push(`CLIENT_DEALS_VISUAL_HIERARCHY_PROTECTED_BLOB_COUNT expected=1 actual=${clientDealsVisualHierarchyAppliedFiles}`);
+if(clientDealsVisualHierarchyExceptionAuthorized&&clientDealsVisualHierarchyAppliedFiles!==CLIENT_DEALS_VISUAL_HIERARCHY_FILES.length)errors.push(`CLIENT_DEALS_VISUAL_HIERARCHY_PROTECTED_BLOB_COUNT expected=${CLIENT_DEALS_VISUAL_HIERARCHY_FILES.length} actual=${clientDealsVisualHierarchyAppliedFiles}`);
 if(!clientRailAdminMirrorExceptionAuthorized)errors.push('CLIENT_RAIL_ADMIN_MIRROR_GOVERNANCE_NOT_AUTHORIZED');
 if(clientRailAdminMirrorExceptionAuthorized&&clientRailAdminMirrorAppliedFiles!==1&&!clientRailAdminMirrorSupersededBy670)errors.push(`CLIENT_RAIL_ADMIN_MIRROR_EXACT_BLOB_COUNT expected=1 actual=${clientRailAdminMirrorAppliedFiles}`);
 if(!clientRail670ExceptionAuthorized)errors.push('CLIENT_RAIL_670_GOVERNANCE_NOT_AUTHORIZED');
