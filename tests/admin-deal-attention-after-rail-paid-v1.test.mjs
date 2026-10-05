@@ -35,7 +35,7 @@ test('Admin Deals UI places the derived lifecycle signal in Требует вн�
   assert.match(js,/post_rail_completion_attention===true/);
   assert.match(js,/function isPostExecutionAttention\(d\)\{return !!\(d&&d\.post_rail_completion_attention===true\)\}/);
   assert.match(js,/function isExecutionMonitoringActive\(d\)\{return isActive\(d\)&&!isPostExecutionAttention\(d\)\}/);
-  assert.match(js,/function needsAttention\(d\)\{if\(isPostExecutionAttention\(d\)\)return true;if\(!isExecutionMonitoringActive\(d\)\)return false;/);
+  assert.match(js,/function needsAttention\(d\)\{if\(isActive\(d\)&&isPostExecutionAttention\(d\)\)return true;if\(!isExecutionMonitoringActive\(d\)\)return false;/);
   assert.match(js,/if\(d&&d\.post_rail_completion_attention===true\|\|structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD'/);
   assert.match(js,/\['ATTENTION','Требует внимания · '/);
 });
