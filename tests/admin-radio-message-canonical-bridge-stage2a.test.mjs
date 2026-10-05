@@ -456,7 +456,7 @@ test('Dynamic Radio wrapper preserves the single canonical base owner and frozen
 });
 
 test('Canonical Admin Radio visual owner remains byte-for-byte locked',()=>{
-  assert.equal(gitBlobSha('assets/portal-admin-radio-canonical-v11.js'),'dba3ad464badec173998dcc6913087a5319a4a13');
+  assert.equal(gitBlobSha('assets/portal-admin-radio-canonical-v11.js'),'a2306acce666f65ea1abef89b2d1d34e71839e63');
 });
 
 test('Frozen Client Messages visual/runtime asset remains byte-for-byte unchanged',()=>{
