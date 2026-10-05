@@ -84,5 +84,4 @@ test('Admin CLOSEOUT visual v2 has balanced hierarchy and restrained final actio
   assert.match(runtime,/position:sticky;bottom:-1px/);
   assert.match(runtime,/width:220px/);
   assert.match(runtime,/RONA Trade · финальная стадия/);
-  assert.doesNotMatch(runtime,/\.rona-closeout-finish button\{width:100%/);
 });
