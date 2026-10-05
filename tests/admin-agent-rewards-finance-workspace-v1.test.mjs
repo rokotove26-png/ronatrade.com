@@ -58,6 +58,8 @@ test('Dedicated premium UI has AS IS, Owner control, correction and future send 
   assert.match(ui,/Затраты на конвертацию/);
   assert.match(ui,/оригинальная валюта → валюта поступления/);
   assert.match(ui,/FINANCE LIVE/);
+  assert.match(ui,/Выберите сделку на дашборде для открытия финансового паспорта/);
+  assert.doesNotMatch(ui,/state\.selectedDealId=deals\[0\]\.dealId/);
   assert.match(ui,/--ar-cyan:#22d3ee/);
   assert.match(ui,/--ar-green:#34d399/);
   assert.match(ui,/--ar-violet:#a78bfa/);
