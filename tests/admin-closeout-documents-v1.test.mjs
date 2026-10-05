@@ -60,3 +60,11 @@ test('Deal completion is Owner-triggered, CLOSEOUT-gated, audited and idempotent
   assert.match(closeoutRuntime,/\/admin\/deals\/'\+encodeURIComponent\(deal\.deal_id\)\+'\/complete/);
   assert.match(closeoutRuntime,/\.is-completed/);
 });
+
+
+test('CLOSEOUT runtime DOM patch is idempotent and cannot self-trigger a MutationObserver loop',()=>{
+  assert.match(closeoutRuntime,/if\(th&&th\.textContent!==label\)th\.textContent=label/);
+  assert.match(closeoutRuntime,/if\(b\.textContent!==label\)b\.textContent=label/);
+  assert.match(closeoutRuntime,/if\(b\.dataset\.ronaCloseoutDocsBound==='1'\)return/);
+  assert.match(closeoutRuntime,/new MutationObserver\(schedule\)/);
+});
