@@ -83,5 +83,6 @@
   "archive_removal_scope": "CLIENT_REMOVE_STANDALONE_DEAL_ARCHIVE_V1",
   "owner_instruction_filter_correction": "При переключении разделов ничего не происходит, отражаются все 3 сделки. Это не правильно.",
   "filter_correction_authorized_at": "2026-10-05",
-  "filter_correction_scope": "CLIENT_DEALS_LIFECYCLE_TABS_EXCLUSIVE_VISIBILITY_V1"
+  "filter_correction_scope": "CLIENT_DEALS_LIFECYCLE_TABS_EXCLUSIVE_VISIBILITY_V1",
+  "filter_correction_pr_marker": "OWNER_VISUAL_APPROVAL: CLIENT_DEALS_LIFECYCLE_TABS_EXCLUSIVE_VISIBILITY_V1"
 }
