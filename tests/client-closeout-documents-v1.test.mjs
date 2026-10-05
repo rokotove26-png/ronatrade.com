@@ -17,7 +17,7 @@ test('Client ATTENTION CLOSEOUT opens dedicated client workspace instead of nati
   assert.match(deals,/closeout_stage/);
   assert.match(deals,/rona:client:closeout-open/);
   assert.match(deals,/event\.stopImmediatePropagation\(\)/);
-  assert.match(closeout,/20261005-client-closeout-documents-v2/);
+  assert.match(closeout,/20261005-client-closeout-documents-v3/);
   assert.match(closeout,/rona:client:closeout-open/);
 });
 
@@ -68,8 +68,8 @@ test('Client CLOSEOUT document routes are narrow and use existing storage/downlo
 });
 
 test('Canonical Client build attaches one closeout runtime with no-store cache policy',()=>{
-  assert.match(attach,/client-closeout-documents-v1\.js\?v=20261005-client-closeout-v2-portal-api/);
-  assert.match(attach,/20261005-client-closeout-documents-v2/);
+  assert.match(attach,/client-closeout-documents-v1\.js\?v=20261005-client-closeout-v3-imp-tab/);
+  assert.match(attach,/20261005-client-closeout-documents-v3/);
   assert.match(attach,/CLIENT_CLOSEOUT_DOCUMENTS_RUNTIME_NOT_SINGLE/);
   assert.match(cache,/client-closeout-documents-v\*\.js/);
 });
@@ -96,4 +96,7 @@ test('Client CLOSEOUT portal bridge preserves admin impersonation and multipart 
   assert.match(portalApi,/if\(uploadParts\.source\)fd\.append\('sourceUnsignedDocumentId'/);
   assert.match(portalApi,/x-rona-impersonation-ended/);
   assert.match(portalApi,/IMPERSONATION_SESSION_INVALID/);
+  assert.match(closeout,/new URLSearchParams\(location\.search\)\.get\('impSession'\)/);
+  assert.match(closeout,/headers\.set\('x-rona-impersonation-tab',impersonationTab\)/);
+  assert.match(closeout,/IMPERSONATION_TAB_RE/);
 });
