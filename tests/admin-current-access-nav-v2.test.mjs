@@ -43,8 +43,8 @@ assert(!source.includes('installNavigationStability'),'Access page must not inst
 assert(!source.includes('installShellParity'),'Access page must not restyle the global shell');
 assert(shell.includes("window.__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'"),'Navigation must be owned by current shell');
 assert(shell.includes('grid-template-columns:272px minmax(0,1fr)'),'Canonical Home-scale sidebar must live in shell');
-assert(shell.includes('/assets/portal-admin-shell-fast-v1.js?v=20261003-remove-claims-v1'),'Admin shell must cache-bust the Claims-retired shell runtime');
-assert(shell.includes('/portal/clients-agents-current-ui?v=20260919-admin-access-stability-v3'),'Admin shell must cache-bust the Access current runtime');
+assert(shell.includes('/assets/portal-admin-shell-fast-v1.js?v=20261005-lazy-selected-page-v2'),'Admin shell must cache-bust the lazy selected-page shell runtime');
+assert(!shell.includes('id="rona-clients-agents-current-loader"')&&!shell.includes('/portal/clients-agents-current-ui?v=20260919-admin-access-stability-v3'),'Admin HTML must not preload the Access current runtime');
 assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js?v=20260919-admin-access-stability-v3'),'Admin shell must cache-bust the stability watchdog runtime');
 assert(source.includes("window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING'"),'Access runtime boot lifecycle marker missing');
 assert(source.includes('window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair'),'Access runtime in-place repair hook missing');
@@ -55,6 +55,7 @@ assert(source.includes(".ca-modal .ca-btn.ca-danger"),'Modal destructive style m
 assert(source.includes("remove.dataset.ronaDangerAction='entity-delete'"),'Delete company inline destructive fallback missing');
 assert(source.includes('if(window.__RONA_CLIENTS_AGENTS_CURRENT_READY__&&r&&accessRootHealthy())'),'Access refresh must preserve last-good DOM');
 assert(fastShell.includes('const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost()'),'Fast shell must use stable access readiness');
+assert(fastShell.includes("if(p==='access')return loadAccess()")&&fastShell.includes("if(p==='access')loadAccess();"),'Access runtime must be selected-page lazy');
 assert(fastShell.includes('waitAccessReady(14000)'),'Fast shell must allow bounded async access bootstrap without teardown');
 assert(fastShell.includes('CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN'),'Fast shell must fail non-destructively while access runtime is booting');
 assert(!fastShell.includes('window.__RONA_CLIENTS_AGENTS_CURRENT__=null'),'Fast shell must not clear a live Access runtime marker during recovery');
