@@ -12,10 +12,10 @@ test('Admin CLOSEOUT loads a separate closing-documents runtime without replacin
   assert.equal(response.status,200);
   const ui=await response.text();
   assert.match(ui,/ADMIN_CLOSEOUT_DOCUMENTS_V1/);
-  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v1/);
+  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v2/);
   assert.match(ui,/function buildDetail\(d\)/);
   assert.match(ui,/Карточка сделки/);
-  assert.match(uiSource,/admin-closeout-documents-v1\.js\?v=20261005-v1/);
+  assert.match(uiSource,/admin-closeout-documents-v1\.js\?v=20261005-v2/);
 });
 
 test('Closing-documents workspace uses the exact Owner document set and keeps client upload UI unchanged',()=>{
