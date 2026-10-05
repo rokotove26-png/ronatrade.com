@@ -29,9 +29,9 @@ test('Agent Rewards read model is Admin-only, Finance-authoritative and receipt-
 test('Owner correction is immutable overlay and cannot mutate Finance authority facts',()=>{
   assert.match(migration,/agent_reward_owner_corrections_v1/);
   assert.match(migration,/correction_version/);
-  assert.match(migration,/unique\(deal_key,correction_version\)/);
+  assert.match(migration,/unique\(assignment_id,deal_key,correction_version\)/);
   assert.match(migration,/idempotency_key text not null unique/);
-  assert.match(migration,/rona_admin_agent_rewards_correct_v1/);
+  assert.match(migration,/rona_admin_agent_rewards_correct_v2/);
   assert.match(migration,/v_allowed text\[\].*receivedAmount.*agentReward/s);
   assert.doesNotMatch(migration,/update\s+portal_private\.deal_finance_authority/i);
   assert.doesNotMatch(migration,/update\s+portal_private\.payments/i);
@@ -43,7 +43,10 @@ test('Agent reward fails closed without a confirmed calculable basis',()=>{
   assert.match(migration,/CALCULATION_BASIS_REQUIRED/);
   assert.match(migration,/SETTLEMENT_AUTHORITY/);
   assert.match(migration,/FIXED_TERM/);
+  assert.match(migration,/term_status='ACTIVE'/);
   assert.match(migration,/term_authority_state in \('CONFIRMED','VERIFIED','AUTHORITATIVE'\)/);
+  assert.match(migration,/d\.valid_from<=now\(\)/);
+  assert.match(migration,/settlement_state in \('APPROVED','PAYABLE_CONFIRMED','PAID'\)/);
 });
 
 test('Dedicated premium UI has AS IS, Owner control, correction and future send button',()=>{
@@ -59,7 +62,8 @@ test('Dedicated premium UI has AS IS, Owner control, correction and future send 
   assert.match(ui,/оригинальная валюта → валюта поступления/);
   assert.match(ui,/FINANCE LIVE/);
   assert.match(ui,/Выберите сделку на дашборде для открытия финансового паспорта/);
-  assert.doesNotMatch(ui,/state\.selectedDealId=deals\[0\]\.dealId/);
+  assert.doesNotMatch(ui,/selectedDealId/);
+  assert.match(ui,/assignmentId/);
   assert.match(ui,/--ar-cyan:#22d3ee/);
   assert.match(ui,/--ar-green:#34d399/);
   assert.match(ui,/--ar-violet:#a78bfa/);
@@ -68,7 +72,8 @@ test('Dedicated premium UI has AS IS, Owner control, correction and future send 
 test('Owner API exposes only the dedicated read/correction RPCs',()=>{
   assert.match(ownerApi,/\/admin\/agent-rewards-v1/);
   assert.match(ownerApi,/rona_admin_agent_rewards_workspace_v1/);
-  assert.match(ownerApi,/rona_admin_agent_rewards_correct_v1/);
+  assert.match(ownerApi,/rona_admin_agent_rewards_correct_v2/);
+  assert.match(ownerApi,/p_assignment_id/);
   assert.match(ownerApi,/p_corrected_payload/);
   assert.match(ownerApi,/p_idempotency_key/);
 });
@@ -80,4 +85,15 @@ test('Admin shell lazy-loads Agent Rewards and legacy Remaining renderer no long
   assert.match(remaining,/replaceAll\("'вознаграждения агентов':'rewards'",''\)/);
   assert.match(remaining,/replaceAll\("if\(kind==='rewards'\)return renderRewards\(\)",''\)/);
   assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261005-agent-rewards-finance-v1/);
+});
+
+test('Agent identity and reward authority are assignment-scoped',()=>{
+  assert.match(migration,/join portal_private\.agent_persons ap/);
+  assert.match(migration,/left join portal_private\.agent_legal_entities ale/);
+  assert.match(migration,/distinct on \(t\.assignment_id,t\.deal_key\)/);
+  assert.match(migration,/t\.assignment_id=s\.assignment_id and t\.deal_key=s\.deal_key/);
+  assert.match(migration,/st\.agent_deal_term_key=t\.term_key/);
+  assert.match(migration,/c\.assignment_id=s\.assignment_id and c\.deal_key=s\.deal_key/);
+  assert.match(migration,/'assignmentId',x\.assignment_id/);
+  assert.match(migration,/agent_reward_owner_corrections_v1\(\s*deal_key,assignment_id/s);
 });
