@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {onRequest as closeoutRuntime} from '../functions/portal/deals-current-state-ui.js';
 
 const migration=readFileSync('supabase/migrations/20261005055000_admin_deal_closeout_projection_v1.sql','utf8');
-const ui=readFileSync('functions/portal/deals-current-state-ui.js','utf8');
+const uiSource=readFileSync('functions/portal/deals-current-state-ui.js','utf8');
 
 test('Admin CLOSEOUT read model is projection-only and source locked',()=>{
   assert.match(migration,/create or replace function public\.owner_deals_current_v4\(\)/i);
@@ -24,7 +25,11 @@ test('Admin CLOSEOUT read model is projection-only and source locked',()=>{
   assert.doesNotMatch(migration,/DEAL-2026-004/);
 });
 
-test('Admin CLOSEOUT UI is isolated to ATTENTION and leaves standard deal columns intact',()=>{
+test('Generated Admin CLOSEOUT runtime is isolated to ATTENTION and preserves standard rows',async()=>{
+  const response=await closeoutRuntime();
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('x-rona-deals-closeout'),'admin-closeout-v1');
+  const ui=await response.text();
   assert.match(ui,/ADMIN_DEAL_CLOSEOUT_V1/);
   assert.match(ui,/filter==='ATTENTION'\?visible\.filter\(isPostExecutionAttention\)/);
   assert.match(ui,/closeout_actual_quantity_tonnes/);
@@ -45,4 +50,5 @@ test('Admin CLOSEOUT UI is isolated to ATTENTION and leaves standard deal column
   assert.match(ui,/Accounting/);
   assert.match(ui,/Статус/);
   assert.doesNotMatch(ui,/DEAL-2026-004/);
+  assert.doesNotMatch(uiSource,/DEAL-2026-004/);
 });
