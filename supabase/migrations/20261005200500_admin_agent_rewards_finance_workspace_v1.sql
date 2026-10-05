@@ -88,12 +88,32 @@ begin
         -coalesce(f.due_now,0)
         -coalesce(f.expected_not_due,0)
         -coalesce(f.future_conditional,0)
-      )::numeric as received_amount
+      )::numeric as finance_received_amount
     from portal_private.deal_finance_authority_payments_v8_read_v1 f
     where f.source_locked=true
       and f.authority_state='AUTHORITATIVE'
       and f.lifecycle_state='CURRENT'
     order by f.deal_key,f.is_terminal desc,f.effective_at desc nulls last,f.created_at desc
+  ),
+  receipt as (
+    select
+      pa.deal_key,
+      count(distinct btrim(p.currency::text))::int receipt_currency_count,
+      case when count(distinct btrim(p.currency::text))=1 then min(btrim(p.currency::text)) else null::text end receipt_currency,
+      case when count(distinct btrim(p.currency::text))=1 then sum(pa.allocated_amount)::numeric else null::numeric end received_amount
+    from portal_private.payment_allocations pa
+    join portal_private.payments p on p.id=pa.payment_key
+    where pa.deal_key is not null
+      and pa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and pa.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and pa.allocation_status='VERIFIED'::portal_private.payment_allocation_state_enum
+      and p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
+      and p.finance_verification_status='VERIFIED'::portal_private.finance_verification_state_enum
+      and p.payment_direction='INCOMING'::portal_private.payment_direction_enum
+      and p.payment_kind='CLIENT_PAYMENT'::portal_private.payment_kind_enum
+    group by pa.deal_key
   ),
   resource_lines as (
     select
@@ -125,7 +145,19 @@ begin
           and rc.source_locked=true
           and rc.authority_state='AUTHORITATIVE'
           and rc.lifecycle_state='CURRENT'
-      )::numeric as bank_fee_equivalent_total
+      )::numeric as bank_fee_equivalent_total,
+      count(distinct btrim(rc.accounting_currency::text)) filter (
+        where p.payment_kind::text in ('COUNTERPARTY_PAYMENT','BANK_FEE')
+          and rc.source_locked=true
+          and rc.authority_state='AUTHORITATIVE'
+          and rc.lifecycle_state='CURRENT'
+      )::int as accounting_currency_count,
+      min(btrim(rc.accounting_currency::text)) filter (
+        where p.payment_kind::text in ('COUNTERPARTY_PAYMENT','BANK_FEE')
+          and rc.source_locked=true
+          and rc.authority_state='AUTHORITATIVE'
+          and rc.lifecycle_state='CURRENT'
+      ) as accounting_currency
     from portal_private.payment_resource_chains_effective_v8 rc
     join portal_private.payments p on p.id=rc.payment_key
     group by rc.deal_key
@@ -165,18 +197,20 @@ begin
       f.finance_status as finance_authority_status,
       f.authority_state as finance_authority_state,
       f.lifecycle_state as finance_lifecycle_state,
-      f.effective_at,f.source_refs,f.source_locked,f.is_terminal,f.received_amount,
+      f.effective_at,f.source_refs,f.source_locked,f.is_terminal,f.finance_received_amount,
+      r.receipt_currency_count,r.receipt_currency,r.received_amount,
       coalesce(rl.lines,'[]'::jsonb) expense_lines,
       rl.settlement_equivalent_total,
       rl.bank_fee_equivalent_total,
+      rl.accounting_currency_count,rl.accounting_currency,
       t.term_key,t.term_status,t.commission_mode,t.commission_rate,t.commission_fixed_amount,
       t.term_currency,t.term_reference,t.term_authority_state,t.term_lifecycle_state,t.valid_from,t.valid_to,
       st.settlement_id,st.settlement_state,st.settlement_amount,st.settlement_currency,
       st.settlement_authority_state,st.settlement_lifecycle_state,st.payable_confirmed_at,st.paid_at,
-      c.correction_version,c.corrected_payload,c.note correction_note,c.created_at correction_created_at,c.created_by correction_created_by,
-      coalesce(nullif(btrim(f.execution_currency::text),''),nullif(btrim(f.obligation_currency::text),''),nullif(btrim(f.contractual_payment_currency::text),'')) receipt_currency
+      c.correction_version,c.corrected_payload,c.note correction_note,c.created_at correction_created_at,c.created_by correction_created_by
     from scope s
     left join fin f on f.deal_key=s.deal_key
+    left join receipt r on r.deal_key=s.deal_key
     left join resource_lines rl on rl.deal_key=s.deal_key
     left join term t on t.deal_key=s.deal_key
     left join settlement st on st.deal_key=s.deal_key
@@ -185,14 +219,28 @@ begin
   shaped as (
     select
       d.*,
-      case when d.actual_spend_status='AUTHORITATIVE' then d.received_amount-d.actual_spend else null::numeric end as financial_result,
       case
-        when d.actual_spend_status='AUTHORITATIVE' and d.settlement_equivalent_total is not null
+        when d.actual_spend_status='AUTHORITATIVE'
+          and btrim(d.execution_currency::text)=d.receipt_currency
+          and d.received_amount is not null
+        then d.received_amount-d.actual_spend
+        else null::numeric
+      end as financial_result,
+      case
+        when d.actual_spend_status='AUTHORITATIVE'
+          and btrim(d.execution_currency::text)=d.receipt_currency
+          and d.settlement_equivalent_total is not null
+          and d.accounting_currency_count=1
+          and d.accounting_currency=d.receipt_currency
         then d.settlement_equivalent_total-d.actual_spend
         else null::numeric
       end as fx_difference,
       case
-        when d.actual_spend_status='AUTHORITATIVE' and d.settlement_equivalent_total is not null
+        when d.actual_spend_status='AUTHORITATIVE'
+          and btrim(d.execution_currency::text)=d.receipt_currency
+          and d.settlement_equivalent_total is not null
+          and d.accounting_currency_count=1
+          and d.accounting_currency=d.receipt_currency
         then greatest(d.actual_spend-d.settlement_equivalent_total,0)
         else null::numeric
       end as conversion_cost,
@@ -236,18 +284,19 @@ begin
           'financeStatus',coalesce(x.finance_authority_status,x.deal_finance_status),
           'accountingStatus',x.accounting_status,
           'receiptCurrency',x.receipt_currency,
+          'receiptCurrencyStatus',case when x.receipt_currency_count=1 then 'AUTHORITATIVE_VERIFIED_INCOMING' else 'TO_VERIFY' end,
           'asIs',jsonb_build_object(
             'receivedAmount',x.received_amount,
-            'totalSpend',case when x.actual_spend_status='AUTHORITATIVE' then x.actual_spend else null end,
+            'totalSpend',case when x.actual_spend_status='AUTHORITATIVE' and btrim(x.execution_currency::text)=x.receipt_currency then x.actual_spend else null end,
             'financialResult',x.financial_result,
             'conversionCost',x.conversion_cost,
             'fxDifference',x.fx_difference,
-            'bankFees',x.bank_fee_equivalent_total,
+            'bankFees',case when x.accounting_currency_count=1 and x.accounting_currency=x.receipt_currency then x.bank_fee_equivalent_total else null end,
             'agentReward',x.agent_reward,
             'agentRewardStatus',x.agent_reward_status,
-            'actualSpendStatus',x.actual_spend_status,
-            'remainingExecution',x.remaining_execution,
-            'remainingExecutionStatus',x.remaining_execution_status
+            'actualSpendStatus',case when x.actual_spend_status='AUTHORITATIVE' and btrim(x.execution_currency::text)=x.receipt_currency then 'AUTHORITATIVE' else 'TO_VERIFY_CURRENCY' end,
+            'remainingExecution',case when x.remaining_execution_status='AUTHORITATIVE' and btrim(x.execution_currency::text)=x.receipt_currency then x.remaining_execution else null end,
+            'remainingExecutionStatus',case when x.remaining_execution_status='AUTHORITATIVE' and btrim(x.execution_currency::text)=x.receipt_currency then 'AUTHORITATIVE' else 'TO_VERIFY_CURRENCY' end
           ),
           'expenses',x.expense_lines,
           'agentTerm',jsonb_build_object(
