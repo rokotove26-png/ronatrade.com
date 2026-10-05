@@ -12,10 +12,10 @@ test('Admin CLOSEOUT loads a separate closing-documents runtime without replacin
   assert.equal(response.status,200);
   const ui=await response.text();
   assert.match(ui,/ADMIN_CLOSEOUT_DOCUMENTS_V1/);
-  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v1/);
+  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v2/);
   assert.match(ui,/function buildDetail\(d\)/);
   assert.match(ui,/Карточка сделки/);
-  assert.match(uiSource,/admin-closeout-documents-v1\.js\?v=20261005-v1/);
+  assert.match(uiSource,/admin-closeout-documents-v1\.js\?v=20261005-v2/);
 });
 
 test('Closing-documents workspace uses the exact Owner document set and keeps client upload UI unchanged',()=>{
@@ -59,4 +59,12 @@ test('Deal completion is Owner-triggered, CLOSEOUT-gated, audited and idempotent
   assert.match(ownerAcceptance,/OWNER_DEAL_COMPLETED/);
   assert.match(closeoutRuntime,/\/admin\/deals\/'\+encodeURIComponent\(deal\.deal_id\)\+'\/complete/);
   assert.match(closeoutRuntime,/\.is-completed/);
+});
+
+
+test('CLOSEOUT runtime DOM patch is idempotent and cannot self-trigger a MutationObserver loop',()=>{
+  assert.match(closeoutRuntime,/if\(th&&th\.textContent!==label\)th\.textContent=label/);
+  assert.match(closeoutRuntime,/if\(b\.textContent!==label\)b\.textContent=label/);
+  assert.match(closeoutRuntime,/if\(b\.dataset\.ronaCloseoutDocsBound==='1'\)return/);
+  assert.match(closeoutRuntime,/new MutationObserver\(schedule\)/);
 });

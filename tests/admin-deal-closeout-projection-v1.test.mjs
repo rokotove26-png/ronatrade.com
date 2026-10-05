@@ -65,7 +65,7 @@ test('Admin CLOSEOUT closing documents are a separate Owner workspace',async()=>
   const response=await closeoutRuntime();
   const ui=await response.text();
   assert.match(ui,/ADMIN_CLOSEOUT_DOCUMENTS_V1/);
-  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v1/);
+  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v2/);
   for(const label of [
     'Закрывающие документы',
     'Подписанное дополнительное соглашение',
@@ -103,4 +103,12 @@ test('Completed CLOSEOUT deals are exclusive to Completed and cannot remain in A
   assert.match(ui,/function isCompleted\(d\).*\['CLOSED','COMPLETED','SETTLED'\]\.includes\(bs\)\|\|ls==='CLOSED'/s);
   assert.match(ui,/function needsAttention\(d\)\{if\(isActive\(d\)&&isPostExecutionAttention\(d\)\)return true;if\(!isExecutionMonitoringActive\(d\)\)return false;/);
   assert.match(ui,/if\(filter==='COMPLETED'\)return ds\.filter\(isCompleted\)/);
+});
+
+
+test('CLOSEOUT runtime DOM patch is idempotent and cannot self-trigger a MutationObserver loop',()=>{
+  assert.match(closingRuntime,/if\(th&&th\.textContent!==label\)th\.textContent=label/);
+  assert.match(closingRuntime,/if\(b\.textContent!==label\)b\.textContent=label/);
+  assert.match(closingRuntime,/if\(b\.dataset\.ronaCloseoutDocsBound==='1'\)return/);
+  assert.match(closingRuntime,/new MutationObserver\(schedule\)/);
 });
