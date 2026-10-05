@@ -7,14 +7,15 @@ const proxy=readFileSync('functions/portal/api/[[path]].js','utf8');
 const paymentsRuntime=readFileSync('assets/portal-runtime/client-payments-authoritative-v1.js','utf8');
 const dealsRuntime=readFileSync('assets/portal-runtime/client-deals-authoritative-v1.js','utf8');
 
-test('Client deal moves to ATTENTION immediately after authoritative Rail completion',()=>{
+test('Client deal moves to ATTENTION only after authoritative Rail completion and 100 percent payment',()=>{
   assert.match(hardening,/rail_deal_monitoring_control_v1/);
   assert.match(hardening,/rail_monitoring_state/);
   assert.match(hardening,/COMPLETED/);
-  assert.match(hardening,/deal\.post_rail_completion_attention=railCompleted&&!terminal/);
+  assert.match(hardening,/const closeout=railCompleted&&fullyPaid&&!terminal/);
+  assert.match(hardening,/deal\.post_rail_completion_attention=closeout/);
   assert.match(hardening,/deal\.client_deal_stage='ATTENTION'/);
   assert.match(hardening,/deal\.client_deal_stage_label='Требует внимания'/);
-  assert.match(hardening,/RAIL_MONITORING_COMPLETED_OWNER_RULE_V1/);
+  assert.match(hardening,/RAIL_COMPLETED_AND_100_PERCENT_PAID_OWNER_RULE_V2/);
   assert.match(dealsRuntime,/if\(\['ACTIVE','ATTENTION','COMPLETED','ARCHIVED'\]\.includes\(explicit\)\)return explicit/);
   assert.match(dealsRuntime,/stage==='ATTENTION'\?'Требует внимания':'Завершена'/);
 });
@@ -37,7 +38,12 @@ test('Client boundary preserves monitoring decision and Payments UI filters only
   for(const marker of [
     'client_payments_monitoring_active',
     'client_payments_monitoring_exclusion_reason',
-    'client_payments_monitoring_source'
+    'client_payments_monitoring_source',
+    'closeout_stage',
+    'closeout_actual_quantity_tonnes',
+    'closeout_actual_amount',
+    'closeout_balance_amount',
+    'closeout_balance_direction'
   ]) assert.ok(proxy.includes(marker),`proxy missing ${marker}`);
   assert.match(paymentsRuntime,/function monitoringDeal\(deal\)\{return deal\?\.client_payments_monitoring_active!==false\}/);
   assert.match(paymentsRuntime,/const deals=allDeals\.filter\(monitoringDeal\)/);
@@ -59,8 +65,10 @@ test('Cloudflare Client context composes authoritative Rail completion for execu
   assert.match(proxy,/authority\?\.serverDerived!==true/);
   assert.match(proxy,/String\(authority\?\.clientId\|\|''\)!==clientId/);
   assert.match(proxy,/String\(authority\?\.contractId\|\|''\)!==contractId/);
-  assert.match(proxy,/deal\.post_rail_completion_attention=railCompleted&&!terminal/);
+  assert.match(proxy,/closeout=railCompleted&&fullyPaid&&!terminal/);
+  assert.match(proxy,/deal\.post_rail_completion_attention=closeout/);
   assert.match(proxy,/deal\.client_deal_stage='ATTENTION'/);
+  assert.match(proxy,/RAIL_COMPLETED_AND_100_PERCENT_PAID_OWNER_RULE_EDGE_V2/);
   assert.match(proxy,/deal\.client_deal_stage_label='Требует внимания'/);
   assert.match(proxy,/function clientDealFullyPaidForExit\(deal\)/);
   assert.match(proxy,/FINANCE_V7_AUTHORITATIVE/);
