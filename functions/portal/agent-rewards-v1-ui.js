@@ -1,6 +1,6 @@
 function agentRewardsRuntime(){'use strict';
-if(window.__RONA_AGENT_REWARDS_FINANCE_V1__)return;
-window.__RONA_AGENT_REWARDS_FINANCE_V1__='20261005-agent-rewards-finance-v1';
+if(window.__RONA_AGENT_REWARDS_FINANCE_V1__==='20261005-agent-rewards-finance-v2')return;
+window.__RONA_AGENT_REWARDS_FINANCE_V1__='20261005-agent-rewards-finance-v2';
 if(location.pathname!=='/portal/admin')return;
 
 const API='/portal/owner-api';
