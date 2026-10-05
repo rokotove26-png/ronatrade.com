@@ -94,6 +94,11 @@ test('Admin CLOSEOUT completion is gated by the canonical CLOSEOUT projection an
   assert.match(ownerAcceptance,/lifecycle_state='CLOSED'::portal_private\.lifecycle_state_enum/);
   assert.match(ownerAcceptance,/OWNER_DEAL_COMPLETED/);
   assert.match(ownerAcceptance,/ADMIN_CLOSEOUT_DOCUMENT_KINDS/);
+  assert.match(ownerAcceptance,/ensureCloseoutAssistantArchiveTask/);
+  assert.match(ownerAcceptance,/DEAL_CLOSEOUT_DOCUMENT_ARCHIVE/);
+  assert.match(ownerAcceptance,/ADMIN_DEAL_CLOSEOUT_ARCHIVE_V1/);
+  assert.match(ownerAcceptance,/'ASSISTANT'::portal_private\.staff_functional_role_enum/);
+  assert.match(ownerAcceptance,/CLOSEOUT_PACKAGE=/);
 });
 
 
