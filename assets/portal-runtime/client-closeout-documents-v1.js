@@ -1,10 +1,12 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261005-client-closeout-documents-v2';
+const MARK='20261005-client-closeout-documents-v3';
 if(window.__RONA_CLIENT_CLOSEOUT_DOCUMENTS__===MARK)return;
 window.__RONA_CLIENT_CLOSEOUT_DOCUMENTS__=MARK;
 const API='/portal/api';
+const IMPERSONATION_TAB_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const impersonationTab=(()=>{try{const v=String(new URLSearchParams(location.search).get('impSession')||'').trim();return IMPERSONATION_TAB_RE.test(v)?v:''}catch{return''}})();
 const DOCS=[
   ['SIGNED_ADDENDUM','Подписанное дополнительное соглашение','Документ сделки',null],
   ['INVOICE','Инвойс','Документ сделки',null],
@@ -17,7 +19,7 @@ const q=(s,r)=>(r||document).querySelector(s);
 const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=String(text);return n};
 const fmt=(v,d=2)=>{const n=Number(v);return Number.isFinite(n)?new Intl.NumberFormat('ru-RU',{maximumFractionDigits:d}).format(n):'—'};
 const money=(v,c)=>{const n=Number(v);return Number.isFinite(n)?fmt(n,2)+(c?' '+c:''):'—'};
-async function api(path,init){const opt=Object.assign({credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}},init||{}),r=await fetch(API+path,opt);let j={};try{j=await r.json()}catch{}if(!r.ok||j.ok===false)throw Object.assign(new Error(j.code||j.message||('HTTP_'+r.status)),{status:r.status});return j.data||{}}
+async function api(path,init){const incoming=init||{},headers=new Headers(incoming.headers||{accept:'application/json'});if(!headers.has('accept'))headers.set('accept','application/json');if(impersonationTab)headers.set('x-rona-impersonation-tab',impersonationTab);const opt={credentials:'same-origin',cache:'no-store',...incoming,headers},r=await fetch(API+path,opt);let j={};try{j=await r.json()}catch{}if(!r.ok||j.ok===false)throw Object.assign(new Error(j.code||j.message||('HTTP_'+r.status)),{status:r.status,payload:j});return j.data||{}}
 async function load(id){return api('/v1/client/deals/'+encodeURIComponent(id)+'/closeout-documents')}
 async function download(docId){const z=await api('/v1/client/documents/'+encodeURIComponent(docId)+'/download');if(!z?.url)throw new Error('DOWNLOAD_URL_MISSING');location.assign(z.url)}
 async function upload(id,slug,file){const fd=new FormData();fd.append('file',file,file.name);return api('/v1/client/deals/'+encodeURIComponent(id)+'/closeout-documents/'+slug,{method:'POST',headers:{accept:'application/json'},body:fd})}
