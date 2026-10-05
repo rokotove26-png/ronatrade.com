@@ -1,0 +1,30 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-05",
+  "scope": "CLIENT_DEALS_ATTENTION_CLOSEOUT_PARITY_V1",
+  "decision": "SCOPED_VISUAL_FREEZE_RELEASE",
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-deals-authoritative-v1.js": {
+      "baseline_blob_sha": "c12edca86195834a1b30dcf8ac9575169c3ca395",
+      "authorized_post_blob_sha": "a753fcd6ab9e611421cdccb0ad70c156a3bb2a9f",
+      "required_marker": "20261005-client-deals-authoritative-closeout-v13"
+    },
+    "scripts/attach-client-deals-authoritative-v1.mjs": {
+      "baseline_blob_sha": "c3e76815f041661f8d5aab9e147dfbbce45f29f4",
+      "authorized_post_blob_sha": "b69ae11091b20a8474cb0495db534111809568ed",
+      "required_marker": "20261005-client-deals-authoritative-closeout-v13"
+    }
+  },
+  "requirements": {
+    "scope_attention_only": true,
+    "active_deals_preserved": true,
+    "passport_open_preserved": true,
+    "canonical_visual_css_changed": false,
+    "business_data_changed": false,
+    "business_record_mutation": false,
+    "hardcoded_deal_ids": false,
+    "wildcard_exception": false,
+    "exact_blob_enforcement": true,
+    "scoped_unfreeze_only": true
+  }
+}
