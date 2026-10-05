@@ -146,7 +146,7 @@ const SCRIPT=RAW
   )
   .replace(
     "window.__RONA_DEALS_CURRENT_STATE_UI__='20260824-0023';",
-    "window.__RONA_DEALS_CURRENT_STATE_UI__='20261005-admin-closeout-v2';window.__RONA_ADMIN_DEAL_CLOSEOUT_VERSION__='ADMIN_DEAL_CLOSEOUT_V1';window.__RONA_ADMIN_CLOSEOUT_DOCUMENTS_VERSION__='ADMIN_CLOSEOUT_DOCUMENTS_V1';var __ronaCloseoutDocsScript=document.createElement('script');__ronaCloseoutDocsScript.src='/assets/portal-runtime/admin-closeout-documents-v1.js?v=20261005-v3';__ronaCloseoutDocsScript.defer=true;document.head.append(__ronaCloseoutDocsScript);"
+    "window.__RONA_DEALS_CURRENT_STATE_UI__='20261005-admin-closeout-v2';window.__RONA_ADMIN_DEAL_CLOSEOUT_VERSION__='ADMIN_DEAL_CLOSEOUT_V1';window.__RONA_ADMIN_CLOSEOUT_DOCUMENTS_VERSION__='ADMIN_CLOSEOUT_DOCUMENTS_V1';var __ronaCloseoutDocsScript=document.createElement('script');__ronaCloseoutDocsScript.src='/assets/portal-runtime/admin-closeout-documents-v1.js?v=20261005-v4';__ronaCloseoutDocsScript.defer=true;document.head.append(__ronaCloseoutDocsScript);"
   )
   .replace(
     "function logisticsCell(d){var r=railsFor(d&&d.deal_id)[0]||null,box=el('div','rona-current-deal-cell');",
@@ -165,7 +165,7 @@ if(SCRIPT.includes("setInterval(function(){refresh(false)},15000)"))throw new Er
 if(/\bwaitsAction\b/.test(SCRIPT))throw new Error('DEALS_LEGACY_WAITS_ACTION_REFERENCE');
 if(!SCRIPT.includes("if(projection==='FINANCE_V8')return due!==null&&due>0"))throw new Error('DEALS_FINANCE_V8_DUE_NOW_RULE_MISSING');
 if(!SCRIPT.includes("api('/admin/deals-current-v4')"))throw new Error('DEALS_CURRENT_V4_ENDPOINT_MISSING');
-if(!SCRIPT.includes("admin-closeout-documents-v1.js?v=20261005-v3"))throw new Error('DEALS_CLOSEOUT_DOCUMENTS_RUNTIME_LOADER_MISSING');
+if(!SCRIPT.includes("admin-closeout-documents-v1.js?v=20261005-v4"))throw new Error('DEALS_CLOSEOUT_DOCUMENTS_RUNTIME_LOADER_MISSING');
 if(!SCRIPT.includes("finance_projection_version"))throw new Error('DEALS_FINANCE_V8_PROJECTION_MARKER_MISSING');
 if(!SCRIPT.includes("route_resolution_state")||!SCRIPT.includes("trusted_wagon_count")||!SCRIPT.includes("position_groups"))throw new Error('DEALS_RAIL_EXECUTION_V4_MARKER_MISSING');
 if(!SCRIPT.includes('Нет подтверждённых данных о дислокации'))throw new Error('DEALS_RAIL_MISSING_SOURCE_FAIL_CLOSED_MISSING');
