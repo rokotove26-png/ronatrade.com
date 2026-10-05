@@ -94,4 +94,6 @@ test('Client CLOSEOUT portal bridge preserves admin impersonation and multipart 
   assert.match(portalApi,/const closeoutUpload=isClientCloseoutUpload\(path,request\.method\)/);
   assert.match(portalApi,/signedAddendumUpload\?source\.trim\(\):null/);
   assert.match(portalApi,/if\(uploadParts\.source\)fd\.append\('sourceUnsignedDocumentId'/);
+  assert.match(portalApi,/x-rona-impersonation-ended/);
+  assert.match(portalApi,/IMPERSONATION_SESSION_INVALID/);
 });
