@@ -7,6 +7,8 @@ const gateway=readFileSync('functions/portal/api/[[path]].js','utf8');
 const renderer=readFileSync('assets/portal-runtime/client-deals-authoritative-v1.js','utf8');
 const nav=readFileSync('assets/portal-runtime/client-sidebar-command-nav-v1.js','utf8');
 const buttonVisual=readFileSync('assets/portal-runtime/portal-canonical-button-hover-v1.js','utf8');
+const dealVisual=readFileSync('assets/portal-runtime/client-deal-canonical-visual-v2.js','utf8');
+const dealDocumentsAttach=readFileSync('scripts/attach-client-deal-documents.mjs','utf8');
 
 test('Client deal lifecycle UI remains generic while the heavy backend lifecycle query is held',()=>{
   assert.match(renderer,/client_deal_stage/);
@@ -35,6 +37,13 @@ test('Client Deals renderer has three exclusive lifecycle tabs',()=>{
   assert.match(renderer,/function authorizedDealFor\(data,id\)/);
   assert.doesNotMatch(renderer,/function activeDeals\(data\)/);
   assert.doesNotMatch(renderer,/DEAL-2026-004/);
+});
+
+test('Client Deals lifecycle filter remains visually exclusive under canonical card CSS',()=>{
+  assert.ok(dealVisual.includes('.${HOST}[hidden]{display:none!important}'));
+  assert.ok(dealVisual.includes("const MARK='20261005-client-deal-canonical-visual-v2-v10-stage-filter-hidden'"));
+  assert.ok(dealDocumentsAttach.includes('client-deal-canonical-visual-v2.js?v=20261005-stage-filter-hidden-v10'));
+  assert.ok(dealDocumentsAttach.includes('20261005-client-deal-canonical-visual-v2-v10-stage-filter-hidden'));
 });
 
 test('Client Deals stage controls are explicit buttons aligned to the title frame',()=>{
