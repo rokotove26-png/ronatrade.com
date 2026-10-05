@@ -562,3 +562,296 @@ html body [data-page-panel] :where(table, [role="table"], .table, [class*="table
     padding: 14px 14px 12px !important;
   }
 }
+
+
+/* RONA_CLIENT_DEALS_VISUAL_HIERARCHY_V14: 20261005-owner-status-typography-refinement */
+/* Deals-only visual delta. No business data, lifecycle, finance, rail, auth or API semantics. */
+#page-deals {
+  --rona-deal-cyan: 90, 214, 255;
+  --rona-deal-amber: 245, 176, 65;
+  --rona-deal-green: 74, 222, 128;
+  --rona-deal-red: 251, 113, 133;
+  --rona-deal-violet: 167, 139, 250;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif !important;
+  font-feature-settings: "tnum" 1, "ss01" 1;
+}
+
+#page-deals [data-rona-deal-stage-tabs] {
+  gap: 12px !important;
+  margin: 20px 0 22px !important;
+}
+
+#page-deals [data-rona-deal-stage-tab] {
+  min-height: 54px !important;
+  border-radius: 14px !important;
+  color: rgba(207, 225, 237, .86) !important;
+  font-size: 13.5px !important;
+  font-weight: 760 !important;
+  letter-spacing: .01em !important;
+  background:
+    linear-gradient(180deg, rgba(10, 31, 50, .95), rgba(5, 20, 34, .94)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.035),
+    0 10px 28px rgba(0, 8, 18, .16) !important;
+}
+
+#page-deals [data-rona-deal-stage-label] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  font-weight: 760 !important;
+}
+
+#page-deals [data-rona-deal-stage-label]::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, .72);
+  box-shadow: 0 0 0 4px rgba(148, 163, 184, .07);
+}
+
+#page-deals [data-rona-deal-stage-tab="ACTIVE"] [data-rona-deal-stage-label]::before {
+  background: rgb(var(--rona-deal-cyan));
+  box-shadow: 0 0 0 4px rgba(var(--rona-deal-cyan), .09), 0 0 14px rgba(var(--rona-deal-cyan), .30);
+}
+
+#page-deals [data-rona-deal-stage-tab="ATTENTION"] [data-rona-deal-stage-label]::before {
+  background: rgb(var(--rona-deal-amber));
+  box-shadow: 0 0 0 4px rgba(var(--rona-deal-amber), .09), 0 0 14px rgba(var(--rona-deal-amber), .28);
+}
+
+#page-deals [data-rona-deal-stage-tab="COMPLETED"] [data-rona-deal-stage-label]::before {
+  background: rgb(var(--rona-deal-green));
+  box-shadow: 0 0 0 4px rgba(var(--rona-deal-green), .08), 0 0 14px rgba(var(--rona-deal-green), .24);
+}
+
+#page-deals [data-rona-deal-stage-tab="ACTIVE"][aria-selected="true"] {
+  border-color: rgba(var(--rona-deal-cyan), .58) !important;
+  background:
+    radial-gradient(180px 70px at 50% 0, rgba(var(--rona-deal-cyan), .18), transparent 72%),
+    linear-gradient(180deg, rgba(14, 66, 96, .96), rgba(7, 34, 58, .96)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 12px 30px rgba(0,8,18,.20), 0 0 22px rgba(var(--rona-deal-cyan), .10) !important;
+}
+
+#page-deals [data-rona-deal-stage-tab="ATTENTION"][aria-selected="true"] {
+  border-color: rgba(var(--rona-deal-amber), .56) !important;
+  background:
+    radial-gradient(180px 70px at 50% 0, rgba(var(--rona-deal-amber), .16), transparent 72%),
+    linear-gradient(180deg, rgba(68, 49, 22, .96), rgba(38, 29, 18, .96)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 12px 30px rgba(0,8,18,.20), 0 0 22px rgba(var(--rona-deal-amber), .08) !important;
+}
+
+#page-deals [data-rona-deal-stage-tab="COMPLETED"][aria-selected="true"] {
+  border-color: rgba(var(--rona-deal-green), .48) !important;
+  background:
+    radial-gradient(180px 70px at 50% 0, rgba(var(--rona-deal-green), .13), transparent 72%),
+    linear-gradient(180deg, rgba(17, 60, 48, .96), rgba(8, 35, 31, .96)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 12px 30px rgba(0,8,18,.20), 0 0 22px rgba(var(--rona-deal-green), .07) !important;
+}
+
+#page-deals [data-rona-deal-stage-tab="ACTIVE"][aria-selected="true"]::before {
+  background: linear-gradient(90deg, transparent, rgb(var(--rona-deal-cyan)), transparent);
+}
+#page-deals [data-rona-deal-stage-tab="ATTENTION"][aria-selected="true"]::before {
+  background: linear-gradient(90deg, transparent, rgb(var(--rona-deal-amber)), transparent);
+}
+#page-deals [data-rona-deal-stage-tab="COMPLETED"][aria-selected="true"]::before {
+  background: linear-gradient(90deg, transparent, rgb(var(--rona-deal-green)), transparent);
+}
+
+#page-deals [data-rona-deal-stage-tab="ACTIVE"] [data-rona-deal-stage-count] {
+  border-color: rgba(var(--rona-deal-cyan), .23) !important;
+  color: rgba(210, 244, 255, .94) !important;
+}
+#page-deals [data-rona-deal-stage-tab="ATTENTION"] [data-rona-deal-stage-count] {
+  border-color: rgba(var(--rona-deal-amber), .23) !important;
+  color: rgba(255, 230, 184, .96) !important;
+}
+#page-deals [data-rona-deal-stage-tab="COMPLETED"] [data-rona-deal-stage-count] {
+  border-color: rgba(var(--rona-deal-green), .20) !important;
+  color: rgba(201, 250, 221, .94) !important;
+}
+
+#page-deals :is(input, select) {
+  border-color: rgba(104, 170, 205, .28) !important;
+  background: rgba(3, 17, 30, .74) !important;
+  color: rgba(238, 247, 253, .95) !important;
+  font-size: 12.8px !important;
+  font-weight: 560 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.02) !important;
+}
+#page-deals :is(input, select):focus {
+  border-color: rgba(var(--rona-deal-cyan), .55) !important;
+  box-shadow: 0 0 0 3px rgba(var(--rona-deal-cyan), .08) !important;
+  outline: none !important;
+}
+
+#page-deals .rona-deal-card-v5 {
+  border-width: 1px !important;
+  border-style: solid !important;
+  backdrop-filter: blur(8px);
+}
+
+#page-deals .rona-deal-card-v5[data-rona-client-deal-stage="ACTIVE"] {
+  border-color: rgba(var(--rona-deal-cyan), .30) !important;
+  background:
+    radial-gradient(600px 160px at 0 0, rgba(var(--rona-deal-cyan), .075), transparent 68%),
+    linear-gradient(180deg, rgba(7, 29, 49, .95), rgba(4, 18, 31, .91)) !important;
+}
+
+#page-deals .rona-deal-card-v5[data-rona-client-deal-stage="ATTENTION"] {
+  border-color: rgba(var(--rona-deal-amber), .34) !important;
+  background:
+    radial-gradient(620px 165px at 0 0, rgba(var(--rona-deal-amber), .09), transparent 69%),
+    linear-gradient(180deg, rgba(34, 29, 23, .95), rgba(18, 20, 27, .92)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 12px 32px rgba(0,7,14,.18), 0 0 28px rgba(var(--rona-deal-amber), .035) !important;
+}
+#page-deals .rona-deal-card-v5[data-rona-client-deal-stage="ATTENTION"]::before {
+  background: linear-gradient(180deg, rgba(var(--rona-deal-amber),0), rgba(var(--rona-deal-amber),.90), rgba(var(--rona-deal-amber),0));
+}
+
+#page-deals .rona-deal-card-v5[data-rona-client-deal-stage="COMPLETED"] {
+  border-color: rgba(var(--rona-deal-green), .28) !important;
+  background:
+    radial-gradient(560px 145px at 0 0, rgba(var(--rona-deal-green), .065), transparent 70%),
+    linear-gradient(180deg, rgba(7, 31, 36, .94), rgba(4, 21, 27, .91)) !important;
+}
+
+#page-deals .rona-deal-card-v5__dealid {
+  font-size: 15.5px !important;
+  line-height: 1.2 !important;
+  font-weight: 820 !important;
+  letter-spacing: .018em !important;
+  color: #f8fbff !important;
+}
+
+#page-deals .rona-deal-card-v5__subject {
+  font-size: 13.6px !important;
+  line-height: 1.35 !important;
+  font-weight: 650 !important;
+  color: rgba(228, 238, 246, .93) !important;
+}
+
+#page-deals .rona-deal-card-v5__terms {
+  font-size: 12.4px !important;
+  line-height: 1.5 !important;
+  font-weight: 520 !important;
+  color: rgba(172, 197, 214, .82) !important;
+}
+
+#page-deals [data-rona-closeout-product-status="SHIPPED"] {
+  border-color: rgba(var(--rona-deal-green), .42) !important;
+  background: rgba(var(--rona-deal-green), .10) !important;
+  color: rgb(134, 239, 172) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 0 16px rgba(var(--rona-deal-green), .07) !important;
+}
+
+#page-deals [data-rona-closeout-stage="CLOSEOUT"] {
+  border-color: rgba(var(--rona-deal-violet), .40) !important;
+  background: rgba(var(--rona-deal-violet), .09) !important;
+  color: rgb(196, 181, 253) !important;
+}
+
+#page-deals [data-rona-client-closeout="v1"] [data-rona-client-closeout-metrics] {
+  gap: 10px !important;
+  margin-top: 6px !important;
+}
+
+#page-deals [data-rona-client-closeout="v1"] [data-rona-closeout-metric] {
+  position: relative !important;
+  min-height: 68px !important;
+  padding: 11px 13px !important;
+  border-radius: 11px !important;
+  border-color: rgba(104, 170, 205, .18) !important;
+  background: linear-gradient(180deg, rgba(5, 23, 39, .78), rgba(4, 18, 31, .64)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+
+#page-deals [data-rona-client-closeout="v1"] [data-rona-closeout-metric] > div:first-child {
+  margin-bottom: 7px !important;
+  color: rgba(159, 187, 205, .80) !important;
+  font-size: 10.2px !important;
+  font-weight: 720 !important;
+  letter-spacing: .085em !important;
+}
+
+#page-deals [data-rona-client-closeout="v1"] [data-rona-closeout-metric] > div:last-child {
+  color: rgba(247, 251, 255, .98);
+  font-size: 15.2px !important;
+  font-weight: 800 !important;
+  letter-spacing: .005em !important;
+}
+
+#page-deals [data-rona-closeout-metric="Факт. объём"] {
+  border-color: rgba(var(--rona-deal-cyan), .22) !important;
+}
+#page-deals [data-rona-closeout-metric="Факт. объём"] > div:last-child {
+  color: rgb(165, 235, 255) !important;
+}
+
+#page-deals [data-rona-closeout-metric="Оплачено"] {
+  border-color: rgba(var(--rona-deal-green), .24) !important;
+  background: linear-gradient(180deg, rgba(7, 39, 34, .72), rgba(4, 23, 27, .66)) !important;
+}
+#page-deals [data-rona-closeout-metric="Оплачено"] > div:last-child {
+  color: rgb(134, 239, 172) !important;
+}
+
+#page-deals [data-rona-closeout-metric="Фактическая сумма"] {
+  border-color: rgba(96, 165, 250, .24) !important;
+}
+#page-deals [data-rona-closeout-metric="Фактическая сумма"] > div:last-child {
+  color: rgb(191, 219, 254) !important;
+}
+
+#page-deals [data-rona-closeout-metric="RONA должна клиенту"] {
+  border-color: rgba(var(--rona-deal-red), .30) !important;
+  background: linear-gradient(180deg, rgba(55, 22, 31, .72), rgba(28, 17, 25, .66)) !important;
+}
+#page-deals [data-rona-closeout-metric="RONA должна клиенту"] > div:last-child {
+  color: rgb(253, 164, 175) !important;
+}
+
+#page-deals [data-rona-closeout-metric="Клиент должен RONA"] {
+  border-color: rgba(var(--rona-deal-amber), .30) !important;
+  background: linear-gradient(180deg, rgba(52, 37, 19, .72), rgba(29, 24, 18, .66)) !important;
+}
+#page-deals [data-rona-closeout-metric="Клиент должен RONA"] > div:last-child {
+  color: rgb(253, 211, 130) !important;
+}
+
+#page-deals [data-rona-closeout-metric="Баланс закрыт"] {
+  border-color: rgba(var(--rona-deal-green), .28) !important;
+}
+#page-deals [data-rona-closeout-metric="Баланс закрыт"] > div:last-child {
+  color: rgb(134, 239, 172) !important;
+}
+
+#page-deals .rona-deal-card-v5__open {
+  border: 1px solid rgba(var(--rona-deal-cyan), .32) !important;
+  background: linear-gradient(180deg, rgba(43, 128, 173, .24), rgba(13, 55, 82, .22)) !important;
+  color: #eefaff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 6px 16px rgba(0,7,14,.12) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #page-deals .rona-deal-card-v5__open:hover {
+    border-color: rgba(var(--rona-deal-cyan), .55) !important;
+    background: linear-gradient(180deg, rgba(48, 155, 204, .32), rgba(14, 67, 102, .28)) !important;
+    transform: translateY(-1px);
+  }
+}
+
+@container rona-client-deals (max-width: 820px) {
+  #page-deals [data-rona-client-closeout="v1"] [data-rona-client-closeout-metrics] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@container rona-client-deals (max-width: 520px) {
+  #page-deals [data-rona-client-closeout="v1"] [data-rona-client-closeout-metrics] {
+    grid-template-columns: 1fr !important;
+  }
+}

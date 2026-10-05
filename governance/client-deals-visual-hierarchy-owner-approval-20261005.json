@@ -1,0 +1,41 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-05",
+  "scope": "CLIENT_DEALS_VISUAL_HIERARCHY_V2",
+  "decision": "SCOPED_VISUAL_FREEZE_RELEASE",
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-content-responsive-v1.css": {
+      "baseline_blob_sha": "7f4a5677b4de6738a28c01d3737b4306c2a323a6",
+      "authorized_post_blob_sha": "ce1564ab4dea51b012aa7826f556815cd39d2df8",
+      "required_marker": "RONA_CLIENT_DEALS_VISUAL_HIERARCHY_V14"
+    },
+    "scripts/attach-client-content-responsive-v1.mjs": {
+      "baseline_blob_sha": "b51bec5d1b01cd45881471a0be6e5460a4e49f1c",
+      "authorized_post_blob_sha": "630457d39fec554386264839364d7bb1b719b142",
+      "required_marker": "20261005-client-deals-visual-v14"
+    }
+  },
+  "requirements": {
+    "deals_section_only": true,
+    "typography_hierarchy_changed": true,
+    "lifecycle_tab_status_colors_changed": true,
+    "closeout_metric_status_colors_changed": true,
+    "active_attention_completed_semantics_unchanged": true,
+    "business_data_changed": false,
+    "business_logic_changed": false,
+    "api_contract_changed": false,
+    "auth_changed": false,
+    "finance_changed": false,
+    "rail_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "hardcoded_business_entities": false,
+    "images_added": false,
+    "unrelated_visual_changes": false,
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "exact_blob_enforcement": true,
+    "scoped_unfreeze_only": true
+  },
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_DEALS_VISUAL_HIERARCHY_V2"
+}
