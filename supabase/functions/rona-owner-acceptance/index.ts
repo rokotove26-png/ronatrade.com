@@ -494,15 +494,6 @@ const ADMIN_CLOSEOUT_DOCUMENT_KINDS=Object.freeze({
   'return-rail-codes':'EMPTY_WAGON_RETURN_RAIL_CODES'
 });
 
-const ADMIN_CLOSEOUT_ARCHIVE_DOCUMENT_KINDS=Object.freeze([
-  'SIGNED_ADDENDUM',
-  'INVOICE',
-  'EMPTY_WAGON_RETURN_INSTRUCTION',
-  'EMPTY_WAGON_RETURN_RAIL_CODES',
-  'SMGS_DELIVERY_STAMP',
-  'SMGS_EMPTY_WAGONS'
-]);
-
 async function ensureCloseoutAssistantArchiveTask(tx,ctx,current,dealId){
   const documents=await tx`
     select
