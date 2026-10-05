@@ -44,6 +44,11 @@ test('Generated Admin CLOSEOUT runtime is isolated to ATTENTION and preserves st
   assert.match(ui,/RONA_OWES_CLIENT/);
   assert.match(ui,/Клиент должен RONA/);
   assert.match(ui,/RONA должна клиенту/);
+  assert.match(ui,/function productOperationalStatus\(d\)/);
+  assert.match(ui,/Отгружено/);
+  assert.match(ui,/В пути/);
+  assert.match(ui,/'Этап','Паспорт'/);
+  assert.match(ui,/closeoutStageCell\(d\),button\(selected===d\.deal_id\?'Свернуть':'Открыть'/);
   assert.match(ui,/Finance · оплачено \/ остаток/);
   assert.match(ui,/Logistics/);
   assert.match(ui,/Documents/);
