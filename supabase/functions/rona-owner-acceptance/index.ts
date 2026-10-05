@@ -537,11 +537,7 @@ async function closeoutProjectionForDealKey(dealKey){
           and coalesce(fv8.source_locked,false)=true
           and coalesce(fv8.is_terminal,false)=true
           and coalesce(fv8.total_to_receive,0)>0
-          and abs(
-            coalesce(fv8.due_now,0)
-            +coalesce(fv8.expected_not_due,0)
-            +coalesce(fv8.future_conditional,0)
-          )<=0.01
+          and abs(coalesce(fv8.due_now,0)+coalesce(fv8.expected_not_due,0)+coalesce(fv8.future_conditional,0))<=0.01
         ) as payment_complete_100,
         (
           coalesce(fv8.total_to_receive,0)
@@ -578,528 +574,17 @@ async function closeoutProjectionForDealKey(dealKey){
       from base b
       join portal_private.rail_operational_current_position_v1 cp
         on cp.effective_deal_key=b.deal_key
-      where cp.position_status='TRUSTED'
-        and cp.wagon_number is not null
+      where cp.position_status='TRUSTED' and cp.wagon_number is not null
     ),
     weight_observations as (
-      select
-        r.wagon_number,
-        r.source_object_id,
-        r.source_received_at,
-        cell.cargo_weight_tonnes
+      select r.wagon_number,r.source_object_id,r.source_received_at,cell.cargo_weight_tonnes
       from base b
-      join portal_private.rail_xlsx_resolution_effective_v1 r
-        on r.effective_deal_key=b.deal_key
+      join portal_private.rail_xlsx_resolution_effective_v1 r on r.effective_deal_key=b.deal_key
       join trusted_wagons tw on tw.wagon_number=r.wagon_number
       cross join lateral (
         select case
-          when jsonb_typeof(c->'rawValue')='number'
-            then (c->>'rawValue')::numeric
-          when coalesce(c->>'rawValue','') ~ '^[0-9]+([.,][0-9]+)?async function clientCloseoutDocuments(ctx,dealId){
-  const access=await clientCloseoutDealAccess(ctx,dealId);
-  const docs=await sql`
-    select upper(coalesce(odd.document_kind,'')) document_kind,
-           doc.document_id,doc.authoritative_filename,doc.source_system,doc.created_at
-    from portal_private.owner_deal_documents odd
-    join portal_private.documents doc on doc.id=odd.document_key
-    where odd.deal_key=${access.deal_key}::uuid
-      and upper(coalesce(odd.document_kind,'')) in (
-        'SIGNED_ADDENDUM','INVOICE','EMPTY_WAGON_RETURN_INSTRUCTION',
-        'EMPTY_WAGON_RETURN_RAIL_CODES','SMGS_DELIVERY_STAMP','SMGS_EMPTY_WAGONS'
-      )
-      and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-    order by doc.created_at desc
-  `;
-  const latest=[];
-  const seen=new Set();
-  for(const row of docs){
-    const kind=String(row.document_kind||'').toUpperCase();
-    if(seen.has(kind))continue;
-    seen.add(kind);
-    latest.push({
-      kind,
-      documentId:String(row.document_id||''),
-      filename:String(row.authoritative_filename||''),
-      sourceSystem:String(row.source_system||''),
-      createdAt:row.created_at||null
-    });
-  }
-  const p=access.projected||{};
-  return{
-    contract:'CLIENT_DEAL_CLOSEOUT_DOCUMENTS_V1',
-    readOnly:access.readOnly,
-    deal:{
-      dealId:String(access.deal_id),
-      clientName:String(access.legal_name||''),
-      contractId:String(access.contract_id||''),
-      stage:'CLOSEOUT',
-      product:String(p.closeout_product||p.source_product||p.product_value||''),
-      productStatus:String(p.closeout_product_status_label||'Отгружено'),
-      actualQuantityTonnes:p.closeout_actual_quantity_tonnes??null,
-      deliveryBasis:String(p.closeout_delivery_basis||''),
-      currency:String(p.closeout_currency||''),
-      paidAmount:p.closeout_paid_amount??null,
-      actualAmount:p.closeout_actual_amount??null,
-      balanceAmount:p.closeout_balance_amount??null,
-      balanceDirection:String(p.closeout_balance_direction||'')
-    },
-    documents:latest,
-    requiredKinds:CLOSEOUT_DOCUMENT_KINDS
-  };
-}
-
-async function registerClientCloseoutPdf(ctx,req,dealId,kind){
-  const access=await clientCloseoutDealAccess(ctx,dealId);
-  if(access.readOnly)throw Object.assign(new Error('ADMIN_ENTITY_PREVIEW_READ_ONLY'),{status:403});
-  const existing=await sql`
-    select 1
-    from portal_private.owner_deal_documents odd
-    join portal_private.documents doc on doc.id=odd.document_key
-    where odd.deal_key=${access.deal_key}::uuid
-      and upper(coalesce(odd.document_kind,''))=${kind}
-      and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-    limit 1
-  `;
-  if(existing.length)throw Object.assign(new Error('CLIENT_CLOSEOUT_DOCUMENT_ALREADY_UPLOADED'),{status:409});
-  return registerDealPdf(ctx,req,dealId,kind,true);
-}
-
-async function ensureCloseoutAssistantArchiveTask(tx,ctx,current,dealId){
-  const documents=await tx`
-    select
-      upper(coalesce(odd.document_kind,'')) as document_kind,
-      d.document_id,
-      d.document_type,
-      d.authoritative_filename,
-      dv.sha256
-    from portal_private.owner_deal_documents odd
-    join portal_private.documents d
-      on d.id=odd.document_key
-    join portal_private.document_versions dv
-      on dv.id=d.current_version_id
-     and dv.document_key=d.id
-    where odd.deal_key=${current.id}::uuid
-      and upper(coalesce(odd.document_kind,'')) in (
-        'SIGNED_ADDENDUM',
-        'INVOICE',
-        'EMPTY_WAGON_RETURN_INSTRUCTION',
-        'EMPTY_WAGON_RETURN_RAIL_CODES',
-        'SMGS_DELIVERY_STAMP',
-        'SMGS_EMPTY_WAGONS'
-      )
-      and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-      and dv.is_current=true
-      and dv.is_effective=true
-      and dv.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-    order by
-      case upper(coalesce(odd.document_kind,''))
-        when 'SIGNED_ADDENDUM' then 1
-        when 'INVOICE' then 2
-        when 'EMPTY_WAGON_RETURN_INSTRUCTION' then 3
-        when 'EMPTY_WAGON_RETURN_RAIL_CODES' then 4
-        when 'SMGS_DELIVERY_STAMP' then 5
-        when 'SMGS_EMPTY_WAGONS' then 6
-        else 99
-      end,
-      d.updated_at desc
-  `;
-  const archiveYear=(String(dealId).match(/^DEAL-(\d{4})-/i)||[])[1]||String(new Date().getUTCFullYear());
-  const taskId=('TASK-ASSISTANT-CLOSEOUT-'+String(dealId).replace(/[^A-Za-z0-9-]+/g,'-').toUpperCase()).slice(0,160);
-  const packageDocs=documents.map(x=>({
-    document_kind:String(x.document_kind||''),
-    document_id:String(x.document_id||''),
-    document_type:String(x.document_type||''),
-    authoritative_filename:String(x.authoritative_filename||''),
-    sha256:x.sha256?String(x.sha256):null
-  }));
-  const description=[
-    'Owner-triggered Admin LK closeout archive.',
-    'Deal ID: '+dealId+'.',
-    'Target role: ASSISTANT / AI-ASSISTANT.',
-    'Canonical archive root: RONA Trade — Канонические документы / 30_Сделки спецификации инвойсы / '+archiveYear+'.',
-    'Folder rule: use the unique existing deal folder whose name starts with '+dealId+'. If the folder is absent or ambiguous, HOLD/TO_VERIFY; do not guess or create a parallel archive.',
-    'Archive rule: preserve the exact received/signed file bytes; save every attached file listed in CLOSEOUT_PACKAGE; register each saved file in the Assistant document registry with Google Drive provenance; do not create or alter business facts.',
-    'CLOSEOUT_PACKAGE='+JSON.stringify(packageDocs)
-  ].join('\n');
-  const taskRows=await tx`
-    insert into portal_private.staff_tasks(
-      task_id,title,description,status,priority,authority_domain,assigned_functional_role,
-      client_key,contract_key,deal_key,source_type,source_object_id,source_version,qa_only,created_by
-    ) values(
-      ${taskId},
-      ${'Архив закрытия сделки '+dealId},
-      ${description},
-      'NEW'::portal_private.staff_task_status_enum,
-      'HIGH'::portal_private.staff_priority_enum,
-      'ADMIN_DOCUMENT_FLOW',
-      'ASSISTANT'::portal_private.staff_functional_role_enum,
-      ${current.client_key}::uuid,
-      ${current.contract_key}::uuid,
-      ${current.id}::uuid,
-      'DEAL_CLOSEOUT_DOCUMENT_ARCHIVE',
-      ${dealId},
-      'ADMIN_DEAL_CLOSEOUT_ARCHIVE_V1',
-      false,
-      ${ctx.impersonation?ctx.actorUserId:ctx.userId}::uuid
-    )
-    on conflict(task_id) do update
-      set description=excluded.description,
-          source_version=excluded.source_version,
-          updated_at=now()
-    returning task_id,status::text
-  `;
-  return{
-    taskId:String(taskRows[0]?.task_id||taskId),
-    taskStatus:String(taskRows[0]?.status||'NEW'),
-    documentCount:packageDocs.length,
-    documents:packageDocs,
-    targetRole:'ASSISTANT',
-    archiveRoot:'RONA Trade — Канонические документы / 30_Сделки спецификации инвойсы / '+archiveYear
-  };
-}
-
-async function completeDealFromCloseout(ctx,req,dealId){
-  const dealRows=await sql`select id from portal_private.deals where deal_id=${dealId} limit 1`;
-  if(dealRows.length!==1)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
-  const deal=await closeoutProjectionForDealKey(dealRows[0].id);
-  if(!deal)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
-  if(deal.post_rail_completion_attention!==true||String(deal.closeout_stage||'').toUpperCase()!=='CLOSEOUT'){
-    throw Object.assign(new Error('DEAL_NOT_IN_CLOSEOUT'),{status:409});
-  }
-  return sql.begin(async tx=>{
-    const rows=await tx`select id,deal_id,client_key,contract_key,business_status,lifecycle_state::text lifecycle_state,closed_at
-      from portal_private.deals where deal_id=${dealId} for update`;
-    if(rows.length!==1)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
-    const current=rows[0],business=String(current.business_status||'').toUpperCase(),life=String(current.lifecycle_state||'').toUpperCase();
-    const assistantArchive=await ensureCloseoutAssistantArchiveTask(tx,ctx,current,dealId);
-    if(life==='CLOSED'||['CLOSED','COMPLETED','SETTLED'].includes(business)){
-      return{dealId,status:'CLOSED',reused:true,closedAt:current.closed_at||null,assistantArchive};
-    }
-    if(life!=='ACTIVE'||['CANCELLED','CANCELED','ANNULLED','VOID','TERMINATED','ARCHIVED'].includes(business)){
-      throw Object.assign(new Error('DEAL_NOT_ACTIVE'),{status:409});
-    }
-    const changed=await tx`update portal_private.deals
-      set business_status='CLOSED',
-          lifecycle_state='CLOSED'::portal_private.lifecycle_state_enum,
-          closed_at=coalesce(closed_at,now()),
-          updated_at=now()
-      where id=${current.id}::uuid
-      returning deal_id,business_status,lifecycle_state::text lifecycle_state,closed_at`;
-    await audit(tx,ctx,'OWNER_DEAL_COMPLETED','DEAL',dealId,req,{
-      source:'ADMIN_LK_CLOSEOUT',
-      closeoutStage:'CLOSEOUT',
-      closeoutProjectionVersion:'ADMIN_DEAL_CLOSEOUT_PROJECTION_V1',
-      assistantArchiveTaskId:assistantArchive.taskId,
-      assistantArchiveDocumentCount:assistantArchive.documentCount,
-      assistantArchiveTargetRole:assistantArchive.targetRole,
-      assistantArchivePolicy:'RONA_TRADE_DOCUMENT_STORAGE_V1_1'
-    });
-    return{
-      dealId:String(changed[0].deal_id),
-      status:String(changed[0].business_status),
-      lifecycleState:String(changed[0].lifecycle_state),
-      closedAt:changed[0].closed_at,
-      reused:false,
-      assistantArchive
-    };
-  });
-}
-
-async function paymentHandoff(ctx,req,dealId){const rows=await sql`select d.id deal_key,odd.document_key from portal_private.deals d left join portal_private.owner_deal_documents odd on odd.deal_key=d.id and odd.document_kind='SIGNED_ADDENDUM' where d.deal_id=${dealId} order by odd.updated_at desc nulls last limit 1`;if(!rows.length)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});if(!rows[0].document_key)throw Object.assign(new Error('SIGNED_ADDENDUM_REQUIRED'),{status:409});return sql.begin(async tx=>{await tx`insert into portal_private.owner_deal_workflow(deal_key,payment_handoff_state,payment_handoff_at,payment_handoff_by,signed_supplement_document_key,signed_supplement_checked_at,signed_supplement_checked_by) values(${rows[0].deal_key}::uuid,'SENT',now(),${ctx.userId}::uuid,${rows[0].document_key}::uuid,now(),${ctx.userId}::uuid) on conflict(deal_key) do update set payment_handoff_state='SENT',payment_handoff_at=now(),payment_handoff_by=${ctx.userId}::uuid,signed_supplement_document_key=${rows[0].document_key}::uuid,signed_supplement_checked_at=now(),signed_supplement_checked_by=${ctx.userId}::uuid,updated_at=now()`;await tx`update portal_private.owner_deal_documents set checked_by_admin=true,checked_at=now(),checked_by=${ctx.userId}::uuid,updated_at=now() where deal_key=${rows[0].deal_key}::uuid and document_key=${rows[0].document_key}::uuid and document_kind='SIGNED_ADDENDUM'`;await audit(tx,ctx,'OWNER_DEAL_SENT_TO_PAYMENTS','DEAL',dealId,req,{});return{dealId,status:'SENT'}})}
-
-async function signedUrlForDocument(ctx,documentId,mode){let allowed=[];if(mode==='client')allowed=(await clientScope(ctx)).map(x=>String(x.client_key));else if(mode==='agent')allowed=(await agentScope(ctx)).map(x=>String(x.client_key));
-  const rows=await sql`select d.id,d.document_id,d.client_key,d.document_type,d.authoritative_filename,dv.storage_path,so.bucket_id from portal_private.documents d join portal_private.document_versions dv on dv.id=d.current_version_id and dv.document_key=d.id join portal_private.storage_objects so on so.document_version_key=dv.id and so.storage_state='VERIFIED' where d.document_id=${documentId} and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and dv.is_current and dv.is_effective limit 1`;if(!rows.length)throw Object.assign(new Error('DOCUMENT_NOT_FOUND'),{status:404});const r=rows[0];if(mode!=='admin'&&!allowed.includes(String(r.client_key)))throw Object.assign(new Error('DOCUMENT_ACCESS_DENIED'),{status:403});const {data,error}=await service.storage.from(String(r.bucket_id||BUCKET)).createSignedUrl(String(r.storage_path),120,{download:String(r.authoritative_filename||'document.pdf')});if(error||!data?.signedUrl)throw Object.assign(new Error('SIGNED_URL_FAILED'),{status:502});return{documentId:String(r.document_id),filename:String(r.authoritative_filename),url:data.signedUrl,expiresIn:120}}
-
-async function clientRadio(ctx,scopeInput=null){
-  const scope=Array.isArray(scopeInput)?scopeInput:await clientScope(ctx);
-  const ids=[...new Set(scope.map(x=>String(x.client_id)))];
-  const clientKeys=[...new Set(scope.map(x=>String(x.client_key)))];
-  if(!ids.length)return{radio:[]};
-  const viewerUserId=ctx.userId;
-  const radio=await sql`
-    select r.id,r.item_kind,r.target_scope,r.target_id,r.body_text,r.active_from,r.active_until,r.created_at
-    from portal_private.owner_radio_items r
-    where r.delivery_channel='PORTAL'
-      and r.item_kind in ('NOTIFICATION','ANNOUNCEMENT')
-      and r.active_from<=now() and (r.active_until is null or r.active_until>now())
-      and (r.target_scope='ALL_CLIENTS' or (r.target_scope='CLIENT' and r.target_id = any(${ids}::text[])))
-      and (
-        r.item_kind<>'NOTIFICATION'
-        or not exists (
-          select 1
-          from portal_private.owner_radio_notification_reads rr
-          where rr.viewer_user_id=${viewerUserId}::uuid
-            and rr.radio_item_id=r.id
-            and rr.viewer_client_key = any(${clientKeys}::uuid[])
-        )
-      )
-    order by r.created_at desc
-  `;
-  return{radio};
-}
-
-async function markClientRadioNotificationRead(ctx,req,itemId){
-  if(!UUID_RE.test(itemId))throw Object.assign(new Error('INVALID_RADIO_ITEM_ID'),{status:400});
-  const scope=await clientScope(ctx);
-  const ids=[...new Set(scope.map(x=>String(x.client_id)))];
-  const clientKeys=[...new Set(scope.map(x=>String(x.client_key)))];
-  if(!ids.length)throw Object.assign(new Error('CLIENT_CONTEXT_NOT_AUTHORIZED'),{status:403});
-  const rows=await sql`
-    select id,item_kind,target_scope,target_id
-    from portal_private.owner_radio_items
-    where id=${itemId}::uuid
-      and delivery_channel='PORTAL'
-      and item_kind='NOTIFICATION'
-      and active_from<=now() and (active_until is null or active_until>now())
-      and (target_scope='ALL_CLIENTS' or (target_scope='CLIENT' and target_id = any(${ids}::text[])))
-    limit 1
-  `;
-  if(rows.length!==1)throw Object.assign(new Error('RADIO_NOTIFICATION_NOT_FOUND_OR_OUT_OF_SCOPE'),{status:404});
-  const row=rows[0];
-  const matchingClientKeys=String(row.target_scope)==='CLIENT'
-    ?scope.filter(x=>String(x.client_id)===String(row.target_id)).map(x=>String(x.client_key))
-    :clientKeys;
-  if(!matchingClientKeys.length)throw Object.assign(new Error('RADIO_NOTIFICATION_NOT_FOUND_OR_OUT_OF_SCOPE'),{status:404});
-  const actorUserId=ctx.actorUserId||ctx.userId;
-  const readVia=ctx.impersonation?'ADMIN_IMPERSONATION':'CLIENT_PORTAL';
-  await sql.begin(async tx=>{
-    for(const clientKey of matchingClientKeys){
-      await tx`
-        insert into portal_private.owner_radio_notification_reads(
-          viewer_user_id,viewer_client_key,radio_item_id,read_at,read_by_actor_user_id,read_via
-        ) values(
-          ${ctx.userId}::uuid,${clientKey}::uuid,${itemId}::uuid,now(),${actorUserId}::uuid,${readVia}
-        )
-        on conflict(viewer_user_id,viewer_client_key,radio_item_id)
-        do update set read_at=excluded.read_at,read_by_actor_user_id=excluded.read_by_actor_user_id,read_via=excluded.read_via
-      `;
-    }
-    await audit(tx,ctx,'CLIENT_RADIO_NOTIFICATION_READ','RADIO',itemId,req,{
-      targetScope:String(row.target_scope),
-      targetId:row.target_id||null,
-      clientKeys:matchingClientKeys,
-      readVia
-    });
-  });
-  return{id:itemId,read:true,dismissed:true,readVia};
-}
-
-async function agentRadio(ctx){
-  const bound=ctx.impersonation?.effectiveRole==="AGENT"?ctx.impersonation.targetAgentPersonKey:null;
-  const identities=await sql`
-    select distinct ap.agent_person_id
-    from portal_private.agent_user_bindings aub
-    join portal_private.agent_persons ap on ap.id=aub.agent_person_key
-    where aub.user_id=${ctx.userId}::uuid
-      and (${bound}::uuid is null or aub.agent_person_key=${bound}::uuid)
-      and aub.status='ACTIVE'::portal_private.binding_status_enum
-      and aub.revoked_at is null
-      and aub.valid_from<=now() and (aub.valid_to is null or aub.valid_to>now())
-      and aub.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-      and aub.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
-      and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-      and ap.authority_state in ('SOURCE_RECEIVED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
-  `;
-  const ids=identities.map(x=>String(x.agent_person_id));
-  const radio=ids.length?await sql`
-    select id,item_kind,target_scope,target_id,body_text,active_from,active_until,created_at
-    from portal_private.owner_radio_items
-    where delivery_channel='PORTAL'
-      and item_kind='ANNOUNCEMENT'
-      and active_from<=now() and (active_until is null or active_until>now())
-      and (target_scope='ALL_AGENTS' or (target_scope='AGENT' and target_id = any(${ids}::text[])))
-    order by created_at desc
-  `:[];
-  return{radio};
-}
-
-async function clientBootstrap(ctx){const scope=await clientScope(ctx),keys=scope.map(x=>String(x.client_key));if(!keys.length)return{companies:[],prices:[],applications:[],deals:[],documents:[],analytics:[],news:[],radio:[]};
-  const adminEntity=ctx.impersonation?.subjectMode==="ADMIN_ENTITY";
-  const contracts=adminEntity
-    ?await sql`select cl.client_id,cl.legal_name,ct.contract_id,ct.current_external_contract_number,d.document_id contract_document_id,d.authoritative_filename contract_filename from portal_private.clients cl join portal_private.contracts ct on ct.client_key=cl.id left join portal_private.documents d on d.id=ct.current_signed_document_id where cl.id = any(${keys}::uuid[])`
-    :await sql`select cl.client_id,cl.legal_name,ct.contract_id,ct.current_external_contract_number,d.document_id contract_document_id,d.authoritative_filename contract_filename from portal_private.client_user_bindings b join portal_private.clients cl on cl.id=b.client_key join portal_private.contracts ct on ct.id=b.contract_key left join portal_private.documents d on d.id=ct.current_signed_document_id where b.user_id=${ctx.userId}::uuid and b.client_key = any(${keys}::uuid[]) and b.status='ACTIVE'::portal_private.binding_status_enum and b.revoked_at is null and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())`;
-  const prices=await sql`select id,product,producer,basis,final_station,sale_price,currency,payment_terms,commercial_terms,agreed_at from portal_private.owner_price_snapshots where publish_client=true and business_status='PUBLISHED' order by agreed_at desc`;
-  const applications=await sql`select a.application_id,a.product,a.quantity_tonnes,a.status::text,a.proposed_price,a.proposed_currency,d.deal_id,w.counter_price,w.counter_currency,w.client_counter_response from portal_private.client_applications a left join portal_private.deals d on d.id=a.linked_deal_key left join portal_private.owner_application_workflow w on w.application_key=a.id where a.client_key = any(${keys}::uuid[]) and a.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by a.updated_at desc`;
-  const deals=await sql`select d.deal_id,d.business_status,cl.legal_name,ct.contract_id from portal_private.deals d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key where d.client_key = any(${keys}::uuid[]) and d.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by d.updated_at desc`;
-  const documents=await sql`select d.deal_id,doc.document_id,doc.authoritative_filename,odd.document_kind from portal_private.owner_deal_documents odd join portal_private.deals d on d.id=odd.deal_key join portal_private.documents doc on doc.id=odd.document_key where d.client_key = any(${keys}::uuid[]) and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum order by odd.updated_at desc`;
-  const {radio}=await clientRadio(ctx,scope);
-  return{companies:contracts,prices,applications,deals,documents,analytics:[],news:[],radio};
-}
-
-async function agentBootstrap(ctx){
-  const scope=await agentScope(ctx),keys=scope.map(x=>String(x.client_key));
-  const prices=await sql`select id,product,producer,basis,final_station,sale_price,currency,payment_terms,commercial_terms,agreed_at from portal_private.owner_price_snapshots where publish_agent=true and business_status='PUBLISHED' order by agreed_at desc`;
-  const {radio}=await agentRadio(ctx);
-  if(!keys.length)return{companies:[],prices,applications:[],documents:[],radio};
-  const applications=await sql`select a.application_id,a.product,a.quantity_tonnes,a.status::text,d.deal_id,cl.client_id,cl.legal_name from portal_private.client_applications a join portal_private.clients cl on cl.id=a.client_key left join portal_private.deals d on d.id=a.linked_deal_key where a.client_key = any(${keys}::uuid[]) and a.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by a.updated_at desc`;
-  const documents=await sql`select d.deal_id,cl.client_id,doc.document_id,doc.authoritative_filename,odd.document_kind from portal_private.owner_deal_documents odd join portal_private.deals d on d.id=odd.deal_key join portal_private.clients cl on cl.id=d.client_key join portal_private.documents doc on doc.id=odd.document_key where d.client_key = any(${keys}::uuid[]) and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum order by odd.updated_at desc`;
-  return{companies:scope,prices,applications,documents,radio};
-}
-
-function ascii(v){const map={'А':'A','Б':'B','В':'V','Г':'G','Д':'D','Е':'E','Ё':'E','Ж':'Zh','З':'Z','И':'I','Й':'Y','К':'K','Л':'L','М':'M','Н':'N','О':'O','П':'P','Р':'R','С':'S','Т':'T','У':'U','Ф':'F','Х':'Kh','Ц':'Ts','Ч':'Ch','Ш':'Sh','Щ':'Sch','Ъ':'','Ы':'Y','Ь':'','Э':'E','Ю':'Yu','Я':'Ya','а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};return String(v??'').split('').map(c=>map[c]??(c.charCodeAt(0)<128?c:'?')).join('')}
-function pdfEscape(s){return ascii(s).replace(/([\\()])/g,'\\$1').slice(0,180)}
-function buildPricePdf(prices){const lines=['RONA Trade | Agent Price List',`Generated: ${new Date().toISOString().slice(0,10)}`,''];for(const p of prices){lines.push(`${p.product||'-'} | ${p.final_station||p.basis||'-'} | ${p.sale_price??'-'} ${p.currency||''} | ${p.payment_terms||'-'}`)}if(prices.length===0)lines.push('No published prices.');const cmds=[];cmds.push('0.72 0.07 0.10 rg 0 780 595 62 re f');cmds.push('1 1 1 rg BT /F1 20 Tf 40 812 Td (RONA Trade) Tj ET');cmds.push('0 0 0 rg');let y=750;for(let i=0;i<lines.length&&i<45;i++,y-=16){cmds.push(`BT /F1 ${i===0?14:9} Tf 40 ${y} Td (${pdfEscape(lines[i])}) Tj ET`)}const stream=cmds.join('\n');const objs=[];objs[1]='<< /Type /Catalog /Pages 2 0 R >>';objs[2]='<< /Type /Pages /Kids [3 0 R] /Count 1 >>';objs[3]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>';objs[4]=`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`;objs[5]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';let out='%PDF-1.4\n',offsets=[0];for(let i=1;i<=5;i++){offsets[i]=new TextEncoder().encode(out).length;out+=`${i} 0 obj\n${objs[i]}\nendobj\n`}const xref=new TextEncoder().encode(out).length;out+='xref\n0 6\n0000000000 65535 f \n';for(let i=1;i<=5;i++)out+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';out+=`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;return new TextEncoder().encode(out)}
-
-const claimsRuntime=createClaimsRuntime({sql,service,BUCKET,MAX_PDF,audit,reqIds});
-
-
-async function clientWorkflowBootstrap(ctx){
-  const scope=await clientScope(ctx);
-  const keys=[...new Set(scope.map(x=>String(x.client_key)))];
-  if(!keys.length)return{generatedAt:new Date().toISOString(),deals:[],documents:[]};
-  const adminEntity=ctx.impersonation?.subjectMode==="ADMIN_ENTITY";
-  const deals=adminEntity
-    ?await sql`
-      select d.deal_id,cl.legal_name,coalesce(w.cancellation_state,'ACTIVE') cancellation_state,
-             w.client_addendum_downloaded_at,w.client_invoice_downloaded_at
-      from portal_private.deals d
-      join portal_private.clients cl on cl.id=d.client_key
-      left join portal_private.owner_deal_workflow w on w.deal_key=d.id
-      where d.client_key=any(${keys}::uuid[])
-      order by d.created_at desc
-    `
-    :await sql`
-      select d.deal_id,cl.legal_name,coalesce(w.cancellation_state,'ACTIVE') cancellation_state,
-             w.client_addendum_downloaded_at,w.client_invoice_downloaded_at
-      from portal_private.deals d
-      join portal_private.clients cl on cl.id=d.client_key
-      left join portal_private.owner_deal_workflow w on w.deal_key=d.id
-      where d.client_key=any(${keys}::uuid[])
-        and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
-      order by d.created_at desc
-    `;
-  const documents=adminEntity
-    ?await sql`
-      select d.deal_id,odd.document_kind,doc.document_id,doc.authoritative_filename,doc.created_at
-      from portal_private.owner_deal_documents odd
-      join portal_private.deals d on d.id=odd.deal_key
-      join portal_private.documents doc on doc.id=odd.document_key
-      where doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-        and odd.document_kind in ('ADDENDUM','INVOICE','SIGNED_ADDENDUM')
-        and d.client_key=any(${keys}::uuid[])
-      order by doc.created_at desc
-    `
-    :await sql`
-      select d.deal_id,odd.document_kind,doc.document_id,doc.authoritative_filename,doc.created_at
-      from portal_private.owner_deal_documents odd
-      join portal_private.deals d on d.id=odd.deal_key
-      join portal_private.documents doc on doc.id=odd.document_key
-      where doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-        and odd.document_kind in ('ADDENDUM','INVOICE','SIGNED_ADDENDUM')
-        and d.client_key=any(${keys}::uuid[])
-        and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
-      order by doc.created_at desc
-    `;
-  return{generatedAt:new Date().toISOString(),deals,documents};
-}
-
-async function clientAnalyticsFeed(){
-  const publications=await sql`
-    select p.id,p.publication_id,p.title,p.published_at
-    from portal_private.publications p
-    where p.publication_type::text='ANALYTICS'
-      and p.status::text='PUBLISHED'
-      and p.lifecycle_state::text='ACTIVE'
-      and p.authority_state::text in ('VERIFIED','CONFIRMED')
-      and upper(coalesce(p.audience,'INTERNAL'))<>'INTERNAL'
-    order by p.published_at desc
-  `;
-  const out=[];
-  for(const p of publications){
-    const items=await sql`
-      select pi.product,pi.basis,pi.headline,pi.content_text,pi.analytics_as_of,
-             pi.forecast_scenario,pi.actual_value,pi.forecast_value,pi.analytics_unit,
-             pi.metadata->'public_chart' public_chart
-      from portal_private.publication_items pi
-      where pi.publication_key=${p.id}::uuid
-        and pi.item_type::text='ANALYTICS'
-        and pi.lifecycle_state::text='ACTIVE'
-        and pi.authority_state::text in ('VERIFIED','CONFIRMED')
-        and pi.distribution_allowed=true
-        and upper(coalesce(pi.audience,'INTERNAL'))<>'INTERNAL'
-        and coalesce(pi.metadata->>'publication_layer','')='DERIVED_ANALYTICS'
-        and lower(coalesce(pi.metadata->>'public_chart_ready','false'))='true'
-        and pi.metadata ? 'public_chart'
-        and (pi.client_active_from is null or pi.client_active_from<=now())
-        and (pi.client_active_until is null or pi.client_active_until>now())
-      order by pi.item_order
-    `;
-    if(items.length)out.push({publication_id:p.publication_id,title:p.title,published_at:p.published_at,items});
-  }
-  return{generatedAt:new Date().toISOString(),publications:out,publicationGate:'PUBLISHED_DERIVED_DISTRIBUTION_ALLOWED_ONLY'};
-}
-
-async function clientMarkDownload(ctx,req,dealId){
-  const body=await jsonBody(req),kind=String(body.kind||'').trim().toUpperCase();
-  if(!['ADDENDUM','INVOICE'].includes(kind))throw Object.assign(new Error('INVALID_DOCUMENT_KIND'),{status:400});
-  const scope=await clientScope(ctx),keys=[...new Set(scope.map(x=>String(x.client_key)))];
-  if(!keys.length)throw Object.assign(new Error('DEAL_ACCESS_DENIED'),{status:403});
-  const rows=await sql`
-    select d.id
-    from portal_private.deals d
-    where d.deal_id=${dealId}
-      and d.client_key=any(${keys}::uuid[])
-      and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
-    limit 1
-  `;
-  if(rows.length!==1)throw Object.assign(new Error('DEAL_ACCESS_DENIED'),{status:403});
-  const dealKey=String(rows[0].id);
-  await sql.begin(async tx=>{
-    await tx`insert into portal_private.owner_deal_workflow(deal_key) values(${dealKey}::uuid) on conflict(deal_key) do nothing`;
-    if(kind==='ADDENDUM')await tx`update portal_private.owner_deal_workflow set client_addendum_downloaded_at=coalesce(client_addendum_downloaded_at,now()),updated_at=now() where deal_key=${dealKey}::uuid`;
-    else await tx`update portal_private.owner_deal_workflow set client_invoice_downloaded_at=coalesce(client_invoice_downloaded_at,now()),updated_at=now() where deal_key=${dealKey}::uuid`;
-    await audit(tx,ctx,'CLIENT_DEAL_DOCUMENT_DOWNLOAD_MARK','DEAL',dealId,req,{kind});
-  });
-  return{dealId,kind,marked:true};
-}
-
-function isAdminEntityClientReadStateMutation(path:string,method:string){
-  return method==='POST'&&/^\/client\/radio\/[0-9a-f-]+\/read$/i.test(path);
-}
-
-Deno.serve(async req=>{
-  const ctx=await authContext(req);if(!ctx)return send(401,{ok:false,code:'PORTAL_ACCESS_DENIED'});const path=pathOf(req),method=req.method;
-  const adminEntityReadStateMutation=ctx.impersonation?.subjectMode==='ADMIN_ENTITY'&&isAdminEntityClientReadStateMutation(path,method);
-  if(ctx.impersonation?.subjectMode==='ADMIN_ENTITY'&&method!=='GET'&&path.startsWith('/client/')&&!adminEntityReadStateMutation){
-    await recordImpersonationEvent(sql,{authUserId:ctx.actorAuthUserId,portalUserId:ctx.actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation,req,path,'PORTAL_MUTATION','BLOCKED_ADMIN_ENTITY_READ_ONLY',{source:'RONA_OWNER_ACCEPTANCE',subject_mode:'ADMIN_ENTITY'});
-    return send(403,{ok:false,code:'ADMIN_ENTITY_PREVIEW_READ_ONLY'});
-  }
-  if(ctx.impersonation){await recordImpersonationEvent(sql,{authUserId:ctx.actorAuthUserId,portalUserId:ctx.actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation,req,path,adminEntityReadStateMutation?'PORTAL_READ_STATE_MUTATION':(method==='GET'?'PORTAL_READ':'PORTAL_MUTATION'),'AUTHORIZED_DISPATCH',{source:'RONA_OWNER_ACCEPTANCE',read_state_mutation:adminEntityReadStateMutation});}
-  try{
-    if(path==='/admin/bootstrap'&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await adminSnapshot()})}
-    if(path==='/admin/claims'||path.startsWith('/admin/claims/')){requireRole(ctx,'ADMIN');const cr=await claimsRuntime.handle(ctx,req,path,method);if(cr)return send(cr.status,cr.body)}
-    let m=path.match(/^\/admin\/applications\/([^/]+)\/(accept|reject|counter-offer|supplier-approved|cancel)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await updateApplication(ctx,req,decodeURIComponent(m[1]),m[2])})}
-    m=path.match(/^\/admin\/prices\/([0-9a-f-]+)\/publication$/i);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await publishPrice(ctx,req,m[1])})}
-    m=path.match(/^\/admin\/clients\/([^/]+)\/agent$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await setAgentAssignment(ctx,req,decodeURIComponent(m[1]))})}
-    if(path==='/admin/radio'&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await postRadio(ctx,req)})}m=path.match(/^\/admin\/radio\/([0-9a-f-]+)\/expire$/i);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await expireRadio(ctx,req,m[1])})}
-    m=path.match(/^\/admin\/deals\/([^/]+)\/(addendum|invoice)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await registerDealPdf(ctx,req,decodeURIComponent(m[1]),m[2]==='addendum'?'ADDENDUM':'INVOICE',false)})}
-    m=path.match(/^\/admin\/deals\/([^/]+)\/closeout-documents\/(return-instruction|return-rail-codes)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await registerDealPdf(ctx,req,decodeURIComponent(m[1]),ADMIN_CLOSEOUT_DOCUMENT_KINDS[m[2]],false)})}
-    m=path.match(/^\/admin\/deals\/([^/]+)\/complete$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await completeDealFromCloseout(ctx,req,decodeURIComponent(m[1]))})}
-    m=path.match(/^\/admin\/deals\/([^/]+)\/send-to-payments$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await paymentHandoff(ctx,req,decodeURIComponent(m[1]))})}
-    m=path.match(/^\/admin\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'admin')})}
-
-    if(path==='/client/radio'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientRadio(ctx)})}
-    m=path.match(/^\/client\/radio\/([0-9a-f-]+)\/read$/i);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await markClientRadioNotificationRead(ctx,req,m[1])})}
-    if(path==='/client/bootstrap'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientBootstrap(ctx)})}
-    if(path==='/client/workflow-bootstrap'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientWorkflowBootstrap(ctx)})}
-    if(path==='/client/analytics-feed'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientAnalyticsFeed()})}
-    m=path.match(/^\/client\/deals\/([^/]+)\/mark-download$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientMarkDownload(ctx,req,decodeURIComponent(m[1]))})}
-    if(path==='/client/claims'||path.startsWith('/client/claims/')){requireRole(ctx,'CLIENT');const cr=await claimsRuntime.handle(ctx,req,path,method);if(cr)return send(cr.status,cr.body)}
-    m=path.match(/^\/client\/applications\/([^/]+)\/counter-offer\/(accept|decline)$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientCounterDecision(ctx,req,decodeURIComponent(m[1]),m[2])})}
-    m=path.match(/^\/client\/deals\/([^/]+)\/signed-addendum$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await registerDealPdf(ctx,req,decodeURIComponent(m[1]),'SIGNED_ADDENDUM',true)})}
-    m=path.match(/^\/client\/deals\/([^/]+)\/closeout-documents$/);if(m&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientCloseoutDocuments(ctx,decodeURIComponent(m[1]))})}
-    m=path.match(/^\/client\/deals\/([^/]+)\/closeout-documents\/(delivery-stamp|empty-wagons)$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await registerClientCloseoutPdf(ctx,req,decodeURIComponent(m[1]),CLIENT_CLOSEOUT_DOCUMENT_KINDS[m[2]])})}
-    m=path.match(/^\/client\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'client')})}
-    m=path.match(/^\/client\/contracts\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'CLIENT');const c=(await clientScope(ctx)).find(x=>String(x.contract_id)===decodeURIComponent(m[1]));if(!c||!c.current_signed_document_id)throw Object.assign(new Error('CONTRACT_DOCUMENT_NOT_FOUND'),{status:404});const d=(await sql`select document_id from portal_private.documents where id=${c.current_signed_document_id}::uuid limit 1`)[0];if(!d)throw Object.assign(new Error('CONTRACT_DOCUMENT_NOT_FOUND'),{status:404});return send(200,{ok:true,data:await signedUrlForDocument(ctx,String(d.document_id),'client')})}
-
-    if(path==='/agent/radio'&&method==='GET'){requireRole(ctx,'AGENT');return send(200,{ok:true,data:await agentRadio(ctx)})}
-    if(path==='/agent/bootstrap'&&method==='GET'){requireRole(ctx,'AGENT');return send(200,{ok:true,data:await agentBootstrap(ctx)})}
-    if(path==='/agent/price-list.pdf'&&method==='GET'){requireRole(ctx,'AGENT');const data=await agentBootstrap(ctx),pdf=buildPricePdf(data.prices);return new Response(pdf,{status:200,headers:{'content-type':'application/pdf','content-disposition':'attachment; filename="RONA_Trade_Agent_Price_List.pdf"','cache-control':'no-store'}})}
-    m=path.match(/^\/agent\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'AGENT');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'agent')})}
-    return send(404,{ok:false,code:'ROUTE_NOT_FOUND'});
-  }catch(e){console.error('rona-owner-acceptance error',e);const status=Number(e?.status||500);return send(status>=400&&status<600?status:500,{ok:false,code:String(e?.message||'SERVER_ERROR')})}
-});
-
+          when jsonb_typeof(c->'rawValue')='number' then (c->>'rawValue')::numeric
+          when coalesce(c->>'rawValue','') ~ '^[0-9]+([.,][0-9]+)?$'
             then replace(c->>'rawValue',',','.')::numeric
           else null::numeric
         end as cargo_weight_tonnes
@@ -1123,23 +608,11 @@ Deno.serve(async req=>{
     qty as (
       select
         count(*)::int as trusted_wagon_count,
-        count(*) filter(
-          where weight_variant_count=1
-            and stable_weight_tonnes>0
-            and weight_source_count>0
-        )::int as stable_weight_wagon_count,
+        count(*) filter(where weight_variant_count=1 and stable_weight_tonnes>0 and weight_source_count>0)::int as stable_weight_wagon_count,
         case
           when count(*)>0
-           and count(*)=count(*) filter(
-             where weight_variant_count=1
-               and stable_weight_tonnes>0
-               and weight_source_count>0
-           )
-          then sum(stable_weight_tonnes) filter(
-            where weight_variant_count=1
-              and stable_weight_tonnes>0
-              and weight_source_count>0
-          )
+           and count(*)=count(*) filter(where weight_variant_count=1 and stable_weight_tonnes>0 and weight_source_count>0)
+          then sum(stable_weight_tonnes) filter(where weight_variant_count=1 and stable_weight_tonnes>0 and weight_source_count>0)
           else null::numeric
         end as actual_quantity_tonnes,
         max(latest_weight_source_at) as quantity_source_at
@@ -1147,88 +620,44 @@ Deno.serve(async req=>{
     ),
     calc as (
       select
-        b.*,
-        q.trusted_wagon_count,
-        q.stable_weight_wagon_count,
-        q.actual_quantity_tonnes,
-        q.quantity_source_at,
+        b.*,q.trusted_wagon_count,q.stable_weight_wagon_count,q.actual_quantity_tonnes,q.quantity_source_at,
         case
           when coalesce(b.source_proposed_price,0)>0
            and coalesce(b.source_quantity_tonnes,0)>0
-           and upper(btrim(coalesce(b.source_proposed_currency,'')))
-             =upper(btrim(coalesce(b.finance_currency,'')))
+           and upper(btrim(coalesce(b.source_proposed_currency,'')))=upper(btrim(coalesce(b.finance_currency,'')))
            and coalesce(b.total_to_receive,0)>0
-           and abs(
-             b.source_proposed_price*b.source_quantity_tonnes-b.total_to_receive
-           )<=0.01
+           and abs(b.source_proposed_price*b.source_quantity_tonnes-b.total_to_receive)<=0.01
           then b.source_proposed_price
           else null::numeric
         end as unit_price
-      from base b
-      cross join qty q
+      from base b cross join qty q
     )
     select
-      deal_id,
-      product_value,
-      source_product,
-      delivery_basis,
-      monitoring_state as rail_monitoring_state,
-      rail_monitoring_completed_at,
-      payment_complete_100,
-      (
-        upper(coalesce(monitoring_state,''))='COMPLETED'
-        and payment_complete_100
-      ) as post_rail_completion_attention,
+      deal_id,product_value,source_product,delivery_basis,
+      monitoring_state as rail_monitoring_state,rail_monitoring_completed_at,payment_complete_100,
+      (upper(coalesce(monitoring_state,''))='COMPLETED' and payment_complete_100) as post_rail_completion_attention,
+      case when upper(coalesce(monitoring_state,''))='COMPLETED' and payment_complete_100 then 'CLOSEOUT' else null::text end as closeout_stage,
       case
-        when upper(coalesce(monitoring_state,''))='COMPLETED'
-         and payment_complete_100
-        then 'CLOSEOUT'
-        else null::text
-      end as closeout_stage,
-      case
-        when upper(coalesce(monitoring_state,''))<>'COMPLETED'
-          or not payment_complete_100
-          then null::text
-        when actual_quantity_tonnes is null
-          then 'QUANTITY_SOURCE_INCOMPLETE'
-        when unit_price is null
-          then 'PRICE_SOURCE_MISMATCH'
-        when received_amount is null
-          then 'PAYMENT_SOURCE_MISSING'
+        when upper(coalesce(monitoring_state,''))<>'COMPLETED' or not payment_complete_100 then null::text
+        when actual_quantity_tonnes is null then 'QUANTITY_SOURCE_INCOMPLETE'
+        when unit_price is null then 'PRICE_SOURCE_MISMATCH'
+        when received_amount is null then 'PAYMENT_SOURCE_MISSING'
         else 'READY'
       end as closeout_projection_state,
       actual_quantity_tonnes as closeout_actual_quantity_tonnes,
       trusted_wagon_count as closeout_trusted_wagon_count,
       stable_weight_wagon_count as closeout_stable_weight_wagon_count,
       quantity_source_at as closeout_quantity_source_at,
-      case when actual_quantity_tonnes is not null
-        then 'RAIL_LOGISTICS_TRUSTED_WAGONS_STABLE_WEIGHT_HISTORY_V1'
-        else null::text
-      end as closeout_quantity_source,
+      case when actual_quantity_tonnes is not null then 'RAIL_LOGISTICS_TRUSTED_WAGONS_STABLE_WEIGHT_HISTORY_V1' else null::text end as closeout_quantity_source,
       unit_price as closeout_deal_unit_price,
       finance_currency as closeout_currency,
       received_amount as closeout_paid_amount,
+      case when actual_quantity_tonnes is not null and unit_price is not null then round(actual_quantity_tonnes*unit_price,2) else null::numeric end as closeout_actual_amount,
+      case when actual_quantity_tonnes is not null and unit_price is not null and received_amount is not null then round(actual_quantity_tonnes*unit_price-received_amount,2) else null::numeric end as closeout_balance_amount,
       case
-        when actual_quantity_tonnes is not null and unit_price is not null
-        then round(actual_quantity_tonnes*unit_price,2)
-        else null::numeric
-      end as closeout_actual_amount,
-      case
-        when actual_quantity_tonnes is not null
-         and unit_price is not null
-         and received_amount is not null
-        then round(actual_quantity_tonnes*unit_price-received_amount,2)
-        else null::numeric
-      end as closeout_balance_amount,
-      case
-        when actual_quantity_tonnes is null
-          or unit_price is null
-          or received_amount is null
-          then null::text
-        when round(actual_quantity_tonnes*unit_price-received_amount,2)>0.01
-          then 'CLIENT_OWES_RONA'
-        when round(actual_quantity_tonnes*unit_price-received_amount,2)<-0.01
-          then 'RONA_OWES_CLIENT'
+        when actual_quantity_tonnes is null or unit_price is null or received_amount is null then null::text
+        when round(actual_quantity_tonnes*unit_price-received_amount,2)>0.01 then 'CLIENT_OWES_RONA'
+        when round(actual_quantity_tonnes*unit_price-received_amount,2)<-0.01 then 'RONA_OWES_CLIENT'
         else 'SETTLED'
       end as closeout_balance_direction
     from calc
@@ -1427,8 +856,9 @@ async function ensureCloseoutAssistantArchiveTask(tx,ctx,current,dealId){
 }
 
 async function completeDealFromCloseout(ctx,req,dealId){
-  const snapshot=(await sql`select public.owner_deals_current_v4() as data`)[0]?.data;
-  const deal=Array.isArray(snapshot?.deals)?snapshot.deals.find(x=>String(x?.deal_id||'')===String(dealId)):null;
+  const dealRows=await sql`select id from portal_private.deals where deal_id=${dealId} limit 1`;
+  if(dealRows.length!==1)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
+  const deal=await closeoutProjectionForDealKey(dealRows[0].id);
   if(!deal)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
   if(deal.post_rail_completion_attention!==true||String(deal.closeout_stage||'').toUpperCase()!=='CLOSEOUT'){
     throw Object.assign(new Error('DEAL_NOT_IN_CLOSEOUT'),{status:409});
@@ -1455,7 +885,7 @@ async function completeDealFromCloseout(ctx,req,dealId){
     await audit(tx,ctx,'OWNER_DEAL_COMPLETED','DEAL',dealId,req,{
       source:'ADMIN_LK_CLOSEOUT',
       closeoutStage:'CLOSEOUT',
-      closeoutProjectionVersion:String(snapshot?.closeoutProjectionVersion||'ADMIN_DEAL_CLOSEOUT_PROJECTION_V1'),
+      closeoutProjectionVersion:'ADMIN_DEAL_CLOSEOUT_PROJECTION_V1',
       assistantArchiveTaskId:assistantArchive.taskId,
       assistantArchiveDocumentCount:assistantArchive.documentCount,
       assistantArchiveTargetRole:assistantArchive.targetRole,
