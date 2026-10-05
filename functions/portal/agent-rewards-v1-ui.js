@@ -82,8 +82,9 @@ function currentValue(deal,key){
   return num(v)
 }
 function termText(deal){
-  const t=deal?.agentTerm||{};
+  const t=deal?.agentTerm||{},active=upper(t.status)==='ACTIVE'&&upper(t.lifecycleState)==='ACTIVE'&&['CONFIRMED','VERIFIED','AUTHORITATIVE'].includes(upper(t.authorityState));
   if(!t.mode)return'Условие не подтверждено';
+  if(!active)return'Условие не действует · '+(t.status||t.lifecycleState||t.authorityState||'TO_VERIFY');
   if(t.mode==='FIXED')return'Фиксировано: '+money(t.fixedAmount,t.currency);
   if(t.mode==='PERCENT')return'Процент: '+fmt(t.rate,4)+'% · база по условию';
   if(t.mode==='PER_TONNE')return'За тонну: '+money(t.rate,t.currency);
