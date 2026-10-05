@@ -48,17 +48,17 @@ need(has(admin,'data-page="agent-settlements"')&&has(admin,'id="page-agent-settl
 need(has(admin,'data-page="market-news"')&&has(admin,'id="page-market-news"'),'Market News route/page is missing');
 need(has(admin,'grid-template-columns:272px')&&has(admin,'min-height:48px')&&has(admin,'font-size:14.5px'),'Canonical desktop sidebar sizing is missing');
 need(has(admin,'current-only-router-v2')&&has(admin,'MutationObserver'),'Single current router guard is missing');
-need(has(admin,'/assets/portal-admin-shell-fast-v1.js?v=20261003-remove-claims-v1'),'Admin shell does not cache-bust the Claims-retired fast shell');
-need(has(admin,'/portal/clients-agents-current-ui?v=20260919-admin-access-stability-v3'),'Admin shell does not cache-bust the stable Access runtime');
+need(has(admin,'/assets/portal-admin-shell-fast-v1.js?v=20261005-lazy-selected-page-v2'),'Admin shell does not cache-bust the lazy selected-page fast shell');
+need(!has(admin,'id="rona-clients-agents-current-loader"')&&!has(admin,'/portal/clients-agents-current-ui?v=20260919-admin-access-stability-v3'),'Access runtime must not preload from Admin HTML');
 need(has(admin,'/assets/portal-admin-runtime-watchdog-v1.js?v=20260919-admin-access-stability-v3'),'Admin shell does not cache-bust the stable watchdog');
 
-need(has(shell,"__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'"),'Single-owner shell marker is missing');
+need(has(shell,"__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'")&&has(shell,"__RONA_ADMIN_HEAVY_MODULE_POLICY__='LAZY_SELECTED_PAGE_V2'"),'Single-owner/lazy-page shell marker is missing');
 need(has(shell,"ADMIN_SHELL_BOOT")&&has(shell,"RETRY_ONLY_ON_FAILURE")&&has(shell,"const snapshot=await refreshAuthority();if(snapshot)return")&&!has(shell,"[400,1800,5000].forEach"),'Admin authority bootstrap still performs unconditional triple refresh');
 
 need(!has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-ui")&&has(shell,"'/portal/prices-current-ui")&&has(shell,"'/portal/analytics-v2-ui"),'Required current modules / retired Claims contract is invalid');
 need(has(shell,"access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'}"),'Clients/Agents current runtime is not managed by the fast shell');
 need(has(shell,"const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost()")&&has(shell,"async function loadAccess()"),'Clients/Agents stable access readiness/self-heal contract is missing');
-need(has(shell,"const accessWarm=loadAccess();")&&has(shell,"if(p==='access')loadAccess();"),'Clients/Agents access module is not warmed on boot and page navigation');
+need(!has(shell,"const accessWarm=loadAccess();")&&has(shell,"if(p==='access')loadAccess();")&&has(shell,"if(p==='access')return loadAccess();"),'Clients/Agents access module must load only for the selected Access page');
 need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.__RONA_ADMIN_MODULES__.access")&&!has(shell,"window.__RONA_CLIENTS_AGENTS_CURRENT__=null"),'Clients/Agents recovery must preserve a live runtime without teardown');
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
