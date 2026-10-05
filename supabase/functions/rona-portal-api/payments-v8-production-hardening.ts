@@ -9,6 +9,7 @@ const BASELINE='5aceffe2725a904e8e0ded562e483f012e861085';
 const CLIENT_RECEIPT_DETAIL_CONTRACT='CLIENT_RECEIPT_DETAIL_RECONCILIATION_V1';
 const EXECUTION_MONITORING_SCOPE='ADMIN_PAYMENTS_EXECUTION_ACTIVE_ONLY_V1';
 const CLIENT_DEAL_EXECUTION_EXIT_CONTRACT='CLIENT_DEAL_RAIL_COMPLETION_ATTENTION_AND_PAYMENTS_EXIT_V1';
+const CLIENT_DEAL_CLOSEOUT_CONTRACT='CLIENT_DEAL_CLOSEOUT_PROJECTION_V1';
 
 function paymentMoneyAmount(value:any){
   const raw=value&&typeof value==='object'&&'amount' in value?value.amount:value;
@@ -183,23 +184,198 @@ async function hardenClientExecutionExit(req:Request,response:Response){
     order by d.deal_id
   `;
   const railByDeal=new Map(rows.map((row:any)=>[String(row?.deal_id||'').trim(),row]));
+  const closeoutIds:string[]=[];
 
   for(const deal of deals){
     const dealId=String(deal?.deal_id||'').trim();
     const rail:any=railByDeal.get(dealId);
     const railCompleted=String(rail?.rail_monitoring_state||'').trim().toUpperCase()==='COMPLETED';
     const terminal=clientDealTerminal(deal);
+    const fullyPaid=clientFullyPaidAuthoritative(deal);
+    const closeout=railCompleted&&fullyPaid&&!terminal;
     deal.rail_monitoring_completed_at=rail?.rail_monitoring_completed_at||null;
-    deal.post_rail_completion_attention=railCompleted&&!terminal;
-    if(railCompleted&&!terminal){
+    deal.post_rail_completion_attention=closeout;
+    if(closeout){
       deal.client_deal_stage='ATTENTION';
       deal.client_deal_stage_label='Требует внимания';
-      deal.client_deal_stage_source='RAIL_MONITORING_COMPLETED_OWNER_RULE_V1';
+      deal.client_deal_stage_source='RAIL_COMPLETED_AND_100_PERCENT_PAID_OWNER_RULE_V2';
+      closeoutIds.push(dealId);
     }
-    const paymentsExit=railCompleted&&clientFullyPaidAuthoritative(deal);
+    const paymentsExit=railCompleted&&fullyPaid;
     deal.client_payments_monitoring_active=!paymentsExit;
     deal.client_payments_monitoring_exclusion_reason=paymentsExit?'RAIL_COMPLETED_AND_100_PERCENT_PAID':null;
     deal.client_payments_monitoring_source=CLIENT_DEAL_EXECUTION_EXIT_CONTRACT;
+  }
+
+  if(closeoutIds.length){
+    const closeoutRows=await sql`
+      with scoped as (
+        select
+          d.id as deal_key,
+          d.deal_id,
+          ct.current_external_contract_number,
+          a.product,
+          a.delivery_basis,
+          a.quantity_tonnes as source_quantity_tonnes,
+          a.proposed_price as source_proposed_price,
+          trim(a.proposed_currency::text) as source_proposed_currency,
+          fv8.total_to_receive as obligation_amount,
+          greatest(
+            coalesce(fv8.total_to_receive,0)
+            - coalesce(fv8.due_now,0)
+            - coalesce(fv8.expected_not_due,0)
+            - coalesce(fv8.future_conditional,0),0
+          ) as received_amount,
+          trim(fv8.obligation_currency::text) as finance_currency
+        from portal_private.deals d
+        join portal_private.clients cl on cl.id=d.client_key
+        join portal_private.contracts ct on ct.id=d.contract_key
+        left join lateral (
+          select rr.application_key
+          from portal_private.deal_registrations rr
+          where rr.deal_key=d.id
+          order by rr.registered_at desc
+          limit 1
+        ) rr on true
+        left join portal_private.client_applications a on a.id=rr.application_key
+        left join lateral (
+          select f.*
+          from portal_private.deal_finance_authority_payments_v8_read_v1 f
+          where f.deal_key=d.id
+            and f.is_terminal=true
+            and upper(coalesce(f.authority_state,''))='AUTHORITATIVE'
+            and upper(coalesce(f.lifecycle_state,''))='CURRENT'
+            and f.source_locked=true
+          order by f.effective_at desc nulls last,f.created_at desc
+          limit 1
+        ) fv8 on true
+        where cl.client_id=${responseClientId}
+          and ct.contract_id=${responseContractId}
+          and d.deal_id in (select value from jsonb_array_elements_text(${sql.json(closeoutIds)}::jsonb))
+      ),
+      trusted_wagons as (
+        select distinct cp.effective_deal_key as deal_key,cp.wagon_number
+        from portal_private.rail_operational_current_position_v1 cp
+        join scoped s on s.deal_key=cp.effective_deal_key
+        where cp.position_status='TRUSTED'
+          and cp.wagon_number is not null
+      ),
+      weight_observations as (
+        select
+          r.effective_deal_key as deal_key,
+          r.wagon_number,
+          r.source_object_id,
+          r.source_received_at,
+          cell.cargo_weight_tonnes
+        from portal_private.rail_xlsx_resolution_effective_v1 r
+        join trusted_wagons tw
+          on tw.deal_key=r.effective_deal_key
+         and tw.wagon_number=r.wagon_number
+        cross join lateral (
+          select
+            case
+              when jsonb_typeof(c->'rawValue')='number' then (c->>'rawValue')::numeric
+              when coalesce(c->>'rawValue','') ~ '^[0-9]+([.,][0-9]+)?$' then replace(c->>'rawValue',',','.')::numeric
+              else null::numeric
+            end as cargo_weight_tonnes
+          from jsonb_array_elements(coalesce(r.source_row->'cells','[]'::jsonb)) c
+          where lower(btrim(coalesce(c->>'header','')))='вес груза'
+          limit 1
+        ) cell
+        where cell.cargo_weight_tonnes>0
+      ),
+      per_wagon as (
+        select
+          tw.deal_key,
+          tw.wagon_number,
+          count(distinct wo.cargo_weight_tonnes)::int as weight_variant_count,
+          min(wo.cargo_weight_tonnes) as stable_weight_tonnes,
+          count(distinct wo.source_object_id)::int as weight_source_count
+        from trusted_wagons tw
+        left join weight_observations wo
+          on wo.deal_key=tw.deal_key
+         and wo.wagon_number=tw.wagon_number
+        group by tw.deal_key,tw.wagon_number
+      ),
+      quantity as (
+        select
+          s.deal_key,
+          count(pw.wagon_number)::int as trusted_wagon_count,
+          count(pw.wagon_number) filter(
+            where pw.weight_variant_count=1
+              and pw.stable_weight_tonnes>0
+              and pw.weight_source_count>0
+          )::int as stable_weight_wagon_count,
+          case
+            when count(pw.wagon_number)>0
+             and count(pw.wagon_number)=count(pw.wagon_number) filter(
+               where pw.weight_variant_count=1
+                 and pw.stable_weight_tonnes>0
+                 and pw.weight_source_count>0
+             )
+            then sum(pw.stable_weight_tonnes)
+            else null::numeric
+          end as actual_quantity_tonnes
+        from scoped s
+        left join per_wagon pw on pw.deal_key=s.deal_key
+        group by s.deal_key
+      )
+      select
+        s.deal_id,
+        s.current_external_contract_number,
+        s.product,
+        s.delivery_basis,
+        q.trusted_wagon_count,
+        q.stable_weight_wagon_count,
+        q.actual_quantity_tonnes,
+        case
+          when coalesce(s.source_proposed_price,0)>0
+           and coalesce(s.source_quantity_tonnes,0)>0
+           and upper(btrim(coalesce(s.source_proposed_currency,'')))=upper(btrim(coalesce(s.finance_currency,'')))
+           and coalesce(s.obligation_amount,0)>0
+           and abs(s.source_proposed_price*s.source_quantity_tonnes-s.obligation_amount)<=0.01
+          then s.source_proposed_price
+          else null::numeric
+        end as unit_price,
+        s.received_amount as paid_amount,
+        s.finance_currency as currency
+      from scoped s
+      left join quantity q on q.deal_key=s.deal_key
+      order by s.deal_id
+    `;
+    const closeoutByDeal=new Map(closeoutRows.map((row:any)=>[String(row?.deal_id||'').trim(),row]));
+    for(const deal of deals){
+      const dealId=String(deal?.deal_id||'').trim();
+      if(!closeoutIds.includes(dealId))continue;
+      const row:any=closeoutByDeal.get(dealId);
+      const actualQuantity=paymentMoneyAmount(row?.actual_quantity_tonnes);
+      const unitPrice=paymentMoneyAmount(row?.unit_price);
+      const paidAmount=paymentMoneyAmount(row?.paid_amount);
+      const actualAmount=actualQuantity!==null&&unitPrice!==null?Math.round((actualQuantity*unitPrice+Number.EPSILON)*100)/100:null;
+      const balance=actualAmount!==null&&paidAmount!==null?Math.round((actualAmount-paidAmount+Number.EPSILON)*100)/100:null;
+      const ready=actualQuantity!==null&&actualQuantity>0
+        && unitPrice!==null&&unitPrice>0
+        && paidAmount!==null
+        && Number(row?.trusted_wagon_count||0)>0
+        && Number(row?.trusted_wagon_count||0)===Number(row?.stable_weight_wagon_count||0);
+      deal.closeout_stage='CLOSEOUT';
+      deal.closeout_product_status='SHIPPED';
+      deal.closeout_product_status_label='Отгружено';
+      deal.closeout_projection_state=ready?'READY':'SOURCE_INCOMPLETE';
+      deal.closeout_actual_quantity_tonnes=ready?actualQuantity:null;
+      deal.closeout_deal_unit_price=ready?unitPrice:null;
+      deal.closeout_currency=String(row?.currency||deal?.payment_currency||'').trim()||null;
+      deal.closeout_paid_amount=ready?paidAmount:null;
+      deal.closeout_actual_amount=ready?actualAmount:null;
+      deal.closeout_balance_amount=ready?balance:null;
+      deal.closeout_balance_direction=!ready||balance===null?null:balance>0.01?'CLIENT_OWES_RONA':balance<-0.01?'RONA_OWES_CLIENT':'SETTLED';
+      deal.closeout_contract_number=String(row?.current_external_contract_number||contract?.current_external_contract_number||'').trim()||null;
+      deal.closeout_delivery_basis=String(row?.delivery_basis||'').trim()||null;
+      deal.closeout_product=String(row?.product||'').trim()||null;
+      deal.closeout_quantity_source=ready?'RAIL_LOGISTICS_TRUSTED_WAGONS_STABLE_WEIGHT_HISTORY_V1':null;
+      deal.closeout_price_source=ready?'CLIENT_APPLICATION_PRICE_RECONCILED_TO_FINANCE_V8_V1':null;
+      deal.closeout_projection_source=CLIENT_DEAL_CLOSEOUT_CONTRACT;
+    }
   }
 
   const headers=new Headers(response.headers);
@@ -207,6 +383,7 @@ async function hardenClientExecutionExit(req:Request,response:Response){
   headers.set('content-type','application/json; charset=utf-8');
   headers.set('cache-control','no-store');
   headers.set('x-rona-client-deal-execution-exit',CLIENT_DEAL_EXECUTION_EXIT_CONTRACT);
+  headers.set('x-rona-client-deal-closeout',CLIENT_DEAL_CLOSEOUT_CONTRACT);
   return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers});
 }
 async function hardenClientReceiptDetails(req:Request,response:Response){
