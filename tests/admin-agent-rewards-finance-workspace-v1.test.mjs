@@ -76,6 +76,6 @@ test('Admin shell lazy-loads Agent Rewards and legacy Remaining renderer no long
   assert.match(shell,/p==='agent-settlements'\)return loadModule\('agentRewards'/);
   assert.doesNotMatch(shell,/\['agent-settlements','messages','market-news'\]\.includes\(p\)/);
   assert.match(remaining,/replaceAll\("'вознаграждения агентов':'rewards'",''\)/);
-  assert.match(remaining,/replaceAll\("if\(kind==='rewards'\)return renderRewards\(\);",''\)/);
+  assert.match(remaining,/replaceAll\("if\(kind==='rewards'\)return renderRewards\(\)",''\)/);
   assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261005-agent-rewards-finance-v1/);
 });
