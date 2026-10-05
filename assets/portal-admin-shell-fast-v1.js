@@ -91,7 +91,8 @@ const MODULES=Object.freeze({
   remaining:{src:'/portal/remaining-sections-ui?v=20260826-single-owner'},
   analytics:{src:'/portal/analytics-v2-ui?v=20260826-approved-analytics'},
   prices:{src:'/portal/prices-current-ui?v=20260826-single-owner'},
-  access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'}
+  access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'},
+  agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261005-finance-workspace-v1'}
 });
 const railPrimaryRoot=()=>document.querySelector('[data-rail-current-v4="ready"],[data-rail-current-root="ready"]:not([data-rail-safe-fallback])');
 const railFallbackRoot=()=>document.querySelector('[data-rail-safe-fallback]');
@@ -163,7 +164,8 @@ async function loadPageModule(page){
   if(p==='analytics')return loadAnalytics();
   if(p==='prices')return loadModule('prices',MODULES.prices.src);
   if(p==='access')return loadAccess();
-  if(['agent-settlements','messages','market-news'].includes(p))return loadModule('remaining',MODULES.remaining.src);
+  if(p==='agent-settlements')return loadModule('agentRewards',MODULES.agentRewards.src,{attempts:3,ready:()=>window.__RONA_AGENT_REWARDS_FINANCE_V1__==='20261005-agent-rewards-finance-v1',timeout:16000});
+  if(['messages','market-news'].includes(p))return loadModule('remaining',MODULES.remaining.src);
   return true;
 }
 window.__RONA_ADMIN_LOAD_PAGE_MODULE__=loadPageModule;
@@ -183,7 +185,8 @@ window.addEventListener('rona:admin-pagechange',event=>{
   if(p==='deals'){loadPageModule(p).catch(e=>recordError('page-module:'+p,e));return}
   if(p==='applications'){loadPageModule(p).catch(e=>recordError('page-module:'+p,e));return}
   if(p==='accounting'){loadPageModule(p).catch(e=>recordError('page-module:'+p,e));return}
-  if(['agent-settlements','messages','market-news'].includes(p))loadModule('remaining',MODULES.remaining.src);
+  if(p==='agent-settlements'){loadPageModule(p).catch(e=>recordError('page-module:'+p,e));return}
+  if(['messages','market-news'].includes(p))loadModule('remaining',MODULES.remaining.src);
   if(p==='analytics')loadAnalytics();
   if(p==='monitoring')loadRail();
   if(p==='prices')loadModule('prices',MODULES.prices.src);
@@ -209,7 +212,7 @@ window.addEventListener('rona:admin-module-retry',event=>{
     const st=window.__RONA_ADMIN_MODULES__.analytics;if(st){st.status='PENDING';st.promise=null}
     loadAnalytics().then(restoreSelectedPage);return
   }
-  const key=['agent-settlements','messages','market-news'].includes(p)?'remaining':p==='prices'?'prices':'';
+  const key=p==='agent-settlements'?'agentRewards':['messages','market-news'].includes(p)?'remaining':p==='prices'?'prices':'';
   if(key){const st=window.__RONA_ADMIN_MODULES__[key];if(st){st.status='PENDING';st.promise=null}loadModule(key,MODULES[key].src).then(restoreSelectedPage)}
 });
 
