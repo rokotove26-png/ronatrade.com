@@ -1,3 +1,4 @@
+// OWNER_VISUAL_APPROVAL: CLIENT_DEALS_ATTENTION_CLOSEOUT_PARITY_V1
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
