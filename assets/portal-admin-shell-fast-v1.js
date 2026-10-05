@@ -213,6 +213,9 @@ window.addEventListener('rona:admin-module-retry',event=>{
     loadAnalytics().then(restoreSelectedPage);return
   }
   const key=p==='agent-settlements'?'agentRewards':['messages','market-news'].includes(p)?'remaining':p==='prices'?'prices':'';
+  if(key==='agentRewards'&&window.__RONA_AGENT_REWARDS_FINANCE_V1__&&typeof window.__RONA_AGENT_REWARDS_FINANCE_REPAIR__==='function'){
+    Promise.resolve(window.__RONA_AGENT_REWARDS_FINANCE_REPAIR__()).then(restoreSelectedPage).catch(e=>recordError('agent-rewards-repair',e));return
+  }
   if(key){const st=window.__RONA_ADMIN_MODULES__[key];if(st){st.status='PENDING';st.promise=null}loadModule(key,MODULES[key].src).then(restoreSelectedPage)}
 });
 
