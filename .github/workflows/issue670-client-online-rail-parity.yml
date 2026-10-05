@@ -106,7 +106,6 @@ jobs:
             echo 'governance/client-deal-attention-payments-exit-owner-approval-20261004.json'
             echo 'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts'
             echo 'tests/client-deal-attention-payments-exit-v1.test.mjs'
-          echo '.github/workflows/client-deal-closeout-projection-v1.yml'
           echo 'tests/client-deal-closeout-projection-v1.test.mjs'
           echo 'tests/client-deals-lifecycle-tabs-v1.test.mjs'
           } | sort -u > /tmp/issue670-allowed.txt
