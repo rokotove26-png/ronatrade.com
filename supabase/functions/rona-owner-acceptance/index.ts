@@ -494,6 +494,100 @@ const ADMIN_CLOSEOUT_DOCUMENT_KINDS=Object.freeze({
   'return-rail-codes':'EMPTY_WAGON_RETURN_RAIL_CODES'
 });
 
+async function ensureCloseoutAssistantArchiveTask(tx,ctx,current,dealId){
+  const documents=await tx`
+    select
+      upper(coalesce(odd.document_kind,'')) as document_kind,
+      d.document_id,
+      d.document_type,
+      d.authoritative_filename,
+      dv.sha256
+    from portal_private.owner_deal_documents odd
+    join portal_private.documents d
+      on d.id=odd.document_key
+    join portal_private.document_versions dv
+      on dv.id=d.current_version_id
+     and dv.document_key=d.id
+    where odd.deal_key=${current.id}::uuid
+      and upper(coalesce(odd.document_kind,'')) in (
+        'SIGNED_ADDENDUM',
+        'INVOICE',
+        'EMPTY_WAGON_RETURN_INSTRUCTION',
+        'EMPTY_WAGON_RETURN_RAIL_CODES',
+        'SMGS_DELIVERY_STAMP',
+        'SMGS_EMPTY_WAGONS'
+      )
+      and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and dv.is_current=true
+      and dv.is_effective=true
+      and dv.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    order by
+      case upper(coalesce(odd.document_kind,''))
+        when 'SIGNED_ADDENDUM' then 1
+        when 'INVOICE' then 2
+        when 'EMPTY_WAGON_RETURN_INSTRUCTION' then 3
+        when 'EMPTY_WAGON_RETURN_RAIL_CODES' then 4
+        when 'SMGS_DELIVERY_STAMP' then 5
+        when 'SMGS_EMPTY_WAGONS' then 6
+        else 99
+      end,
+      d.updated_at desc
+  `;
+  const archiveYear=(String(dealId).match(/^DEAL-(\d{4})-/i)||[])[1]||String(new Date().getUTCFullYear());
+  const taskId=('TASK-ASSISTANT-CLOSEOUT-'+String(dealId).replace(/[^A-Za-z0-9-]+/g,'-').toUpperCase()).slice(0,160);
+  const packageDocs=documents.map(x=>({
+    document_kind:String(x.document_kind||''),
+    document_id:String(x.document_id||''),
+    document_type:String(x.document_type||''),
+    authoritative_filename:String(x.authoritative_filename||''),
+    sha256:x.sha256?String(x.sha256):null
+  }));
+  const description=[
+    'Owner-triggered Admin LK closeout archive.',
+    'Deal ID: '+dealId+'.',
+    'Target role: ASSISTANT / AI-ASSISTANT.',
+    'Canonical archive root: RONA Trade — Канонические документы / 30_Сделки спецификации инвойсы / '+archiveYear+'.',
+    'Folder rule: use the unique existing deal folder whose name starts with '+dealId+'. If the folder is absent or ambiguous, HOLD/TO_VERIFY; do not guess or create a parallel archive.',
+    'Archive rule: preserve the exact received/signed file bytes; save every attached file listed in CLOSEOUT_PACKAGE; register each saved file in the Assistant document registry with Google Drive provenance; do not create or alter business facts.',
+    'CLOSEOUT_PACKAGE='+JSON.stringify(packageDocs)
+  ].join('\n');
+  const taskRows=await tx`
+    insert into portal_private.staff_tasks(
+      task_id,title,description,status,priority,authority_domain,assigned_functional_role,
+      client_key,contract_key,deal_key,source_type,source_object_id,source_version,qa_only,created_by
+    ) values(
+      ${taskId},
+      ${'Архив закрытия сделки '+dealId},
+      ${description},
+      'NEW'::portal_private.staff_task_status_enum,
+      'HIGH'::portal_private.staff_priority_enum,
+      'ADMIN_DOCUMENT_FLOW',
+      'ASSISTANT'::portal_private.staff_functional_role_enum,
+      ${current.client_key}::uuid,
+      ${current.contract_key}::uuid,
+      ${current.id}::uuid,
+      'DEAL_CLOSEOUT_DOCUMENT_ARCHIVE',
+      ${dealId},
+      'ADMIN_DEAL_CLOSEOUT_ARCHIVE_V1',
+      false,
+      ${ctx.impersonation?ctx.actorUserId:ctx.userId}::uuid
+    )
+    on conflict(task_id) do update
+      set description=excluded.description,
+          source_version=excluded.source_version,
+          updated_at=now()
+    returning task_id,status::text
+  `;
+  return{
+    taskId:String(taskRows[0]?.task_id||taskId),
+    taskStatus:String(taskRows[0]?.status||'NEW'),
+    documentCount:packageDocs.length,
+    documents:packageDocs,
+    targetRole:'ASSISTANT',
+    archiveRoot:'RONA Trade — Канонические документы / 30_Сделки спецификации инвойсы / '+archiveYear
+  };
+}
+
 async function completeDealFromCloseout(ctx,req,dealId){
   const snapshot=(await sql`select public.owner_deals_current_v4() as data`)[0]?.data;
   const deal=Array.isArray(snapshot?.deals)?snapshot.deals.find(x=>String(x?.deal_id||'')===String(dealId)):null;
@@ -502,12 +596,13 @@ async function completeDealFromCloseout(ctx,req,dealId){
     throw Object.assign(new Error('DEAL_NOT_IN_CLOSEOUT'),{status:409});
   }
   return sql.begin(async tx=>{
-    const rows=await tx`select id,deal_id,business_status,lifecycle_state::text lifecycle_state,closed_at
+    const rows=await tx`select id,deal_id,client_key,contract_key,business_status,lifecycle_state::text lifecycle_state,closed_at
       from portal_private.deals where deal_id=${dealId} for update`;
     if(rows.length!==1)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
     const current=rows[0],business=String(current.business_status||'').toUpperCase(),life=String(current.lifecycle_state||'').toUpperCase();
+    const assistantArchive=await ensureCloseoutAssistantArchiveTask(tx,ctx,current,dealId);
     if(life==='CLOSED'||['CLOSED','COMPLETED','SETTLED'].includes(business)){
-      return{dealId,status:'CLOSED',reused:true,closedAt:current.closed_at||null};
+      return{dealId,status:'CLOSED',reused:true,closedAt:current.closed_at||null,assistantArchive};
     }
     if(life!=='ACTIVE'||['CANCELLED','CANCELED','ANNULLED','VOID','TERMINATED','ARCHIVED'].includes(business)){
       throw Object.assign(new Error('DEAL_NOT_ACTIVE'),{status:409});
@@ -522,9 +617,20 @@ async function completeDealFromCloseout(ctx,req,dealId){
     await audit(tx,ctx,'OWNER_DEAL_COMPLETED','DEAL',dealId,req,{
       source:'ADMIN_LK_CLOSEOUT',
       closeoutStage:'CLOSEOUT',
-      closeoutProjectionVersion:String(snapshot?.closeoutProjectionVersion||'ADMIN_DEAL_CLOSEOUT_PROJECTION_V1')
+      closeoutProjectionVersion:String(snapshot?.closeoutProjectionVersion||'ADMIN_DEAL_CLOSEOUT_PROJECTION_V1'),
+      assistantArchiveTaskId:assistantArchive.taskId,
+      assistantArchiveDocumentCount:assistantArchive.documentCount,
+      assistantArchiveTargetRole:assistantArchive.targetRole,
+      assistantArchivePolicy:'RONA_TRADE_DOCUMENT_STORAGE_V1_1'
     });
-    return{dealId:String(changed[0].deal_id),status:String(changed[0].business_status),lifecycleState:String(changed[0].lifecycle_state),closedAt:changed[0].closed_at,reused:false};
+    return{
+      dealId:String(changed[0].deal_id),
+      status:String(changed[0].business_status),
+      lifecycleState:String(changed[0].lifecycle_state),
+      closedAt:changed[0].closed_at,
+      reused:false,
+      assistantArchive
+    };
   });
 }
 
