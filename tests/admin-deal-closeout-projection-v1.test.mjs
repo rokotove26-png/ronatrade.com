@@ -104,3 +104,11 @@ test('Completed CLOSEOUT deals are exclusive to Completed and cannot remain in A
   assert.match(ui,/function needsAttention\(d\)\{if\(isActive\(d\)&&isPostExecutionAttention\(d\)\)return true;if\(!isExecutionMonitoringActive\(d\)\)return false;/);
   assert.match(ui,/if\(filter==='COMPLETED'\)return ds\.filter\(isCompleted\)/);
 });
+
+
+test('CLOSEOUT runtime DOM patch is idempotent and cannot self-trigger a MutationObserver loop',()=>{
+  assert.match(closingRuntime,/if\(th&&th\.textContent!==label\)th\.textContent=label/);
+  assert.match(closingRuntime,/if\(b\.textContent!==label\)b\.textContent=label/);
+  assert.match(closingRuntime,/if\(b\.dataset\.ronaCloseoutDocsBound==='1'\)return/);
+  assert.match(closingRuntime,/new MutationObserver\(schedule\)/);
+});
