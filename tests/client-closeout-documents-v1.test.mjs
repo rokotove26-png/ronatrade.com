@@ -100,3 +100,20 @@ test('Client CLOSEOUT portal bridge preserves admin impersonation and multipart 
   assert.match(closeout,/headers\.set\('x-rona-impersonation-tab',impersonationTab\)/);
   assert.match(closeout,/IMPERSONATION_TAB_RE/);
 });
+
+
+test('CLOSEOUT projection is server-internal and no longer depends on ADMIN JWT context',()=>{
+  assert.match(owner,/async function closeoutProjectionForDealKey\(dealKey\)/);
+  assert.match(owner,/rail_deal_monitoring_control_v1/);
+  assert.match(owner,/deal_finance_authority_payments_v8_read_v1/);
+  assert.match(owner,/rail_operational_current_position_v1/);
+  assert.match(owner,/rail_xlsx_resolution_effective_v1/);
+  assert.match(owner,/post_rail_completion_attention/);
+  assert.match(owner,/closeout_balance_direction/);
+  const clientBlock=owner.slice(owner.indexOf('async function clientCloseoutDealAccess'),owner.indexOf('async function clientCloseoutDocuments'));
+  const completeBlock=owner.slice(owner.indexOf('async function completeDealFromCloseout'),owner.indexOf('async function paymentHandoff'));
+  assert.doesNotMatch(clientBlock,/owner_deals_current_v4/);
+  assert.doesNotMatch(completeBlock,/owner_deals_current_v4/);
+  assert.match(clientBlock,/closeoutProjectionForDealKey\(d\.deal_key\)/);
+  assert.match(completeBlock,/closeoutProjectionForDealKey\(dealRows\[0\]\.id\)/);
+});

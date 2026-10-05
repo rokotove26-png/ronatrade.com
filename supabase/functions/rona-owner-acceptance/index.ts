@@ -506,6 +506,166 @@ const CLOSEOUT_DOCUMENT_KINDS=Object.freeze([
   'SMGS_EMPTY_WAGONS'
 ]);
 
+async function closeoutProjectionForDealKey(dealKey){
+  const rows=await sql`
+    with base as (
+      select
+        d.id as deal_key,
+        d.deal_id,
+        coalesce(nullif(w.product_value,''),a.product) as product_value,
+        a.product as source_product,
+        a.delivery_basis,
+        a.proposed_price as source_proposed_price,
+        a.quantity_tonnes as source_quantity_tonnes,
+        a.proposed_currency as source_proposed_currency,
+        c.monitoring_state,
+        c.completed_at as rail_monitoring_completed_at,
+        fv8.total_to_receive,
+        fv8.due_now,
+        fv8.expected_not_due,
+        fv8.future_conditional,
+        btrim(fv8.obligation_currency::text) as finance_currency,
+        fv8.finance_status,
+        fv8.authority_state as finance_authority_state,
+        fv8.lifecycle_state as finance_lifecycle_state,
+        fv8.source_locked as finance_source_locked,
+        fv8.is_terminal as finance_is_terminal,
+        (
+          upper(coalesce(fv8.finance_status,''))='PAID'
+          and upper(coalesce(fv8.authority_state,''))='AUTHORITATIVE'
+          and upper(coalesce(fv8.lifecycle_state,''))='CURRENT'
+          and coalesce(fv8.source_locked,false)=true
+          and coalesce(fv8.is_terminal,false)=true
+          and coalesce(fv8.total_to_receive,0)>0
+          and abs(coalesce(fv8.due_now,0)+coalesce(fv8.expected_not_due,0)+coalesce(fv8.future_conditional,0))<=0.01
+        ) as payment_complete_100,
+        (
+          coalesce(fv8.total_to_receive,0)
+          -coalesce(fv8.due_now,0)
+          -coalesce(fv8.expected_not_due,0)
+          -coalesce(fv8.future_conditional,0)
+        ) as received_amount
+      from portal_private.deals d
+      left join portal_private.owner_deal_workflow w on w.deal_key=d.id
+      left join lateral (
+        select rr.application_key
+        from portal_private.deal_registrations rr
+        where rr.deal_key=d.id
+        order by rr.registered_at desc
+        limit 1
+      ) r on true
+      left join portal_private.client_applications a on a.id=r.application_key
+      left join portal_private.rail_deal_monitoring_control_v1 c on c.deal_key=d.id
+      left join lateral (
+        select f.*
+        from portal_private.deal_finance_authority_payments_v8_read_v1 f
+        where f.deal_key=d.id
+          and f.is_terminal=true
+          and upper(coalesce(f.authority_state,''))='AUTHORITATIVE'
+          and upper(coalesce(f.lifecycle_state,''))='CURRENT'
+          and f.source_locked=true
+        order by f.effective_at desc nulls last,f.created_at desc
+        limit 1
+      ) fv8 on true
+      where d.id=${dealKey}::uuid
+    ),
+    trusted_wagons as (
+      select distinct cp.wagon_number
+      from base b
+      join portal_private.rail_operational_current_position_v1 cp
+        on cp.effective_deal_key=b.deal_key
+      where cp.position_status='TRUSTED' and cp.wagon_number is not null
+    ),
+    weight_observations as (
+      select r.wagon_number,r.source_object_id,r.source_received_at,cell.cargo_weight_tonnes
+      from base b
+      join portal_private.rail_xlsx_resolution_effective_v1 r on r.effective_deal_key=b.deal_key
+      join trusted_wagons tw on tw.wagon_number=r.wagon_number
+      cross join lateral (
+        select case
+          when jsonb_typeof(c->'rawValue')='number' then (c->>'rawValue')::numeric
+          when coalesce(c->>'rawValue','') ~ '^[0-9]+([.,][0-9]+)?$'
+            then replace(c->>'rawValue',',','.')::numeric
+          else null::numeric
+        end as cargo_weight_tonnes
+        from jsonb_array_elements(coalesce(r.source_row->'cells','[]'::jsonb)) c
+        where lower(btrim(coalesce(c->>'header','')))='вес груза'
+        limit 1
+      ) cell
+      where cell.cargo_weight_tonnes>0
+    ),
+    per_wagon as (
+      select
+        tw.wagon_number,
+        count(distinct wo.cargo_weight_tonnes)::int as weight_variant_count,
+        min(wo.cargo_weight_tonnes) as stable_weight_tonnes,
+        count(distinct wo.source_object_id)::int as weight_source_count,
+        max(wo.source_received_at) as latest_weight_source_at
+      from trusted_wagons tw
+      left join weight_observations wo on wo.wagon_number=tw.wagon_number
+      group by tw.wagon_number
+    ),
+    qty as (
+      select
+        count(*)::int as trusted_wagon_count,
+        count(*) filter(where weight_variant_count=1 and stable_weight_tonnes>0 and weight_source_count>0)::int as stable_weight_wagon_count,
+        case
+          when count(*)>0
+           and count(*)=count(*) filter(where weight_variant_count=1 and stable_weight_tonnes>0 and weight_source_count>0)
+          then sum(stable_weight_tonnes) filter(where weight_variant_count=1 and stable_weight_tonnes>0 and weight_source_count>0)
+          else null::numeric
+        end as actual_quantity_tonnes,
+        max(latest_weight_source_at) as quantity_source_at
+      from per_wagon
+    ),
+    calc as (
+      select
+        b.*,q.trusted_wagon_count,q.stable_weight_wagon_count,q.actual_quantity_tonnes,q.quantity_source_at,
+        case
+          when coalesce(b.source_proposed_price,0)>0
+           and coalesce(b.source_quantity_tonnes,0)>0
+           and upper(btrim(coalesce(b.source_proposed_currency,'')))=upper(btrim(coalesce(b.finance_currency,'')))
+           and coalesce(b.total_to_receive,0)>0
+           and abs(b.source_proposed_price*b.source_quantity_tonnes-b.total_to_receive)<=0.01
+          then b.source_proposed_price
+          else null::numeric
+        end as unit_price
+      from base b cross join qty q
+    )
+    select
+      deal_id,product_value,source_product,delivery_basis,
+      monitoring_state as rail_monitoring_state,rail_monitoring_completed_at,payment_complete_100,
+      (upper(coalesce(monitoring_state,''))='COMPLETED' and payment_complete_100) as post_rail_completion_attention,
+      case when upper(coalesce(monitoring_state,''))='COMPLETED' and payment_complete_100 then 'CLOSEOUT' else null::text end as closeout_stage,
+      case
+        when upper(coalesce(monitoring_state,''))<>'COMPLETED' or not payment_complete_100 then null::text
+        when actual_quantity_tonnes is null then 'QUANTITY_SOURCE_INCOMPLETE'
+        when unit_price is null then 'PRICE_SOURCE_MISMATCH'
+        when received_amount is null then 'PAYMENT_SOURCE_MISSING'
+        else 'READY'
+      end as closeout_projection_state,
+      actual_quantity_tonnes as closeout_actual_quantity_tonnes,
+      trusted_wagon_count as closeout_trusted_wagon_count,
+      stable_weight_wagon_count as closeout_stable_weight_wagon_count,
+      quantity_source_at as closeout_quantity_source_at,
+      case when actual_quantity_tonnes is not null then 'RAIL_LOGISTICS_TRUSTED_WAGONS_STABLE_WEIGHT_HISTORY_V1' else null::text end as closeout_quantity_source,
+      unit_price as closeout_deal_unit_price,
+      finance_currency as closeout_currency,
+      received_amount as closeout_paid_amount,
+      case when actual_quantity_tonnes is not null and unit_price is not null then round(actual_quantity_tonnes*unit_price,2) else null::numeric end as closeout_actual_amount,
+      case when actual_quantity_tonnes is not null and unit_price is not null and received_amount is not null then round(actual_quantity_tonnes*unit_price-received_amount,2) else null::numeric end as closeout_balance_amount,
+      case
+        when actual_quantity_tonnes is null or unit_price is null or received_amount is null then null::text
+        when round(actual_quantity_tonnes*unit_price-received_amount,2)>0.01 then 'CLIENT_OWES_RONA'
+        when round(actual_quantity_tonnes*unit_price-received_amount,2)<-0.01 then 'RONA_OWES_CLIENT'
+        else 'SETTLED'
+      end as closeout_balance_direction
+    from calc
+    limit 1
+  `;
+  return rows.length===1?rows[0]:null;
+}
+
 async function clientCloseoutDealAccess(ctx,dealId){
   const rows=await sql`
     select d.id deal_key,d.deal_id,d.client_key,d.contract_key,cl.client_id,cl.legal_name,ct.contract_id
@@ -524,8 +684,7 @@ async function clientCloseoutDealAccess(ctx,dealId){
     const access=await sql`select portal_private.client_user_has_deal_access(${ctx.userId}::uuid,${d.deal_key}::uuid,now()) as allowed`;
     if(access[0]?.allowed!==true)throw Object.assign(new Error('DEAL_ACCESS_DENIED'),{status:403});
   }
-  const snapshot=(await sql`select public.owner_deals_current_v4() as data`)[0]?.data;
-  const projected=Array.isArray(snapshot?.deals)?snapshot.deals.find(x=>String(x?.deal_id||'')===String(dealId)):null;
+  const projected=await closeoutProjectionForDealKey(d.deal_key);
   if(!projected)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
   if(projected.post_rail_completion_attention!==true||String(projected.closeout_stage||'').toUpperCase()!=='CLOSEOUT'){
     throw Object.assign(new Error('DEAL_NOT_IN_CLOSEOUT'),{status:409});
@@ -697,8 +856,9 @@ async function ensureCloseoutAssistantArchiveTask(tx,ctx,current,dealId){
 }
 
 async function completeDealFromCloseout(ctx,req,dealId){
-  const snapshot=(await sql`select public.owner_deals_current_v4() as data`)[0]?.data;
-  const deal=Array.isArray(snapshot?.deals)?snapshot.deals.find(x=>String(x?.deal_id||'')===String(dealId)):null;
+  const dealRows=await sql`select id from portal_private.deals where deal_id=${dealId} limit 1`;
+  if(dealRows.length!==1)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
+  const deal=await closeoutProjectionForDealKey(dealRows[0].id);
   if(!deal)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});
   if(deal.post_rail_completion_attention!==true||String(deal.closeout_stage||'').toUpperCase()!=='CLOSEOUT'){
     throw Object.assign(new Error('DEAL_NOT_IN_CLOSEOUT'),{status:409});
@@ -725,7 +885,7 @@ async function completeDealFromCloseout(ctx,req,dealId){
     await audit(tx,ctx,'OWNER_DEAL_COMPLETED','DEAL',dealId,req,{
       source:'ADMIN_LK_CLOSEOUT',
       closeoutStage:'CLOSEOUT',
-      closeoutProjectionVersion:String(snapshot?.closeoutProjectionVersion||'ADMIN_DEAL_CLOSEOUT_PROJECTION_V1'),
+      closeoutProjectionVersion:'ADMIN_DEAL_CLOSEOUT_PROJECTION_V1',
       assistantArchiveTaskId:assistantArchive.taskId,
       assistantArchiveDocumentCount:assistantArchive.documentCount,
       assistantArchiveTargetRole:assistantArchive.targetRole,
