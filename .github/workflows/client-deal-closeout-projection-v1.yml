@@ -1,0 +1,47 @@
+name: Client Deal CLOSEOUT Projection QA
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts'
+      - 'functions/portal/api/[[path]].js'
+      - 'assets/portal-runtime/client-deals-authoritative-v1.js'
+      - 'scripts/attach-client-deals-authoritative-v1.mjs'
+      - 'tests/client-deal-closeout-projection-v1.test.mjs'
+      - 'tests/client-deal-attention-payments-exit-v1.test.mjs'
+      - 'tests/client-deals-lifecycle-tabs-v1.test.mjs'
+      - '.github/workflows/client-deal-closeout-projection-v1.yml'
+  push:
+    branches:
+      - 'release/public-go-live-v1.1'
+    paths:
+      - 'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts'
+      - 'functions/portal/api/[[path]].js'
+      - 'assets/portal-runtime/client-deals-authoritative-v1.js'
+      - 'scripts/attach-client-deals-authoritative-v1.mjs'
+      - 'tests/client-deal-closeout-projection-v1.test.mjs'
+      - 'tests/client-deal-attention-payments-exit-v1.test.mjs'
+      - 'tests/client-deals-lifecycle-tabs-v1.test.mjs'
+      - '.github/workflows/client-deal-closeout-projection-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  closeout-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check Client CLOSEOUT runtime
+        run: |
+          node --check functions/portal/api/[[path]].js
+          node --check assets/portal-runtime/client-deals-authoritative-v1.js
+      - name: Verify Client CLOSEOUT projection contract
+        run: |
+          node --test tests/client-deal-closeout-projection-v1.test.mjs
+          node --test tests/client-deal-attention-payments-exit-v1.test.mjs
+          node --test tests/client-deals-lifecycle-tabs-v1.test.mjs
