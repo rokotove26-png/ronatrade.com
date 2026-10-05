@@ -169,18 +169,26 @@ async function loadPageModule(page){
 window.__RONA_ADMIN_LOAD_PAGE_MODULE__=loadPageModule;
 
 async function bootUi(){
+  const accessWarm=loadAccess();
   await loadModule('main',MODULES.main.src,{attempts:3,ready:MODULES.main.ready,timeout:16000});
   restoreSelectedPage();
   root.dataset.ronaHeavyModulePolicy='lazy-selected-page-v1';
   window.__RONA_ADMIN_HEAVY_MODULE_POLICY__='LAZY_SELECTED_PAGE_V1';
-  await loadPageModule(selectedPage());
+  await Promise.allSettled([accessWarm,loadPageModule(selectedPage())]);
   window.__RONA_ADMIN_FAST_UI_LOADED__=true;window.__RONA_POSTCORE_ENHANCEMENTS_READY__=true;restoreSelectedPage();revealShell('ui-ready');window.dispatchEvent(new CustomEvent('rona:admin-single-owner-ready'))
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootUi,{once:true});else bootUi();
 
 window.addEventListener('rona:admin-pagechange',event=>{
   const p=String(event?.detail?.page||'');
-  loadPageModule(p).catch(e=>recordError('page-module:'+p,e));
+  if(p==='deals'){loadPageModule(p).catch(e=>recordError('page-module:'+p,e));return}
+  if(p==='applications'){loadPageModule(p).catch(e=>recordError('page-module:'+p,e));return}
+  if(p==='accounting'){loadPageModule(p).catch(e=>recordError('page-module:'+p,e));return}
+  if(['agent-settlements','messages','market-news'].includes(p))loadModule('remaining',MODULES.remaining.src);
+  if(p==='analytics')loadAnalytics();
+  if(p==='monitoring')loadRail();
+  if(p==='prices')loadModule('prices',MODULES.prices.src);
+  if(p==='access')loadAccess();
 });
 window.addEventListener('rona:admin-module-retry',event=>{
   const m=String(event?.detail?.module||''),p=String(event?.detail?.page||selectedPage());
