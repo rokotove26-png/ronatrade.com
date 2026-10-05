@@ -5,8 +5,8 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-deals-authoritative-v1.js';
 const scriptId='rona-client-deals-authoritative-v1';
-const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20261003-authoritative-v14-lifecycle-tabs';
-const marker='20261003-client-deals-authoritative-lifecycle-tabs-v11';
+const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20261005-authoritative-v15-stage-filter-inline-hidden';
+const marker='20261005-client-deals-authoritative-lifecycle-tabs-v12-stage-filter-inline-hidden';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
