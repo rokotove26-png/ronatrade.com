@@ -28,6 +28,9 @@ const policy=`/portal/client
 /assets/portal-runtime/client-deal-lifecycle-v*.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
+/assets/portal-runtime/client-closeout-documents-v*.js
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
 /assets/portal-runtime/client-section-first-paint-v*.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
@@ -57,4 +60,4 @@ for(const route of requiredAdminRoutes){
   if(!merged.includes(`${route}\n  Content-Type: application/javascript; charset=utf-8`))throw new Error(`ADMIN_RUNTIME_CONTENT_TYPE_LOST: ${route}`);
 }
 await writeFile(TARGET,merged,'utf8');
-console.log('CLIENT_RUNTIME_CACHE_POLICY=PASS admin-runtime-headers=preserved route=/portal/client + Client Home current-only runtime + background all-section preload + Client Rail canonical hero + Admin-derived operational body + current deal passport/lifecycle/section-first-paint runtimes + canonical button hover + retired Claims guard=no-store');
+console.log('CLIENT_RUNTIME_CACHE_POLICY=PASS admin-runtime-headers=preserved route=/portal/client + Client Home current-only runtime + background all-section preload + Client Rail canonical hero + Admin-derived operational body + current deal passport/lifecycle/client closeout/section-first-paint runtimes + canonical button hover + retired Claims guard=no-store');
