@@ -74,7 +74,7 @@ test('Cloudflare Client context composes authoritative Rail completion for execu
   assert.match(proxy,/FINANCE_V7_AUTHORITATIVE/);
   assert.match(proxy,/OWNER_DEAL_FINANCE_SUMMARY/);
   assert.match(proxy,/percent!==null&&percent>=100/);
-  assert.match(proxy,/const paymentsExit=railCompleted&&clientDealFullyPaidForExit\(deal\)/);
+  assert.match(proxy,/const paymentsExit=railCompleted&&fullyPaid/);
   assert.match(proxy,/deal\.client_payments_monitoring_active=!paymentsExit/);
   assert.match(proxy,/RAIL_COMPLETED_AND_100_PERCENT_PAID/);
   assert.match(proxy,/if\(path==='\/v1\/client\/context'\)response=await enrichClientExecutionExitAtEdge/);
