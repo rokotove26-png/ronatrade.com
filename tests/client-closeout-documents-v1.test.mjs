@@ -8,6 +8,7 @@ const closeout=readFileSync('assets/portal-runtime/client-closeout-documents-v1.
 const attach=readFileSync('scripts/attach-client-deals-authoritative-v1.mjs','utf8');
 const owner=readFileSync('supabase/functions/rona-owner-acceptance/index.ts','utf8');
 const cache=readFileSync('scripts/emit-client-runtime-cache-policy.mjs','utf8');
+const migration=readFileSync('supabase/migrations/20261005172000_client_closeout_document_kinds_v1.sql','utf8');
 
 test('Client ATTENTION CLOSEOUT opens dedicated client workspace instead of native deal passport',()=>{
   assert.match(deals,/20261005-client-deals-authoritative-closeout-v14/);
@@ -64,4 +65,15 @@ test('Canonical Client build attaches one closeout runtime with no-store cache p
   assert.match(attach,/20261005-client-closeout-documents-v1/);
   assert.match(attach,/CLIENT_CLOSEOUT_DOCUMENTS_RUNTIME_NOT_SINGLE/);
   assert.match(cache,/client-closeout-documents-v\*\.js/);
+});
+
+
+test('Deal document-kind constraint permits the complete CLOSEOUT document set',()=>{
+  for(const kind of [
+    'ADDENDUM','INVOICE','SIGNED_ADDENDUM',
+    'EMPTY_WAGON_RETURN_INSTRUCTION','EMPTY_WAGON_RETURN_RAIL_CODES',
+    'SMGS_DELIVERY_STAMP','SMGS_EMPTY_WAGONS'
+  ]) assert.ok(migration.includes(`'${kind}'`),kind);
+  assert.match(migration,/drop constraint if exists owner_deal_documents_document_kind_check/);
+  assert.match(migration,/add constraint owner_deal_documents_document_kind_check/);
 });
