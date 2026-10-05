@@ -1,6 +1,7 @@
 (()=>{'use strict';
-if(window.__RONA_ADMIN_RADIO_CANONICAL_V11__)return;
-window.__RONA_ADMIN_RADIO_CANONICAL_V11__='20261005-canonical-v11-balanced-width-owner';
+const RUNTIME_VERSION='20261005-canonical-v11-balanced-width-rebind-v1';
+if(window.__RONA_ADMIN_RADIO_CANONICAL_V11__===RUNTIME_VERSION)return;
+window.__RONA_ADMIN_RADIO_CANONICAL_V11__=RUNTIME_VERSION;
 window.__RONA_ADMIN_RADIO_VISUAL_OWNER__='CANONICAL_V11';
 
 const PAGE_ID='page-messages';
@@ -8,7 +9,7 @@ const STYLE_ID='rona-admin-radio-canonical-v11-style';
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const txt=n=>String(n?.textContent||'').replace(/\s+/g,' ').trim();
-let busy=false,observer=null;
+let busy=false,observer=null,observedPage=null;
 
 function style(){
   if(document.getElementById(STYLE_ID))return;
@@ -122,12 +123,18 @@ function apply(){
 function boot(){
   style();
   const page=document.getElementById(PAGE_ID);
-  if(page&&!observer){
+  if(page&&page!==observedPage){
+    observer?.disconnect();
     observer=new MutationObserver(()=>apply());
     observer.observe(page,{childList:true,subtree:true});
+    observedPage=page;
+  }else if(!page&&observedPage){
+    observer?.disconnect();
+    observer=null;
+    observedPage=null;
   }
   apply();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-window.addEventListener('rona:admin-pagechange',e=>{if(String(e?.detail?.page||'')==='messages'){boot();queueMicrotask(apply)}},{passive:true});
+window.addEventListener('rona:admin-pagechange',e=>{if(String(e?.detail?.page||'')==='messages'){boot();queueMicrotask(boot);requestAnimationFrame(boot)}},{passive:true});
 })();
