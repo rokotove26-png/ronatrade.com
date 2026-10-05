@@ -164,7 +164,7 @@ async function loadPageModule(page){
   if(p==='analytics')return loadAnalytics();
   if(p==='prices')return loadModule('prices',MODULES.prices.src);
   if(p==='access')return loadAccess();
-  if(p==='agent-settlements')return loadModule('agentRewards',MODULES.agentRewards.src,{attempts:3,ready:()=>window.__RONA_AGENT_REWARDS_FINANCE_V1__==='20261005-agent-rewards-finance-v1',timeout:16000});
+  if(p==='agent-settlements')return loadModule('agentRewards',MODULES.agentRewards.src,{attempts:3,ready:()=>window.__RONA_AGENT_REWARDS_FINANCE_V1__==='20261005-agent-rewards-finance-v2',timeout:16000});
   if(['messages','market-news'].includes(p))return loadModule('remaining',MODULES.remaining.src);
   return true;
 }
