@@ -71,6 +71,7 @@ jobs:
           node --input-type=module <<'NODE'
           import { onRequest as accessRequest } from './functions/portal/clients-agents-current-ui.js';
           import { onRequest as remainingRequest } from './functions/portal/remaining-sections-ui.js';
+          import { onRequest as agentRewardsRequest } from './functions/portal/agent-rewards-v1-ui.js';
           import { onRequest as claimsRequest } from './functions/portal/claims-r2-ui.js';
           const access=await accessRequest({});
           if(access.status!==200)throw new Error('access endpoint '+access.status);
@@ -90,9 +91,15 @@ jobs:
           const remaining=await remainingRequest({});
           if(remaining.status!==200)throw new Error('remaining endpoint '+remaining.status);
           const remainingSrc=await remaining.text();
-          for(const marker of ['renderRewards','renderRadio','вознаграждения агентов','радиорубка','__RONA_MARKET_NEWS_OWNER_GUARD_V6__','market-news-owner-guard-v6-content-repair'])if(!remainingSrc.toLowerCase().includes(marker.toLowerCase()))throw new Error('remaining missing '+marker);
-          for(const forbidden of ['function renderAnalytics(){','function renderNews(){',"'аналитика':'analytics'","'новости топливного рынка снг':'news'"])if(remainingSrc.includes(forbidden))throw new Error('remaining still owns '+forbidden);
+          for(const marker of ['renderRadio','радиорубка','__RONA_MARKET_NEWS_OWNER_GUARD_V6__','market-news-owner-guard-v6-content-repair'])if(!remainingSrc.toLowerCase().includes(marker.toLowerCase()))throw new Error('remaining missing '+marker);
+          for(const forbidden of ['function renderAnalytics(){','function renderNews(){','function renderRewards(){',"'аналитика':'analytics'","'новости топливного рынка снг':'news'","'вознаграждения агентов':'rewards'","kind==='rewards'","root('rewards'"])if(remainingSrc.includes(forbidden))throw new Error('remaining still owns '+forbidden);
           if(remaining.headers.get('x-rona-market-news-owner')!=='dedicated-current-content-health-v6')throw new Error('wrong Market News owner contract');
+
+          const agentRewards=await agentRewardsRequest({});
+          if(agentRewards.status!==200)throw new Error('agent rewards endpoint '+agentRewards.status);
+          const agentRewardsSrc=await agentRewards.text();
+          for(const marker of ['20261005-agent-rewards-finance-v1','OWNER CONTROL','FINANCE LIVE','__RONA_AGENT_REWARDS_FINANCE_REPAIR__','MutationObserver'])if(!agentRewardsSrc.includes(marker))throw new Error('agent rewards missing '+marker);
+          if(agentRewards.headers.get('x-rona-agent-rewards-owner')!=='ADMIN_AGENT_REWARDS_FINANCE_WORKSPACE_V1')throw new Error('wrong Agent Rewards owner contract');
 
           const claims=await claimsRequest({});
           if(claims.status!==200)throw new Error('claims endpoint '+claims.status);
