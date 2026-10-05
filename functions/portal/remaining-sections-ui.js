@@ -6,7 +6,7 @@ export async function onRequest(context){
 
   source=source.replaceAll("'аналитика':'analytics',",'');
   source=source.replaceAll("'новости топливного рынка снг':'news',",'');
-  source=source.replaceAll("'вознаграждения агентов':'rewards',",'');
+  source=source.replaceAll("'вознаграждения агентов':'rewards'",'');
   source=source.replaceAll(',.rona-rs-root[data-kind=\\"analytics\\"]','');
   source=source.replaceAll(',.rona-rs-root[data-kind=\\"news\\"]','');
 
@@ -17,7 +17,7 @@ export async function onRequest(context){
 
   source=source.replaceAll("if(kind==='analytics')return renderAnalytics();",'');
   source=source.replaceAll("if(kind==='news')return renderNews();",'');
-  source=source.replaceAll("if(kind==='rewards')return renderRewards();",'');
+  source=source.replaceAll("if(kind==='rewards')return renderRewards()",'');
   source=source.replaceAll("if(kind==='analytics'||kind==='news'){refreshMarket(true).then(()=>render(kind));return}",'');
   source=source.replaceAll("if(kind==='news'){refreshMarket(true).then(()=>render(kind));return}",'');
 
