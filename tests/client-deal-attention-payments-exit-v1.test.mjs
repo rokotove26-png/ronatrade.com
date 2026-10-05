@@ -7,6 +7,18 @@ const proxy=readFileSync('functions/portal/api/[[path]].js','utf8');
 const paymentsRuntime=readFileSync('assets/portal-runtime/client-payments-authoritative-v1.js','utf8');
 const dealsRuntime=readFileSync('assets/portal-runtime/client-deals-authoritative-v1.js','utf8');
 
+test('Client Deals refreshes the shared current-context projection before lifecycle classification',()=>{
+  assert.match(dealsRuntime,/20261005-client-deals-authoritative-lifecycle-tabs-v12-fresh-context/);
+  assert.match(dealsRuntime,/function freshCurrentProjection\(reason='event'\)/);
+  assert.match(dealsRuntime,/invalidateCurrentProjection\?\.\(\)/);
+  assert.match(dealsRuntime,/whenCurrentProjection\(\`client-deals-authoritative-v1:/);
+  assert.match(dealsRuntime,/RONA_CLIENT_CONTEXT_FRESH_PROJECTION/);
+  assert.match(dealsRuntime,/function onDealsOpenTrigger\(event\)/);
+  assert.match(dealsRuntime,/visibilitychange/);
+  assert.match(dealsRuntime,/pageshow/);
+  assert.doesNotMatch(dealsRuntime,/setInterval\(/);
+});
+
 test('Client deal moves to ATTENTION immediately after authoritative Rail completion',()=>{
   assert.match(hardening,/rail_deal_monitoring_control_v1/);
   assert.match(hardening,/rail_monitoring_state/);
