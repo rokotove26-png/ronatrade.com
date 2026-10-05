@@ -9,6 +9,7 @@ const attach=readFileSync('scripts/attach-client-deals-authoritative-v1.mjs','ut
 const owner=readFileSync('supabase/functions/rona-owner-acceptance/index.ts','utf8');
 const cache=readFileSync('scripts/emit-client-runtime-cache-policy.mjs','utf8');
 const migration=readFileSync('supabase/migrations/20261005172000_client_closeout_document_kinds_v1.sql','utf8');
+const portalApi=readFileSync('functions/portal/api/[[path]].js','utf8');
 
 test('Client ATTENTION CLOSEOUT opens dedicated client workspace instead of native deal passport',()=>{
   assert.match(deals,/20261005-client-deals-authoritative-closeout-v14/);
@@ -16,7 +17,7 @@ test('Client ATTENTION CLOSEOUT opens dedicated client workspace instead of nati
   assert.match(deals,/closeout_stage/);
   assert.match(deals,/rona:client:closeout-open/);
   assert.match(deals,/event\.stopImmediatePropagation\(\)/);
-  assert.match(closeout,/20261005-client-closeout-documents-v1/);
+  assert.match(closeout,/20261005-client-closeout-documents-v2/);
   assert.match(closeout,/rona:client:closeout-open/);
 });
 
@@ -54,15 +55,21 @@ test('Client CLOSEOUT document routes are narrow and use existing storage/downlo
   assert.match(owner,/delivery-stamp\|empty-wagons/);
   assert.match(owner,/registerClientCloseoutPdf/);
   assert.match(owner,/registerDealPdf\(ctx,req,dealId,kind,true\)/);
-  assert.match(closeout,/\/client\/documents\//);
+  assert.match(closeout,/\/v1\/client\/documents\//);
   assert.match(closeout,/\/download/);
+  assert.match(closeout,/const API='\/portal\/api'/);
+  assert.doesNotMatch(closeout,/\/portal\/owner-api/);
+  assert.match(portalApi,/CLIENT_CLOSEOUT_API/);
+  assert.match(portalApi,/isClientCloseoutPath/);
+  assert.match(portalApi,/clientCloseoutOwnerPath/);
+  assert.match(portalApi,/CLIENT_CLOSEOUT_OWNER_ACCEPTANCE_V1/);
   assert.match(closeout,/FormData/);
   assert.match(closeout,/application\/pdf/);
 });
 
 test('Canonical Client build attaches one closeout runtime with no-store cache policy',()=>{
-  assert.match(attach,/client-closeout-documents-v1\.js\?v=20261005-client-closeout-v1/);
-  assert.match(attach,/20261005-client-closeout-documents-v1/);
+  assert.match(attach,/client-closeout-documents-v1\.js\?v=20261005-client-closeout-v2-portal-api/);
+  assert.match(attach,/20261005-client-closeout-documents-v2/);
   assert.match(attach,/CLIENT_CLOSEOUT_DOCUMENTS_RUNTIME_NOT_SINGLE/);
   assert.match(cache,/client-closeout-documents-v\*\.js/);
 });
@@ -76,4 +83,17 @@ test('Deal document-kind constraint permits the complete CLOSEOUT document set',
   ]) assert.ok(migration.includes(`'${kind}'`),kind);
   assert.match(migration,/drop constraint if exists owner_deal_documents_document_kind_check/);
   assert.match(migration,/add constraint owner_deal_documents_document_kind_check/);
+});
+
+
+test('Client CLOSEOUT portal bridge preserves admin impersonation and multipart upload semantics',()=>{
+  assert.match(portalApi,/const CLIENT_CLOSEOUT_API=.*rona-owner-acceptance/);
+  assert.ok(portalApi.includes("const targetRoleRoute=/^\\/v1\\/(client|agent)(\\/|$)/.test(path)"));
+  assert.match(portalApi,/x-rona-admin-impersonation-token/);
+  assert.match(portalApi,/x-rona-impersonation-tab/);
+  assert.match(portalApi,/const closeoutUpload=isClientCloseoutUpload\(path,request\.method\)/);
+  assert.match(portalApi,/signedAddendumUpload\?source\.trim\(\):null/);
+  assert.match(portalApi,/if\(uploadParts\.source\)fd\.append\('sourceUnsignedDocumentId'/);
+  assert.match(portalApi,/x-rona-impersonation-ended/);
+  assert.match(portalApi,/IMPERSONATION_SESSION_INVALID/);
 });

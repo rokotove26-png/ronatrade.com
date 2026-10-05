@@ -1,10 +1,10 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261005-client-closeout-documents-v1';
+const MARK='20261005-client-closeout-documents-v2';
 if(window.__RONA_CLIENT_CLOSEOUT_DOCUMENTS__===MARK)return;
 window.__RONA_CLIENT_CLOSEOUT_DOCUMENTS__=MARK;
-const API='/portal/owner-api';
+const API='/portal/api';
 const DOCS=[
   ['SIGNED_ADDENDUM','Подписанное дополнительное соглашение','Документ сделки',null],
   ['INVOICE','Инвойс','Документ сделки',null],
@@ -17,10 +17,10 @@ const q=(s,r)=>(r||document).querySelector(s);
 const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=String(text);return n};
 const fmt=(v,d=2)=>{const n=Number(v);return Number.isFinite(n)?new Intl.NumberFormat('ru-RU',{maximumFractionDigits:d}).format(n):'—'};
 const money=(v,c)=>{const n=Number(v);return Number.isFinite(n)?fmt(n,2)+(c?' '+c:''):'—'};
-async function api(path,init){const opt=Object.assign({credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}},init||{}),r=await fetch(API+'?path='+encodeURIComponent(path),opt);let j={};try{j=await r.json()}catch{}if(!r.ok||j.ok===false)throw Object.assign(new Error(j.code||j.message||('HTTP_'+r.status)),{status:r.status});return j.data||{}}
-async function load(id){return api('/client/deals/'+encodeURIComponent(id)+'/closeout-documents')}
-async function download(docId){const z=await api('/client/documents/'+encodeURIComponent(docId)+'/download');if(!z?.url)throw new Error('DOWNLOAD_URL_MISSING');location.assign(z.url)}
-async function upload(id,slug,file){const fd=new FormData();fd.append('file',file,file.name);return api('/client/deals/'+encodeURIComponent(id)+'/closeout-documents/'+slug,{method:'POST',headers:{accept:'application/json'},body:fd})}
+async function api(path,init){const opt=Object.assign({credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}},init||{}),r=await fetch(API+path,opt);let j={};try{j=await r.json()}catch{}if(!r.ok||j.ok===false)throw Object.assign(new Error(j.code||j.message||('HTTP_'+r.status)),{status:r.status});return j.data||{}}
+async function load(id){return api('/v1/client/deals/'+encodeURIComponent(id)+'/closeout-documents')}
+async function download(docId){const z=await api('/v1/client/documents/'+encodeURIComponent(docId)+'/download');if(!z?.url)throw new Error('DOWNLOAD_URL_MISSING');location.assign(z.url)}
+async function upload(id,slug,file){const fd=new FormData();fd.append('file',file,file.name);return api('/v1/client/deals/'+encodeURIComponent(id)+'/closeout-documents/'+slug,{method:'POST',headers:{accept:'application/json'},body:fd})}
 function choosePdf(){return new Promise(resolve=>{const i=document.createElement('input');i.type='file';i.accept='application/pdf,.pdf';i.hidden=true;i.onchange=()=>{const f=i.files&&i.files[0];i.remove();resolve(f||null)};document.body.append(i);i.click()})}
 function style(){if(q('#ronaClientCloseoutCss'))return;const s=el('style');s.id='ronaClientCloseoutCss';s.textContent=`
 .rona-client-closeout-layer{position:fixed;inset:0;z-index:2147483642;background:rgba(2,7,16,.38);backdrop-filter:blur(1px);display:flex;justify-content:flex-end}

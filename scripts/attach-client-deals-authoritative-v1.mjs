@@ -8,9 +8,9 @@ const closeoutRuntimePath='dist/assets/portal-runtime/client-closeout-documents-
 const scriptId='rona-client-deals-authoritative-v1';
 const closeoutScriptId='rona-client-closeout-documents-v1';
 const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20261005-authoritative-v17-client-closeout';
-const closeoutSrc='/assets/portal-runtime/client-closeout-documents-v1.js?v=20261005-client-closeout-v1';
+const closeoutSrc='/assets/portal-runtime/client-closeout-documents-v1.js?v=20261005-client-closeout-v2-portal-api';
 const marker='20261005-client-deals-authoritative-closeout-v14';
-const closeoutMarker='20261005-client-closeout-documents-v1';
+const closeoutMarker='20261005-client-closeout-documents-v2';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');

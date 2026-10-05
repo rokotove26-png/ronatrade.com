@@ -12,13 +12,13 @@
     },
     "scripts/attach-client-deals-authoritative-v1.mjs": {
       "baseline_blob_sha": "c3e76815f041661f8d5aab9e147dfbbce45f29f4",
-      "authorized_post_blob_sha": "c30c713df36ce357d519c21e057e6645e5220895",
+      "authorized_post_blob_sha": "ca7ccb719155ca472d02eb1b78f729b0574a4f09",
       "required_marker": "20261005-client-deals-authoritative-closeout-v14"
     },
     "assets/portal-runtime/client-closeout-documents-v1.js": {
       "baseline_blob_sha": null,
-      "authorized_post_blob_sha": "600352a525ecb5481ed31e5e48d2c15a8b0e8fac",
-      "required_marker": "20261005-client-closeout-documents-v1"
+      "authorized_post_blob_sha": "931e46a2b041366c190bc5d5be2cd81bfde0eb15",
+      "required_marker": "20261005-client-closeout-documents-v2"
     }
   },
   "requirements": {
@@ -42,5 +42,10 @@
     "exact_blob_enforcement": true,
     "scoped_unfreeze_only": true
   },
-  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_DEALS_ATTENTION_CLOSEOUT_PARITY_V1"
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_DEALS_ATTENTION_CLOSEOUT_PARITY_V1",
+  "corrective_uat_20261005": {
+    "observed_error": "PORTAL_ACCESS_DENIED",
+    "correction": "Route Client CLOSEOUT via canonical /portal/api bridge with impersonation propagation",
+    "owner_evidence": "UAT screenshot 2026-10-05"
+  }
 }
