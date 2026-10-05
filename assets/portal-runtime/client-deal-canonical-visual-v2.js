@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const MARK='20260830-client-deal-canonical-visual-v2-v9-signed-docs';
+const MARK='20261005-client-deal-canonical-visual-v2-v10-stage-filter-hidden';
 if(window.__RONA_CLIENT_DEAL_CANONICAL_VISUAL__===MARK)return;
 window.__RONA_CLIENT_DEAL_CANONICAL_VISUAL__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -94,6 +94,7 @@ function apply(){
   s.id=STYLE_ID;
   s.textContent=`
 .${HOST}{width:100%!important;max-width:100%!important;min-width:0!important;min-height:0!important;box-sizing:border-box!important;padding:14px 16px 11px!important;margin:8px 0!important;border:1px solid rgba(79,139,182,.25)!important;border-radius:12px!important;background:linear-gradient(180deg,rgba(7,27,46,.80),rgba(5,20,34,.72))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 8px 24px rgba(0,7,14,.10)!important;overflow:visible!important;display:block!important}
+.${HOST}[hidden]{display:none!important}
 .${HOST} *{box-sizing:border-box}
 .${HOST}__summary{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto!important;grid-template-rows:auto auto auto!important;align-items:center!important;column-gap:12px!important;row-gap:8px!important;width:100%!important;min-width:0!important;padding:0!important;margin:0!important}
 .${HOST}__summary-main{grid-column:1!important;grid-row:1!important;min-width:0!important;display:block!important}
