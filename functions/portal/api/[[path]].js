@@ -4,6 +4,7 @@ const PORTAL_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
 const CANDIDATE_API=`${SUPABASE_URL}/functions/v1/rona-portal-api-candidate-20260817`;
 // Existing production slot hosts the canonical Client deal-document service while the project Edge Function quota is full.
 const CLIENT_DEAL_DOCUMENTS_API=`${SUPABASE_URL}/functions/v1/rona-temp-upload-order-20260816`;
+const CLIENT_CLOSEOUT_API=`${SUPABASE_URL}/functions/v1/rona-owner-acceptance`;
 const EDGE_REGION='eu-central-1';
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
@@ -70,6 +71,9 @@ function safeAgentBootstrap(data){
 function safeAgentPayment(data){return{paymentId:data?.paymentId??data?.payment_id??null,dealId:data?.dealId??data?.deal_id??null,amount:data?.amount??null,currency:data?.currency??null,bankFactStatus:data?.bankFactStatus??data?.bank_state??data?.payment_bank_state??null,bankConfirmedAt:data?.bankConfirmedAt??data?.bank_confirmed_at??null,receivedAt:data?.receivedAt??data?.received_at??data?.payment_at??null}}
 function isClientDealDocumentsPath(path){return path==='/v1/client/deal-documents/state'||/^\/v1\/client\/deals\/DEAL-\d{4}-\d{3,}\/documents\/[^/]+\/downloaded$/.test(path)||/^\/v1\/client\/deals\/DEAL-\d{4}-\d{3,}\/signed-addendum$/.test(path)}
 function isSignedAddendumUpload(path,method){return method==='POST'&&/^\/v1\/client\/deals\/DEAL-\d{4}-\d{3,}\/signed-addendum$/.test(path)}
+function isClientCloseoutPath(path){return /^\/v1\/client\/deals\/DEAL-\d{4}-\d{3,}\/closeout-documents(?:\/(?:delivery-stamp|empty-wagons))?$/.test(path)||/^\/v1\/client\/documents\/[^/]+\/download$/.test(path)}
+function isClientCloseoutUpload(path,method){return method==='POST'&&/^\/v1\/client\/deals\/DEAL-\d{4}-\d{3,}\/closeout-documents\/(delivery-stamp|empty-wagons)$/.test(path)}
+function clientCloseoutOwnerPath(path){return path.replace(/^\/v1(?=\/client\/)/,'')}
 const CLIENT_EXECUTION_EXIT_EDGE_CONTRACT='CLIENT_DEAL_RAIL_COMPLETION_ATTENTION_AND_PAYMENTS_EXIT_EDGE_V2';
 function finiteMoney(value){const n=Number(value);return Number.isFinite(n)?n:null}
 function clientDealTerminalForExit(deal){const business=String(deal?.business_status||deal?.current_status||'').trim().toUpperCase(),accounting=String(deal?.accounting_closure_status||'').trim().toUpperCase(),life=String(deal?.lifecycle_state||'').trim().toUpperCase();return['CLOSED','COMPLETED','DONE','CANCELLED','RESOURCE_DENIED','REJECTED'].includes(business)||['CLOSED','COMPLETED','DONE'].includes(accounting)||['ARCHIVED','SUPERSEDED'].includes(life)||Boolean(deal?.closed_at)}
@@ -93,7 +97,9 @@ export async function onRequest(context){
   let access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'',setCookies=[];
   if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}}
   if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
-  const multipartUpload=isSignedAddendumUpload(path,request.method);
+  const signedAddendumUpload=isSignedAddendumUpload(path,request.method);
+  const closeoutUpload=isClientCloseoutUpload(path,request.method);
+  const multipartUpload=signedAddendumUpload||closeoutUpload;
   let body=null,uploadParts=null;
   if(multipartUpload){
     let form;
@@ -101,10 +107,10 @@ export async function onRequest(context){
     const file=form.get('file'),source=form.get('sourceUnsignedDocumentId');
     const fileLike=!!file&&typeof file==='object'&&typeof file.arrayBuffer==='function'&&Number.isFinite(Number(file.size));
     if(!fileLike)return json({ok:false,code:'PDF_REQUIRED'},400);
-    if(typeof source!=='string'||!source.trim())return json({ok:false,code:'SOURCE_ADDENDUM_REQUIRED'},400);
+    if(signedAddendumUpload&&(typeof source!=='string'||!source.trim()))return json({ok:false,code:'SOURCE_ADDENDUM_REQUIRED'},400);
     let bytes;
     try{bytes=await file.arrayBuffer()}catch{return json({ok:false,code:'PDF_READ_FAILED'},400)}
-    uploadParts={bytes,name:String(file.name||'signed-addendum.pdf'),type:String(file.type||'application/pdf'),source:source.trim()};
+    uploadParts={bytes,name:String(file.name||(closeoutUpload?'closeout.pdf':'signed-addendum.pdf')),type:String(file.type||'application/pdf'),source:signedAddendumUpload?source.trim():null};
   }else if(!['GET','HEAD'].includes(request.method))body=await request.clone().arrayBuffer();
   const selection=backendSelection(context,url,path,request.method);
   const forward=async token=>{
@@ -121,11 +127,15 @@ export async function onRequest(context){
       h.delete('content-type');
       const fd=new FormData();
       const blob=new Blob([uploadParts.bytes],{type:uploadParts.type||'application/pdf'});
-      fd.append('file',blob,uploadParts.name||'signed-addendum.pdf');
-      fd.append('sourceUnsignedDocumentId',uploadParts.source);
+      fd.append('file',blob,uploadParts.name||'upload.pdf');
+      if(uploadParts.source)fd.append('sourceUnsignedDocumentId',uploadParts.source);
       init.body=fd;
     }else if(body!==null)init.body=body;
-    const target=isClientDealDocumentsPath(path)?`${CLIENT_DEAL_DOCUMENTS_API}${path}${query}`:`${selection.base}${path}${query}`;
+    const target=isClientCloseoutPath(path)
+      ?`${CLIENT_CLOSEOUT_API}${clientCloseoutOwnerPath(path)}${query}`
+      :isClientDealDocumentsPath(path)
+        ?`${CLIENT_DEAL_DOCUMENTS_API}${path}${query}`
+        :`${selection.base}${path}${query}`;
     return fetch(target,init);
   };
   let response=await forward(access);
@@ -134,7 +144,11 @@ export async function onRequest(context){
   if(path==='/v1/client/context')response=await enrichClientExecutionExitAtEdge(response,access,query,request,impersonationToken,impersonationTab);
   response=await sanitize(path,response);
   const h=secureHeaders(response.headers);
-  if(isClientDealDocumentsPath(path)){
+  if(isClientCloseoutPath(path)){
+    h.set('x-rona-portal-backend-slot','client-closeout-service');
+    h.set('x-rona-portal-backend-function','rona-owner-acceptance');
+    h.set('x-rona-portal-backend-selector','CLIENT_CLOSEOUT_OWNER_ACCEPTANCE_V1');
+  }else if(isClientDealDocumentsPath(path)){
     h.set('x-rona-portal-backend-slot','deal-documents-service');
     h.set('x-rona-portal-backend-function','rona-temp-upload-order-20260816');
     h.set('x-rona-portal-backend-selector','CLIENT_DEAL_DOCUMENTS_API');
