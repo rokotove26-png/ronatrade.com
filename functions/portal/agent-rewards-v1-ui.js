@@ -4,7 +4,7 @@ window.__RONA_AGENT_REWARDS_FINANCE_V1__='20261005-agent-rewards-finance-v1';
 if(location.pathname!=='/portal/admin')return;
 
 const API='/portal/owner-api';
-const state={data:null,selectedDealId:null,saving:false};
+const state={data:null,selectedKey:null,saving:false};
 const q=(s,r=document)=>r.querySelector(s);
 const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const el=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!==undefined&&x!==null)n.textContent=String(x);return n};
@@ -25,11 +25,11 @@ async function call(path,init){
   return j.data||{};
 }
 async function getWorkspace(){return call('/admin/agent-rewards-v1')}
-async function saveCorrection(dealId,payload,note){
+async function saveCorrection(dealId,assignmentId,payload,note){
   return call('/admin/agent-rewards-v1/'+encodeURIComponent(dealId)+'/correction',{
     method:'POST',
     headers:{accept:'application/json','content-type':'application/json'},
-    body:JSON.stringify({correctedPayload:payload,note,idempotencyKey:'agent-reward-correction:'+dealId+':'+requestId()})
+    body:JSON.stringify({assignmentId,correctedPayload:payload,note,idempotencyKey:'agent-reward-correction:'+assignmentId+':'+dealId+':'+requestId()})
   })
 }
 
@@ -75,7 +75,8 @@ function metric(label,value,currency,hint,tone){
 function kpi(label,value,note,tone){
   const n=el('div','rona-ar-kpi');n.dataset.tone=tone||'cyan';n.append(el('div','rona-ar-kpi-label',label),el('div','rona-ar-kpi-value',value),el('div','rona-ar-kpi-note',note));return n
 }
-function selectedDeal(){const xs=Array.isArray(state.data?.deals)?state.data.deals:[];return xs.find(x=>x.dealId===state.selectedDealId)||xs[0]||null}
+const rowKey=d=>String(d?.assignmentId||'')+'::'+String(d?.dealId||'');
+function selectedDeal(){const xs=Array.isArray(state.data?.deals)?state.data.deals:[];return xs.find(x=>rowKey(x)===state.selectedKey)||null}
 function currentValue(deal,key){
   const correction=deal?.ownerCorrection?.payload;
   const v=correction&&Object.prototype.hasOwnProperty.call(correction,key)?correction[key]:deal?.asIs?.[key];
@@ -98,13 +99,13 @@ function renderDealCards(root,deals){
   section.append(head);
   const grid=el('div','rona-ar-deals');
   for(const d of deals){
-    const card=el('button','rona-ar-deal');card.type='button';if(d.dealId===state.selectedDealId)card.classList.add('is-active');
+    const card=el('button','rona-ar-deal');card.type='button';if(rowKey(d)===state.selectedKey)card.classList.add('is-active');
     const top=el('div','rona-ar-deal-top');top.append(el('div','rona-ar-deal-id',d.dealId||'Deal'),chip(d.businessStatus||'—',upper(d.businessStatus)==='CANCELLED'?'amber':'cyan'));
     const bottom=el('div','rona-ar-deal-bottom'),result=el('div','rona-ar-deal-result'),fr=currentValue(d,'financialResult'),cur=d.receiptCurrency||'';
     result.append(el('span','','Финансовый результат'),el('strong','rona-ar-'+toneNumber(fr),signedMoney(fr,cur)));
     bottom.append(result,chip(d.ownerCorrection?'Скорректировано':'AS IS',d.ownerCorrection?'green':''));
-    card.append(top,el('div','rona-ar-deal-client',d.clientName||'—'),bottom);
-    card.onclick=()=>{state.selectedDealId=d.dealId;render()};
+    card.append(top,el('div','rona-ar-deal-client',(d.clientName||'—')+' · '+(d.agentName||'Агент не указан')),bottom);
+    card.onclick=()=>{state.selectedKey=rowKey(d);render()};
     grid.append(card)
   }
   section.append(grid);root.append(section)
@@ -175,9 +176,9 @@ function renderOwner(deal){
       qa('[data-edit-key]',col).forEach(inp=>{const raw=String(inp.value||'').trim();payload[inp.dataset.editKey]=raw===''?null:Number(raw)});
       const bad=Object.entries(payload).find(([,v])=>v!==null&&!Number.isFinite(v));
       if(bad)throw new Error('Некорректное значение: '+bad[0]);
-      await saveCorrection(deal.dealId,payload,ta.value);
+      await saveCorrection(deal.dealId,deal.assignmentId,payload,ta.value);
       state.data=await getWorkspace();
-      state.selectedDealId=deal.dealId;
+      state.selectedKey=rowKey(deal);
       render();
     }catch(e){window.RONA_ADMIN_DIALOGS?.message?window.RONA_ADMIN_DIALOGS.message(String(e.message||e),{title:'Корректировка не сохранена'}):alert(e.message||e)}
     finally{state.saving=false}
@@ -191,7 +192,7 @@ function render(){
   const data=state.data,root=el('div','rona-ar');
   if(!data){root.append(el('div','rona-ar-loader','Загрузка финансового контура AI-FINANCE…'));replace(root);return}
   const deals=Array.isArray(data.deals)?data.deals:[];
-  if(state.selectedDealId&&!deals.some(d=>d.dealId===state.selectedDealId))state.selectedDealId=null;
+  if(state.selectedKey&&!deals.some(d=>rowKey(d)===state.selectedKey))state.selectedKey=null;
   const hero=el('div','rona-ar-hero'),copy=el('div');
   copy.append(el('div','rona-ar-title','Вознаграждения агентов'),el('div','rona-ar-sub','Финансовая экономика сделки в валюте поступления: поступления, расходы, конвертация, курсовая разница и агентское вознаграждение. Слева — неизменный AS IS от AI-FINANCE, справа — ваша управляемая версия.'));
   hero.append(copy,el('div','rona-ar-live','FINANCE LIVE'));root.append(hero);
@@ -201,7 +202,7 @@ function render(){
   root.append(kpis);
   if(!deals.length){root.append(el('div','rona-ar-empty','Сделок в агентском контуре пока нет.'));replace(root);return}
   renderDealCards(root,deals);
-  const deal=selectedDeal();if(state.selectedDealId&&deal){
+  const deal=selectedDeal();if(state.selectedKey&&deal){
     const status=el('div','rona-ar-statusline');status.append(el('span','',deal.dealId+' · '+deal.clientName),el('strong','',deal.receiptCurrency?'Базовая валюта: '+deal.receiptCurrency:'Валюта поступления: TO_VERIFY'));root.append(status);
     const workspace=el('div','rona-ar-workspace');workspace.append(renderAsIs(deal),renderOwner(deal));root.append(workspace)
   }else{
