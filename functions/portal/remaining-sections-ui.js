@@ -6,6 +6,7 @@ export async function onRequest(context){
 
   source=source.replaceAll("'аналитика':'analytics',",'');
   source=source.replaceAll("'новости топливного рынка снг':'news',",'');
+  source=source.replaceAll("'вознаграждения агентов':'rewards'",'');
   source=source.replaceAll(',.rona-rs-root[data-kind=\\"analytics\\"]','');
   source=source.replaceAll(',.rona-rs-root[data-kind=\\"news\\"]','');
 
@@ -16,6 +17,7 @@ export async function onRequest(context){
 
   source=source.replaceAll("if(kind==='analytics')return renderAnalytics();",'');
   source=source.replaceAll("if(kind==='news')return renderNews();",'');
+  source=source.replaceAll("if(kind==='rewards')return renderRewards()",'');
   source=source.replaceAll("if(kind==='analytics'||kind==='news'){refreshMarket(true).then(()=>render(kind));return}",'');
   source=source.replaceAll("if(kind==='news'){refreshMarket(true).then(()=>render(kind));return}",'');
 
@@ -40,7 +42,7 @@ window.addEventListener('pageshow',schedule,{passive:true});if(document.readySta
 })();
 `;
 
-  const forbidden=["'аналитика':'analytics'","'новости топливного рынка снг':'news'",'function renderAnalytics(){','function renderNews(){','function publicationCard(){',"root('analytics'","root('news'","kind==='analytics'",'radio-command-bar','radio-kpi-grid','radio-workspace','radio-compose-panel','radio-link-panel','radio-active-panel','ronaMarketNewsTopRuntimeV8','__RONA_MARKET_NEWS_TOP_RUNTIME_V8__'];
+  const forbidden=["'аналитика':'analytics'","'новости топливного рынка снг':'news'","'вознаграждения агентов':'rewards'",'function renderAnalytics(){','function renderNews(){','function publicationCard(){',"root('analytics'","root('news'","kind==='analytics'","kind==='rewards'",'radio-command-bar','radio-kpi-grid','radio-workspace','radio-compose-panel','radio-link-panel','radio-active-panel','ronaMarketNewsTopRuntimeV8','__RONA_MARKET_NEWS_TOP_RUNTIME_V8__'];
   if(forbidden.some(token=>source.includes(token)))return new Response('REMAINING_CANONICAL_SPLIT_FAILED',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
 
   const headers=new Headers(response.headers);
