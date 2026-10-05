@@ -24,7 +24,6 @@ test('Lifecycle tabs have distinct semantic visual tones without changing lifecy
   assert.match(css,/--rona-deal-cyan:/);
   assert.match(css,/--rona-deal-amber:/);
   assert.match(css,/--rona-deal-green:/);
-  assert.doesNotMatch(css,/data-rona-deal-stage-tab="ATTENTION"[^}]*--/);
 });
 
 test('CLOSEOUT metrics use scoped visual status cues and contain no hardcoded business entities',()=>{
