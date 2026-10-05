@@ -57,6 +57,17 @@ test('Deal completion is Owner-triggered, CLOSEOUT-gated, audited and idempotent
   assert.match(ownerAcceptance,/lifecycle_state='CLOSED'::portal_private\.lifecycle_state_enum/);
   assert.match(ownerAcceptance,/closed_at=coalesce\(closed_at,now\(\)\)/);
   assert.match(ownerAcceptance,/OWNER_DEAL_COMPLETED/);
+  assert.match(ownerAcceptance,/ensureCloseoutAssistantArchiveTask/);
+  assert.match(ownerAcceptance,/assigned_functional_role/);
+  assert.match(ownerAcceptance,/'ASSISTANT'::portal_private\.staff_functional_role_enum/);
+  assert.match(ownerAcceptance,/DEAL_CLOSEOUT_DOCUMENT_ARCHIVE/);
+  assert.match(ownerAcceptance,/ADMIN_DEAL_CLOSEOUT_ARCHIVE_V1/);
+  assert.match(ownerAcceptance,/RONA Trade — Канонические документы/);
+  assert.match(ownerAcceptance,/30_Сделки спецификации инвойсы/);
+  assert.match(ownerAcceptance,/CLOSEOUT_PACKAGE=/);
+  assert.match(ownerAcceptance,/assistantArchiveTaskId/);
+  assert.match(closeoutRuntime,/Ассистенту RONA Trade/);
+  assert.match(closeoutRuntime,/Google Drive/);
   assert.match(closeoutRuntime,/\/admin\/deals\/'\+encodeURIComponent\(deal\.deal_id\)\+'\/complete/);
   assert.match(closeoutRuntime,/\.is-completed/);
 });
