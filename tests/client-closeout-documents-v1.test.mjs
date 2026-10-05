@@ -88,7 +88,7 @@ test('Deal document-kind constraint permits the complete CLOSEOUT document set',
 
 test('Client CLOSEOUT portal bridge preserves admin impersonation and multipart upload semantics',()=>{
   assert.match(portalApi,/const CLIENT_CLOSEOUT_API=.*rona-owner-acceptance/);
-  assert.match(portalApi,/targetRoleRoute=\/\^\\\/v1\\\/(client\|agent)/);
+  assert.ok(portalApi.includes("const targetRoleRoute=/^\\/v1\\/(client|agent)(\\/|$)/.test(path)"));
   assert.match(portalApi,/x-rona-admin-impersonation-token/);
   assert.match(portalApi,/x-rona-impersonation-tab/);
   assert.match(portalApi,/const closeoutUpload=isClientCloseoutUpload\(path,request\.method\)/);
