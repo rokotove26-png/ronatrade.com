@@ -1,10 +1,11 @@
 function agentRewardsRuntime(){'use strict';
-if(window.__RONA_AGENT_REWARDS_FINANCE_V1__)return;
-window.__RONA_AGENT_REWARDS_FINANCE_V1__='20261005-agent-rewards-finance-v1';
+if(window.__RONA_AGENT_REWARDS_FINANCE_V1__==='20261005-agent-rewards-finance-v2')return;
+window.__RONA_AGENT_REWARDS_FINANCE_V1__='20261005-agent-rewards-finance-v2';
 if(location.pathname!=='/portal/admin')return;
 
 const API='/portal/owner-api';
 const state={data:null,selectedKey:null,saving:false};
+let ownerRepairTimer=null;
 const q=(s,r=document)=>r.querySelector(s);
 const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const el=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!==undefined&&x!==null)n.textContent=String(x);return n};
@@ -64,7 +65,17 @@ function installStyle(){
 }
 
 function page(){return document.getElementById('page-agent-settlements')}
-function replace(root){const p=page();if(!p)return false;p.replaceChildren(root);return true}
+function rewardsSelected(){const p=page();return document.documentElement.dataset.ronaAdminPage==='agent-settlements'||!!p?.classList.contains('active')}
+function replace(root){const p=page();if(!p)return false;p.replaceChildren(root);p.dataset.ronaAgentRewardsOwner='finance-workspace-v1';return true}
+function attachOwnerGuard(){
+  const p=page();if(!p||p.__ronaAgentRewardsFinanceOwnerGuardV1)return;
+  p.__ronaAgentRewardsFinanceOwnerGuardV1=new MutationObserver(()=>{
+    if(!rewardsSelected()||p.querySelector(':scope > .rona-ar'))return;
+    clearTimeout(ownerRepairTimer);
+    ownerRepairTimer=setTimeout(()=>{if(rewardsSelected())render()},0)
+  });
+  p.__ronaAgentRewardsFinanceOwnerGuardV1.observe(p,{childList:true});
+}
 function chip(text,tone){return el('span','rona-ar-chip '+(tone||''),text)}
 function metric(label,value,currency,hint,tone){
   const n=el('div','rona-ar-metric'),v=el('div','rona-ar-metric-value '+('rona-ar-'+(tone||'neutral')),currency?money(value,currency):String(value??'—'));
@@ -213,6 +224,7 @@ function render(){
 
 async function start(){
   if(!page())return;
+  attachOwnerGuard();
   render();
   try{state.data=await getWorkspace();render()}catch(e){
     const root=el('div','rona-ar');installStyle();root.append(el('div','rona-ar-loader','Не удалось загрузить финансовый контур: '+String(e.message||e)));replace(root)
@@ -221,6 +233,7 @@ async function start(){
 window.addEventListener('rona:admin-pagechange',e=>{if(String(e?.detail?.page||'')==='agent-settlements')start()});
 if(document.documentElement.dataset.ronaAdminPage==='agent-settlements'||page()?.classList.contains('active'))start();
 window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__=async()=>{state.data=await getWorkspace();render()};
+window.__RONA_AGENT_REWARDS_FINANCE_REPAIR__=()=>{attachOwnerGuard();return start()};
 }
 const SCRIPT='('+agentRewardsRuntime.toString()+')();';
 
