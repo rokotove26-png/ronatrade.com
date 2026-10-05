@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261005-client-closeout-documents-v1';
+const MARK='20261005-client-closeout-documents-v2';
 if(window.__RONA_CLIENT_CLOSEOUT_DOCUMENTS__===MARK)return;
 window.__RONA_CLIENT_CLOSEOUT_DOCUMENTS__=MARK;
 const API='/portal/api';
