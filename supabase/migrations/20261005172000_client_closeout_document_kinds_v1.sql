@@ -1,3 +1,4 @@
+-- Expands the canonical deal-document link constraint for Admin/Client CLOSEOUT documents.
 begin;
 
 alter table portal_private.owner_deal_documents
