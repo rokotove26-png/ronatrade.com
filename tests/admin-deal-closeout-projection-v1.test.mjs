@@ -65,7 +65,7 @@ test('Admin CLOSEOUT closing documents are a separate Owner workspace',async()=>
   const response=await closeoutRuntime();
   const ui=await response.text();
   assert.match(ui,/ADMIN_CLOSEOUT_DOCUMENTS_V1/);
-  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v2/);
+  assert.match(ui,/admin-closeout-documents-v1\.js\?v=20261005-v3/);
   for(const label of [
     'Закрывающие документы',
     'Подписанное дополнительное соглашение',
@@ -111,4 +111,22 @@ test('CLOSEOUT runtime DOM patch is idempotent and cannot self-trigger a Mutatio
   assert.match(closingRuntime,/if\(b\.textContent!==label\)b\.textContent=label/);
   assert.match(closingRuntime,/if\(b\.dataset\.ronaCloseoutDocsBound==='1'\)return/);
   assert.match(closingRuntime,/new MutationObserver\(schedule\)/);
+});
+
+
+test('Admin CLOSEOUT visual v2 has balanced hierarchy and restrained final action',()=>{
+  const runtime=closingRuntime;
+  assert.match(runtime,/ADMIN_CLOSEOUT_VISUAL_V2/);
+  assert.match(runtime,/width:clamp\(760px,48vw,1040px\)/);
+  assert.match(runtime,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(runtime,/rona-closeout-doc-status--ready/);
+  assert.match(runtime,/rona-closeout-doc-status--required/);
+  assert.match(runtime,/rona-closeout-doc-status--waiting/);
+  assert.match(runtime,/Документы сделки/);
+  assert.match(runtime,/Загружает администратор/);
+  assert.match(runtime,/Документы от клиента/);
+  assert.match(runtime,/position:sticky;bottom:-1px/);
+  assert.match(runtime,/width:220px/);
+  assert.match(runtime,/RONA Trade · финальная стадия/);
+  assert.doesNotMatch(runtime,/\.rona-closeout-finish button\{width:100%/);
 });
