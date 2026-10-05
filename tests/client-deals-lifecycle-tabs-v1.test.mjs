@@ -7,8 +7,7 @@ const gateway=readFileSync('functions/portal/api/[[path]].js','utf8');
 const renderer=readFileSync('assets/portal-runtime/client-deals-authoritative-v1.js','utf8');
 const nav=readFileSync('assets/portal-runtime/client-sidebar-command-nav-v1.js','utf8');
 const buttonVisual=readFileSync('assets/portal-runtime/portal-canonical-button-hover-v1.js','utf8');
-const dealVisual=readFileSync('assets/portal-runtime/client-deal-canonical-visual-v2.js','utf8');
-const dealDocumentsAttach=readFileSync('scripts/attach-client-deal-documents.mjs','utf8');
+const rendererAttach=readFileSync('scripts/attach-client-deals-authoritative-v1.mjs','utf8');
 
 test('Client deal lifecycle UI remains generic while the heavy backend lifecycle query is held',()=>{
   assert.match(renderer,/client_deal_stage/);
@@ -39,11 +38,14 @@ test('Client Deals renderer has three exclusive lifecycle tabs',()=>{
   assert.doesNotMatch(renderer,/DEAL-2026-004/);
 });
 
-test('Client Deals lifecycle filter remains visually exclusive under canonical card CSS',()=>{
-  assert.ok(dealVisual.includes('.${HOST}[hidden]{display:none!important}'));
-  assert.ok(dealVisual.includes("const MARK='20261005-client-deal-canonical-visual-v2-v10-stage-filter-hidden'"));
-  assert.ok(dealDocumentsAttach.includes('client-deal-canonical-visual-v2.js?v=20261005-stage-filter-hidden-v10'));
-  assert.ok(dealDocumentsAttach.includes('20261005-client-deal-canonical-visual-v2-v10-stage-filter-hidden'));
+test('Client Deals lifecycle filter remains visually exclusive even when canonical card CSS forces display',()=>{
+  assert.ok(renderer.includes("function setDealCardHidden(n,value)"));
+  assert.ok(renderer.includes("n.style.setProperty('display','none','important')"));
+  assert.ok(renderer.includes("else n.style.removeProperty('display')"));
+  assert.ok(renderer.includes("setDealCardHidden(c,!(bucketOk&&searchOk&&stageOk))"));
+  assert.ok(renderer.includes("const MARK='20261005-client-deals-authoritative-lifecycle-tabs-v12-stage-filter-inline-hidden'"));
+  assert.ok(rendererAttach.includes('client-deals-authoritative-v1.js?v=20261005-authoritative-v15-stage-filter-inline-hidden'));
+  assert.ok(rendererAttach.includes('20261005-client-deals-authoritative-lifecycle-tabs-v12-stage-filter-inline-hidden'));
 });
 
 test('Client Deals stage controls are explicit buttons aligned to the title frame',()=>{
