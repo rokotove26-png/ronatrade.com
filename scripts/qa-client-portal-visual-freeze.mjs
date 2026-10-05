@@ -98,7 +98,8 @@ const clientDealsStageTabsExceptionAuthorized=
 
 const CLIENT_DEALS_CLOSEOUT_FILES=[
   'assets/portal-runtime/client-deals-authoritative-v1.js',
-  'scripts/attach-client-deals-authoritative-v1.mjs'
+  'scripts/attach-client-deals-authoritative-v1.mjs',
+  'assets/portal-runtime/client-closeout-documents-v1.js'
 ];
 const clientDealsCloseoutExceptionAuthorized=
   clientDealsCloseoutApproval?.approval==='OWNER_IN_CHAT'&&
@@ -109,6 +110,12 @@ const clientDealsCloseoutExceptionAuthorized=
   clientDealsCloseoutApproval?.requirements?.active_deals_preserved===true&&
   clientDealsCloseoutApproval?.requirements?.passport_open_preserved===true&&
   clientDealsCloseoutApproval?.requirements?.canonical_visual_css_changed===false&&
+  clientDealsCloseoutApproval?.requirements?.dedicated_closeout_workspace_allowed===true&&
+  clientDealsCloseoutApproval?.requirements?.client_closeout_smgs_upload_allowed===true&&
+  JSON.stringify(clientDealsCloseoutApproval?.requirements?.upload_kinds)===JSON.stringify(['SMGS_DELIVERY_STAMP','SMGS_EMPTY_WAGONS'])&&
+  clientDealsCloseoutApproval?.requirements?.owner_completion_authority_preserved===true&&
+  clientDealsCloseoutApproval?.requirements?.admin_impersonation_read_only===true&&
+  clientDealsCloseoutApproval?.requirements?.deal_completion_mutation_from_client===false&&
   clientDealsCloseoutApproval?.requirements?.business_data_changed===false&&
   clientDealsCloseoutApproval?.requirements?.business_record_mutation===false&&
   clientDealsCloseoutApproval?.requirements?.hardcoded_deal_ids===false&&
@@ -820,6 +827,16 @@ if(applicationBusinessV2VisualExceptionAuthorized){
   const actual=createHash('sha1').update(Buffer.from(`blob ${body.length}\0`)).update(body).digest('hex');
   const expected=applicationBusinessV2Scope?.candidate_exact_blobs?.[path];
   if(actual===expected&&body.toString('utf8').includes('RONA_APPLICATION_BUSINESS_V2')) approvedNewRuntime.add('client-application-intent-v2.js');
+}
+
+if(clientDealsCloseoutExceptionAuthorized){
+  const path='assets/portal-runtime/client-closeout-documents-v1.js';
+  const body=await readFile(path);
+  const actual=createHash('sha1').update(Buffer.from(`blob ${body.length}\0`)).update(body).digest('hex');
+  const entry=clientDealsCloseoutApproval?.exact_post_blobs?.[path];
+  if(entry&&entry.authorized_post_blob_sha===actual&&body.toString('utf8').includes(entry.required_marker)){
+    approvedNewRuntime.add('client-closeout-documents-v1.js');
+  }
 }
 
 if(clientSidebarCommandNavExceptionAuthorized){
