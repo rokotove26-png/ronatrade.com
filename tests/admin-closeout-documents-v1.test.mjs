@@ -73,8 +73,8 @@ test('CLOSEOUT runtime DOM patch is idempotent and cannot self-trigger a Mutatio
 test('Admin CLOSEOUT visual v3 has optimal density and readable typography',()=>{
   const runtime=closeoutRuntime;
   assert.match(runtime,/ADMIN_CLOSEOUT_VISUAL_V3/);
-  assert.match(runtime,/width:clamp\(760px,48vw,1040px\)/);
-  assert.match(runtime,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(runtime,/width:clamp\(560px,36vw,680px\)/);
+  assert.match(runtime,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(runtime,/rona-closeout-doc-status--ready/);
   assert.match(runtime,/rona-closeout-doc-status--required/);
   assert.match(runtime,/rona-closeout-doc-status--waiting/);
