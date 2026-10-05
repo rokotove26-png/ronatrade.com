@@ -157,8 +157,15 @@ begin
   ),
   deal_rows as (
     select
-      s.*,
-      f.*,
+      s.assignment_id,s.client_key,s.agent_name,s.agent_legal_entity_id,s.client_id,s.client_name,
+      s.deal_key,s.deal_id,s.business_status,s.finance_status as deal_finance_status,s.accounting_status,
+      f.total_to_receive,f.due_now,f.expected_not_due,f.future_conditional,
+      f.obligation_currency,f.contractual_payment_currency,
+      f.actual_spend,f.actual_spend_status,f.remaining_execution,f.remaining_execution_status,f.execution_currency,
+      f.finance_status as finance_authority_status,
+      f.authority_state as finance_authority_state,
+      f.lifecycle_state as finance_lifecycle_state,
+      f.effective_at,f.source_refs,f.source_locked,f.is_terminal,f.received_amount,
       coalesce(rl.lines,'[]'::jsonb) expense_lines,
       rl.settlement_equivalent_total,
       rl.bank_fee_equivalent_total,
@@ -226,7 +233,7 @@ begin
           'clientName',x.client_name,
           'agentName',x.agent_name,
           'businessStatus',x.business_status,
-          'financeStatus',x.finance_status,
+          'financeStatus',coalesce(x.finance_authority_status,x.deal_finance_status),
           'accountingStatus',x.accounting_status,
           'receiptCurrency',x.receipt_currency,
           'asIs',jsonb_build_object(
@@ -272,8 +279,8 @@ begin
             'createdBy',x.correction_created_by
           ) end,
           'provenance',jsonb_build_object(
-            'financeAuthorityState',x.authority_state,
-            'financeLifecycleState',x.lifecycle_state,
+            'financeAuthorityState',x.finance_authority_state,
+            'financeLifecycleState',x.finance_lifecycle_state,
             'financeSourceLocked',x.source_locked,
             'financeEffectiveAt',x.effective_at,
             'financeSourceRefs',x.source_refs
