@@ -140,7 +140,7 @@ export async function onRequest(context){
   };
   let response=await forward(access);
   if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);response=await forward(access)}}
-  if(impersonationToken&&response.status===401)return json({ok:false,code:'IMPERSONATION_SESSION_INVALID',returnTo:'/portal/admin'},409,setCookies);
+  if(impersonationToken&&response.status===401){const endedHeaders=secureHeaders(new Headers({'content-type':'application/json; charset=utf-8','x-rona-impersonation-ended':'1'}));for(const cookie of setCookies)endedHeaders.append('set-cookie',cookie);return new Response(JSON.stringify({ok:false,code:'IMPERSONATION_SESSION_INVALID',returnTo:'/portal/admin'}),{status:409,headers:endedHeaders})}
   if(path==='/v1/client/context')response=await enrichClientExecutionExitAtEdge(response,access,query,request,impersonationToken,impersonationTab);
   response=await sanitize(path,response);
   const h=secureHeaders(response.headers);
