@@ -115,11 +115,11 @@ test('Portal shell injects Stage 2C.1 broadcast runtime for real and impersonate
 
 test('Stage 2C.1 keeps Client messages frozen and Admin Radio on one canonical visual owner',()=>{
   assert.equal(gitBlobSha('assets/portal-runtime/client-messages-archive-v1.js'),'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca');
-  assert.equal(gitBlobSha('assets/portal-admin-radio-canonical-v11.js'),'a2306acce666f65ea1abef89b2d1d34e71839e63');
+  assert.equal(gitBlobSha('assets/portal-admin-radio-canonical-v11.js'),'702f8d79b983fa3d8a269ae7efe66dfc560ba5ad');
   const visual=read('assets/portal-admin-radio-canonical-v11.js');
   const admin=read('portal-src/current/admin.html');
   assert.match(visual,/__RONA_ADMIN_RADIO_VISUAL_OWNER__='CANONICAL_V11'/);
-  assert.match(visual,/__RONA_ADMIN_RADIO_CANONICAL_V11__='20261005-canonical-v11-balanced-width-owner'/);
+  assert.match(visual,/const RUNTIME_VERSION='20261005-canonical-v11-balanced-width-rebind-v1'/);
   assert.match(visual,/\.rona-radio-clean-head\{width:min\(calc\(100% - 56px\),1360px\)!important;max-width:1360px!important/);
   assert.match(visual,/\.rona-rs-root\[data-kind="radio"\]\{width:min\(calc\(100% - 56px\),1360px\)!important;max-width:1360px!important/);
   assert.match(visual,/@media\(max-width:980px\)\{#\$\{PAGE_ID\}>\.rona-radio-clean-head,#\$\{PAGE_ID\}>\.rona-rs-root\[data-kind="radio"\]\{width:calc\(100% - 24px\)!important;max-width:none!important\}/);
@@ -128,8 +128,13 @@ test('Stage 2C.1 keeps Client messages frozen and Admin Radio on one canonical v
   assert.doesNotMatch(visual,/\.rona-radio-clean-head\{width:calc\(100% - 42px\)!important;max-width:none!important/);
   assert.doesNotMatch(visual,/\.rona-rs-root\[data-kind="radio"\]\{width:calc\(100% - 42px\)!important;max-width:none!important/);
   assert.match(visual,/data-radio-canonical-v11/);
+  assert.match(visual,/let busy=false,observer=null,observedPage=null/);
+  assert.match(visual,/if\(page&&page!==observedPage\)/);
+  assert.match(visual,/observer\?\.disconnect\(\)/);
+  assert.match(visual,/observedPage=page/);
+  assert.match(visual,/queueMicrotask\(boot\);requestAnimationFrame\(boot\)/);
   assert.doesNotMatch(visual,/setTimeout\(boot|setTimeout\(apply|cleanupOld/);
-  assert.match(admin,/portal-admin-radio-canonical-v11\.js\?v=20261005-balanced-width-owner-v11/);
+  assert.match(admin,/portal-admin-radio-canonical-v11\.js\?v=20261005-balanced-width-rebind-v1/);
   const polish=read('functions/portal/admin-approved-polish-ui.js');
   assert.doesNotMatch(polish,/page-messages\.rona-radio-single-owner-ready[^\n]*visibility:visible/);
   assert.doesNotMatch(polish,/current\.style\.removeProperty\('display'\)/);
