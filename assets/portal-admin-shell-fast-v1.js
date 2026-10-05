@@ -63,7 +63,7 @@ async function loadModule(name,src,{attempts=3,ready=null,timeout=14000}={}){
   state.promise=(async()=>{
     for(let attempt=1;attempt<=attempts;attempt++){
       state.attempts=attempt;state.status='LOADING';state.error=null;
-      const sep=src.includes('?')?'&':'?',url=src+sep+'rona_retry='+attempt+'&rona_build=20261005_lazy_selected_page_v1';
+      const sep=src.includes('?')?'&':'?',url=src+sep+'rona_retry='+attempt+'&rona_build=20261005_lazy_selected_page_v2';
       try{
         await scriptOnce(url,'rona-single-'+name,timeout);
         if(typeof ready==='function'){
@@ -169,12 +169,11 @@ async function loadPageModule(page){
 window.__RONA_ADMIN_LOAD_PAGE_MODULE__=loadPageModule;
 
 async function bootUi(){
-  const accessWarm=loadAccess();
   await loadModule('main',MODULES.main.src,{attempts:3,ready:MODULES.main.ready,timeout:16000});
   restoreSelectedPage();
-  root.dataset.ronaHeavyModulePolicy='lazy-selected-page-v1';
-  window.__RONA_ADMIN_HEAVY_MODULE_POLICY__='LAZY_SELECTED_PAGE_V1';
-  await Promise.allSettled([accessWarm,loadPageModule(selectedPage())]);
+  root.dataset.ronaHeavyModulePolicy='lazy-selected-page-v2';
+  window.__RONA_ADMIN_HEAVY_MODULE_POLICY__='LAZY_SELECTED_PAGE_V2';
+  await loadPageModule(selectedPage());
   window.__RONA_ADMIN_FAST_UI_LOADED__=true;window.__RONA_POSTCORE_ENHANCEMENTS_READY__=true;restoreSelectedPage();revealShell('ui-ready');window.dispatchEvent(new CustomEvent('rona:admin-single-owner-ready'))
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootUi,{once:true});else bootUi();
