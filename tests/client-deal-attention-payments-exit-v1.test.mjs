@@ -29,7 +29,7 @@ test('Client Payments exits a deal only after Rail completion and source-locked 
   assert.match(hardening,/percent!==null&&percent>=100/);
   assert.match(hardening,/status!=='PAID'/);
   assert.match(hardening,/received\+0\.01<total/);
-  assert.match(hardening,/const paymentsExit=railCompleted&&clientFullyPaidAuthoritative\(deal\)/);
+  assert.match(hardening,/const paymentsExit=railCompleted&&fullyPaid/);
   assert.match(hardening,/client_payments_monitoring_active=!paymentsExit/);
   assert.match(hardening,/RAIL_COMPLETED_AND_100_PERCENT_PAID/);
 });
