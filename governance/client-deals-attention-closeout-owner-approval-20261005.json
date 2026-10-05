@@ -26,5 +26,6 @@
     "wildcard_exception": false,
     "exact_blob_enforcement": true,
     "scoped_unfreeze_only": true
-  }
+  },
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_DEALS_ATTENTION_CLOSEOUT_PARITY_V1"
 }
