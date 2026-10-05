@@ -18,6 +18,11 @@ export async function onRequest(context){
   source=source.replaceAll("if(kind==='analytics')return renderAnalytics();",'');
   source=source.replaceAll("if(kind==='news')return renderNews();",'');
   source=source.replaceAll("if(kind==='rewards')return renderRewards()",'');
+
+  const rewardsStart=source.indexOf('function rewardSource(d){');
+  const rewardsEnd=source.indexOf('function render(kind){',rewardsStart);
+  if(rewardsStart<0||rewardsEnd<=rewardsStart)return new Response('REMAINING_REWARDS_SPLIT_SOURCE_MISMATCH',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
+  source=source.slice(0,rewardsStart)+source.slice(rewardsEnd);
   source=source.replaceAll("if(kind==='analytics'||kind==='news'){refreshMarket(true).then(()=>render(kind));return}",'');
   source=source.replaceAll("if(kind==='news'){refreshMarket(true).then(()=>render(kind));return}",'');
 
@@ -42,7 +47,7 @@ window.addEventListener('pageshow',schedule,{passive:true});if(document.readySta
 })();
 `;
 
-  const forbidden=["'аналитика':'analytics'","'новости топливного рынка снг':'news'","'вознаграждения агентов':'rewards'",'function renderAnalytics(){','function renderNews(){','function publicationCard(){',"root('analytics'","root('news'","kind==='analytics'","kind==='rewards'",'radio-command-bar','radio-kpi-grid','radio-workspace','radio-compose-panel','radio-link-panel','radio-active-panel','ronaMarketNewsTopRuntimeV8','__RONA_MARKET_NEWS_TOP_RUNTIME_V8__'];
+  const forbidden=["'аналитика':'analytics'","'новости топливного рынка снг':'news'","'вознаграждения агентов':'rewards'",'function renderAnalytics(){','function renderNews(){','function publicationCard(){','function rewardSource(d){','function renderRewards(){',"root('analytics'","root('news'","root('rewards'","kind==='analytics'","kind==='rewards'",'radio-command-bar','radio-kpi-grid','radio-workspace','radio-compose-panel','radio-link-panel','radio-active-panel','ronaMarketNewsTopRuntimeV8','__RONA_MARKET_NEWS_TOP_RUNTIME_V8__'];
   if(forbidden.some(token=>source.includes(token)))return new Response('REMAINING_CANONICAL_SPLIT_FAILED',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
 
   const headers=new Headers(response.headers);
