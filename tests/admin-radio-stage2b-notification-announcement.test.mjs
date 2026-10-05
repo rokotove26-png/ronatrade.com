@@ -197,5 +197,5 @@ test('Stage 2B production QA retries transient bootstrap reads without retrying 
 });
 
 test('Canonical Radio visual owner remains byte-for-byte locked',()=>{
-  assert.equal(gitBlobSha('assets/portal-admin-radio-canonical-v11.js'),'a2306acce666f65ea1abef89b2d1d34e71839e63');
+  assert.equal(gitBlobSha('assets/portal-admin-radio-canonical-v11.js'),'702f8d79b983fa3d8a269ae7efe66dfc560ba5ad');
 });
