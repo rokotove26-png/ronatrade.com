@@ -428,8 +428,8 @@ function ownerPaymentLines(lines,enabled){
   }
   return box
 }
-function ownerComputedRow(label,key,value,cur,hint,final=false){
-  const r=pnlRow(label,value,cur,{hint,total:!final,final,signed:true});r.dataset.ownerComputed=key;return r
+function ownerComputedRow(label,key,value,cur,hint,final=false,signed=true){
+  const r=pnlRow(label,value,cur,{hint,total:!final,final,signed});r.dataset.ownerComputed=key;return r
 }
 function recomputeOwner(col,deal,fact,cur){
   const paymentLineAmounts={};let paymentDelta=0,paymentComplete=fact.approved;
@@ -475,7 +475,7 @@ function renderOwner(deal){
   ));
   const table=el('div','rona-ar-table');
   table.append(pnlRow('Поступило',base.cashReceived,cur,{hint:'Точно из ФАКТ / ДДС',total:true}));
-  table.append(ownerComputedRow('Оплачено контрагентам','counterpartyCashOut',base.counterpartyCashOut,cur,'FACT + дельта постатейных корректировок'));
+  table.append(ownerComputedRow('Оплачено контрагентам','counterpartyCashOut',base.counterpartyCashOut,cur,'FACT + дельта постатейных корректировок',false,false));
   table.append(ownerPaymentLines(base.paymentLines,editable));
   table.append(pnlRow('Банковские комиссии',base.bankFees,cur,{hint:'Точно из ФАКТ / ДДС'}));
   table.append(ownerComputedRow('Чистый ДДС','netCashFlow',base.netCashFlow,cur,'Поступления − скорректированные выплаты − комиссии'));
