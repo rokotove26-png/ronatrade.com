@@ -54,7 +54,7 @@ test('P&L V4 active scope excludes cancelled deals without hiding non-cancelled 
 });
 
 test('Approved PLAN projection requires Finance proposal plus matching Operations approval and stays read-only',()=>{
-  assert.match(approvedPlan,/rona_admin_agent_rewards_workspace_v5/);
+  assert.match(approvedPlan,/rona_admin_agent_rewards_workspace_v4/);
   assert.match(approvedPlan,/management_plan_financial_basis/);
   assert.match(approvedPlan,/MATERIALIZE_AGENT_REWARDS_PLAN/);
   assert.match(approvedPlan,/OPERATIONS_INTERNAL_DECISION/);
