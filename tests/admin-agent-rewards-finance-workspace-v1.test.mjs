@@ -195,6 +195,9 @@ test('Owner mirror v11 requires Finance plus Operations bridge and never re-adds
   assert.match(ownerMirror,/REFERENCE_ONLY__DO_NOT_ADD_TO_RESULT/);
   assert.match(ownerMirror,/ownerCorrectionLegacy/);
   assert.match(ownerMirror,/OPEN_SETTLEMENT_ADJUSTMENT_ONLY/);
+  assert.doesNotMatch(ownerMirror,/jsonb_object_length/);
+  assert.match(ownerMirror,/jsonb_build_object\('openSettlementAdjustment'/);
+
   assert.doesNotMatch(ownerMirror,/update\s+portal_private\.(payments|deal_finance_authority|shipments)/i);
   assert.doesNotMatch(ownerMirror,/delete\s+from\s+portal_private/i);
 });
