@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261007-agent-rewards-finance-v16-itemized-owner-corrections';
+const VERSION='20261007-agent-rewards-finance-v17-authoritative-dds';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='digital-finance-v1';
@@ -428,8 +428,22 @@ function ownerPaymentLines(lines,enabled){
   }
   return box
 }
-function ownerComputedRow(label,key,value,cur,hint,final=false,signed=true){
-  const r=pnlRow(label,value,cur,{hint,total:!final,final,signed});r.dataset.ownerComputed=key;return r
+function ownerComputedRow(label,key,value,cur,hint,final=false,signed=true,nullText='TO_VERIFY'){
+  const r=pnlRow(label,value,cur,{hint,total:!final,final,signed});
+  r.dataset.ownerComputed=key;
+  if(num(value)===null&&nullText){
+    const v=q('.rona-ar-value',r);
+    if(v){v.textContent=nullText;v.className='rona-ar-value'}
+  }
+  return r
+}
+function agentStatusText(status){
+  const s=upper(status);
+  if(s==='TERM_MISSING'||s==='TERM_NOT_ACTIVE')return'Нет действующего условия';
+  if(s==='CLOSING_CONDITIONS_REQUIRED')return'Расчёт после закрытия';
+  if(s==='FX_REFERENCE_REQUIRED_FOR_AGENT_BASIS')return'Нужна FX-база';
+  if(s==='ACTUAL_RESULT_REQUIRED'||s==='OPEN_SETTLEMENT_BRIDGE_REQUIRED')return'Нет расчётной базы';
+  return'Расчёт не завершён'
 }
 function recomputeOwner(col,deal,fact,cur){
   const paymentLineAmounts={};let paymentDelta=0,paymentComplete=fact.approved;
@@ -489,8 +503,8 @@ function renderOwner(deal){
   ));
   table.append(ownerComputedRow('Фактический финансовый результат','actualFinancialResult',base.actualFinancialResult,cur,'Автоматически: скорректированный Чистый ДДС + Незакрытые расчёты'));
   table.append(ownerComputedRow('База агентского вознаграждения','agentBasis',base.reward.basis,cur,upper(deal?.agentTerm?.reference).includes('EXCLUDING FX')?'Финрезультат − FX, потому что условие агента исключает FX':'По подтверждённому условию агента'));
-  table.append(ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,base.reward.status));
-  table.append(ownerComputedRow('Итого прибыль RONA','ronaProfit',base.ronaProfit,cur,'Фактический результат − агентское вознаграждение',true));
+  table.append(ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,base.reward.status,false,true,agentStatusText(base.reward.status)));
+  table.append(ownerComputedRow('Итого прибыль RONA','ronaProfit',base.ronaProfit,cur,'Фактический результат − агентское вознаграждение',true,true,base.reward.value===null?'После расчёта агента':'TO_VERIFY'));
   col.append(table);
   qa('[data-owner-payment-key],[data-owner-key]',col).forEach(inp=>{inp.disabled=!editable;inp.addEventListener('input',()=>recomputeOwner(col,deal,fact,cur))});
   const note=el('div','rona-ar-owner-note'),ta=el('textarea');ta.placeholder='Комментарий к корректировке (необязательно)';ta.value=deal.ownerCorrection?.note||'';ta.dataset.correctionNote='1';note.append(ta);col.append(note);
