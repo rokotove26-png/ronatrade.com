@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261006-agent-rewards-finance-v5';
+const VERSION='20261006-agent-rewards-finance-v6';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 if(location.pathname!=='/portal/admin')return;
@@ -283,7 +283,7 @@ function render(){
   const deals=Array.isArray(data.deals)?data.deals:[];
   if(state.selectedKey&&!deals.some(d=>rowKey(d)===state.selectedKey))state.selectedKey=null;
   const hero=el('div','rona-ar-hero'),copy=el('div');
-  copy.append(el('div','rona-ar-sub','Финансовый паспорт сделки: ПЛАН → ФАКТ → OWNER CONTROL. Выручка в FACT — полная плановая выручка сделки, а не фактически поступившая оплата.'));
+  copy.append(el('div','rona-ar-title','Вознаграждения агентов'),el('div','rona-ar-sub','Финансовый паспорт сделки: ПЛАН → ФАКТ → OWNER CONTROL. Выручка в FACT — полная плановая выручка сделки, а не фактически поступившая оплата.'));
   hero.append(copy,el('div','rona-ar-live','FINANCE P&L'));root.append(hero);
   if(!deals.length){root.append(el('div','rona-ar-loader','Сделок в агентском контуре пока нет.'));replace(root);return}
   renderDealCards(root,deals);
