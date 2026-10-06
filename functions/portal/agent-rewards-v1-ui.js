@@ -156,9 +156,10 @@ function planModel(deal){
   const revenue=num(p.revenue),financialResult=revenue===null||expTotal===null?null:revenue-expTotal;
   const taxes=num(p.taxesAndPayments),fx=num(p.fxDifference);
   const netProfit=financialResult===null||taxes===null||fx===null?null:financialResult-taxes+fx;
-  const reward=termReward(deal,{preferSettlement:false,basisValue:financialResult});
+  const approvedReward=num(p.agentReward);
+  const reward=approvedReward!==null?{value:approvedReward,status:p.agentRewardStatus||'APPROVED_FINANCE_MANAGEMENT_PLAN'}:termReward(deal,{preferSettlement:false,basisValue:financialResult});
   const ronaProfit=netProfit===null||reward.value===null?null:netProfit-reward.value;
-  return{cur,revenue,lines,expTotal,financialResult,taxes,fx,netProfit,reward,ronaProfit,expenseStatus:p.expenseStatus||'TO_VERIFY',revenueStatus:p.revenueStatus||'TO_VERIFY'}
+  return{cur,revenue,lines,expTotal,financialResult,taxes,fx,netProfit,reward,ronaProfit,expenseStatus:p.expenseStatus||'TO_VERIFY',revenueStatus:p.revenueStatus||'TO_VERIFY',taxStatus:p.taxesAndPaymentsStatus||'TO_VERIFY',fxStatus:p.fxStatus||'TO_VERIFY'}
 }
 function ownerModel(deal,fact){
   const revenue=correctionValue(deal,'revenue','receivedAmount',fact.revenue);
@@ -201,8 +202,8 @@ function renderPlan(deal){
   table.append(pnlRow('Расходы постатейно',m.expTotal,m.cur,{hint:m.expenseStatus}));
   table.append(expenseLines(m.lines,'Плановые статьи затрат не материализованы · TO_VERIFY'));
   table.append(pnlRow('Итого финансовый результат',m.financialResult,m.cur,{hint:'Выручка − плановые расходы',total:true,signed:true}));
-  table.append(pnlRow('Налоги и платежи',m.taxes,m.cur,{hint:'Плановые налоги/платежи · TO_VERIFY',status:'TO_VERIFY'}));
-  table.append(pnlRow('Курсовая разница',m.fx,m.cur,{hint:'Ожидаемый валютный эффект · TO_VERIFY',signed:true,status:'TO_VERIFY'}));
+  table.append(pnlRow('Налоги и платежи',m.taxes,m.cur,{hint:m.taxStatus,status:m.taxStatus}));
+  table.append(pnlRow('Курсовая разница',m.fx,m.cur,{hint:m.fxStatus,signed:true,status:m.fxStatus}));
   table.append(pnlRow('Итого чистая прибыль',m.netProfit,m.cur,{hint:'Финрезультат − налоги/платежи ± курс',total:true,signed:true}));
   table.append(pnlRow('Агентское вознаграждение',m.reward.value,m.cur,{hint:m.reward.status}));
   table.append(pnlRow('Итого прибыль RONA',m.ronaProfit,m.cur,{hint:'Чистая прибыль − агентское вознаграждение',final:true,signed:true}));
