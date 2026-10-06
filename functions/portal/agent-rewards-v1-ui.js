@@ -316,6 +316,6 @@ export async function onRequest(){
     'pragma':'no-cache',
     'expires':'0',
     'x-content-type-options':'nosniff',
-    'x-rona-agent-rewards-owner':'ADMIN_AGENT_REWARDS_PNL_V4'
+    'x-rona-agent-rewards-owner':'ADMIN_AGENT_REWARDS_FINANCE_WORKSPACE_V1'
   }});
 }
