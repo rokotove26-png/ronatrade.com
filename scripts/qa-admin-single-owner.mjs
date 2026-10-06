@@ -58,7 +58,7 @@ need(has(shell,"ADMIN_SHELL_BOOT")&&has(shell,"RETRY_ONLY_ON_FAILURE")&&has(shel
 
 need(!has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-ui")&&has(shell,"'/portal/prices-current-ui")&&has(shell,"'/portal/analytics-v2-ui"),'Required current modules / retired Claims contract is invalid');
 need(has(shell,"access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'}"),'Clients/Agents current runtime is not managed by the fast shell');
-need(has(shell,"agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261006-finance-workspace-v5-readable-scope'}"),'Dedicated Agent Rewards runtime is not managed by the fast shell');
+need(has(shell,"agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261006-finance-workspace-v6-singleflight-head'}"),'Dedicated Agent Rewards runtime is not managed by the fast shell');
 need(has(shell,"const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost()")&&has(shell,"async function loadAccess()"),'Clients/Agents stable access readiness/self-heal contract is missing');
 need(!has(shell,"const accessWarm=loadAccess();")&&has(shell,"if(p==='access')loadAccess();")&&has(shell,"if(p==='access')return loadAccess();"),'Clients/Agents access module must load only for the selected Access page');
 need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.__RONA_ADMIN_MODULES__.access")&&!has(shell,"window.__RONA_CLIENTS_AGENTS_CURRENT__=null"),'Clients/Agents recovery must preserve a live runtime without teardown');
