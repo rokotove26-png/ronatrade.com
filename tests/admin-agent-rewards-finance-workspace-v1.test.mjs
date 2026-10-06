@@ -243,7 +243,7 @@ test('Authoritative DDS v14 uses approved existing Finance facts instead of stal
   assert.match(authoritativeDds,/counterpartyCashOut/);
   assert.match(authoritativeDds,/bankFees/);
   assert.match(authoritativeDds,/netCashFlow/);
-  assert.match(authoritativeDds,/OWNER_OVERLAY_DEFAULT_ZERO__NOT_ASSERTION_OF_ZERO_EXTERNAL_BALANCE/);
+  assert.match(authoritativeDds,/DEFAULT_ZERO_IS_EDITABLE_OVERLAY_NOT_ZERO_EXTERNAL_BALANCE_ASSERTION/);
   assert.match(authoritativeDds,/APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE/);
   assert.match(authoritativeDds,/HIDE_WITHOUT_SEPARATE_APPROVED_REFERENCE__NEVER_ADD_TO_RESULT/);
   assert.doesNotMatch(authoritativeDds,/update\s+portal_private\.(payments|payment_allocations|deal_finance_authority|shipments)/i);
