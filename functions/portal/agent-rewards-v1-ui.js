@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261006-agent-rewards-finance-v9-digital-finance';
+const VERSION='20261006-agent-rewards-finance-v10-transport-breakdown';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='digital-finance-v1';
@@ -60,7 +60,7 @@ function installStyle(){
 .rona-ar-pnl-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}.rona-ar-col{position:relative;min-width:0;border:1px solid var(--ar-line);border-radius:15px;overflow:hidden;background:linear-gradient(180deg,rgba(8,22,35,.985),rgba(5,15,25,.99));box-shadow:0 18px 42px rgba(0,0,0,.17),inset 0 1px rgba(255,255,255,.018)}.rona-ar-col::before{content:"";position:absolute;left:0;top:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(75,220,255,.62),transparent);opacity:.78;z-index:2}.rona-ar-col.plan{border-color:rgba(75,220,255,.25);background:radial-gradient(280px 170px at 0 0,rgba(75,220,255,.075),transparent 72%),linear-gradient(180deg,rgba(8,23,37,.985),rgba(5,15,25,.99))}.rona-ar-col.fact{border-color:rgba(62,231,177,.23);background:radial-gradient(280px 170px at 100% 0,rgba(62,231,177,.07),transparent 72%),linear-gradient(180deg,rgba(8,23,35,.985),rgba(5,15,25,.99))}.rona-ar-col.fact::before{background:linear-gradient(90deg,transparent,rgba(62,231,177,.64),transparent)}.rona-ar-col.owner{border-color:rgba(185,167,255,.27);background:radial-gradient(300px 180px at 100% 0,rgba(130,92,246,.105),transparent 70%),linear-gradient(180deg,rgba(10,22,38,.99),rgba(6,15,28,.99))}.rona-ar-col.owner::before{background:linear-gradient(90deg,transparent,rgba(185,167,255,.65),transparent)}
 .rona-ar-col-head{position:relative;display:flex;justify-content:space-between;gap:9px;padding:17px 16px 15px;border-bottom:1px solid rgba(128,203,230,.12);background:linear-gradient(180deg,rgba(255,255,255,.012),transparent)}.rona-ar-col-label{font-size:9.5px;font-weight:950;letter-spacing:.14em;text-transform:uppercase;color:var(--ar-cyan)}.fact .rona-ar-col-label{color:#78efc7}.owner .rona-ar-col-label{color:#c9bbff}.rona-ar-col-title{margin-top:6px;font-size:16px;font-weight:950;letter-spacing:-.015em}.rona-ar-col-meta{margin-top:5px;font-size:11.5px;color:var(--ar-muted);line-height:1.4}
 .rona-ar-table{display:grid}.rona-ar-row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:13px 15px;border-top:1px solid rgba(128,191,222,.082);transition:background .12s ease}.rona-ar-row:first-child{border-top:0}.rona-ar-row:hover{background:rgba(74,198,235,.025)}.rona-ar-row.total{background:linear-gradient(90deg,rgba(75,220,255,.048),rgba(75,220,255,.014));box-shadow:inset 2px 0 0 rgba(75,220,255,.24)}.fact .rona-ar-row.total{background:linear-gradient(90deg,rgba(62,231,177,.045),rgba(62,231,177,.012));box-shadow:inset 2px 0 0 rgba(62,231,177,.22)}.owner .rona-ar-row.total{background:linear-gradient(90deg,rgba(185,167,255,.044),rgba(185,167,255,.012));box-shadow:inset 2px 0 0 rgba(185,167,255,.22)}.rona-ar-row.final{background:linear-gradient(90deg,rgba(62,231,177,.095),rgba(75,220,255,.034));border-top-color:rgba(62,231,177,.27);box-shadow:inset 3px 0 0 rgba(62,231,177,.45)}.rona-ar-name{font-size:12.25px;font-weight:860;letter-spacing:-.003em}.rona-ar-hint{margin-top:4px;font-size:9.75px;color:#718b9e;line-height:1.34}.rona-ar-value{text-align:right;font-size:15.25px;font-weight:950;font-variant-numeric:tabular-nums;letter-spacing:-.012em}.rona-ar-value.positive{color:#72efc6;text-shadow:0 0 18px rgba(62,231,177,.08)}.rona-ar-value.negative{color:#ff9eac}.rona-ar-value.verify{color:#f4ce74;font-size:10.75px;letter-spacing:.02em}
-.rona-ar-expenses{padding:9px 15px 10px;background:linear-gradient(180deg,rgba(2,10,18,.22),rgba(2,10,18,.12));box-shadow:inset 0 1px rgba(128,203,230,.035)}.rona-ar-exp-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:7px 0;border-top:1px dashed rgba(128,191,222,.10);font-size:10.5px}.rona-ar-exp-line:first-child{border-top:0}.rona-ar-exp-name{color:#c8d6e4}.rona-ar-exp-sub{margin-top:3px;color:var(--ar-muted);font-size:9.5px}.rona-ar-exp-amount{font-weight:850;text-align:right}.rona-ar-empty{padding:10px 15px;color:var(--ar-muted);font-size:10.5px}
+.rona-ar-expenses{padding:9px 15px 10px;background:linear-gradient(180deg,rgba(2,10,18,.22),rgba(2,10,18,.12));box-shadow:inset 0 1px rgba(128,203,230,.035)}.rona-ar-transport{margin:0 11px 11px;border:1px solid rgba(75,220,255,.15);border-radius:11px;overflow:hidden;background:linear-gradient(180deg,rgba(4,18,29,.82),rgba(3,12,21,.72))}.rona-ar-transport-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;border-bottom:1px solid rgba(128,191,222,.1);background:linear-gradient(90deg,rgba(75,220,255,.055),transparent)}.rona-ar-transport-title{font-size:10.5px;font-weight:950;color:#dff7ff;letter-spacing:.015em}.rona-ar-transport-meta{padding:8px 11px;color:#7894a8;font-size:9.25px;line-height:1.35;border-bottom:1px dashed rgba(128,191,222,.08)}.rona-ar-transport-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 11px;border-top:1px solid rgba(128,191,222,.07)}.rona-ar-transport-row:first-of-type{border-top:0}.rona-ar-transport-name{font-size:10.5px;font-weight:860;color:#cae3ef}.rona-ar-transport-formula{margin-top:3px;color:#7edff3;font-size:9.5px;font-variant-numeric:tabular-nums}.rona-ar-transport-status{margin-top:3px;color:#79d9b8;font-size:8.6px;font-weight:850;letter-spacing:.02em}.rona-ar-transport-status.warn{color:#f2ca73}.rona-ar-transport-amount{font-size:11px;font-weight:950;color:#edfaff;text-align:right;font-variant-numeric:tabular-nums}.rona-ar-transport-conflict{margin:8px 10px 10px;padding:9px 10px;border:1px solid rgba(245,201,106,.26);border-radius:9px;background:rgba(245,201,106,.055);color:#d8bd78;font-size:9.25px;line-height:1.35}.rona-ar-transport-conflict-title{margin-bottom:4px;color:#f4d884;font-weight:950}.rona-ar-transport-conflict-action{margin-top:5px;color:#a99463;font-size:8.6px}.rona-ar-exp-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:7px 0;border-top:1px dashed rgba(128,191,222,.10);font-size:10.5px}.rona-ar-exp-line:first-child{border-top:0}.rona-ar-exp-name{color:#c8d6e4}.rona-ar-exp-sub{margin-top:3px;color:var(--ar-muted);font-size:9.5px}.rona-ar-exp-amount{font-weight:850;text-align:right}.rona-ar-empty{padding:10px 15px;color:var(--ar-muted);font-size:10.5px}
 .rona-ar-input{width:132px;max-width:100%;padding:9px 10px;border:1px solid rgba(185,167,255,.24);border-radius:8px;background:linear-gradient(180deg,rgba(18,27,47,.65),rgba(10,20,36,.65));color:#f8fafc;font:inherit;font-size:12.5px;font-weight:880;text-align:right;outline:none;font-variant-numeric:tabular-nums}.rona-ar-input:focus{border-color:rgba(185,167,255,.62);box-shadow:0 0 0 2px rgba(139,92,246,.09),0 0 22px rgba(139,92,246,.08)}.rona-ar-owner-note{padding:12px 14px}.rona-ar-owner-note textarea{width:100%;min-height:74px;resize:vertical;padding:10px 11px;border:1px solid rgba(179,156,255,.18);border-radius:8px;background:rgba(15,23,42,.42);color:#edf7ff;font:inherit;font-size:11.5px;outline:none}
 .rona-ar-actions{display:flex;gap:10px;padding:13px 14px;border-top:1px solid rgba(128,191,222,.12);background:rgba(2,10,18,.15)}.rona-ar-btn{min-height:40px;padding:0 14px;border:1px solid rgba(128,191,222,.18);border-radius:8px;background:linear-gradient(180deg,rgba(16,30,45,.72),rgba(8,19,31,.72));color:#edf7ff;font:inherit;font-size:11.25px;font-weight:950;cursor:pointer}.rona-ar-btn.primary{border-color:rgba(185,167,255,.42);background:linear-gradient(135deg,rgba(112,73,219,.84),rgba(55,94,189,.84));box-shadow:0 8px 24px rgba(86,72,185,.14)}.rona-ar-btn.send{margin-left:auto;color:#a5f3fc}.rona-ar-btn:disabled{opacity:.38;cursor:not-allowed}
 .rona-ar-loader{display:grid;place-items:center;min-height:260px;border:1px solid var(--ar-line);border-radius:14px;background:rgba(7,17,29,.8);font-size:11px;color:var(--ar-muted)}
@@ -170,7 +170,7 @@ function planModel(deal){
   const approvedReward=num(p.agentReward);
   const reward=approvedReward!==null?{value:approvedReward,status:p.agentRewardStatus||'APPROVED_FINANCE_MANAGEMENT_PLAN'}:termReward(deal,{preferSettlement:false,basisValue:financialResult});
   const ronaProfit=netProfit===null||reward.value===null?null:netProfit-reward.value;
-  return{cur,revenue,lines,expTotal,financialResult,taxes,fx,netProfit,reward,ronaProfit,expenseStatus:p.expenseStatus||'TO_VERIFY',revenueStatus:p.revenueStatus||'TO_VERIFY',taxStatus:p.taxesAndPaymentsStatus||'TO_VERIFY',fxStatus:p.fxStatus||'TO_VERIFY'}
+  return{cur,revenue,lines,expTotal,financialResult,taxes,fx,netProfit,reward,ronaProfit,expenseStatus:p.expenseStatus||'TO_VERIFY',revenueStatus:p.revenueStatus||'TO_VERIFY',taxStatus:p.taxesAndPaymentsStatus||'TO_VERIFY',fxStatus:p.fxStatus||'TO_VERIFY',transportBreakdown:p.transportBreakdown||null,transportBreakdownStatus:p.transportBreakdownStatus||'NOT_MATERIALIZED'}
 }
 function ownerModel(deal,fact){
   const revenue=correctionValue(deal,'revenue','receivedAmount',fact.revenue);
@@ -202,6 +202,38 @@ function expenseLines(lines,emptyText){
   }
   return box
 }
+function transportBreakdownView(breakdown,status){
+  const box=el('div','rona-ar-transport');
+  const head=el('div','rona-ar-transport-head');
+  head.append(el('div','rona-ar-transport-title','Транспортировка · тарифный состав'),chip(status||'TO_VERIFY',(String(status||'').includes('CONFLICT')||String(status||'').includes('TO_VERIFY'))?'warn':'good'));
+  box.append(head);
+  if(!breakdown||!Array.isArray(breakdown.components)||!breakdown.components.length){
+    box.append(el('div','rona-ar-empty','Тарифная декомпозиция не материализована · TO_VERIFY'));return box
+  }
+  const meta=[breakdown.basis_type,breakdown.note].filter(Boolean).join(' · ');
+  if(meta)box.append(el('div','rona-ar-transport-meta',meta));
+  for(const x of breakdown.components){
+    const row=el('div','rona-ar-transport-row'),left=el('div'),right=el('div');
+    const label=el('div','rona-ar-transport-name',x.label||x.key||'Компонент тарифа');
+    const formula=[];
+    if(num(x.unit_rate)!==null&&x.unit)formula.push(fmt(x.unit_rate,4)+' '+x.unit);
+    if(num(x.quantity)!==null)formula.push('× '+fmt(x.quantity,3));
+    left.append(label);
+    if(formula.length)left.append(el('div','rona-ar-transport-formula',formula.join(' ')));
+    if(x.status)left.append(el('div','rona-ar-transport-status '+(String(x.status).includes('CONFLICT')||String(x.status).includes('TO_VERIFY')?'warn':''),x.status));
+    right.append(el('div','rona-ar-transport-amount',money(x.amount,x.currency||breakdown.currency)));
+    row.append(left,right);box.append(row)
+  }
+  if(breakdown.conflict){
+    const cf=breakdown.conflict,alert=el('div','rona-ar-transport-conflict');
+    alert.append(el('div','rona-ar-transport-conflict-title','⚠ Тарифное расхождение'));
+    const txt=[cf.scope, num(cf.plan_rate)!==null?'PLAN '+fmt(cf.plan_rate,4)+' '+(cf.unit||''):null, num(cf.rail_matrix_rate)!==null?'Rail authority '+fmt(cf.rail_matrix_rate,4)+' '+(cf.unit||''):null].filter(Boolean).join(' · ');
+    alert.append(el('div','',txt));
+    if(cf.action)alert.append(el('div','rona-ar-transport-conflict-action',cf.action));
+    box.append(alert)
+  }
+  return box
+}
 function columnHead(kind,title,meta,badge,badgeKind){
   const h=el('div','rona-ar-col-head'),c=el('div');c.append(el('div','rona-ar-col-label',kind),el('div','rona-ar-col-title',title),el('div','rona-ar-col-meta',meta));h.append(c,chip(badge,badgeKind));return h
 }
@@ -211,7 +243,7 @@ function renderPlan(deal){
   const table=el('div','rona-ar-table');
   table.append(pnlRow('Итого выручка',m.revenue,m.cur,{hint:m.revenueStatus,total:true}));
   table.append(pnlRow('Расходы постатейно',m.expTotal,m.cur,{hint:m.expenseStatus}));
-  table.append(expenseLines(m.lines,'Плановые статьи затрат не материализованы · TO_VERIFY'));
+  table.append(expenseLines(m.lines,'Плановые статьи затрат не материализованы · TO_VERIFY'));table.append(transportBreakdownView(m.transportBreakdown,m.transportBreakdownStatus));
   table.append(pnlRow('Итого финансовый результат',m.financialResult,m.cur,{hint:'Выручка − плановые расходы',total:true,signed:true}));
   table.append(pnlRow('Налоги и платежи',m.taxes,m.cur,{hint:m.taxStatus,status:m.taxStatus}));
   table.append(pnlRow('Курсовая разница',m.fx,m.cur,{hint:m.fxStatus,signed:true,status:m.fxStatus}));
