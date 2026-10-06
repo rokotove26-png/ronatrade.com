@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261006-agent-rewards-finance-v6';
+const VERSION='20261006-agent-rewards-finance-v7';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 if(location.pathname!=='/portal/admin')return;
@@ -45,9 +45,14 @@ function installStyle(){
   if(q('#ronaAgentRewardsFinanceStyle'))return;
   const s=el('style');s.id='ronaAgentRewardsFinanceStyle';s.textContent=`
 #page-agent-settlements{--ar-panel:#0a1725;--ar-panel2:#0d1b2b;--ar-line:rgba(148,163,184,.17);--ar-text:#edf7ff;--ar-muted:#8ba0b6;--ar-cyan:#40d9ff;--ar-green:#43dfa8;--ar-amber:#ffd166;--ar-red:#ff8698;--ar-violet:#b39cff}
-.rona-ar-canonical-head{margin-bottom:16px}.rona-ar-host{display:block}.rona-ar{width:min(100%,1740px);margin:0 auto;display:grid;gap:16px;color:var(--ar-text)}
-.rona-ar *{box-sizing:border-box}.rona-ar-hero{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:20px 22px;border:1px solid rgba(64,217,255,.18);border-radius:15px;background:linear-gradient(135deg,rgba(8,27,43,.97),rgba(7,17,29,.96));box-shadow:0 16px 44px rgba(0,0,0,.20)}
-.rona-ar-title{font-size:26px;font-weight:950;letter-spacing:-.025em}.rona-ar-sub{margin-top:6px;font-size:13px;color:var(--ar-muted);line-height:1.45}.rona-ar-live{padding:7px 10px;border:1px solid rgba(67,223,168,.24);border-radius:999px;color:#a7f3d0;background:rgba(16,185,129,.08);font-size:11.5px;font-weight:950;white-space:nowrap}
+.rona-ar-canonical-head{width:min(100%,1740px);margin:0 auto 16px;padding:0}
+.rona-ar-canonical-head>.rona-ar-hero{position:relative;overflow:hidden;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;min-height:132px;margin:0;padding:26px 28px;border:1px solid rgba(118,211,255,.18);border-radius:26px;background:radial-gradient(420px 160px at 90% 0%,rgba(89,215,255,.17),transparent 65%),linear-gradient(135deg,rgba(13,24,36,.96),rgba(9,15,24,.82) 58%,rgba(15,22,35,.9));box-shadow:var(--rv-shadow-soft,0 18px 50px rgba(0,0,0,.22));backdrop-filter:blur(22px) saturate(130%)}
+.rona-ar-canonical-head>.rona-ar-hero::before{content:"";position:absolute;width:260px;height:260px;right:-110px;top:-145px;border-radius:50%;border:1px solid rgba(89,215,255,.24);box-shadow:0 0 0 34px rgba(89,215,255,.035),0 0 0 72px rgba(107,124,255,.025)}
+.rona-ar-canonical-head .rona-visual-title{position:relative;margin:0;color:#fff;font-size:clamp(28px,3.1vw,44px);line-height:1.02;font-weight:900;letter-spacing:-.035em}
+.rona-ar-canonical-head .rona-ar-sub{position:relative;max-width:720px;margin-top:10px;color:var(--rv-muted,var(--ar-muted));font-size:13px;line-height:1.55;font-weight:650}
+.rona-ar-host{display:block}.rona-ar{width:min(100%,1740px);margin:0 auto;display:grid;gap:16px;color:var(--ar-text)}
+.rona-ar *{box-sizing:border-box}.rona-ar-finance-banner{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:20px 22px;border:1px solid rgba(64,217,255,.18);border-radius:15px;background:linear-gradient(135deg,rgba(8,27,43,.97),rgba(7,17,29,.96));box-shadow:0 16px 44px rgba(0,0,0,.20)}
+.rona-ar-finance-banner .rona-ar-sub{margin-top:0;font-size:13px;color:var(--ar-muted);line-height:1.45}.rona-ar-live{padding:7px 10px;border:1px solid rgba(67,223,168,.24);border-radius:999px;color:#a7f3d0;background:rgba(16,185,129,.08);font-size:11.5px;font-weight:950;white-space:nowrap}
 .rona-ar-deals{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}.rona-ar-deal{display:grid;gap:6px;text-align:left;padding:14px 15px;border:1px solid rgba(148,163,184,.13);border-radius:13px;background:rgba(7,17,29,.70);color:inherit;cursor:pointer}.rona-ar-deal:hover,.rona-ar-deal.is-active{border-color:rgba(64,217,255,.42);background:rgba(8,31,47,.88)}.rona-ar-deal-top{display:flex;justify-content:space-between;gap:8px}.rona-ar-deal-id{font-size:13px;font-weight:950}.rona-ar-deal-client{font-size:11.5px;line-height:1.4;color:var(--ar-muted);min-height:32px}.rona-ar-deal-result{font-size:13.5px;font-weight:900}
 .rona-ar-chip{display:inline-flex;align-items:center;padding:3px 6px;border:1px solid rgba(148,163,184,.15);border-radius:999px;font-size:10px;font-weight:900;color:#bdd0df;background:rgba(148,163,184,.05)}.rona-ar-chip.good{color:#a7f3d0;border-color:rgba(67,223,168,.25)}.rona-ar-chip.warn{color:#fde68a;border-color:rgba(255,209,102,.25)}
 .rona-ar-status{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border:1px solid var(--ar-line);border-radius:11px;background:rgba(3,12,20,.34);font-size:11.5px;color:var(--ar-muted)}.rona-ar-status strong{color:#dbeafe}
@@ -58,7 +63,7 @@ function installStyle(){
 .rona-ar-input{width:132px;max-width:100%;padding:9px 10px;border:1px solid rgba(179,156,255,.24);border-radius:8px;background:rgba(15,23,42,.55);color:#f8fafc;font:inherit;font-size:12.5px;font-weight:850;text-align:right;outline:none}.rona-ar-input:focus{border-color:rgba(179,156,255,.62);box-shadow:0 0 0 2px rgba(139,92,246,.09)}.rona-ar-owner-note{padding:12px 14px}.rona-ar-owner-note textarea{width:100%;min-height:74px;resize:vertical;padding:10px 11px;border:1px solid rgba(179,156,255,.18);border-radius:8px;background:rgba(15,23,42,.42);color:#edf7ff;font:inherit;font-size:11.5px;outline:none}
 .rona-ar-actions{display:flex;gap:10px;padding:13px 14px;border-top:1px solid var(--ar-line)}.rona-ar-btn{min-height:40px;padding:0 14px;border:1px solid rgba(148,163,184,.18);border-radius:8px;background:rgba(15,23,42,.52);color:#edf7ff;font:inherit;font-size:11.5px;font-weight:950;cursor:pointer}.rona-ar-btn.primary{border-color:rgba(179,156,255,.38);background:linear-gradient(135deg,rgba(124,58,237,.82),rgba(79,70,229,.82))}.rona-ar-btn.send{margin-left:auto;color:#a5f3fc}.rona-ar-btn:disabled{opacity:.4;cursor:not-allowed}
 .rona-ar-loader{display:grid;place-items:center;min-height:260px;border:1px solid var(--ar-line);border-radius:14px;background:rgba(7,17,29,.8);font-size:11px;color:var(--ar-muted)}
-@media(max-width:1260px){.rona-ar-pnl-grid{grid-template-columns:repeat(3,minmax(390px,1fr));overflow-x:auto;padding-bottom:4px}}@media(max-width:720px){.rona-ar-hero{align-items:flex-start;flex-direction:column}.rona-ar-deals{grid-template-columns:1fr}}
+@media(max-width:1260px){.rona-ar-pnl-grid{grid-template-columns:repeat(3,minmax(390px,1fr));overflow-x:auto;padding-bottom:4px}}@media(max-width:860px){.rona-ar-canonical-head>.rona-ar-hero{min-height:112px;padding:20px;border-radius:20px}}@media(max-width:720px){.rona-ar-finance-banner{align-items:flex-start;flex-direction:column}.rona-ar-deals{grid-template-columns:1fr}}
 `;document.head.append(s)
 }
 
@@ -67,14 +72,16 @@ function rewardsSelected(){const p=page();return document.documentElement.datase
 function ensureCanonicalLayout(){
   const p=page();if(!p)return null;
   let head=p.querySelector(':scope > [data-rona-agent-rewards-canonical-head]');
-  if(!head){
-    head=el('div','current-loading rona-ar-canonical-head');head.dataset.ronaAgentRewardsCanonicalHead='1';
-    const card=el('div','current-loading-card'),title=el('div','current-loading-title','Вознаграждения агентов');card.append(title);head.append(card);p.prepend(head)
+  if(!head){head=el('div','rona-ar-canonical-head');head.dataset.ronaAgentRewardsCanonicalHead='1';p.prepend(head)}
+  let hero=head.querySelector(':scope > .rona-visual-hero.rona-ar-hero');
+  if(!hero){
+    hero=el('section','rona-visual-hero rona-ar-hero');
+    const copy=el('div'),title=el('h1','rona-visual-title','Вознаграждения агентов'),sub=el('div','rona-ar-sub','Агентская компания → клиент → сделка → подтверждённое право на выплату.');
+    copy.append(title,sub);hero.append(copy);head.replaceChildren(hero)
   }
-  let title=head.querySelector('.current-loading-title');
-  if(!title){title=el('div','current-loading-title','Вознаграждения агентов');(head.querySelector('.current-loading-card')||head).prepend(title)}
-  if(title.textContent!=='Вознаграждения агентов')title.textContent='Вознаграждения агентов';
-  const sub=head.querySelector('.current-loading-sub');if(sub)sub.hidden=!!state.data;
+  const title=hero.querySelector('.rona-visual-title'),sub=hero.querySelector('.rona-ar-sub');
+  if(title&&title.textContent!=='Вознаграждения агентов')title.textContent='Вознаграждения агентов';
+  if(sub&&sub.textContent!=='Агентская компания → клиент → сделка → подтверждённое право на выплату.')sub.textContent='Агентская компания → клиент → сделка → подтверждённое право на выплату.';
   let host=p.querySelector(':scope > [data-rona-agent-rewards-host]');
   if(!host){host=el('div','rona-ar-host');host.dataset.ronaAgentRewardsHost='1';p.append(host)}
   for(const n of Array.from(p.children))if(n!==head&&n!==host)n.remove();
@@ -282,8 +289,8 @@ function render(){
   if(!data){root.append(el('div','rona-ar-loader','Загрузка финансового P&L-контура…'));replace(root);return}
   const deals=Array.isArray(data.deals)?data.deals:[];
   if(state.selectedKey&&!deals.some(d=>rowKey(d)===state.selectedKey))state.selectedKey=null;
-  const hero=el('div','rona-ar-hero'),copy=el('div');
-  copy.append(el('div','rona-ar-title','Вознаграждения агентов'),el('div','rona-ar-sub','Финансовый паспорт сделки: ПЛАН → ФАКТ → OWNER CONTROL. Выручка в FACT — полная плановая выручка сделки, а не фактически поступившая оплата.'));
+  const hero=el('div','rona-ar-finance-banner'),copy=el('div');
+  copy.append(el('div','rona-ar-sub','Финансовый паспорт сделки: ПЛАН → ФАКТ → OWNER CONTROL. Выручка в FACT — полная плановая выручка сделки, а не фактически поступившая оплата.'));
   hero.append(copy,el('div','rona-ar-live','FINANCE P&L'));root.append(hero);
   if(!deals.length){root.append(el('div','rona-ar-loader','Сделок в агентском контуре пока нет.'));replace(root);return}
   renderDealCards(root,deals);
