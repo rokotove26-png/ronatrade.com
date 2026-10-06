@@ -130,11 +130,11 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Date\.now\(\)-state\.loadedAt<15000/);
   assert.doesNotMatch(ui,/p\.replaceChildren\(root\)/);
   assert.match(ui,/\.rona-ar-canonical-head \.rona-visual-title/);
-  assert.match(ui,/font-size:clamp\(28px,3\.1vw,44px\)/);
+  assert.match(ui,/font-size:clamp\(31px,3\.25vw,48px\)/);
   assert.match(ui,/Агентская компания → клиент → сделка → подтверждённое право на выплату\./);
   assert.doesNotMatch(ui,/rona-ar-title','Вознаграждения агентов/);
-  assert.match(ui,/\.rona-ar-name\{font-size:12\.5px/);
-  assert.match(ui,/\.rona-ar-value\{text-align:right;font-size:15\.5px/);
+  assert.match(ui,/\.rona-ar-name\{font-size:12\.25px/);
+  assert.match(ui,/\.rona-ar-value\{text-align:right;font-size:15\.25px/);
   assert.match(ui,/minmax\(230px,1fr\)/);
   assert.match(ui,/__RONA_AGENT_REWARDS_VISUAL__='digital-finance-v1'/);
   assert.match(ui,/data-rona-agent-rewards-visual|ronaAgentRewardsVisual/);
