@@ -52,7 +52,11 @@ test('Agent reward fails closed without a confirmed calculable basis',()=>{
   assert.match(migration,/settlement_state in \('APPROVED','PAYABLE_CONFIRMED','PAID'\)/);
 });
 
-test('Agent Rewards runtime serialization ships its transform helper',()=>{\n  assert.match(ui,/const SCRIPT='var __name=\\(target,value\\)=>target;/);\n});\n\ntest('Dedicated premium UI has AS IS, Owner control, correction and future send button',()=>{
+test('Agent Rewards runtime serialization ships its transform helper',()=>{
+  assert.match(ui,/const SCRIPT='var __name=\(target,value\)=>target;/);
+});
+
+test('Dedicated premium UI has AS IS, Owner control, correction and future send button',()=>{
   assert.match(ui,/20261006-agent-rewards-finance-v3/);
   assert.match(ui,/AS IS/);
   assert.match(ui,/AI Финансовый директор/);
