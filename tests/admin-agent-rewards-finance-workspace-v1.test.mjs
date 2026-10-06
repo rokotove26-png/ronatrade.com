@@ -247,7 +247,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Сохранить корректировку/);
   assert.match(ui,/Отправить агенту/);
   assert.match(ui,/send\.disabled=true/);
-  assert.match(ui,/data-owner-expense-key/);
+  assert.doesNotMatch(ui,/data-owner-expense-key/);
   assert.match(ui,/data-owner-key/);
   assert.match(ui,/openSettlementAdjustment:m\.openSettlementAdjustment/);
   assert.doesNotMatch(ui,/rona-ar-kpis/);
