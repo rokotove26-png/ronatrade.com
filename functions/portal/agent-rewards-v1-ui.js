@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261006-agent-rewards-finance-v13-cash-fact-compact';
+const VERSION='20261006-agent-rewards-finance-v14-dds-payment-lines';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='digital-finance-v1';
@@ -183,11 +183,27 @@ function factModel(deal){
   const conditionalPositions=Array.isArray(deal?.conditionalPositions)?deal.conditionalPositions:[];
   return{cur,revenue,operating,opTotal,taxes,fx,fxStatus,financialResult,netProfit,reward,ronaProfit,actualSpend,actualQuantity,recognitionStatus,approved,settlementPositions,conditionalPositions}
 }
+function cashPaymentLinesModel(deal,cur){
+  const rows=Array.isArray(deal?.cashPaymentLines)?deal.cashPaymentLines:[],map=new Map();
+  for(const x of rows){
+    const amount=num(x.amount),currency=String(x.currency||'').trim();
+    if(amount===null||!currency||currency!==cur)continue;
+    const paymentId=String(x.paymentId||''),counterparty=String(x.counterparty||'Контрагент');
+    const key=[paymentId,counterparty,currency].join('|');
+    const prev=map.get(key)||{paymentId,counterparty,amount:0,currency,native:[],source:[]};
+    prev.amount+=amount;
+    if(num(x.nativeAmount)!==null&&x.nativeCurrency)prev.native.push(money(x.nativeAmount,String(x.nativeCurrency)));
+    if(x.authorityStatus)prev.source.push(String(x.authorityStatus));
+    map.set(key,prev)
+  }
+  return Array.from(map.values())
+}
 function cashFactModel(deal){
   const f=deal?.cashFlow||{},cur=String(f.currency||currencyOf(deal)||'').trim();
   const status=String(f.status||'TO_VERIFY_PRESENTATION_AUTHORITY'),approved=status==='APPROVED_CASH_FLOW_DDS';
   const settlementPositions=Array.isArray(deal?.settlementPositions)?deal.settlementPositions:[];
   const conditionalPositions=Array.isArray(deal?.conditionalPositions)?deal.conditionalPositions:[];
+  const paymentLines=approved?cashPaymentLinesModel(deal,cur):[];
   return{
     cur,status,approved,
     cashReceived:approved?num(f.cashReceived):null,
@@ -196,7 +212,7 @@ function cashFactModel(deal){
     totalCashOut:approved?num(f.totalCashOut):null,
     netCashFlow:approved?num(f.netCashFlow):null,
     realizedFxReference:approved?num(f.realizedFxReference):null,
-    settlementPositions,conditionalPositions
+    paymentLines,settlementPositions,conditionalPositions
   }
 }
 function planModel(deal){
@@ -330,7 +346,18 @@ function renderFact(deal){
   col.append(columnHead('2 · ФАКТ','ДДС по сделке','Только реальные поступления и выплаты',m.approved?'ДДС':'TO VERIFY',m.approved?'good':'warn'));
   const table=el('div','rona-ar-table');
   table.append(pnlRow('Поступило',m.cashReceived,m.cur,{hint:'Фактические поступления денежных средств',total:true}));
-  table.append(pnlRow('Оплачено контрагентам',m.counterpartyCashOut,m.cur,{hint:'Подтверждённые списания по сделке'}));
+  table.append(pnlRow('Оплачено контрагентам',m.counterpartyCashOut,m.cur,{hint:'Подтверждённые списания по сделке',total:true}));
+  table.append(expenseLines(
+    m.paymentLines.map(x=>({
+      label:x.counterparty,
+      amount:x.amount,
+      currency:x.currency,
+      paymentId:x.paymentId,
+      native:x.native,
+      source:Array.from(new Set(x.source)).join(' · ')
+    })),
+    m.approved?'Подтверждённых выплат контрагентам нет.':'Выплаты TO_VERIFY.'
+  ));
   table.append(pnlRow('Банковские комиссии',m.bankFees,m.cur,{hint:'Фактически списанные комиссии'}));
   table.append(pnlRow('Чистый ДДС',m.netCashFlow,m.cur,{hint:'Поступления − выплаты − комиссии',final:true,signed:true}));
   if(m.realizedFxReference!==null)table.append(pnlRow('Реализованный FX · справочно',m.realizedFxReference,m.cur,{hint:'Не включается повторно в Чистый ДДС',signed:true}));
