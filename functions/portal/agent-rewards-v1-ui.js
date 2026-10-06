@@ -1,6 +1,6 @@
 function agentRewardsRuntime(){'use strict';
-if(window.__RONA_AGENT_REWARDS_FINANCE_V1__==='20261005-agent-rewards-finance-v2')return;
-window.__RONA_AGENT_REWARDS_FINANCE_V1__='20261005-agent-rewards-finance-v2';
+if(window.__RONA_AGENT_REWARDS_FINANCE_V1__==='20261006-agent-rewards-finance-v3')return;
+window.__RONA_AGENT_REWARDS_FINANCE_V1__='20261006-agent-rewards-finance-v3';
 if(location.pathname!=='/portal/admin')return;
 
 const API='/portal/owner-api';
@@ -235,7 +235,7 @@ if(document.documentElement.dataset.ronaAdminPage==='agent-settlements'||page()?
 window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__=async()=>{state.data=await getWorkspace();render()};
 window.__RONA_AGENT_REWARDS_FINANCE_REPAIR__=()=>{attachOwnerGuard();return start()};
 }
-const SCRIPT='('+agentRewardsRuntime.toString()+')();';
+const SCRIPT='var __name=(target,value)=>target;('+agentRewardsRuntime.toString()+')();';
 
 export async function onRequest(){
   return new Response(SCRIPT,{status:200,headers:{
@@ -244,6 +244,6 @@ export async function onRequest(){
     'pragma':'no-cache',
     'expires':'0',
     'x-content-type-options':'nosniff',
-    'x-rona-agent-rewards-owner':'ADMIN_AGENT_REWARDS_FINANCE_WORKSPACE_V1'
+    'x-rona-agent-rewards-owner':'ADMIN_AGENT_REWARDS_FINANCE_WORKSPACE_V2'
   }});
 }
