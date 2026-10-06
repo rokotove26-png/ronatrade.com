@@ -31,6 +31,7 @@ const operationsV9=read('functions/portal/admin-operations-command-center-v9.js'
 const operationsV91=read('functions/portal/admin-operations-command-center-v9-1.js');
 const operationsV10=read('functions/portal/admin-operations-command-center-v10-clean.js');
 const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
+const retiredAgentRewards=read('functions/portal/owner-ui-chunks/chunk18-base.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
 const deployWait=read('scripts/wait-cloudflare-commit.mjs');
@@ -48,7 +49,7 @@ need(has(admin,'data-page="agent-settlements"')&&has(admin,'id="page-agent-settl
 need(has(admin,'data-page="market-news"')&&has(admin,'id="page-market-news"'),'Market News route/page is missing');
 need(has(admin,'grid-template-columns:272px')&&has(admin,'min-height:48px')&&has(admin,'font-size:14.5px'),'Canonical desktop sidebar sizing is missing');
 need(has(admin,'current-only-router-v2')&&has(admin,'MutationObserver'),'Single current router guard is missing');
-need(has(admin,'/assets/portal-admin-shell-fast-v1.js?v=20261005-agent-rewards-finance-v2'),'Admin shell does not cache-bust the lazy selected-page fast shell');
+need(has(admin,'/assets/portal-admin-shell-fast-v1.js?v=20261006-agent-rewards-finance-v3'),'Admin shell does not cache-bust the lazy selected-page fast shell');
 need(!has(admin,'id="rona-clients-agents-current-loader"')&&!has(admin,'/portal/clients-agents-current-ui?v=20261005-agent-rewards-owner-v1'),'Access runtime must not preload from Admin HTML');
 need(has(admin,'/assets/portal-admin-runtime-watchdog-v1.js?v=20261005-agent-rewards-owner-v1'),'Admin shell does not cache-bust the stable watchdog');
 
@@ -57,12 +58,13 @@ need(has(shell,"ADMIN_SHELL_BOOT")&&has(shell,"RETRY_ONLY_ON_FAILURE")&&has(shel
 
 need(!has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-ui")&&has(shell,"'/portal/prices-current-ui")&&has(shell,"'/portal/analytics-v2-ui"),'Required current modules / retired Claims contract is invalid');
 need(has(shell,"access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'}"),'Clients/Agents current runtime is not managed by the fast shell');
-need(has(shell,"agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261005-finance-workspace-v2-owner-guard'}"),'Dedicated Agent Rewards runtime is not managed by the fast shell');
+need(has(shell,"agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261006-finance-workspace-v3-legacy-retired'}"),'Dedicated Agent Rewards runtime is not managed by the fast shell');
 need(has(shell,"const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost()")&&has(shell,"async function loadAccess()"),'Clients/Agents stable access readiness/self-heal contract is missing');
 need(!has(shell,"const accessWarm=loadAccess();")&&has(shell,"if(p==='access')loadAccess();")&&has(shell,"if(p==='access')return loadAccess();"),'Clients/Agents access module must load only for the selected Access page');
 need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.__RONA_ADMIN_MODULES__.access")&&!has(shell,"window.__RONA_CLIENTS_AGENTS_CURRENT__=null"),'Clients/Agents recovery must preserve a live runtime without teardown');
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
+need(has(retiredAgentRewards,"RETIRED_BY_FINANCE_WORKSPACE_V2")&&!has(retiredAgentRewards,'MutationObserver')&&!has(retiredAgentRewards,'setInterval')&&!has(retiredAgentRewards,'agentRewardsFragment')&&!has(retiredAgentRewards,'Активные агенты')&&!has(retiredAgentRewards,'Реестр'),'Legacy chunk18 Agent Rewards owner is still active');
 
 need(has(mainUi,"patchAdminBootstrapTelemetry(patchDealsCurrentOnlyNoFlash(patchRailSingleOwner(patchAdminOperationsCommandCenterV10Clean(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply bootstrap telemetry and Operations V10 patches after source assembly');
 need(has(mainUi,"ADMIN_BOOTSTRAP_RESIDUAL_V1")&&has(mainUi,"ADMIN_MAIN_REFRESH_TICK")&&has(mainUi,"ADMIN_MAIN_BOOT"),'Admin main bootstrap residual telemetry contract is missing');

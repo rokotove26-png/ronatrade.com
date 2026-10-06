@@ -81,7 +81,7 @@ async function loadModule(name,src,{attempts=3,ready=null,timeout=14000}={}){
 window.__RONA_ADMIN_LOAD_MODULE__=loadModule;
 
 const MODULES=Object.freeze({
-  main:{src:'/portal/main-ui?v=20260826-single-owner',ready:()=>window.__RONA_OWNER_ADMIN_READY__===true},
+  main:{src:'/portal/main-ui?v=20261006-agent-rewards-retire-v3',ready:()=>window.__RONA_OWNER_ADMIN_READY__===true},
   deals:{src:'/portal/deals-current-state-ui?v=20260826-single-owner'},
   dealsR11:{src:'/portal/deals-r1-r11-ui?v=20260826-single-owner'},
   cash:{src:'/portal/cash-r2-ui?v=20260826-single-owner'},
@@ -92,7 +92,7 @@ const MODULES=Object.freeze({
   analytics:{src:'/portal/analytics-v2-ui?v=20260826-approved-analytics'},
   prices:{src:'/portal/prices-current-ui?v=20260826-single-owner'},
   access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'},
-  agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261005-finance-workspace-v2-owner-guard'}
+  agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261006-finance-workspace-v3-legacy-retired'}
 });
 const railPrimaryRoot=()=>document.querySelector('[data-rail-current-v4="ready"],[data-rail-current-root="ready"]:not([data-rail-safe-fallback])');
 const railFallbackRoot=()=>document.querySelector('[data-rail-safe-fallback]');
