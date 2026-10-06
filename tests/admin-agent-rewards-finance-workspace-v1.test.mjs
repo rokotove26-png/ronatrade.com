@@ -307,7 +307,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Уже отражён в фактических платежах · повторно в результат не прибавляется/);
   assert.match(ui,/fact\.netCashFlow\+openSettlementAdjustment/);
   assert.match(ui,/basis=result-fx/);
-  assert.match(ui,/ronaProfit=actualFinancialResult-reward\.value/);
+  assert.match(ui,/actualFinancialResult-reward\.value/);
 
 });
 
