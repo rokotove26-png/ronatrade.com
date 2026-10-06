@@ -82,13 +82,19 @@ function validTerm(deal){
   const t=deal?.agentTerm||{};
   return upper(t.status)==='ACTIVE'&&upper(t.lifecycleState)==='ACTIVE'&&['CONFIRMED','VERIFIED','AUTHORITATIVE'].includes(upper(t.authorityState))
 }
-function termReward(deal,{preferSettlement=false}={}){
-  const cur=currencyOf(deal),st=deal?.settlement||{},t=deal?.agentTerm||{};
+function termReward(deal,{preferSettlement=false,basisValue=null}={}){
+  const cur=currencyOf(deal),st=deal?.settlement||{},t=deal?.agentTerm||{},ref=upper(t.reference);
   if(preferSettlement&&num(st.amount)!==null&&String(st.currency||'').trim()===cur&&['APPROVED','PAYABLE_CONFIRMED','PAID'].includes(upper(st.state))&&['CONFIRMED','VERIFIED','AUTHORITATIVE'].includes(upper(st.authorityState)))return{value:num(st.amount),status:'SETTLEMENT_AUTHORITY'};
   if(!validTerm(deal))return{value:null,status:t.mode?'TERM_NOT_ACTIVE':'TERM_MISSING'};
   if(upper(t.mode)==='FIXED'&&num(t.fixedAmount)!==null&&String(t.currency||'').trim()===cur)return{value:num(t.fixedAmount),status:'FIXED_TERM'};
   if(upper(t.mode)==='PER_TONNE'&&num(t.rate)!==null&&num(deal.quantityTonnes)!==null&&String(t.currency||'').trim()===cur)return{value:num(t.rate)*num(deal.quantityTonnes),status:'PER_TONNE_TERM'};
-  return{value:null,status:upper(t.mode)==='PERCENT'?'CALCULATION_BASIS_REQUIRED':'TO_VERIFY'}
+  if(upper(t.mode)==='PERCENT'&&num(t.rate)!==null){
+    if(ref.includes('FINAL LOADING AND CLOSING DOCUMENTS')&&!['COMPLETED','CLOSED'].includes(upper(deal.businessStatus)))return{value:null,status:'CLOSING_CONDITIONS_REQUIRED'};
+    const basis=num(basisValue);
+    if(basis===null)return{value:null,status:'CALCULATION_BASIS_REQUIRED'};
+    return{value:Math.max(0,basis)*num(t.rate),status:ref.includes('EXCLUDING FX')?'PERCENT_TERM_BASE_EXCLUDING_FX':'PERCENT_TERM'};
+  }
+  return{value:null,status:'TO_VERIFY'}
 }
 function groupExpenses(deal){
   const cur=currencyOf(deal),rows=Array.isArray(deal?.expenses)?deal.expenses:[],map=new Map();
@@ -112,7 +118,7 @@ function factModel(deal){
   const revenue=num(deal?.factInputs?.revenue);
   const financialResult=revenue===null?null:revenue-opTotal;
   const netProfit=financialResult===null||fx===null?null:financialResult-feeTotal+fx;
-  const reward=termReward(deal,{preferSettlement:true});
+  const reward=termReward(deal,{preferSettlement:true,basisValue:financialResult});
   const ronaProfit=netProfit===null||reward.value===null?null:netProfit-reward.value;
   return{cur,revenue,operating,opTotal,fees,feeTotal,fx,financialResult,netProfit,reward,ronaProfit,actualSpend}
 }
@@ -122,7 +128,7 @@ function planModel(deal){
   const revenue=num(p.revenue),financialResult=revenue===null||expTotal===null?null:revenue-expTotal;
   const taxes=num(p.taxesAndPayments),fx=num(p.fxDifference);
   const netProfit=financialResult===null||taxes===null||fx===null?null:financialResult-taxes+fx;
-  const reward=termReward(deal,{preferSettlement:false});
+  const reward=termReward(deal,{preferSettlement:false,basisValue:financialResult});
   const ronaProfit=netProfit===null||reward.value===null?null:netProfit-reward.value;
   return{cur,revenue,lines,expTotal,financialResult,taxes,fx,netProfit,reward,ronaProfit,expenseStatus:p.expenseStatus||'TO_VERIFY',revenueStatus:p.revenueStatus||'TO_VERIFY'}
 }
