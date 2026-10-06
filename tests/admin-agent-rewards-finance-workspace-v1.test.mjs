@@ -57,6 +57,10 @@ test('Agent reward remains fail-closed without a calculable confirmed basis',()=
   assert.match(baseline,/FIXED_TERM/);
   assert.match(ui,/PER_TONNE_TERM/);
   assert.match(ui,/CALCULATION_BASIS_REQUIRED/);
+  assert.match(ui,/PERCENT_TERM_BASE_EXCLUDING_FX/);
+  assert.match(ui,/CLOSING_CONDITIONS_REQUIRED/);
+  assert.match(ui,/Math\.max\(0,basis\)\*num\(t\.rate\)/);
+  assert.match(ui,/basisValue:financialResult/);
 });
 
 test('Agent Rewards runtime serialization ships its transform helper',()=>{
