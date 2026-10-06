@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261006-agent-rewards-finance-v11-owner-line-corrections';
+const VERSION='20261006-agent-rewards-finance-v12-accrual-fact';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='digital-finance-v1';
@@ -60,7 +60,7 @@ function installStyle(){
 .rona-ar-pnl-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}.rona-ar-col{position:relative;min-width:0;border:1px solid var(--ar-line);border-radius:15px;overflow:hidden;background:linear-gradient(180deg,rgba(8,22,35,.985),rgba(5,15,25,.99));box-shadow:0 18px 42px rgba(0,0,0,.17),inset 0 1px rgba(255,255,255,.018)}.rona-ar-col::before{content:"";position:absolute;left:0;top:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(75,220,255,.62),transparent);opacity:.78;z-index:2}.rona-ar-col.plan{border-color:rgba(75,220,255,.25);background:radial-gradient(280px 170px at 0 0,rgba(75,220,255,.075),transparent 72%),linear-gradient(180deg,rgba(8,23,37,.985),rgba(5,15,25,.99))}.rona-ar-col.fact{border-color:rgba(62,231,177,.23);background:radial-gradient(280px 170px at 100% 0,rgba(62,231,177,.07),transparent 72%),linear-gradient(180deg,rgba(8,23,35,.985),rgba(5,15,25,.99))}.rona-ar-col.fact::before{background:linear-gradient(90deg,transparent,rgba(62,231,177,.64),transparent)}.rona-ar-col.owner{border-color:rgba(185,167,255,.27);background:radial-gradient(300px 180px at 100% 0,rgba(130,92,246,.105),transparent 70%),linear-gradient(180deg,rgba(10,22,38,.99),rgba(6,15,28,.99))}.rona-ar-col.owner::before{background:linear-gradient(90deg,transparent,rgba(185,167,255,.65),transparent)}
 .rona-ar-col-head{position:relative;display:flex;justify-content:space-between;gap:9px;padding:17px 16px 15px;border-bottom:1px solid rgba(128,203,230,.12);background:linear-gradient(180deg,rgba(255,255,255,.012),transparent)}.rona-ar-col-label{font-size:9.5px;font-weight:950;letter-spacing:.14em;text-transform:uppercase;color:var(--ar-cyan)}.fact .rona-ar-col-label{color:#78efc7}.owner .rona-ar-col-label{color:#c9bbff}.rona-ar-col-title{margin-top:6px;font-size:16px;font-weight:950;letter-spacing:-.015em}.rona-ar-col-meta{margin-top:5px;font-size:11.5px;color:var(--ar-muted);line-height:1.4}
 .rona-ar-table{display:grid}.rona-ar-row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:13px 15px;border-top:1px solid rgba(128,191,222,.082);transition:background .12s ease}.rona-ar-row:first-child{border-top:0}.rona-ar-row:hover{background:rgba(74,198,235,.025)}.rona-ar-row.total{background:linear-gradient(90deg,rgba(75,220,255,.048),rgba(75,220,255,.014));box-shadow:inset 2px 0 0 rgba(75,220,255,.24)}.fact .rona-ar-row.total{background:linear-gradient(90deg,rgba(62,231,177,.045),rgba(62,231,177,.012));box-shadow:inset 2px 0 0 rgba(62,231,177,.22)}.owner .rona-ar-row.total{background:linear-gradient(90deg,rgba(185,167,255,.044),rgba(185,167,255,.012));box-shadow:inset 2px 0 0 rgba(185,167,255,.22)}.rona-ar-row.final{background:linear-gradient(90deg,rgba(62,231,177,.095),rgba(75,220,255,.034));border-top-color:rgba(62,231,177,.27);box-shadow:inset 3px 0 0 rgba(62,231,177,.45)}.rona-ar-name{font-size:12.25px;font-weight:860;letter-spacing:-.003em}.rona-ar-hint{margin-top:4px;font-size:9.75px;color:#718b9e;line-height:1.34}.rona-ar-value{text-align:right;font-size:15.25px;font-weight:950;font-variant-numeric:tabular-nums;letter-spacing:-.012em}.rona-ar-value.positive{color:#72efc6;text-shadow:0 0 18px rgba(62,231,177,.08)}.rona-ar-value.negative{color:#ff9eac}.rona-ar-value.verify{color:#f4ce74;font-size:10.75px;letter-spacing:.02em}
-.rona-ar-expenses{padding:9px 15px 10px;background:linear-gradient(180deg,rgba(2,10,18,.22),rgba(2,10,18,.12));box-shadow:inset 0 1px rgba(128,203,230,.035)}.rona-ar-transport{margin:0 11px 11px;border:1px solid rgba(75,220,255,.15);border-radius:11px;overflow:hidden;background:linear-gradient(180deg,rgba(4,18,29,.82),rgba(3,12,21,.72))}.rona-ar-transport-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;border-bottom:1px solid rgba(128,191,222,.1);background:linear-gradient(90deg,rgba(75,220,255,.055),transparent)}.rona-ar-transport-title{font-size:10.5px;font-weight:950;color:#dff7ff;letter-spacing:.015em}.rona-ar-transport-meta{padding:8px 11px;color:#7894a8;font-size:9.25px;line-height:1.35;border-bottom:1px dashed rgba(128,191,222,.08)}.rona-ar-transport-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 11px;border-top:1px solid rgba(128,191,222,.07)}.rona-ar-transport-row:first-of-type{border-top:0}.rona-ar-transport-name{font-size:10.5px;font-weight:860;color:#cae3ef}.rona-ar-transport-formula{margin-top:3px;color:#7edff3;font-size:9.5px;font-variant-numeric:tabular-nums}.rona-ar-transport-status{margin-top:3px;color:#79d9b8;font-size:8.6px;font-weight:850;letter-spacing:.02em}.rona-ar-transport-status.warn{color:#f2ca73}.rona-ar-transport-amount{font-size:11px;font-weight:950;color:#edfaff;text-align:right;font-variant-numeric:tabular-nums}.rona-ar-transport-conflict{margin:8px 10px 10px;padding:9px 10px;border:1px solid rgba(245,201,106,.26);border-radius:9px;background:rgba(245,201,106,.055);color:#d8bd78;font-size:9.25px;line-height:1.35}.rona-ar-transport-conflict-title{margin-bottom:4px;color:#f4d884;font-weight:950}.rona-ar-transport-conflict-action{margin-top:5px;color:#a99463;font-size:8.6px}.rona-ar-exp-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:7px 0;border-top:1px dashed rgba(128,191,222,.10);font-size:10.5px}.rona-ar-exp-line:first-child{border-top:0}.rona-ar-exp-name{color:#c8d6e4}.rona-ar-exp-sub{margin-top:3px;color:var(--ar-muted);font-size:9.5px}.rona-ar-exp-amount{font-weight:850;text-align:right}.rona-ar-empty{padding:10px 15px;color:var(--ar-muted);font-size:10.5px}
+.rona-ar-expenses{padding:9px 15px 10px;background:linear-gradient(180deg,rgba(2,10,18,.22),rgba(2,10,18,.12));box-shadow:inset 0 1px rgba(128,203,230,.035)}.rona-ar-transport{margin:0 11px 11px;border:1px solid rgba(75,220,255,.15);border-radius:11px;overflow:hidden;background:linear-gradient(180deg,rgba(4,18,29,.82),rgba(3,12,21,.72))}.rona-ar-transport-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;border-bottom:1px solid rgba(128,191,222,.1);background:linear-gradient(90deg,rgba(75,220,255,.055),transparent)}.rona-ar-transport-title{font-size:10.5px;font-weight:950;color:#dff7ff;letter-spacing:.015em}.rona-ar-transport-meta{padding:8px 11px;color:#7894a8;font-size:9.25px;line-height:1.35;border-bottom:1px dashed rgba(128,191,222,.08)}.rona-ar-transport-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 11px;border-top:1px solid rgba(128,191,222,.07)}.rona-ar-transport-row:first-of-type{border-top:0}.rona-ar-transport-name{font-size:10.5px;font-weight:860;color:#cae3ef}.rona-ar-transport-formula{margin-top:3px;color:#7edff3;font-size:9.5px;font-variant-numeric:tabular-nums}.rona-ar-transport-status{margin-top:3px;color:#79d9b8;font-size:8.6px;font-weight:850;letter-spacing:.02em}.rona-ar-transport-status.warn{color:#f2ca73}.rona-ar-transport-amount{font-size:11px;font-weight:950;color:#edfaff;text-align:right;font-variant-numeric:tabular-nums}.rona-ar-transport-conflict{margin:8px 10px 10px;padding:9px 10px;border:1px solid rgba(245,201,106,.26);border-radius:9px;background:rgba(245,201,106,.055);color:#d8bd78;font-size:9.25px;line-height:1.35}.rona-ar-transport-conflict-title{margin-bottom:4px;color:#f4d884;font-weight:950}.rona-ar-transport-conflict-action{margin-top:5px;color:#a99463;font-size:8.6px}.rona-ar-fact-alert{margin:11px 11px 0;padding:11px 12px;border:1px solid rgba(245,201,106,.28);border-radius:10px;background:rgba(245,201,106,.055);color:#cbb47c;font-size:9.8px;line-height:1.45}.rona-ar-fact-alert-title{margin-bottom:5px;color:#f1d27c;font-size:10.5px;font-weight:950}.rona-ar-fact-cash{margin-top:6px;color:#9db5c4}.rona-ar-settlement{margin:0 11px 11px;border:1px solid rgba(62,231,177,.15);border-radius:11px;overflow:hidden;background:linear-gradient(180deg,rgba(4,21,27,.76),rgba(3,13,21,.72))}.rona-ar-settlement-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;border-bottom:1px solid rgba(62,231,177,.12);background:linear-gradient(90deg,rgba(62,231,177,.055),transparent)}.rona-ar-settlement-title{font-size:10.5px;font-weight:950;color:#dffdf3}.rona-ar-settlement-row{padding:10px 11px;border-top:1px solid rgba(128,191,222,.07)}.rona-ar-settlement-row:first-of-type{border-top:0}.rona-ar-settlement-row-top{display:flex;justify-content:space-between;align-items:center;gap:8px}.rona-ar-settlement-counterparty{font-size:10.4px;font-weight:900;color:#d1e8f1}.rona-ar-settlement-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}.rona-ar-settlement-cell{padding:7px 8px;border:1px solid rgba(128,191,222,.09);border-radius:7px;background:rgba(4,15,24,.46)}.rona-ar-settlement-k{font-size:8.2px;color:#718b9e;text-transform:uppercase;letter-spacing:.06em}.rona-ar-settlement-v{margin-top:3px;font-size:10px;font-weight:900;color:#e8f8fd;font-variant-numeric:tabular-nums}.rona-ar-settlement-status{margin-top:6px;color:#7d98a9;font-size:8.5px;line-height:1.35}.rona-ar-conditional{margin:8px 10px 10px;padding:9px 10px;border:1px solid rgba(185,167,255,.16);border-radius:9px;background:rgba(120,90,210,.035)}.rona-ar-conditional-title{margin-bottom:6px;color:#bfb2e8;font-size:9px;font-weight:950}.rona-ar-conditional-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:5px 0;color:#91a6b5;font-size:8.8px}.rona-ar-conditional-row strong{color:#e0d9f8;font-variant-numeric:tabular-nums}.rona-ar-exp-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:7px 0;border-top:1px dashed rgba(128,191,222,.10);font-size:10.5px}.rona-ar-exp-line:first-child{border-top:0}.rona-ar-exp-name{color:#c8d6e4}.rona-ar-exp-sub{margin-top:3px;color:var(--ar-muted);font-size:9.5px}.rona-ar-exp-amount{font-weight:850;text-align:right}.rona-ar-empty{padding:10px 15px;color:var(--ar-muted);font-size:10.5px}
 .rona-ar-input{width:132px;max-width:100%;padding:9px 10px;border:1px solid rgba(185,167,255,.24);border-radius:8px;background:linear-gradient(180deg,rgba(18,27,47,.65),rgba(10,20,36,.65));color:#f8fafc;font:inherit;font-size:12.5px;font-weight:880;text-align:right;outline:none;font-variant-numeric:tabular-nums}.rona-ar-input:focus{border-color:rgba(185,167,255,.62);box-shadow:0 0 0 2px rgba(139,92,246,.09),0 0 22px rgba(139,92,246,.08)}.rona-ar-owner-note{padding:12px 14px}.rona-ar-owner-note textarea{width:100%;min-height:74px;resize:vertical;padding:10px 11px;border:1px solid rgba(179,156,255,.18);border-radius:8px;background:rgba(15,23,42,.42);color:#edf7ff;font:inherit;font-size:11.5px;outline:none}
 .rona-ar-actions{display:flex;gap:10px;padding:13px 14px;border-top:1px solid rgba(128,191,222,.12);background:rgba(2,10,18,.15)}.rona-ar-btn{min-height:40px;padding:0 14px;border:1px solid rgba(128,191,222,.18);border-radius:8px;background:linear-gradient(180deg,rgba(16,30,45,.72),rgba(8,19,31,.72));color:#edf7ff;font:inherit;font-size:11.25px;font-weight:950;cursor:pointer}.rona-ar-btn.primary{border-color:rgba(185,167,255,.42);background:linear-gradient(135deg,rgba(112,73,219,.84),rgba(55,94,189,.84));box-shadow:0 8px 24px rgba(86,72,185,.14)}.rona-ar-btn.send{margin-left:auto;color:#a5f3fc}.rona-ar-btn:disabled{opacity:.38;cursor:not-allowed}
 .rona-ar-loader{display:grid;place-items:center;min-height:260px;border:1px solid var(--ar-line);border-radius:14px;background:rgba(7,17,29,.8);font-size:11px;color:var(--ar-muted)}
@@ -138,28 +138,50 @@ function termReward(deal,{preferSettlement=false,basisValue=null}={}){
 function groupExpenses(deal){
   const cur=currencyOf(deal),rows=Array.isArray(deal?.expenses)?deal.expenses:[],map=new Map();
   for(const x of rows){
-    const c=String(x.receiptCurrency||'').trim(),amount=num(x.receiptCurrencyEquivalent);
-    if(!c||c!==cur||amount===null)continue;
+    const cc=String(x.receiptCurrency||'').trim(),amount=num(x.receiptCurrencyEquivalent);
+    if(!cc||cc!==cur||amount===null)continue;
     const kind=upper(x.paymentKind),key=[kind,String(x.paymentId||''),String(x.counterparty||'')].join('|');
-    const prev=map.get(key)||{key,kind,paymentId:x.paymentId||'',counterparty:x.counterparty||'',amount:0,currency:c,native:[]};
+    const prev=map.get(key)||{key,kind,paymentId:x.paymentId||'',counterparty:x.counterparty||x.counterpartyName||'',amount:0,currency:cc,native:[],category:x.expenseCategory||'',basis:x.accrualBasis||'',status:x.expenseStatus||''};
     prev.amount+=amount;
     if(num(x.nativeAmount)!==null&&x.nativeCurrency)prev.native.push(money(x.nativeAmount,String(x.nativeCurrency).trim()));
     map.set(key,prev)
   }
   return Array.from(map.values())
 }
+function managementReward(deal,basisValue){
+  const t=deal?.agentTerm||{},cur=currencyOf(deal),ref=upper(t.reference),basis=num(basisValue);
+  if(!validTerm(deal))return{value:null,status:t.mode?'TERM_NOT_ACTIVE':'TERM_MISSING'};
+  if(upper(t.mode)==='FIXED'&&num(t.fixedAmount)!==null&&String(t.currency||'').trim()===cur)return{value:num(t.fixedAmount),status:'MANAGEMENT_RECALC_FIXED_TERM'};
+  if(upper(t.mode)==='PER_TONNE'&&num(t.rate)!==null){
+    const qty=num(deal?.accrualFact?.quantity?.actual_tonnes)??num(deal.quantityTonnes);
+    if(qty===null||String(t.currency||'').trim()!==cur)return{value:null,status:'CALCULATION_BASIS_REQUIRED'};
+    return{value:num(t.rate)*qty,status:'MANAGEMENT_RECALC_PER_TONNE_TERM'}
+  }
+  if(upper(t.mode)==='PERCENT'&&num(t.rate)!==null){
+    if(basis===null)return{value:null,status:'CALCULATION_BASIS_REQUIRED'};
+    return{value:Math.max(0,basis)*num(t.rate),status:ref.includes('EXCLUDING FX')?'MANAGEMENT_RECALC_PERCENT_EXCLUDING_FX':'MANAGEMENT_RECALC_PERCENT_TERM'}
+  }
+  return{value:null,status:'TO_VERIFY'}
+}
 function factModel(deal){
-  const cur=currencyOf(deal),all=groupExpenses(deal),operating=all.filter(x=>x.kind==='COUNTERPARTY_PAYMENT'),fees=all.filter(x=>x.kind==='BANK_FEE');
-  const opTotal=operating.reduce((s,x)=>s+x.amount,0),feeTotal=fees.reduce((s,x)=>s+x.amount,0);
-  const actualSpend=num(deal?.factInputs?.actualSpend);
-  const fx=num(deal?.factInputs?.fxDifference);
-  const fxStatus=String(deal?.factInputs?.fxStatus||deal?.asIs?.fxStatus||'TO_VERIFY_REALIZED_FX_SOURCE_REQUIRED');
-  const revenue=num(deal?.factInputs?.revenue);
-  const financialResult=revenue===null?null:revenue-opTotal;
-  const netProfit=financialResult===null||fx===null?null:financialResult-feeTotal+fx;
-  const reward=termReward(deal,{preferSettlement:true,basisValue:financialResult});
+  const cur=currencyOf(deal),all=groupExpenses(deal),operating=all.filter(x=>x.kind==='COUNTERPARTY_PAYMENT');
+  const opTotal=operating.length?operating.reduce((s,x)=>s+x.amount,0):null;
+  const recognitionStatus=String(deal?.accrualFact?.recognition_status||deal?.factInputs?.recognitionStatus||'TO_VERIFY_NO_APPROVED_ACCRUAL_FACT');
+  const approved=recognitionStatus==='APPROVED_OPERATIONAL_ACCRUAL_FACT';
+  const actualSpend=num(deal?.factInputs?.accruedExpenseTotal??deal?.factInputs?.actualSpend);
+  const fx=approved?num(deal?.factInputs?.fxDifference):null;
+  const fxStatus=String(deal?.factInputs?.fxStatus||deal?.asIs?.fxStatus||'TO_VERIFY_NO_AUTHORITATIVE_PERFORMANCE_FACT');
+  const revenue=approved?num(deal?.factInputs?.revenue):null;
+  const taxes=approved?num(deal?.factInputs?.taxesAndPayments):null;
+  const financialResult=revenue===null||opTotal===null?null:revenue-opTotal;
+  const netProfit=financialResult===null||taxes===null||fx===null?null:financialResult-taxes+fx;
+  const approvedReward=approved?num(deal?.accrualFact?.agent_reward):null;
+  const reward=!approved?{value:null,status:'FACT_PERFORMANCE_REQUIRED'}:approvedReward!==null?{value:approvedReward,status:'APPROVED_ACCRUAL_AGENT_REWARD'}:managementReward(deal,financialResult);
   const ronaProfit=netProfit===null||reward.value===null?null:netProfit-reward.value;
-  return{cur,revenue,operating,opTotal,fees,feeTotal,fx,fxStatus,financialResult,netProfit,reward,ronaProfit,actualSpend}
+  const actualQuantity=approved?num(deal?.accrualFact?.quantity?.actual_tonnes):null;
+  const settlementPositions=Array.isArray(deal?.settlementPositions)?deal.settlementPositions:[];
+  const conditionalPositions=Array.isArray(deal?.conditionalPositions)?deal.conditionalPositions:[];
+  return{cur,revenue,operating,opTotal,taxes,fx,fxStatus,financialResult,netProfit,reward,ronaProfit,actualSpend,actualQuantity,recognitionStatus,approved,settlementPositions,conditionalPositions}
 }
 function planModel(deal){
   const cur=currencyOf(deal),p=deal?.planInputs||{},lines=Array.isArray(p.expenseLines)?p.expenseLines.filter(x=>String(x.currency||'').trim()===cur&&num(x.amount)!==null):[];
@@ -179,13 +201,13 @@ function correctionExpenseValue(deal,paymentId,fallback){
 }
 function ownerModel(deal,fact){
   const operating=fact.operating.map(x=>({...x,amount:correctionExpenseValue(deal,String(x.paymentId||''),x.amount)}));
-  const expenses=operating.some(x=>num(x.amount)===null)?null:operating.reduce((sum,x)=>sum+num(x.amount),0);
-  const revenue=fact.revenue;
-  const taxes=fact.feeTotal;
-  const fx=correctionValue(deal,'fxDifference',null,fact.fx);
+  const expenses=!fact.approved||!operating.length||operating.some(x=>num(x.amount)===null)?null:operating.reduce((sum,x)=>sum+num(x.amount),0);
+  const revenue=fact.approved?fact.revenue:null;
+  const taxes=fact.approved?fact.taxes:null;
+  const fx=fact.approved?correctionValue(deal,'fxDifference',null,fact.fx):null;
   const financialResult=revenue===null||expenses===null?null:revenue-expenses;
   const netProfit=financialResult===null||taxes===null||fx===null?null:financialResult-taxes+fx;
-  const reward=termReward(deal,{preferSettlement:false,basisValue:financialResult});
+  const reward=fact.approved?managementReward(deal,financialResult):{value:null,status:'FACT_PERFORMANCE_REQUIRED'};
   const ronaProfit=netProfit===null||reward.value===null?null:netProfit-reward.value;
   return{revenue,operating,expenses,taxes,fx,reward,financialResult,netProfit,ronaProfit}
 }
@@ -258,21 +280,66 @@ function renderPlan(deal){
   table.append(pnlRow('Итого прибыль RONA',m.ronaProfit,m.cur,{hint:'Чистая прибыль − агентское вознаграждение',final:true,signed:true}));
   col.append(table);return col
 }
+function settlementKind(type){
+  const t=upper(type);
+  if(t.includes('RECEIVABLE'))return'ДЗ';
+  if(t.includes('PAYABLE'))return'КЗ';
+  if(t.includes('ADVANCE'))return'АВАНС';
+  return'САЛЬДО'
+}
+function settlementView(m){
+  const box=el('div','rona-ar-settlement');
+  const head=el('div','rona-ar-settlement-head');
+  head.append(el('div','rona-ar-settlement-title','Расчёты · ДЗ / КЗ / авансы'),chip('ACCRUAL ↔ CASH',''));
+  box.append(head);
+  if(!m.settlementPositions.length){
+    box.append(el('div','rona-ar-empty',m.approved?'Расчётных позиций не материализовано.':'ДЗ/КЗ не признаются без authoritative FACT.'));return box
+  }
+  for(const x of m.settlementPositions){
+    const row=el('div','rona-ar-settlement-row'),top=el('div','rona-ar-settlement-row-top');
+    const typ=settlementKind(x.balance_type),status=String(x.status||'TO_VERIFY');
+    top.append(el('div','rona-ar-settlement-counterparty',x.counterparty||x.side||'Контрагент'),chip(typ,status.includes('TO_VERIFY')||status.includes('PROVISIONAL')?'warn':'good'));
+    row.append(top);
+    const grid=el('div','rona-ar-settlement-grid'),cur=String(x.currency||m.cur||'');
+    const cashLabel=upper(x.side)==='CLIENT'?'Получено':'Оплачено';
+    [['Начислено',x.accrued_amount],[cashLabel,x.cash_amount],['Сальдо',x.balance_amount]].forEach(([label,value])=>{
+      const cell=el('div','rona-ar-settlement-cell');cell.append(el('div','rona-ar-settlement-k',label),el('div','rona-ar-settlement-v',money(value,cur)));grid.append(cell)
+    });
+    row.append(grid,el('div','rona-ar-settlement-status',status));box.append(row)
+  }
+  if(m.conditionalPositions.length){
+    const conditional=el('div','rona-ar-conditional');
+    conditional.append(el('div','rona-ar-conditional-title','Условные позиции · не входят в признанную ДЗ/КЗ'));
+    for(const x of m.conditionalPositions){
+      const row=el('div','rona-ar-conditional-row');row.append(el('span','',x.counterparty||x.type||'Условная позиция'),el('strong','',money(x.amount,x.currency)),chip(x.status||'HOLD','warn'));conditional.append(row)
+    }
+    box.append(conditional)
+  }
+  return box
+}
 function renderFact(deal){
   const m=factModel(deal),col=el('section','rona-ar-col fact');
-  col.append(columnHead('2 · ФАКТ','Фактические показатели','Выручка = полная плановая выручка сделки, не кассовое поступление','AS IS','good'));
+  col.append(columnHead('2 · ФАКТ','Фактические показатели','Операционный факт: начисление по подтверждённому исполнению; деньги — отдельный слой расчётов',m.approved?'ACCRUAL':'TO VERIFY',m.approved?'good':'warn'));
+  if(!m.approved){
+    const alert=el('div','rona-ar-fact-alert');
+    alert.append(el('div','rona-ar-fact-alert-title','FACT TO_VERIFY — нет materialized authoritative факта исполнения'));
+    alert.append(el('div','', 'План, договорная сумма и движение денег не признаются выручкой или расходом автоматически.'));
+    const cash=num(deal?.factInputs?.cashReceived??deal?.accrualFact?.cash_received);
+    if(cash!==null)alert.append(el('div','rona-ar-fact-cash','Денежный слой: '+money(cash,deal?.factInputs?.cashReceivedCurrency||m.cur)+' · аванс / расчёт до признания исполнения.'));
+    col.append(alert)
+  }
   const table=el('div','rona-ar-table');
-  table.append(pnlRow('Итого выручка',m.revenue,m.cur,{hint:String(deal?.factInputs?.revenueStatus||'DEAL_PLAN'),total:true}));
-  table.append(pnlRow('Расходы постатейно',m.opTotal,m.cur,{hint:'Фактические подтверждённые операционные расходы'}));
-  table.append(expenseLines(m.operating.map(x=>({label:x.counterparty||x.paymentId,amount:x.amount,currency:x.currency,paymentId:x.paymentId,native:x.native})),'Подтверждённых операционных расходов нет.'));
-  table.append(pnlRow('Итого финансовый результат',m.financialResult,m.cur,{hint:'Плановая выручка − фактические операционные расходы',total:true,signed:true}));
-  table.append(pnlRow('Налоги и платежи',m.feeTotal,m.cur,{hint:'Подтверждённые банковские/платёжные расходы; налоги TO_VERIFY'}));
+  if(m.actualQuantity!==null)table.append(pnlRow('Фактический объём',m.actualQuantity,'т',{hint:String(deal?.accrualFact?.quantity?.authority||'AUTHORITATIVE_PERFORMANCE'),total:true}));
+  table.append(pnlRow('Итого выручка',m.revenue,m.cur,{hint:String(deal?.factInputs?.revenueStatus||m.recognitionStatus),total:true}));
+  table.append(pnlRow('Расходы постатейно',m.opTotal,m.cur,{hint:m.approved?'Начисленные расходы по фактическому исполнению':'TO_VERIFY: требуется authoritative performance'}));
+  table.append(expenseLines(m.operating.map(x=>({label:x.counterparty||x.paymentId,amount:x.amount,currency:x.currency,paymentId:x.paymentId,native:x.native,source:[x.category,x.basis,x.status].filter(Boolean).join(' · ')})),m.approved?'Подтверждённых начисленных расходов нет.':'FACT-расходы не признаны.'));
+  table.append(pnlRow('Итого финансовый результат',m.financialResult,m.cur,{hint:'Фактическая выручка − начисленные фактические расходы',total:true,signed:true}));
+  table.append(pnlRow('Налоги и платежи',m.taxes,m.cur,{hint:String(deal?.factInputs?.taxesAndPaymentsStatus||m.recognitionStatus),status:String(deal?.factInputs?.taxesAndPaymentsStatus||'TO_VERIFY')}));
   table.append(pnlRow('Курсовая разница',m.fx,m.cur,{hint:m.fxStatus,signed:true,status:m.fxStatus}));
-  table.append(pnlRow('Итого чистая прибыль',m.netProfit,m.cur,{hint:'ПРЕДВАРИТЕЛЬНО · налоги TO_VERIFY',total:true,signed:true}));
+  table.append(pnlRow('Итого чистая прибыль',m.netProfit,m.cur,{hint:'Финрезультат − налоги/платежи ± реализованный FX',total:true,signed:true}));
   table.append(pnlRow('Агентское вознаграждение',m.reward.value,m.cur,{hint:m.reward.status}));
   table.append(pnlRow('Итого прибыль RONA',m.ronaProfit,m.cur,{hint:m.reward.value===null?'TO_VERIFY: агентское вознаграждение':'Чистая прибыль − агентское вознаграждение',final:true,signed:true}));
-  col.append(table);
-  if(num(deal?.factInputs?.cashReceived)!==null){const note=el('div','rona-ar-empty','Справочно: фактически поступило '+money(deal.factInputs.cashReceived,deal.factInputs.cashReceivedCurrency||deal.receiptCurrency));col.append(note)}
+  col.append(table,settlementView(m));
   return col
 }
 function ownerInputRow(label,key,value,cur,hint){
@@ -309,10 +376,10 @@ function recomputeOwner(col,deal,fact,cur){
   });
   if(!expensesComplete)expenses=null;
   const fx=num(q('[data-owner-key="fxDifference"]',col)?.value);
-  const revenue=fact.revenue,taxes=fact.feeTotal;
+  const revenue=fact.revenue,taxes=fact.taxes;
   const financialResult=revenue===null||expenses===null?null:revenue-expenses;
   const netProfit=financialResult===null||taxes===null||fx===null?null:financialResult-taxes+fx;
-  const reward=termReward(deal,{preferSettlement:false,basisValue:financialResult});
+  const reward=fact.approved?managementReward(deal,financialResult):{value:null,status:'FACT_PERFORMANCE_REQUIRED'};
   const ronaProfit=netProfit===null||reward.value===null?null:netProfit-reward.value;
   const set=(k,v)=>{const n=q('[data-owner-computed="'+k+'"] .rona-ar-value',col);if(n){n.textContent=num(v)===null?'TO_VERIFY':signedMoney(v,cur);n.className='rona-ar-value '+tone(v)}};
   set('expenses',expenses);set('financialResult',financialResult);set('netProfit',netProfit);set('agentReward',reward.value);set('ronaProfit',ronaProfit);
@@ -321,24 +388,24 @@ function recomputeOwner(col,deal,fact,cur){
 }
 function renderOwner(deal){
   const fact=factModel(deal),base=ownerModel(deal,fact),cur=fact.cur,col=el('section','rona-ar-col owner');
-  col.append(columnHead('3 · OWNER CONTROL','Ручная корректировка',deal.ownerCorrection?'Версия '+deal.ownerCorrection.version+' · '+new Date(deal.ownerCorrection.createdAt).toLocaleString('ru-RU'):'Корректируются только статьи расходов и FX',deal.ownerCorrection?'СОХРАНЕНО':'ЧЕРНОВИК',deal.ownerCorrection?'good':'warn'));
+  col.append(columnHead('3 · OWNER CONTROL','Ручная корректировка',!fact.approved?'Доступно после подтверждения операционного FACT':deal.ownerCorrection?'Версия '+deal.ownerCorrection.version+' · '+new Date(deal.ownerCorrection.createdAt).toLocaleString('ru-RU'):'Корректируются только начисленные статьи расходов и FX',!fact.approved?'TO VERIFY':deal.ownerCorrection?'СОХРАНЕНО':'ЧЕРНОВИК',!fact.approved?'warn':deal.ownerCorrection?'good':'warn'));
   const table=el('div','rona-ar-table');
-  table.append(pnlRow('Итого выручка',base.revenue,cur,{hint:'Автоматически из сделки · ручная корректировка недоступна',total:true}));
+  table.append(pnlRow('Итого выручка',base.revenue,cur,{hint:'Автоматически из подтверждённого фактического исполнения · ручная корректировка недоступна',total:true}));
   table.append(ownerComputedRow('Расходы постатейно · Итого','expenses',base.expenses,cur,'Автоматически: сумма скорректированных статей'));
   table.append(ownerExpenseLines(fact.operating,deal,cur));
   table.append(ownerComputedRow('Итого финансовый результат','financialResult',base.financialResult,cur,'Автоматически: выручка − расходы'));
-  table.append(pnlRow('Налоги и платежи',base.taxes,cur,{hint:'Автоматически из подтверждённых платёжных расходов · ручная корректировка недоступна'}));
+  table.append(pnlRow('Налоги и платежи',base.taxes,cur,{hint:'Автоматически из approved FACT · ручная корректировка недоступна'}));
   table.append(ownerInputRow('Курсовая разница','fxDifference',base.fx,cur,'Ручная корректировка: положительная = доход, отрицательная = расход'));
   table.append(ownerComputedRow('Итого чистая прибыль','netProfit',base.netProfit,cur,'Автоматически: финрезультат − налоги/платежи ± курс'));
   table.append(ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,base.reward.status));
   table.append(ownerComputedRow('Итого прибыль RONA','ronaProfit',base.ronaProfit,cur,'Автоматически: чистая прибыль − агентское вознаграждение',true));
   col.append(table);
-  qa('[data-owner-expense-key],[data-owner-key]',col).forEach(inp=>inp.addEventListener('input',()=>recomputeOwner(col,deal,fact,cur)));
+  qa('[data-owner-expense-key],[data-owner-key]',col).forEach(inp=>{inp.disabled=!fact.approved;inp.addEventListener('input',()=>recomputeOwner(col,deal,fact,cur))});
   const note=el('div','rona-ar-owner-note'),ta=el('textarea');ta.placeholder='Комментарий к корректировке (необязательно)';ta.value=deal.ownerCorrection?.note||'';ta.dataset.correctionNote='1';note.append(ta);col.append(note);
   const actions=el('div','rona-ar-actions'),save=el('button','rona-ar-btn primary','Скорректировать данные'),send=el('button','rona-ar-btn send','Отправить агенту');
-  save.type='button';send.type='button';send.disabled=true;send.title='Функция подготовлена к будущему подключению агентского кабинета';
+  save.type='button';save.disabled=!fact.approved;send.type='button';send.disabled=true;send.title='Функция подготовлена к будущему подключению агентского кабинета';
   save.onclick=async()=>{
-    if(state.saving)return;state.saving=true;save.disabled=true;save.textContent='Сохраняю…';
+    if(state.saving||!fact.approved)return;state.saving=true;save.disabled=true;save.textContent='Сохраняю…';
     try{
       const m=recomputeOwner(col,deal,fact,cur);
       const payload={expenseLines:m.expenseLines,fxDifference:m.fx};
@@ -380,7 +447,7 @@ function render(){
   const deals=Array.isArray(data.deals)?data.deals:[];
   if(state.selectedKey&&!deals.some(d=>rowKey(d)===state.selectedKey))state.selectedKey=null;
   const hero=el('div','rona-ar-finance-banner'),copy=el('div');
-  copy.append(el('div','rona-ar-sub','Финансовый паспорт сделки: ПЛАН → ФАКТ → OWNER CONTROL. Выручка в FACT — полная плановая выручка сделки, а не фактически поступившая оплата.'));
+  copy.append(el('div','rona-ar-sub','Финансовый паспорт сделки: ПЛАН → ФАКТ → OWNER CONTROL. FACT = подтверждённое исполнение по методу начисления; деньги, ДЗ/КЗ и авансы отражаются отдельным расчётным слоем.'));
   hero.append(copy,el('div','rona-ar-live','FINANCE P&L'));root.append(hero);
   if(!deals.length){root.append(el('div','rona-ar-loader','Сделок в агентском контуре пока нет.'));replace(root);return}
   renderDealCards(root,deals);
