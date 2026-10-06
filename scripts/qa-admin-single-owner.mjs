@@ -51,7 +51,7 @@ need(has(admin,'grid-template-columns:272px')&&has(admin,'min-height:48px')&&has
 need(has(admin,'current-only-router-v2')&&has(admin,'MutationObserver'),'Single current router guard is missing');
 need(has(admin,'/assets/portal-admin-shell-fast-v1.js?v=20261006-agent-rewards-finance-v6-singleflight-head'),'Admin shell does not cache-bust the lazy selected-page fast shell');
 need(!has(admin,'id="rona-clients-agents-current-loader"')&&!has(admin,'/portal/clients-agents-current-ui?v=20261005-agent-rewards-owner-v1'),'Access runtime must not preload from Admin HTML');
-need(has(admin,'/assets/portal-admin-runtime-watchdog-v1.js?v=20261006-agent-rewards-bootstrap-v3-readable-scope'),'Admin shell does not cache-bust the stable watchdog');
+need(has(admin,'/assets/portal-admin-runtime-watchdog-v1.js?v=20261006-agent-rewards-bootstrap-v4-singleflight-head'),'Admin shell does not cache-bust the stable watchdog');
 
 need(has(shell,"__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'")&&has(shell,"__RONA_ADMIN_HEAVY_MODULE_POLICY__='LAZY_SELECTED_PAGE_V2'"),'Single-owner/lazy-page shell marker is missing');
 need(has(shell,"ADMIN_SHELL_BOOT")&&has(shell,"RETRY_ONLY_ON_FAILURE")&&has(shell,"const snapshot=await refreshAuthority();if(snapshot)return")&&!has(shell,"[400,1800,5000].forEach"),'Admin authority bootstrap still performs unconditional triple refresh');
