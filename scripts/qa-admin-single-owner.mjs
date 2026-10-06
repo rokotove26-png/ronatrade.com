@@ -143,7 +143,7 @@ need(has(operations,"const start='function renderAdminHome(){'")&&has(operations
 need(!has(homeCompat,'chunk19.js')&&!has(homeCompat,'operationsCenterV3'),'Retired chunk17 re-enables the broken Operations Center override');
 need(!has(operations,'/portal/client')&&!has(operations,'client-deal-passport')&&!has(operations,'client-section-first-paint'),'Admin Operations Command Center reaches into frozen Client runtime');
 
-need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v14-agent-rewards-transport-breakdown'"),'Page-aware watchdog marker is missing');
+need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v15-agent-rewards-owner-line-corrections'"),'Page-aware watchdog marker is missing');
 need(has(watchdog,"retryCooldownMs:60000")&&has(watchdog,"autoRetryLimit:3")&&has(watchdog,"WATCHDOG_AUTO_COOLDOWN_V1"),'Admin watchdog traffic cooldown/limit contract is missing');
 
 need(has(watchdog,"n.querySelector(':scope > .rona-owner-page-content')")&&has(watchdog,"n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Home hidden-fallback-safe readiness contract is missing');
@@ -201,4 +201,4 @@ console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v5');
 console.log('operations-command-center=v10-operations-current-v2-single-owner; legacy-runtime=disabled; source=OPERATIONS_CURRENT_V2; visual=flightdeck-v5-full-rebuild');
 console.log('access=clients-agents-current-v5/create-user-v6,password,history,signed-pdf-gate');
-console.log('watchdog=page-aware-v14-agent-rewards-transport-breakdown/non-destructive');
+console.log('watchdog=page-aware-v15-agent-rewards-owner-line-corrections/non-destructive');
