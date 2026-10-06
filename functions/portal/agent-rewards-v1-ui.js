@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261006-agent-rewards-pnl-v4';
+const VERSION='20261006-agent-rewards-finance-v3';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 if(location.pathname!=='/portal/admin')return;
@@ -59,7 +59,7 @@ function installStyle(){
 
 function page(){return document.getElementById('page-agent-settlements')}
 function rewardsSelected(){const p=page();return document.documentElement.dataset.ronaAdminPage==='agent-settlements'||!!p?.classList.contains('active')}
-function replace(root){const p=page();if(!p)return false;p.replaceChildren(root);p.dataset.ronaAgentRewardsOwner='finance-pnl-v3';return true}
+function replace(root){const p=page();if(!p)return false;p.replaceChildren(root);p.dataset.ronaAgentRewardsOwner='finance-workspace-v1';return true}
 function attachOwnerGuard(){
   const p=page();if(!p||p.__ronaAgentRewardsPnlOwnerGuard)return;
   p.__ronaAgentRewardsPnlOwnerGuard=new MutationObserver(()=>{
