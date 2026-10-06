@@ -98,7 +98,7 @@ jobs:
           const agentRewards=await agentRewardsRequest({});
           if(agentRewards.status!==200)throw new Error('agent rewards endpoint '+agentRewards.status);
           const agentRewardsSrc=await agentRewards.text();
-          for(const marker of ['20261006-agent-rewards-finance-v5','OWNER CONTROL','FINANCE LIVE','__RONA_AGENT_REWARDS_FINANCE_REPAIR__','MutationObserver'])if(!agentRewardsSrc.includes(marker))throw new Error('agent rewards missing '+marker);
+          for(const marker of ['20261006-agent-rewards-finance-v6','OWNER CONTROL','FINANCE LIVE','__RONA_AGENT_REWARDS_FINANCE_REPAIR__','MutationObserver'])if(!agentRewardsSrc.includes(marker))throw new Error('agent rewards missing '+marker);
           if(agentRewards.headers.get('x-rona-agent-rewards-owner')!=='ADMIN_AGENT_REWARDS_FINANCE_WORKSPACE_V1')throw new Error('wrong Agent Rewards owner contract');
 
           const claims=await claimsRequest({});

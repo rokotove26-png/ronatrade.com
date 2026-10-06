@@ -92,7 +92,7 @@ const MODULES=Object.freeze({
   analytics:{src:'/portal/analytics-v2-ui?v=20260826-approved-analytics'},
   prices:{src:'/portal/prices-current-ui?v=20260826-single-owner'},
   access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'},
-  agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261006-finance-workspace-v6-singleflight-head'}
+  agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261006-finance-workspace-v7-heading-restored'}
 });
 const railPrimaryRoot=()=>document.querySelector('[data-rail-current-v4="ready"],[data-rail-current-root="ready"]:not([data-rail-safe-fallback])');
 const railFallbackRoot=()=>document.querySelector('[data-rail-safe-fallback]');
@@ -164,7 +164,7 @@ async function loadPageModule(page){
   if(p==='analytics')return loadAnalytics();
   if(p==='prices')return loadModule('prices',MODULES.prices.src);
   if(p==='access')return loadAccess();
-  if(p==='agent-settlements')return loadModule('agentRewards',MODULES.agentRewards.src,{attempts:3,ready:()=>window.__RONA_AGENT_REWARDS_FINANCE_V1__==='20261006-agent-rewards-finance-v5',timeout:16000});
+  if(p==='agent-settlements')return loadModule('agentRewards',MODULES.agentRewards.src,{attempts:3,ready:()=>window.__RONA_AGENT_REWARDS_FINANCE_V1__==='20261006-agent-rewards-finance-v6',timeout:16000});
   if(['messages','market-news'].includes(p))return loadModule('remaining',MODULES.remaining.src);
   return true;
 }
