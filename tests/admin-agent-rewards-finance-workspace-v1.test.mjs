@@ -10,6 +10,7 @@ const transportBreakdown=readFileSync('supabase/migrations/20261006172500_admin_
 const ownerCorrections=readFileSync('supabase/migrations/20261006181500_admin_agent_rewards_owner_correction_v7.sql','utf8');
 const accrualFact=readFileSync('supabase/migrations/20261006190000_admin_agent_rewards_accrual_fact_v8.sql','utf8');
 const cashFact=readFileSync('supabase/migrations/20261006192500_admin_agent_rewards_cash_fact_compact_v9.sql','utf8');
+const cashPaymentLines=readFileSync('supabase/migrations/20261006194000_admin_agent_rewards_cash_payment_lines_v10.sql','utf8');
 const ui=readFileSync('functions/portal/agent-rewards-v1-ui.js','utf8');
 const ownerApi=readFileSync('functions/portal/owner-api.js','utf8');
 const shell=readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
@@ -170,6 +171,19 @@ test('Compact FACT v9 is DDS-only and requires Finance plus Operations presentat
   assert.doesNotMatch(cashFact,/delete\s+from\s+portal_private/i);
 });
 
+test('DDS FACT v10 exposes source-locked counterparty payment lines without changing the approved cash total',()=>{
+  assert.match(cashPaymentLines,/rona_admin_agent_rewards_workspace_v9/);
+  assert.match(cashPaymentLines,/cashPaymentLines/);
+  assert.match(cashPaymentLines,/COUNTERPARTY_PAYMENT_ONLY/);
+  assert.match(cashPaymentLines,/SOURCE_LOCKED_PAYMENT_RESOURCE_CHAIN/);
+  assert.match(cashPaymentLines,/cashFlow\.counterpartyCashOut/);
+  assert.match(cashPaymentLines,/UI_GROUP_BY_PAYMENT_ID_AND_COUNTERPARTY/);
+  assert.match(cashPaymentLines,/bankFeesRemainSeparate',true/);
+  assert.match(cashPaymentLines,/READ_ONLY_PROJECTION/);
+  assert.doesNotMatch(cashPaymentLines,/update\s+portal_private/i);
+  assert.doesNotMatch(cashPaymentLines,/delete\s+from\s+portal_private/i);
+});
+
 test('Agent reward remains fail-closed without a calculable confirmed basis',()=>{
   assert.match(baseline,/TERM_MISSING/);
   assert.match(baseline,/CALCULATION_BASIS_REQUIRED/);
@@ -188,7 +202,7 @@ test('Agent Rewards runtime serialization ships its transform helper',()=>{
 });
 
 test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defined order',()=>{
-  assert.match(ui,/20261006-agent-rewards-finance-v13-cash-fact-compact/);
+  assert.match(ui,/20261006-agent-rewards-finance-v14-dds-payment-lines/);
   assert.match(ui,/1 · ПЛАН/);
   assert.match(ui,/2 · ФАКТ/);
   assert.match(ui,/3 · OWNER CONTROL/);
@@ -256,11 +270,15 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Доступно после подтверждения операционного FACT/);
   assert.match(ui,/\.rona-ar-balances\{/);
   assert.match(ui,/function cashFactModel\(deal\)/);
+  assert.match(ui,/function cashPaymentLinesModel\(deal,cur\)/);
+  assert.match(ui,/Оплачено контрагентам/);
+  assert.match(ui,/m\.paymentLines\.map/);
+  assert.match(ui,/Подтверждённых выплат контрагентам нет/);
 });
 
 test('Owner API routes Agent Rewards to compact cash V8 read RPC and correction V5',()=>{
   assert.match(ownerApi,/\/admin\/agent-rewards-v1/);
-  assert.match(ownerApi,/rona_admin_agent_rewards_workspace_v8/);
+  assert.match(ownerApi,/rona_admin_agent_rewards_workspace_v9/);
   assert.match(ownerApi,/rona_admin_agent_rewards_correct_v5/);
   assert.match(ownerApi,/p_assignment_id/);
   assert.match(ownerApi,/p_corrected_payload/);
@@ -268,25 +286,25 @@ test('Owner API routes Agent Rewards to compact cash V8 read RPC and correction 
 });
 
 test('Admin shell lazy-loads Agent Rewards P&L and legacy Remaining renderer stays retired',()=>{
-  assert.match(shell,/agentRewards:\{src:'\/portal\/agent-rewards-v1-ui\?v=20261006-finance-workspace-v14-cash-fact-compact'/);
-  assert.match(shell,/20261006-agent-rewards-finance-v13-cash-fact-compact/);
+  assert.match(shell,/agentRewards:\{src:'\/portal\/agent-rewards-v1-ui\?v=20261006-finance-workspace-v15-dds-payment-lines'/);
+  assert.match(shell,/20261006-agent-rewards-finance-v14-dds-payment-lines/);
   assert.match(shell,/p==='agent-settlements'\)return loadModule\('agentRewards'/);
   assert.doesNotMatch(shell,/\['agent-settlements','messages','market-news'\]\.includes\(p\)/);
   assert.match(remaining,/replaceAll\("'вознаграждения агентов':'rewards'",''\)/);
   assert.match(remaining,/replaceAll\("if\(kind==='rewards'\)return renderRewards\(\)",''\)/);
-  assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261006-agent-rewards-finance-v14-cash-fact-compact/);
+  assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261006-agent-rewards-finance-v15-dds-payment-lines/);
 });
 
 test('Watchdog requires the P&L owner and legacy owners cannot reclaim the page',()=>{
   assert.match(materializer,/STATIC_REMAINING_REWARDS_SOURCE_MISMATCH/);
   assert.match(materializer,/STATIC_REMAINING_COMPETING_OWNER_PRESENT/);
-  assert.match(watchdog,/20261006-agent-rewards-finance-v13-cash-fact-compact/);
+  assert.match(watchdog,/20261006-agent-rewards-finance-v14-dds-payment-lines/);
   assert.match(watchdog,/finance-workspace-v1/);
   assert.match(watchdog,/return'agentRewards'/);
   assert.match(ui,/__RONA_AGENT_REWARDS_FINANCE_REPAIR__/);
   assert.match(ui,/MutationObserver/);
   assert.match(ui,/ronaAgentRewardsOwner='finance-workspace-v1'/);
-  assert.match(adminHtml,/portal-admin-runtime-watchdog-v1\.js\?v=20261006-agent-rewards-bootstrap-v12-cash-fact-compact/);
+  assert.match(adminHtml,/portal-admin-runtime-watchdog-v1\.js\?v=20261006-agent-rewards-bootstrap-v13-dds-payment-lines/);
   assert.match(retiredLegacy,/RETIRED_BY_FINANCE_WORKSPACE_V2/);
   assert.doesNotMatch(retiredLegacy,/MutationObserver|setInterval|Активные агенты|Закреплено клиентов|Реестр|agentRewardsFragment/);
 });
