@@ -33,5 +33,5 @@ test('Page modules load only for the selected Admin section',()=>{
   assert.match(shell,/if\(p==='analytics'\)loadAnalytics\(\)/);
   assert.match(shell,/if\(p==='monitoring'\)loadRail\(\)/);
   assert.match(shell,/if\(p==='access'\)loadAccess\(\)/);
-  assert.match(html,/portal-admin-shell-fast-v1\.js\?v=20261006-agent-rewards-finance-v3/);
+  assert.match(html,/portal-admin-shell-fast-v1\.js\?v=20261006-agent-rewards-finance-v4/);
 });
