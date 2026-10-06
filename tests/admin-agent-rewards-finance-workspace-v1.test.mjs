@@ -52,8 +52,12 @@ test('Agent reward fails closed without a confirmed calculable basis',()=>{
   assert.match(migration,/settlement_state in \('APPROVED','PAYABLE_CONFIRMED','PAID'\)/);
 });
 
+test('Agent Rewards runtime serialization ships its transform helper',()=>{
+  assert.match(ui,/const SCRIPT='var __name=\(target,value\)=>target;/);
+});
+
 test('Dedicated premium UI has AS IS, Owner control, correction and future send button',()=>{
-  assert.match(ui,/20261005-agent-rewards-finance-v2/);
+  assert.match(ui,/20261006-agent-rewards-finance-v3/);
   assert.match(ui,/AS IS/);
   assert.match(ui,/AI Финансовый директор/);
   assert.match(ui,/OWNER CONTROL/);
@@ -82,12 +86,12 @@ test('Owner API exposes only the dedicated read/correction RPCs',()=>{
 });
 
 test('Admin shell lazy-loads Agent Rewards and legacy Remaining renderer no longer owns it',()=>{
-  assert.match(shell,/agentRewards:\{src:'\/portal\/agent-rewards-v1-ui\?v=20261006-finance-workspace-v3-legacy-retired'/);
+  assert.match(shell,/agentRewards:\{src:'\/portal\/agent-rewards-v1-ui\?v=20261006-finance-workspace-v4-helper-bootstrap'/);
   assert.match(shell,/p==='agent-settlements'\)return loadModule\('agentRewards'/);
   assert.doesNotMatch(shell,/\['agent-settlements','messages','market-news'\]\.includes\(p\)/);
   assert.match(remaining,/replaceAll\("'вознаграждения агентов':'rewards'",''\)/);
   assert.match(remaining,/replaceAll\("if\(kind==='rewards'\)return renderRewards\(\)",''\)/);
-  assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261006-agent-rewards-finance-v3/);
+  assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261006-agent-rewards-finance-v4/);
 });
 
 test('Legacy Remaining runtime cannot reclaim Agent Rewards',()=>{
@@ -101,8 +105,8 @@ test('Legacy Remaining runtime cannot reclaim Agent Rewards',()=>{
   assert.match(ui,/__RONA_AGENT_REWARDS_FINANCE_REPAIR__/);
   assert.match(ui,/MutationObserver/);
   assert.match(ui,/ronaAgentRewardsOwner='finance-workspace-v1'/);
-  assert.match(shell,/agent-rewards-v1-ui\?v=20261006-finance-workspace-v3-legacy-retired/);
-  assert.match(adminHtml,/portal-admin-runtime-watchdog-v1\.js\?v=20261005-agent-rewards-owner-v1/);
+  assert.match(shell,/agent-rewards-v1-ui\?v=20261006-finance-workspace-v4-helper-bootstrap/);
+  assert.match(adminHtml,/portal-admin-runtime-watchdog-v1\.js\?v=20261006-agent-rewards-bootstrap-v2/);
   assert.match(retiredLegacy,/RETIRED_BY_FINANCE_WORKSPACE_V2/);
   assert.doesNotMatch(retiredLegacy,/MutationObserver|setInterval|Активные агенты|Закреплено клиентов|Реестр|agentRewardsFragment/);
 });
