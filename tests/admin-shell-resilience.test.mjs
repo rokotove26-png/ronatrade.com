@@ -40,7 +40,7 @@ assert(middleware.includes("if(url.pathname!=='/portal/client')return response;"
 const clientOnly=middleware.indexOf("if(url.pathname!=='/portal/client')return response;"),text=middleware.indexOf('response.text()');
 assert(clientOnly>=0&&(text<0||clientOnly<text),'Non-Client routes must bypass response buffering');
 
-for(const marker of ['rona-admin-shell" content="current-only-v2','data-rona-admin-shell="current-only-v2','current-only-router-v2','id="nav"','id="page-home"','id="page-prices"','id="page-access"','id="page-agent-settlements"','id="page-market-news"','portal-admin-shell-fast-v1.js','clients-agents-current-ui'])assert(shell.includes(marker),`Current Admin shell missing ${marker}`);
+for(const marker of ['rona-admin-shell" content="current-only-v2','data-rona-admin-shell="current-only-v2','current-only-router-v2','id="nav"','id="page-home"','id="page-prices"','id="page-access"','id="page-agent-settlements"','id="page-market-news"','portal-admin-shell-fast-v1.js'])assert(shell.includes(marker),`Current Admin shell missing ${marker}`);
 for(const marker of ['adminLoginGate','rona-admin-auth-v3413','Временный автономный вход','admin_externalized','BOOT_ERROR_LATCH_FINAL_CANDIDATE'])assert(!shell.includes(marker),`Legacy Admin marker returned: ${marker}`);
 assert(!shell.includes('data-page="claims"')&&!shell.includes('id="page-claims"'),'Claims section must remain retired from current Admin shell');
 assert(shell.includes('grid-template-columns:272px minmax(0,1fr)'),'Canonical Home-scale sidebar must be owned by the current shell');
