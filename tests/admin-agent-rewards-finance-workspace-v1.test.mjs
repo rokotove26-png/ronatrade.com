@@ -107,8 +107,10 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/state\.workspacePromise/);
   assert.match(ui,/Date\.now\(\)-state\.loadedAt<15000/);
   assert.doesNotMatch(ui,/p\.replaceChildren\(root\)/);
-  assert.match(ui,/\.rona-ar-title\{font-size:26px/);
-  assert.match(ui,/copy\.append\(el\('div','rona-ar-title','Вознаграждения агентов'\)/);
+  assert.match(ui,/\.rona-ar-canonical-head \.rona-visual-title/);
+  assert.match(ui,/font-size:clamp\(28px,3\.1vw,44px\)/);
+  assert.match(ui,/Агентская компания → клиент → сделка → подтверждённое право на выплату\./);
+  assert.doesNotMatch(ui,/rona-ar-title','Вознаграждения агентов/);
   assert.match(ui,/\.rona-ar-name\{font-size:12\.5px/);
   assert.match(ui,/\.rona-ar-value\{text-align:right;font-size:15\.5px/);
   assert.match(ui,/minmax\(230px,1fr\)/);
