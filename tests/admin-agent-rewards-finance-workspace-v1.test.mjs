@@ -98,7 +98,7 @@ test('Agent Rewards runtime serialization ships its transform helper',()=>{
 });
 
 test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defined order',()=>{
-  assert.match(ui,/20261006-agent-rewards-finance-v8-plan-authority/);
+  assert.match(ui,/20261006-agent-rewards-finance-v9-digital-finance/);
   assert.match(ui,/1 · ПЛАН/);
   assert.match(ui,/2 · ФАКТ/);
   assert.match(ui,/3 · OWNER CONTROL/);
@@ -130,12 +130,25 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Date\.now\(\)-state\.loadedAt<15000/);
   assert.doesNotMatch(ui,/p\.replaceChildren\(root\)/);
   assert.match(ui,/\.rona-ar-canonical-head \.rona-visual-title/);
-  assert.match(ui,/font-size:clamp\(28px,3\.1vw,44px\)/);
+  assert.match(ui,/font-size:clamp\(31px,3\.25vw,48px\)/);
   assert.match(ui,/Агентская компания → клиент → сделка → подтверждённое право на выплату\./);
   assert.doesNotMatch(ui,/rona-ar-title','Вознаграждения агентов/);
-  assert.match(ui,/\.rona-ar-name\{font-size:12\.5px/);
-  assert.match(ui,/\.rona-ar-value\{text-align:right;font-size:15\.5px/);
+  assert.match(ui,/\.rona-ar-name\{font-size:12\.25px/);
+  assert.match(ui,/\.rona-ar-value\{text-align:right;font-size:15\.25px/);
   assert.match(ui,/minmax\(230px,1fr\)/);
+  assert.match(ui,/__RONA_AGENT_REWARDS_VISUAL__='digital-finance-v1'/);
+  assert.match(ui,/data-rona-agent-rewards-visual|ronaAgentRewardsVisual/);
+  assert.match(ui,/Digital finance · Agent rewards/);
+  assert.match(ui,/ПРАВО НА ВЫПЛАТУ/);
+  assert.match(ui,/function renderDealPulse\(root,deal\)/);
+  assert.match(ui,/PLAN · выручка/);
+  assert.match(ui,/PLAN · прибыль RONA/);
+  assert.match(ui,/FACT · прибыль RONA/);
+  assert.match(ui,/PLAN · агентское вознаграждение/);
+  assert.match(ui,/\.rona-ar-flow\{/);
+  assert.match(ui,/\.rona-ar-pulse\{/);
+  assert.match(ui,/\.rona-ar-metric\{/);
+  assert.match(ui,/linear-gradient\(rgba\(84,205,236,.045\) 1px,transparent 1px\)/);
 });
 
 test('Owner API routes Agent Rewards to approved PLAN V4 read RPC and existing correction RPC',()=>{
@@ -148,25 +161,25 @@ test('Owner API routes Agent Rewards to approved PLAN V4 read RPC and existing c
 });
 
 test('Admin shell lazy-loads Agent Rewards P&L and legacy Remaining renderer stays retired',()=>{
-  assert.match(shell,/agentRewards:\{src:'\/portal\/agent-rewards-v1-ui\?v=20261006-finance-workspace-v9-plan-authority'/);
-  assert.match(shell,/20261006-agent-rewards-finance-v8-plan-authority/);
+  assert.match(shell,/agentRewards:\{src:'\/portal\/agent-rewards-v1-ui\?v=20261006-finance-workspace-v10-digital-finance'/);
+  assert.match(shell,/20261006-agent-rewards-finance-v9-digital-finance/);
   assert.match(shell,/p==='agent-settlements'\)return loadModule\('agentRewards'/);
   assert.doesNotMatch(shell,/\['agent-settlements','messages','market-news'\]\.includes\(p\)/);
   assert.match(remaining,/replaceAll\("'вознаграждения агентов':'rewards'",''\)/);
   assert.match(remaining,/replaceAll\("if\(kind==='rewards'\)return renderRewards\(\)",''\)/);
-  assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261006-agent-rewards-finance-v9-plan-authority/);
+  assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261006-agent-rewards-finance-v10-digital-finance/);
 });
 
 test('Watchdog requires the P&L owner and legacy owners cannot reclaim the page',()=>{
   assert.match(materializer,/STATIC_REMAINING_REWARDS_SOURCE_MISMATCH/);
   assert.match(materializer,/STATIC_REMAINING_COMPETING_OWNER_PRESENT/);
-  assert.match(watchdog,/20261006-agent-rewards-finance-v8-plan-authority/);
+  assert.match(watchdog,/20261006-agent-rewards-finance-v9-digital-finance/);
   assert.match(watchdog,/finance-workspace-v1/);
   assert.match(watchdog,/return'agentRewards'/);
   assert.match(ui,/__RONA_AGENT_REWARDS_FINANCE_REPAIR__/);
   assert.match(ui,/MutationObserver/);
   assert.match(ui,/ronaAgentRewardsOwner='finance-workspace-v1'/);
-  assert.match(adminHtml,/portal-admin-runtime-watchdog-v1\.js\?v=20261006-agent-rewards-bootstrap-v7-plan-authority/);
+  assert.match(adminHtml,/portal-admin-runtime-watchdog-v1\.js\?v=20261006-agent-rewards-bootstrap-v8-digital-finance/);
   assert.match(retiredLegacy,/RETIRED_BY_FINANCE_WORKSPACE_V2/);
   assert.doesNotMatch(retiredLegacy,/MutationObserver|setInterval|Активные агенты|Закреплено клиентов|Реестр|agentRewardsFragment/);
 });
