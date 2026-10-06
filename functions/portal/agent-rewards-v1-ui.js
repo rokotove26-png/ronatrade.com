@@ -12,7 +12,7 @@ const q=(s,r=document)=>r.querySelector(s);
 const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const el=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!==undefined&&x!==null)n.textContent=String(x);return n};
 const num=v=>{if(v===null||v===undefined||v==='')return null;const n=Number(v);return Number.isFinite(n)?n:null};
-const round1=v=>{const n=num(v);return n===null?null:Math.round((n+Number.EPSILON)*10)/10};
+const round1=v=>{const n=num(v);if(n===null)return null;const sign=n<0?-1:1;return sign*Math.round((Math.abs(n)+Number.EPSILON)*10)/10};
 const fmt=(v,_d=1)=>{const n=num(v);return n===null?'—':new Intl.NumberFormat('ru-RU',{minimumFractionDigits:1,maximumFractionDigits:1}).format(n)};
 const money=(v,c)=>{const n=num(v);return n===null?'TO_VERIFY':fmt(n)+(c?' '+c:'')};
 const signedMoney=(v,c)=>{const n=num(v);if(n===null)return'TO_VERIFY';return(n>0?'+':'')+fmt(n)+(c?' '+c:'')};
