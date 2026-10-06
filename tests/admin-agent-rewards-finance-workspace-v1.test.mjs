@@ -90,11 +90,15 @@ test('PLAN transport breakdown requires Rail proposal plus Operations approval a
   assert.doesNotMatch(transportBreakdown,/delete\s+from\s+portal_private/i);
 });
 
-test('FACT FX v7 suppresses synthetic conversion residual and keeps realized FX fail-closed',()=>{
+test('FACT FX v7 uses approved realized economic effect and never synthetic conversion residual',()=>{
   assert.match(ownerCorrections,/rona_admin_agent_rewards_workspace_v6/);
-  assert.match(ownerCorrections,/NO_SYNTHETIC_REALIZED_FX_FROM_FUNDING_RESIDUAL/);
+  assert.match(ownerCorrections,/agent_rewards\.fact\.realized_fx_economic_effect/);
+  assert.match(ownerCorrections,/MATERIALIZE_AGENT_REWARDS_FACT_FX_ECONOMIC_SIGN/);
+  assert.match(ownerCorrections,/APPROVE_FOR_NEXT_STAGE/);
+  assert.match(ownerCorrections,/POSITIVE_IS_ECONOMIC_BENEFIT__NEGATIVE_IS_ECONOMIC_LOSS/);
   assert.match(ownerCorrections,/unusedConvertedBalanceIsRealizedFx',false/);
-  assert.match(ownerCorrections,/TO_VERIFY_REALIZED_FX_SOURCE_REQUIRED/);
+  assert.match(ownerCorrections,/legacyResidualFxSuppressed',true/);
+  assert.match(ownerCorrections,/APPROVED_REALIZED_FX_ECONOMIC_EFFECT/);
   assert.match(ownerCorrections,/AUTHORITATIVE_RESOURCE_CHAIN_CONSUMPTION_V6/);
   assert.doesNotMatch(ownerCorrections,/update\s+portal_private\.(payments|deal_finance_authority)/i);
 });
@@ -189,7 +193,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/\.rona-ar-transport\{/);
 });
 
-test('Owner API routes Agent Rewards to PLAN transport V5 read RPC and existing correction RPC',()=>{
+test('Owner API routes Agent Rewards to correction-semantics V6 read RPC and correction V4',()=>{
   assert.match(ownerApi,/\/admin\/agent-rewards-v1/);
   assert.match(ownerApi,/rona_admin_agent_rewards_workspace_v6/);
   assert.match(ownerApi,/rona_admin_agent_rewards_correct_v4/);
