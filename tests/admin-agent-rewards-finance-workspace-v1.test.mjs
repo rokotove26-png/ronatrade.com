@@ -102,7 +102,7 @@ test('Admin shell lazy-loads Agent Rewards P&L and legacy Remaining renderer sta
   assert.doesNotMatch(shell,/\['agent-settlements','messages','market-news'\]\.includes\(p\)/);
   assert.match(remaining,/replaceAll\("'вознаграждения агентов':'rewards'",''\)/);
   assert.match(remaining,/replaceAll\("if\(kind==='rewards'\)return renderRewards\(\)",''\)/);
-  assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261006-agent-rewards-pnl-v5/);
+  assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261006-agent-rewards-finance-v4/);
 });
 
 test('Watchdog requires the P&L owner and legacy owners cannot reclaim the page',()=>{
@@ -114,7 +114,7 @@ test('Watchdog requires the P&L owner and legacy owners cannot reclaim the page'
   assert.match(ui,/__RONA_AGENT_REWARDS_FINANCE_REPAIR__/);
   assert.match(ui,/MutationObserver/);
   assert.match(ui,/ronaAgentRewardsOwner='finance-pnl-v3'/);
-  assert.match(adminHtml,/portal-admin-runtime-watchdog-v1\.js\?v=20261006-agent-rewards-pnl-v3/);
+  assert.match(adminHtml,/portal-admin-runtime-watchdog-v1\.js\?v=20261006-agent-rewards-bootstrap-v2/);
   assert.match(retiredLegacy,/RETIRED_BY_FINANCE_WORKSPACE_V2/);
   assert.doesNotMatch(retiredLegacy,/MutationObserver|setInterval|Активные агенты|Закреплено клиентов|Реестр|agentRewardsFragment/);
 });
