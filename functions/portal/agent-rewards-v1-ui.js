@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261006-agent-rewards-finance-v7';
+const VERSION='20261006-agent-rewards-finance-v8-plan-authority';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 if(location.pathname!=='/portal/admin')return;
