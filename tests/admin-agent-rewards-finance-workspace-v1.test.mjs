@@ -289,7 +289,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Незакрытые расчёты/);
   assert.match(ui,/Условные претензии и HOLD-позиции в ДЗ\/КЗ не включены/);
   assert.match(ui,/Чистый ДДС/);
-  assert.match(ui,/fact\.taxes/);
+  assert.doesNotMatch(ui,/actualFinancialResult[^\n]*\+[^\n]*realizedFxReference/);
   assert.match(ui,/managementReward\(deal,financialResult\)/);
   assert.match(ui,/ФАКТ ДДС \+ незакрытые расчёты → фактический результат/);
   assert.match(ui,/незакрытые расчёты TO_VERIFY/);
