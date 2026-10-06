@@ -113,7 +113,9 @@ begin
               )
             ),
             'settlementPositions','[]'::jsonb,
-            'conditionalPositions','[]'::jsonb
+            'conditionalPositions','[]'::jsonb,
+            'ownerCorrectionLegacy',s.item->'ownerCorrection',
+            'ownerCorrection',null
           )
         when s.recognition_status='APPROVED_OPERATIONAL_ACCRUAL_FACT' then
           s.item
@@ -150,6 +152,38 @@ begin
             'accrualFact',s.fact_value,
             'settlementPositions',coalesce(s.fact_value->'settlement_positions','[]'::jsonb),
             'conditionalPositions',coalesce(s.fact_value->'conditional_positions','[]'::jsonb),
+            'ownerCorrection',
+              case
+                when s.item->'ownerCorrection' is null then null
+                when jsonb_typeof(s.item->'ownerCorrection'->'payload'->'expenseLines')='object'
+                 and not exists (
+                   select 1
+                   from jsonb_object_keys(s.item->'ownerCorrection'->'payload'->'expenseLines') k
+                   where not exists (
+                     select 1
+                     from jsonb_array_elements(coalesce(s.fact_value->'expense_lines','[]'::jsonb)) e
+                     where e->>'key'=k
+                   )
+                 )
+                then s.item->'ownerCorrection'
+                else null
+              end,
+            'ownerCorrectionLegacy',
+              case
+                when s.item->'ownerCorrection' is null then null
+                when jsonb_typeof(s.item->'ownerCorrection'->'payload'->'expenseLines')='object'
+                 and not exists (
+                   select 1
+                   from jsonb_object_keys(s.item->'ownerCorrection'->'payload'->'expenseLines') k
+                   where not exists (
+                     select 1
+                     from jsonb_array_elements(coalesce(s.fact_value->'expense_lines','[]'::jsonb)) e
+                     where e->>'key'=k
+                   )
+                 )
+                then null
+                else s.item->'ownerCorrection'
+              end,
             'accrualAuthority',jsonb_build_object(
               'financeProposalRecordId',s.finance_proposal_id,
               'operationsApprovalRecordId',s.operations_approval_id,
@@ -197,6 +231,8 @@ begin
             'accrualFact',s.fact_value,
             'settlementPositions',coalesce(s.fact_value->'settlement_positions','[]'::jsonb),
             'conditionalPositions',coalesce(s.fact_value->'conditional_positions','[]'::jsonb),
+            'ownerCorrectionLegacy',s.item->'ownerCorrection',
+            'ownerCorrection',null,
             'accrualAuthority',jsonb_build_object(
               'financeProposalRecordId',s.finance_proposal_id,
               'operationsApprovalRecordId',s.operations_approval_id,
