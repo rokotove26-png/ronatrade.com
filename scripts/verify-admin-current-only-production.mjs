@@ -86,7 +86,7 @@ const access=await retry('Clients/Agents current semantic convergence',async att
 });
 
 const remaining=await retry('Remaining sections semantic convergence',async attempt=>{
-  const r=await fetchNoStore('/portal/remaining-sections-ui',attempt);assert(r.ok,`status ${r.status}`);optionalHeader(r,'x-rona-delivery','static-build-v2-no-analytics-no-news');const t=await r.text();assert(t.includes('renderRewards'),'agent rewards renderer missing');assert(t.includes('Вознаграждения агентов'),'Agent Rewards title missing');assert(t.includes('Радиорубка'),'Radio title missing');assert(t.includes('portal-market-news-current-v1.js'),'dedicated Market News loader missing');for(const forbidden of ['function renderAnalytics(){','function renderNews(){',"'новости топливного рынка снг':'news'"])assert(!t.includes(forbidden),`retired remaining-section owner returned: ${forbidden}`);return t;
+  const r=await fetchNoStore('/portal/remaining-sections-ui',attempt);assert(r.ok,`status ${r.status}`);optionalHeader(r,'x-rona-delivery','static-build-v3-radio-only-no-analytics-no-news-no-rewards');const t=await r.text();assert(t.includes('Радиорубка'),'Radio title missing');assert(t.includes('portal-market-news-current-v1.js'),'dedicated Market News loader missing');for(const forbidden of ['function renderAnalytics(){','function renderNews(){','function renderRewards(){','Вознаграждения агентов',"'новости топливного рынка снг':'news'","'вознаграждения агентов':'rewards'"])assert(!t.includes(forbidden),`retired remaining-section owner returned: ${forbidden}`);return t;
 });
 
 const analytics=await retry('Canonical Analytics semantic convergence',async attempt=>{
