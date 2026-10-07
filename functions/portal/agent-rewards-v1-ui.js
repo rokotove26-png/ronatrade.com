@@ -1,8 +1,8 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261007-agent-rewards-finance-v17-authoritative-dds';
+const VERSION='20261007-agent-rewards-finance-v18-premium-visual-v2';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
-window.__RONA_AGENT_REWARDS_VISUAL__='digital-finance-v1';
+window.__RONA_AGENT_REWARDS_VISUAL__='premium-fintech-v2';
 if(location.pathname!=='/portal/admin')return;
 
 const API='/portal/owner-api';
