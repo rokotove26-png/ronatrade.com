@@ -368,7 +368,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.doesNotMatch(ui,/actualFinancialResult[^\n]*\+[^\n]*realizedFxReference/);
   assert.match(ui,/managementReward\(deal,financialResult\)/);
   assert.match(ui,/ФАКТ ДДС → постатейные корректировки → фактический результат/);
-  assert.match(ui,/корректировки TO_VERIFY/);
+  assert.match(ui,/Корректировка не подтверждена Finance → Operations/);
   assert.match(ui,/\.rona-ar-balances\{/);
   assert.match(ui,/function cashFactModel\(deal\)/);
   assert.match(ui,/function cashPaymentLinesModel\(deal,cur\)/);
@@ -412,12 +412,11 @@ test('Owner API routes Agent Rewards to correction-authority V13 read RPC and co
 
 test('Admin shell lazy-loads Agent Rewards P&L and legacy Remaining renderer stays retired',()=>{
   assert.match(shell,/agentRewards:\{src:'\/portal\/agent-rewards-v1-ui\?v=20261007-finance-workspace-v20-correction-gate-v3'/);
-  assert.match(shell,/20261007-agent-rewards-finance-v20-correction-gate-v3/);
   assert.match(shell,/p==='agent-settlements'\)return loadModule\('agentRewards'/);
   assert.doesNotMatch(shell,/\['agent-settlements','messages','market-news'\]\.includes\(p\)/);
   assert.match(remaining,/replaceAll\("'вознаграждения агентов':'rewards'",''\)/);
   assert.match(remaining,/replaceAll\("if\(kind==='rewards'\)return renderRewards\(\)",''\)/);
-  assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261007-agent-rewards-finance-v19-premium-visual-v2/);
+  assert.match(adminHtml,/portal-admin-shell-fast-v1\.js\?v=20261007-agent-rewards-finance-v20-correction-gate-v3/);
 });
 
 test('Watchdog requires the P&L owner and legacy owners cannot reclaim the page',()=>{
