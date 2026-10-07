@@ -132,7 +132,9 @@ jobs:
           grep -q '/portal/remaining-sections-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
           grep -q "window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
-          grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v23-agent-rewards-correction-gate-v3'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "state=window.__RONA_ADMIN_RUNTIME_RECOVERY__={version:'page-aware-" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')" assets/portal-admin-runtime-watchdog-v1.js
           grep -q "if(p==='market-news')return'market-news-current'" assets/portal-admin-runtime-watchdog-v1.js
           grep -q "root.querySelector(':scope > .mn-masthead')" assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
