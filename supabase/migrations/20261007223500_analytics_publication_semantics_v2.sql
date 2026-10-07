@@ -140,7 +140,7 @@ begin
   end loop;
   return jsonb_build_object('ok',true,'inserted',inserted_count);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION portal_private.refresh_market_intelligence_analytics_core_v1(p_reason text DEFAULT 'AUTO'::text)
@@ -340,7 +340,7 @@ exception when others then
   if v_run is not null then update portal_private.market_intelligence_runs set status='FAILED',error_code=sqlstate,error_text=left(sqlerrm,1000),finished_at=now() where run_id=v_run; end if;
   raise;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION portal_private.market_intelligence_admin_canonical_payload_v1()
@@ -589,7 +589,7 @@ select jsonb_build_object(
     'reason','Требуемый ряд Argus в текущем структурированном контуре не загружен; подмена другим индексом запрещена.'
   )
 );
-$function$
+$function$;
 
 
 comment on function portal_private.snapshot_market_intelligence_forecast_inputs_v1() is
