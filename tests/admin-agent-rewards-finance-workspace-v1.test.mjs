@@ -15,6 +15,7 @@ const ownerMirror=readFileSync('supabase/migrations/20261006210500_admin_agent_r
 const ownerMirrorHotfix=readFileSync('supabase/migrations/20261006213200_admin_agent_rewards_jsonb_object_length_hotfix_v12.sql','utf8');
 const itemizedOwner=readFileSync('supabase/migrations/20261006214500_admin_agent_rewards_itemized_owner_corrections_v13.sql','utf8');
 const authoritativeDds=readFileSync('supabase/migrations/20261007002500_admin_agent_rewards_authoritative_dds_v14.sql','utf8');
+const correctionAuthority=readFileSync('supabase/migrations/20261007091500_admin_agent_rewards_correction_authority_parity_v15.sql','utf8');
 const ui=readFileSync('functions/portal/agent-rewards-v1-ui.js','utf8');
 const ownerApi=readFileSync('functions/portal/owner-api.js','utf8');
 const shell=readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
@@ -250,6 +251,19 @@ test('Authoritative DDS v14 uses approved existing Finance facts instead of stal
   assert.doesNotMatch(authoritativeDds,/delete\s+from\s+portal_private/i);
 });
 
+test('Correction authority v15 exposes the same Finance to Operations gate enforced by correction v7',()=>{
+  assert.match(correctionAuthority,/rona_admin_agent_rewards_workspace_v13/);
+  assert.match(correctionAuthority,/agent_rewards\.owner\.correction_contract_v2/);
+  assert.match(correctionAuthority,/ALLOW_SOURCE_LOCKED_PAYMENT_LINE_OVERLAYS_PLUS_OPEN_SETTLEMENT/);
+  assert.match(correctionAuthority,/APPROVED_FOR_OWNER_CORRECTION/);
+  assert.match(correctionAuthority,/PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT/);
+  assert.match(correctionAuthority,/OPERATIONS_INTERNAL_DECISION/);
+  assert.match(correctionAuthority,/APPROVE_FOR_NEXT_STAGE/);
+  assert.match(correctionAuthority,/o\.payload->>'record_id'=p\.record_id::text/);
+  assert.doesNotMatch(correctionAuthority,/update\s+portal_private/i);
+  assert.doesNotMatch(correctionAuthority,/delete\s+from\s+portal_private/i);
+});
+
 test('Agent reward remains fail-closed without a calculable confirmed basis',()=>{
   assert.match(baseline,/TERM_MISSING/);
   assert.match(baseline,/CALCULATION_BASIS_REQUIRED/);
@@ -268,7 +282,7 @@ test('Agent Rewards runtime serialization ships its transform helper',()=>{
 });
 
 test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defined order',()=>{
-  assert.match(ui,/20261007-agent-rewards-finance-v18-premium-visual-v2/);
+  assert.match(ui,/20261007-agent-rewards-finance-v20-correction-gate-v3/);
   assert.match(ui,/1 · ПЛАН/);
   assert.match(ui,/2 · ФАКТ/);
   assert.match(ui,/3 · OWNER \/ АГЕНТ/);
@@ -362,6 +376,9 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/m\.paymentLines\.map/);
   assert.match(ui,/Подтверждённых выплат контрагентам нет/);
   assert.match(ui,/function ownerBridgeApproved\(deal\)/);
+  assert.match(ui,/function ownerCorrectionApproved\(deal\)/);
+  assert.match(ui,/APPROVED_FOR_OWNER_CORRECTION/);
+  assert.match(ui,/base\.bridgeApproved&&fact\.approved&&correctionApproved/);
   assert.match(ui,/function ownerAgentReward\(deal,actualResult,fxReference\)/);
   assert.match(ui,/Незакрытые расчёты/);
   assert.match(ui,/Фактический финансовый результат/);
@@ -384,9 +401,9 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
 
 });
 
-test('Owner API routes Agent Rewards to authoritative DDS V12 read RPC and correction V7',()=>{
+test('Owner API routes Agent Rewards to correction-authority V13 read RPC and correction V7',()=>{
   assert.match(ownerApi,/\/admin\/agent-rewards-v1/);
-  assert.match(ownerApi,/rona_admin_agent_rewards_workspace_v12/);
+  assert.match(ownerApi,/rona_admin_agent_rewards_workspace_v13/);
   assert.match(ownerApi,/rona_admin_agent_rewards_correct_v7/);
   assert.match(ownerApi,/p_assignment_id/);
   assert.match(ownerApi,/p_corrected_payload/);
@@ -394,8 +411,8 @@ test('Owner API routes Agent Rewards to authoritative DDS V12 read RPC and corre
 });
 
 test('Admin shell lazy-loads Agent Rewards P&L and legacy Remaining renderer stays retired',()=>{
-  assert.match(shell,/agentRewards:\{src:'\/portal\/agent-rewards-v1-ui\?v=20261007-finance-workspace-v19-premium-visual-v2'/);
-  assert.match(shell,/20261007-agent-rewards-finance-v18-premium-visual-v2/);
+  assert.match(shell,/agentRewards:\{src:'\/portal\/agent-rewards-v1-ui\?v=20261007-finance-workspace-v20-correction-gate-v3'/);
+  assert.match(shell,/20261007-agent-rewards-finance-v20-correction-gate-v3/);
   assert.match(shell,/p==='agent-settlements'\)return loadModule\('agentRewards'/);
   assert.doesNotMatch(shell,/\['agent-settlements','messages','market-news'\]\.includes\(p\)/);
   assert.match(remaining,/replaceAll\("'вознаграждения агентов':'rewards'",''\)/);
@@ -406,13 +423,13 @@ test('Admin shell lazy-loads Agent Rewards P&L and legacy Remaining renderer sta
 test('Watchdog requires the P&L owner and legacy owners cannot reclaim the page',()=>{
   assert.match(materializer,/STATIC_REMAINING_REWARDS_SOURCE_MISMATCH/);
   assert.match(materializer,/STATIC_REMAINING_COMPETING_OWNER_PRESENT/);
-  assert.match(watchdog,/20261007-agent-rewards-finance-v18-premium-visual-v2/);
+  assert.match(watchdog,/20261007-agent-rewards-finance-v20-correction-gate-v3/);
   assert.match(watchdog,/finance-workspace-v1/);
   assert.match(watchdog,/return'agentRewards'/);
   assert.match(ui,/__RONA_AGENT_REWARDS_FINANCE_REPAIR__/);
   assert.match(ui,/MutationObserver/);
   assert.match(ui,/ronaAgentRewardsOwner='finance-workspace-v1'/);
-  assert.match(adminHtml,/portal-admin-runtime-watchdog-v1\.js\?v=20261007-agent-rewards-bootstrap-v17-premium-visual-v2/);
+  assert.match(adminHtml,/portal-admin-runtime-watchdog-v1\.js\?v=20261007-agent-rewards-bootstrap-v18-correction-gate-v3/);
   assert.match(retiredLegacy,/RETIRED_BY_FINANCE_WORKSPACE_V2/);
   assert.doesNotMatch(retiredLegacy,/MutationObserver|setInterval|Активные агенты|Закреплено клиентов|Реестр|agentRewardsFragment/);
 });
