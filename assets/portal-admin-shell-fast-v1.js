@@ -92,7 +92,7 @@ const MODULES=Object.freeze({
   analytics:{src:'/portal/analytics-v2-ui?v=20260826-approved-analytics'},
   prices:{src:'/portal/prices-current-ui?v=20260826-single-owner'},
   access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'},
-  agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261007-finance-workspace-v19-premium-visual-v2'}
+  agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261007-finance-workspace-v20-correction-gate-v3'}
 });
 const railPrimaryRoot=()=>document.querySelector('[data-rail-current-v4="ready"],[data-rail-current-root="ready"]:not([data-rail-safe-fallback])');
 const railFallbackRoot=()=>document.querySelector('[data-rail-safe-fallback]');
