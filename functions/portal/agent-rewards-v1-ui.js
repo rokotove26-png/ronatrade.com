@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261007-agent-rewards-finance-v18-premium-visual-v2';
+const VERSION='20261007-agent-rewards-finance-v20-correction-gate-v3';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='premium-fintech-v2';
@@ -283,6 +283,10 @@ function correctionPaymentValue(deal,paymentId,fallback){
 function ownerBridgeApproved(deal){
   return String(deal?.ownerResultBridge?.recognition_status||'')==='APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE'
 }
+function ownerCorrectionApproved(deal){
+  return String(deal?.ownerCorrectionAuthority?.status||'')==='APPROVED_FOR_OWNER_CORRECTION'
+    && String(deal?.ownerCorrectionAuthority?.contract||'')==='PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'
+}
 function ownerAgentReward(deal,actualResult,fxReference){
   const t=deal?.agentTerm||{},ref=upper(t.reference),mode=upper(t.mode),result=num(actualResult);
   if(result===null)return{value:null,basis:null,status:'ACTUAL_RESULT_REQUIRED'};
@@ -537,13 +541,14 @@ function recomputeOwner(col,deal,fact,cur){
 }
 function renderOwner(deal){
   const fact=cashFactModel(deal),base=ownerModel(deal,fact),cur=fact.cur,col=el('section','rona-ar-col owner');
-  const editable=base.bridgeApproved&&fact.approved;
+  const correctionApproved=ownerCorrectionApproved(deal);
+  const editable=base.bridgeApproved&&fact.approved&&correctionApproved;
   const saved=editable&&deal.ownerCorrection;
   col.append(columnHead(
     '3 · OWNER / АГЕНТ',
     'Фактический результат',
     !editable
-      ?'ФАКТ ДДС зеркалируется · корректировки TO_VERIFY'
+      ?(!fact.approved?'ФАКТ ДДС TO_VERIFY':!base.bridgeApproved?'Расчётный мост TO_VERIFY':'Корректировка не подтверждена Finance → Operations')
       :saved
         ?'ФАКТ ДДС + постатейные корректировки + незакрытые расчёты · версия '+deal.ownerCorrection.version+' · '+new Date(deal.ownerCorrection.createdAt).toLocaleString('ru-RU')
         :'ФАКТ ДДС → постатейные корректировки → фактический результат',
