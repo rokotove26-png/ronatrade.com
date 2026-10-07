@@ -43,7 +43,7 @@ assert(!source.includes('installNavigationStability'),'Access page must not inst
 assert(!source.includes('installShellParity'),'Access page must not restyle the global shell');
 assert(shell.includes("window.__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'"),'Navigation must be owned by current shell');
 assert(shell.includes('grid-template-columns:272px minmax(0,1fr)'),'Canonical Home-scale sidebar must live in shell');
-assert(shell.includes('/assets/portal-admin-shell-fast-v1.js?v=20261006-agent-rewards-finance-v8-canonical-hero'),'Admin shell must cache-bust the lazy selected-page shell runtime');
+assert(shell.includes('/assets/portal-admin-shell-fast-v1.js?v=20261007-agent-rewards-finance-v20-correction-gate-v3'),'Admin shell must cache-bust the lazy selected-page shell runtime');
 assert(!shell.includes('id="rona-clients-agents-current-loader"')&&!shell.includes('/portal/clients-agents-current-ui?v=20260919-admin-access-stability-v3'),'Admin HTML must not preload the Access current runtime');
 assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js?v=20261006-agent-rewards-bootstrap-v6-canonical-hero'),'Admin shell must cache-bust the stability watchdog runtime');
 assert(source.includes("window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING'"),'Access runtime boot lifecycle marker missing');
