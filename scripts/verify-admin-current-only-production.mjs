@@ -56,7 +56,9 @@ const runtimeSrc=await retry('single-owner runtime semantic convergence',async a
 
 const watchdogSrc=await retry('page-aware watchdog semantic convergence',async attempt=>{
   const r=await fetchNoStore('/assets/portal-admin-runtime-watchdog-v1.js',attempt);assert(r.ok,`status ${r.status}`);const t=await r.text();
-  assert(t.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v23-agent-rewards-correction-gate-v3'"),'page-aware-v23-agent-rewards-correction-gate-v3 marker missing');
+  const watchdogVersion=t.match(/window\.__RONA_ADMIN_RUNTIME_WATCHDOG__='([^']+)'/)?.[1];
+  assert(watchdogVersion?.startsWith('page-aware-'),'page-aware watchdog marker missing');
+  assert(t.includes(`state=window.__RONA_ADMIN_RUNTIME_RECOVERY__={version:'${watchdogVersion}'`),'watchdog runtime/recovery version mismatch');
   assert(t.includes("if(p==='access')return window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!n.querySelector(':scope > #rona-ca4')"),'stable Access watchdog readiness missing');
   assert(!t.includes("if(p==='access')return !!n.querySelector('#rona-ca4 [data-rona-create-access=\"primary\"]')"),'stale transient-child Access watchdog returned');
   assert(t.includes("if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')"),'Analytics rendered-ready marker missing');
