@@ -170,10 +170,10 @@ test('LPG Platts M1/M2/M3 forward curve replaces one-point November history with
 test('curve changes trigger hydration even when physical close and forecast unchanged',async()=>{
  const f=fixture(),p=payload();p.products.DT.termCurve=term();
  f.setPayload(p);await f.wait();
- const p2=structuredClone(p);p2.products.DT.termCurve.values[1]=1371;
+ const p2=structuredClone(p);p2.products.DT.termCurve.values[0]=1402;
  f.setPayload(p2);await f.callbacks.focus();await f.wait();
  assert.equal(f.captured.length,2);
- assert.equal(f.captured[1].products.DT.values[1],1371);
+ assert.equal(f.captured[1].products.DT.values[0],1402);
 });
 test('reject inconsistent delivery months, missing doc or mixed future as daily curve',async()=>{
  for(const mutation of [
@@ -191,4 +191,17 @@ test('reject inconsistent delivery months, missing doc or mixed future as daily 
    assert.equal(f.captured[0].products.DT.values,undefined);
    assert.match(f.stage.innerHTML,/Нет актуального подтверждённого ряда/);
  }
+});
+
+test('reject source-mismatched forecast and term curve; no market facts fabricated',async()=>{
+  for(const mutation of [
+    p=>{p.products.DT.forecast.sourceRef='https://t.me/platts_digits/other-source'},
+    p=>{p.products.DT.termCurve.values[1]=1380}
+  ]){
+    const f=fixture(),p=payload();p.products.DT.termCurve=term();
+    mutation(p);
+    f.setPayload(p);await f.wait();
+    assert.equal(f.captured[0].products.DT.values,undefined);
+    assert.match(f.stage.innerHTML,/Нет актуального подтверждённого ряда/);
+  }
 });
