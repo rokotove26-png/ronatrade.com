@@ -7,14 +7,25 @@ const script=await (await renderAnalytics({})).text();
 let mode='OK',requests=0;
 const forecast=(month,base,low,high,sourceRef='https://t.me/platts_digits/7510')=>
   ({month,base,low,high,forward:base,reference:base,sourceRef,direction:'РОСТ',confidence:'СРЕДНЯЯ',curveType:'PLATTS_NOV'});
+const term=(key)=>({
+  kind:'FORWARD_TERM_STRUCTURE',sourceFamily:'PLATTS',sourceStatus:'CONFIRMED',
+  asOfDate:'07.10.2026',sourceRef:'https://t.me/platts_digits/7510',
+  sourceDocId:'TG-PLATTS-CF27D158005EDC786FCBDB98',
+  indexName:key==='DT'?'Composite ULSD 10 ppmS FOB ARA + CIF NWE Cargo Financial':'Propane CIF NWE Large Cargo Financial',
+  basis:key==='DT'?'Composite FOB ARA + CIF NWE':'CIF NWE Large Cargo Financial',
+  unit:'USD/т',dates:['10.2026','11.2026','12.2026'],
+  deliveryMonths:['2026-10','2026-11','2026-12'],
+  values:key==='DT'?[1403.125,1370,1328]:[775,725,698.5],
+  observationCount:3
+});
 const canon={
   version:'RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1',
   cutoff:'07.10.2026',latestTradeDate:'07.10.2026',
   products:{
     AI92:{name:'АИ-92',dates:['07.10'],values:[1261.75],forecast:forecast('2026-11',1097.75,1027,1195.75),rona:{reference:1261.75,bases:[['CPT Озинки',1200]]}},
     AI95:{name:'АИ-95',dates:['07.10'],values:[1301.75],forecast:forecast('2026-11',1137.75,1067,1235.75),rona:{reference:1301.75,bases:[['CPT Озинки',1240]]}},
-    DT:{name:'ДТ',dates:[],values:[],forecast:forecast('2026-11',1370,1328,1403.125),rona:{reference:1270.0833333,bases:[['CPT Озинки',1280],['CPT Сарыагаш',1385]]}},
-    LPG:{name:'LPG / СУГ',dates:['07.10'],values:[725],forecast:forecast('2026-11',725,698.5,775),rona:{reference:725,bases:[['CPT Озинки',610],['CPT Сарыагаш',745]]},
+    DT:{name:'ДТ',dates:[],values:[],termCurve:term('DT'),forecast:forecast('2026-11',1370,1328,1403.125),rona:{reference:1270.0833333,bases:[['CPT Озинки',1280],['CPT Сарыагаш',1385]]}},
+    LPG:{name:'LPG / СУГ',dates:['07.10'],values:[725],termCurve:term('LPG'),forecast:forecast('2026-11',725,698.5,775),rona:{reference:725,bases:[['CPT Озинки',610],['CPT Сарыагаш',745]]},
       regionalBenchmark:{date:'25.08.2026',low:725,base:753,high:780}}
   }
 };
@@ -39,15 +50,19 @@ try{
   const page=await browser.newPage({viewport:{width:1600,height:1000}});
   const errors=[];page.on('pageerror',e=>errors.push(String(e.message||e)));
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='canonical-daily-live-v2',{timeout:15000});
+  await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='canonical-daily-live-v3',{timeout:15000});
   assert(requests>0,'real UI never fetched Analytics API');
   await page.locator('#rona-analytics-v2 [data-product="DT"]').click();
-  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 [data-chart-stage]')?.textContent?.includes('Нет актуального подтверждённого ряда'),{timeout:8000});
+  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset?.ronaChartKind==='FORWARD_TERM_STRUCTURE'&&document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent?.includes('ДТ'),{timeout:8000});
   const dt=await page.evaluate(()=>{
     const root=document.querySelector('#rona-analytics-v2');
     return {
       forecast:root.querySelector('.an2-market-forecast')?.innerText||'',
       chart:root.querySelector('[data-chart-stage]')?.innerText||'',
+      title:root.querySelector('[data-chart-title]')?.textContent||'',
+      source:root.querySelector('[data-chart-source]')?.textContent||'',
+      chartKind:root.dataset.ronaChartKind,
+      chartSource:root.dataset.ronaChartSource,
       heading:root.querySelector('.an2-rona h2')?.textContent||'',
       prices:Array.from(root.querySelectorAll('.an2-price-base')).map(x=>x.textContent),
       kpis:Array.from(root.querySelectorAll('.an2-kpis .rona-owner-kpi')).map(x=>x.textContent),
@@ -66,29 +81,37 @@ try{
       dataset:document.documentElement.dataset.ronaAnalyticsData,priceMode:root?.querySelector('.an2-rona')?.dataset?.pricingMode};
   });
   console.log('DT_BROWSER_DEBUG',JSON.stringify({debug,errors}));
-  assert(dt.chart.includes('Нет актуального подтверждённого ряда'),'Missing DT physical series was represented by stale chart: '+JSON.stringify({chart:dt.chart.slice(0,160),debug,errors}));
+  assert(dt.title.includes('Форвардная кривая ДТ'),'DT graph must be a term structure, not physical spot: '+JSON.stringify(dt));
+  assert(dt.chartKind==='FORWARD_TERM_STRUCTURE','DT term structure not rendered: '+JSON.stringify({dt,debug,errors}));
+  assert(dt.source.includes('07.10.2026')&&dt.source.includes('Composite FOB ARA + CIF NWE'),'DT chart provenance/basis absent: '+dt.source);
+  assert(!dt.chart.includes('Нет актуального подтверждённого ряда'),'DT sourced M1-M3 term curve must not be shown empty');
   assert(dt.heading.includes('2026-11'),'DT RONA scenario prices were not updated');
   assert(dt.prices.length>0&&dt.prices.every(x=>x!=='—'&&x.trim()),'DT owner-authoritative scenario prices suppressed despite source model');
   await page.locator('#rona-analytics-v2 [data-product="LPG"]').click();
-  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 .an2-kpis .rona-owner-card:nth-child(2) .rona-owner-kpi')?.textContent?.includes('Нет актуальных данных'),{timeout:8000});
+  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset?.ronaChartKind==='FORWARD_TERM_STRUCTURE'&&document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent?.includes('СУГ'),{timeout:8000});
   const lpg=await page.evaluate(()=>{
     const root=document.querySelector('#rona-analytics-v2');
     return {forecast:root.querySelector('.an2-market-forecast')?.innerText||'',
       regional:Array.from(root.querySelectorAll('.an2-kpis .rona-owner-card')).at(1)?.innerText||'',
-      chart:root.querySelector('[data-chart-source]')?.textContent||''}
+      chart:root.querySelector('[data-chart-source]')?.textContent||'',
+      title:root.querySelector('[data-chart-title]')?.textContent||'',
+      chartKind:root.dataset.ronaChartKind,
+      source:root.dataset.ronaChartSource}
   });
   assert(lpg.forecast.includes('2026-11'),'LPG November forecast missing');
   assert(lpg.forecast.includes('725'),'LPG November Platts BASE 725 missing');
   assert(lpg.regional.includes('Нет актуальных данных'),'August Petromarket benchmark still shown as current: '+lpg.regional);
   assert(lpg.regional.includes('25.08.2026'),'Historical LPG regional source date must remain disclosed');
-  assert(lpg.chart.includes('07.10'),'LPG chart date still misleading: '+lpg.chart);
+  assert(lpg.chart.includes('07.10')&&lpg.chart.includes('CIF NWE Large Cargo Financial'),'LPG term curve date/basis missing: '+lpg.chart);
+  assert(lpg.title.includes('Форвардная кривая СУГ'),'LPG chart is not labelled as M1/M2/M3 delivery term structure: '+lpg.title);
+  assert(lpg.chartKind==='FORWARD_TERM_STRUCTURE','LPG curve not rendered');
   mode='ERROR';
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='SOURCE_UNAVAILABLE',{timeout:8000});
   const failureText=await page.locator('#rona-analytics-v2 .an2-market-forecast').innerText();
   assert(failureText.includes('Прогноз недоступен'),'Outage must never fall back to stale September forecast');
   assert(errors.length===0,'Uncaught browser errors: '+errors.join('; '));
-  console.log(JSON.stringify({result:'PASS',browser:'chromium',real_ui_response:true,dt_month:'2026-11',dt_base:1370,dt_chart:'SOURCE_ABSENT',dt_owner_prices:'SOURCE_LOCKED',lpg_month:'2026-11',lpg_base:725,lpg_petromarket:'STALE_HIDDEN',api_failure:'FAIL_CLOSED',pageerrors:errors.length,requests}));
+  console.log(JSON.stringify({result:'PASS',browser:'chromium',real_ui_response:true,dt_month:'2026-11',dt_base:1370,dt_chart:'FORWARD_TERM_STRUCTURE_M1_M2_M3',dt_owner_prices:'SOURCE_LOCKED',lpg_month:'2026-11',lpg_base:725,lpg_petromarket:'STALE_HIDDEN',lpg_chart:'FORWARD_TERM_STRUCTURE_M1_M2_M3',api_failure:'FAIL_CLOSED',pageerrors:errors.length,requests}));
 }finally{
   if(browser)await browser.close();
   await new Promise(r=>server.close(r));
