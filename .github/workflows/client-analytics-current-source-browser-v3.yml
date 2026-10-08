@@ -28,6 +28,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Syntax and client publication source scope preflight
+        run: |
+          node --check assets/portal-runtime/client-market-intelligence-v1.js
+          node --check scripts/attach-client-market-intelligence-v1.mjs
+          node --check scripts/qa-client-analytics-source-safe-browser-v3.mjs
+          grep -q "CLIENT_AUTHORIZED_PUBLISHED_CURRENT_ONLY" assets/portal-runtime/client-market-intelligence-v1.js
+          grep -q "source_freshness_state!=='CURRENT'" assets/portal-runtime/client-market-intelligence-v1.js
+          grep -q "PUBLISHED" supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts
+          echo 'CLIENT_ANALYTICS_SOURCE_SCOPE_SYNTAX=PASS'
       - name: Build canonical Client LK and verify existing visual freeze
         run: npm run build
       - name: Client published-content isolation and market freshness contract
