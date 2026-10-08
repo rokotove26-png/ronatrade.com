@@ -1,12 +1,12 @@
 export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
 ;(()=>{
-  if(window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='v1')return;
-  window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__='v1';
+  if(window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v2')return;
+  window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__='source-safe-v2';
   let inFlight=null,lastApplied='',lastSource=null;
   const API='/portal/api/v1/admin/analytics';
   function valid(payload){
     if(!payload||payload.version!=='RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1'||!payload.products)return false;
-    return ['AI92','AI95','DT','LPG'].every(k=>Array.isArray(payload.products?.[k]?.dates)&&Array.isArray(payload.products?.[k]?.values));
+    return ['AI92','AI95','DT','LPG'].every(k=>{const p=payload.products[k];return p&&typeof p==='object'&&(p.dates==null||Array.isArray(p.dates))&&(p.values==null||Array.isArray(p.values));});
   }
   function signature(payload){
     return JSON.stringify({
@@ -53,10 +53,14 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     const products={};
     for(const key of KEYS){
       const product=payload.products?.[key];
-      if(!product||!Array.isArray(product.dates)||!Array.isArray(product.values)||product.dates.length!==product.values.length)continue;
+      if(!product||typeof product!=='object')continue;
+      const dates=Array.isArray(product.dates)?product.dates:[];
+      const values=Array.isArray(product.values)?product.values:[];
+      if(dates.length!==values.length)continue;
       const series=hasSeries(product),forecast=backedForecast(product,payload,key);
       if(!series&&!forecast)continue;
       const safe=series?{...product}:{};
+      if(!series&&hasPriceBase(product))safe.rona=product.rona;
       if(forecast)safe.forecast=forecast;else delete safe.forecast;
       if(!hasPriceBase(product))delete safe.rona;
       if(!series&&product.regionalBenchmark)safe.regionalBenchmark=product.regionalBenchmark;
@@ -89,7 +93,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       if(box)box.innerHTML='<div class="an2-mf-title">Прогноз недоступен</div><div class="an2-mf-sub">Нет полного актуального прогноза со ссылкой на источник.</div>';
       if(cards[2]){const v=cards[2].querySelector('.rona-owner-kpi');if(v)v.textContent='Нет данных'}
     }
-    if(!series||!forecast||!hasPriceBase(product)){
+    if(!forecast||!hasPriceBase(product)){
       root.querySelectorAll('.an2-price-card').forEach(card=>{
         for(const selector of ['.an2-price-base','.an2-price-range','.an2-price-current']){
           const el=card.querySelector(selector);if(el)el.textContent='—';
@@ -129,12 +133,12 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
         const view=window.RONA_ANALYTICS_VIEW;
         if(!view||typeof view.setPayload!=='function')return false;
         const livePayload=availablePayload(payload);
-        if(!livePayload)return false;
+        if(!livePayload){decorate(payload);document.documentElement.dataset.ronaAnalyticsData='NO_CURRENT_SOURCE';return false;}
         const applied=view.setPayload(livePayload);
         if(applied===false)return false;
         lastApplied=sig;lastSource=payload;
         decorate(payload);
-        document.documentElement.dataset.ronaAnalyticsData='canonical-daily-live';
+        document.documentElement.dataset.ronaAnalyticsData='canonical-daily-live-v2';
         document.documentElement.dataset.ronaAnalyticsAsOf=String(payload.latestTradeDate||payload.cutoff||'');
         try{window.dispatchEvent(new CustomEvent('rona:analytics-live-applied',{detail:{version:payload.version,cutoff:payload.cutoff,latestTradeDate:payload.latestTradeDate,availableProducts:Object.keys(livePayload.products)}}))}catch(_){ }
         return true;
