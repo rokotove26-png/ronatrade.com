@@ -34,10 +34,10 @@ function fixture(){
     querySelector:k=>k==='#rona-analytics-v2'?root:null,
     addEventListener:(k,cb)=>{callbacks['document:'+k]=cb}
   };
-  const ctx={window,document,CustomEvent:class{},setInterval(){},queueMicrotask,
+  const ctx={window,document,CustomEvent:class{},setInterval(){},setTimeout,queueMicrotask,
     fetch:async()=>({ok:true,json:async()=>({data:{canonicalAnalytics:livePayload}})}),console};
   vm.runInNewContext(runtime,ctx,{timeout:3000});
-  const wait=()=>new Promise(r=>setImmediate(r));
+  const wait=()=>new Promise(r=>setTimeout(r,12));
   return {setPayload:x=>{livePayload=x},setProduct:x=>{activeProduct=x},callbacks,captured,stage,title,sourceLabel,forecastCard,modelNote,metrics,cards,prices,wait};
 }
 const forecast=(base=1250,month='2026-11',sourceRef='https://t.me/platts_digits/7510')=>
