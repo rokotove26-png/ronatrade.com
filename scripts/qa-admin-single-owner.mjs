@@ -49,7 +49,7 @@ need(has(admin,'data-page="agent-settlements"')&&has(admin,'id="page-agent-settl
 need(has(admin,'data-page="market-news"')&&has(admin,'id="page-market-news"'),'Market News route/page is missing');
 need(has(admin,'grid-template-columns:272px')&&has(admin,'min-height:48px')&&has(admin,'font-size:14.5px'),'Canonical desktop sidebar sizing is missing');
 need(has(admin,'current-only-router-v2')&&has(admin,'MutationObserver'),'Single current router guard is missing');
-need(has(admin,'/assets/portal-admin-shell-fast-v1.js?v=20261007-agent-rewards-finance-v20-correction-gate-v3'),'Admin shell does not cache-bust the lazy selected-page fast shell');
+need(has(admin,'/assets/portal-admin-shell-fast-v1.js?v=20261008-source-safe-analytics-r2'),'Admin shell does not cache-bust the lazy selected-page fast shell');
 need(!has(admin,'id="rona-clients-agents-current-loader"')&&!has(admin,'/portal/clients-agents-current-ui?v=20261005-agent-rewards-owner-v1'),'Access runtime must not preload from Admin HTML');
 need(has(admin,'/assets/portal-admin-runtime-watchdog-v1.js?v=20261007-agent-rewards-bootstrap-v18-correction-gate-v3'),'Admin shell does not cache-bust the stable watchdog');
 
