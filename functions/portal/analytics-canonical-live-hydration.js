@@ -9,9 +9,14 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     return ['AI92','AI95','DT','LPG'].every(k=>Array.isArray(payload.products?.[k]?.dates)&&Array.isArray(payload.products?.[k]?.values));
   }
   function signature(payload){
-    return [payload.cutoff,payload.latestTradeDate,...['AI92','AI95','DT','LPG'].map(k=>{
-      const p=payload.products[k]||{};return String(p.values?.[p.values.length-1]??'');
-    })].join('|');
+    return JSON.stringify({
+      cutoff: payload.cutoff,
+      latestTradeDate: payload.latestTradeDate,
+      products: ['AI92','AI95','DT','LPG'].map(key=>{
+        const product=payload.products[key]||{};
+        return [key,product.dates,product.values,product.forecast,product.rona];
+      })
+    });
   }
   function availablePayload(payload){
     const products={};
