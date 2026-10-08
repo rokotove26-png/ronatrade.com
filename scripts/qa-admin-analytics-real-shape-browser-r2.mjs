@@ -55,7 +55,17 @@ try{
   });
   assert(dt.forecast.includes('2026-11'),'DT November forecast was not rendered: '+dt.forecast.slice(0,160));
   assert(dt.forecast.replaceAll(String.fromCharCode(160),' ').includes('1 370'),'DT source-backed BASE 1370 missing: '+dt.forecast.slice(0,160));
-  assert(dt.chart.includes('Нет актуального подтверждённого ряда'),'Missing DT physical series was represented by stale chart: '+dt.chart.slice(0,160));
+  const debug=await page.evaluate(()=>{
+    const root=document.querySelector('#rona-analytics-v2');
+    const ctl=root?.querySelector('.an2-controls button[data-product="DT"]');
+    const stage=root?.querySelector('[data-chart-stage]');
+    return {state:window.RONA_ANALYTICS_VIEW?.getState?.(),documentVersion:window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__,
+      rootPresent:!!root,stagePresent:!!stage,stageHtml:stage?.outerHTML.slice(0,500),
+      closestMatches:!!ctl?.closest('#rona-analytics-v2 .an2-controls button[data-product]'),
+      dataset:document.documentElement.dataset.ronaAnalyticsData,priceMode:root?.querySelector('.an2-rona')?.dataset?.pricingMode};
+  });
+  console.log('DT_BROWSER_DEBUG',JSON.stringify({debug,errors}));
+  assert(dt.chart.includes('Нет актуального подтверждённого ряда'),'Missing DT physical series was represented by stale chart: '+JSON.stringify({chart:dt.chart.slice(0,160),debug,errors}));
   assert(dt.heading.includes('2026-11'),'DT RONA scenario prices were not updated');
   assert(dt.prices.length>0&&dt.prices.every(x=>x!=='—'&&x.trim()),'DT owner-authoritative scenario prices suppressed despite source model');
   await page.locator('#rona-analytics-v2 [data-product="LPG"]').click();
