@@ -137,6 +137,7 @@ function renderAnalytics(root,data){
 }
 function renderError(root,message){
   const owner=ensureOwner(root);
+  if(owner.dataset.renderState==='ERROR_NO_ARCHIVE')return;
   owner.replaceChildren(head({}),el('div',{class:'mi-error',text:message||'Нет доступа к актуальной опубликованной аналитике. Архивные котировки скрыты.'}));
   owner.dataset.renderState='ERROR_NO_ARCHIVE';
   root.dataset.ronaClientAnalyticsReady='false';
