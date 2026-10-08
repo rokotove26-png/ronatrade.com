@@ -119,30 +119,43 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       if(note)note.textContent=valid?'Petromarket · DAP Сарыагаш · '+date:'Petromarket · DAP Сарыагаш · последняя дата '+(date||'не указана')+'; исторический ориентир скрыт';
     }
   }
+  function indicateUnavailable(reason){
+    const root=document.querySelector('#rona-analytics-v2');
+    document.documentElement.dataset.ronaAnalyticsData='SOURCE_UNAVAILABLE';
+    document.documentElement.dataset.ronaAnalyticsError=String(reason||'DATA_NOT_AVAILABLE').slice(0,60);
+    if(!root)return;
+    const stage=root.querySelector('[data-chart-stage]');
+    if(stage)stage.innerHTML='<div class="an2-empty"><strong>Текущие данные недоступны</strong><span>Загрузка подтверждённых котировок и прогнозов не выполнена. Архивные значения скрыты.</span></div>';
+    root.querySelectorAll('[data-metric],.an2-kpis .rona-owner-kpi,.an2-price-base,.an2-price-range,.an2-price-current').forEach(el=>{el.textContent='—'});
+    const box=root.querySelector('.an2-market-forecast');
+    if(box)box.innerHTML='<div class="an2-mf-title">Прогноз недоступен</div><div class="an2-mf-sub">Нет действующего ответа аналитического сервера. Неподтверждённые значения скрыты.</div>';
+    const model=root.querySelector('.an2-model-note');
+    if(model)model.textContent='Проверьте соединение и полномочия. До восстановления источника прогнозная цена не рассчитывается.';
+  }
   async function hydrate(){
     if(inFlight)return inFlight;
     inFlight=(async()=>{
       try{
         const response=await fetch(API,{method:'GET',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
-        if(!response.ok)return false;
+        if(!response.ok){indicateUnavailable('HTTP_'+response.status);return false;}
         const body=await response.json().catch(()=>null);
         const payload=body?.data?.canonicalAnalytics;
-        if(!valid(payload))return false;
+        if(!valid(payload)){indicateUnavailable('INVALID_CANONICAL_PAYLOAD');return false;}
         const sig=signature(payload);
         if(sig===lastApplied){decorate(lastSource);return true}
         const view=window.RONA_ANALYTICS_VIEW;
-        if(!view||typeof view.setPayload!=='function')return false;
+        if(!view||typeof view.setPayload!=='function'){indicateUnavailable('VISUAL_RUNTIME_NOT_READY');return false;}
         const livePayload=availablePayload(payload);
-        if(!livePayload){decorate(payload);document.documentElement.dataset.ronaAnalyticsData='NO_CURRENT_SOURCE';return false;}
+        if(!livePayload){decorate(payload);indicateUnavailable('NO_SOURCE_BACKED_ITEMS');return false;}
         const applied=view.setPayload(livePayload);
-        if(applied===false)return false;
+        if(applied===false){indicateUnavailable('RENDER_REJECTED');return false;}
         lastApplied=sig;lastSource=payload;
         decorate(payload);
         document.documentElement.dataset.ronaAnalyticsData='canonical-daily-live-v2';
         document.documentElement.dataset.ronaAnalyticsAsOf=String(payload.latestTradeDate||payload.cutoff||'');
         try{window.dispatchEvent(new CustomEvent('rona:analytics-live-applied',{detail:{version:payload.version,cutoff:payload.cutoff,latestTradeDate:payload.latestTradeDate,availableProducts:Object.keys(livePayload.products)}}))}catch(_){ }
         return true;
-      }catch(_){return false}
+      }catch(_){indicateUnavailable('REQUEST_FAILED');return false}
       finally{inFlight=null}
     })();
     return inFlight;
