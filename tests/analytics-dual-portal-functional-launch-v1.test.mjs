@@ -58,7 +58,8 @@ test('admin live hydration accepts sourced forecast-only data but never treats e
     'dates.length!==values.length',
     'function hasSeries(',
     'const series=hasSeries(product),forecast=backedForecast(product,payload,key)',
-    'if(!series&&!forecast)continue;',
+    'const term=backedTermCurve(product,payload,key,forecast);',
+    'if(!series&&!forecast&&!term)continue;',
     'const livePayload=availablePayload(payload)',
     'availableProducts:Object.keys(livePayload.products)'
   ])assert.ok(source.includes(token),`missing hydration guard: ${token}`);
