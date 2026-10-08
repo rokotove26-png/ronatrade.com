@@ -14,7 +14,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       latestTradeDate: payload.latestTradeDate,
       products: ['AI92','AI95','DT','LPG'].map(key=>{
         const product=payload.products[key]||{};
-        return [key,product.dates,product.values,product.forecast,product.rona];
+        return [key,product.dates,product.values,product.forecast,product.rona,product.regionalBenchmark];
       })
     });
   }
