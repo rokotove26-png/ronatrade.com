@@ -339,6 +339,9 @@ def collect() -> int:
         for item in os.environ.get("TELEGRAM_CHANNELS", DEFAULT_CHANNELS).split(",")
         if item.strip()
     ]
+    # Primary Platts PDFs must be processed before the high-volume news/photo feed.
+    # This is scheduling only: no data is synthesized, deleted or reclassified.
+    channels.sort(key=lambda c: (0 if c.casefold() == "platts_digits" else 1, c.casefold()))
     limit = max(1, min(300, int(os.environ.get("TELEGRAM_MAX_MESSAGES", str(DEFAULT_LIMIT)))))
     counters = base.Counters()
     per_channel_errors: list[str] = []
@@ -355,7 +358,10 @@ def collect() -> int:
         temp_root = pathlib.Path(tmp)
         for channel in channels:
             try:
-                messages = collect_public_messages(session, channel, limit)
+                # Bound requests per scheduled run to avoid exhausting Postgres
+                # connection slots; next runs continue idempotent discovery.
+                channel_limit = min(limit, 24 if channel.casefold() == "platts_digits" else 6)
+                messages = collect_public_messages(session, channel, channel_limit)
             except Exception as exc:
                 per_channel_errors.append(f"{channel}:{str(exc)[:80]}")
                 print(json.dumps({

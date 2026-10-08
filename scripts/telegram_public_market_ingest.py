@@ -62,19 +62,49 @@ def required_env(name: str) -> str:
 
 
 def post_json(base_url: str, oidc: str, route: str, payload: dict[str, Any]) -> dict[str, Any]:
-    response = requests.post(
-        f"{base_url.rstrip('/')}/{route.lstrip('/')}",
-        headers={"Authorization": f"Bearer {oidc}", "Content-Type": "application/json"},
-        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        timeout=REQUEST_TIMEOUT,
-    )
-    try:
-        data = response.json()
-    except Exception as exc:
-        raise RuntimeError(f"INGEST_INVALID_JSON_HTTP_{response.status_code}") from exc
-    if not response.ok or data.get("ok") is not True:
-        raise RuntimeError(str(data.get("code") or f"INGEST_HTTP_{response.status_code}"))
-    return data
+    """Retry only transient ingest/DB saturation; never retry authorization or validation errors.
+
+    All POST routes use stable identifiers and idempotent upserts. When Postgres
+    runs out of available connections, a later scheduled source collection must
+    not be lost because the first prepare/finalize request returned WORKER_ERROR.
+    """
+    url = f"{base_url.rstrip('/')}/{route.lstrip('/')}"
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    headers = {"Authorization": f"Bearer {oidc}", "Content-Type": "application/json"}
+    max_attempts = 4
+    for attempt in range(max_attempts):
+        failure = ""
+        transient = False
+        try:
+            response = requests.post(url, headers=headers, data=body, timeout=REQUEST_TIMEOUT)
+            try:
+                data = response.json()
+            except (ValueError, TypeError):
+                data = {}
+            if response.ok and isinstance(data, dict) and data.get("ok") is True:
+                return data
+            code = str(data.get("code") or f"INGEST_HTTP_{response.status_code}") if isinstance(data, dict) else f"INGEST_HTTP_{response.status_code}"
+            failure = code
+            transient = response.status_code in (408, 429, 500, 502, 503, 504) or (
+                response.status_code >= 500 and
+                ("WORKER_ERROR" in code or "connection slots" in code.lower() or "PGRST002" in code)
+            )
+        except requests.RequestException as exc:
+            failure = f"INGEST_NETWORK_{type(exc).__name__}"
+            transient = True
+        if not transient or attempt == max_attempts - 1:
+            raise RuntimeError(failure)
+        delay_seconds = min(2 ** attempt, 8)
+        print(json.dumps({
+            "event": "INGEST_TRANSIENT_RETRY",
+            "route": route,
+            "attempt": attempt + 1,
+            "max_attempts": max_attempts,
+            "code": failure[:100],
+            "delay_seconds": delay_seconds,
+        }, ensure_ascii=False))
+        time.sleep(delay_seconds)
+    raise RuntimeError("INGEST_RETRY_EXHAUSTED")
 
 
 def sha256_file(path: pathlib.Path) -> str:

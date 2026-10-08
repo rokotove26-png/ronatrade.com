@@ -102,30 +102,54 @@ def post_json_refreshing(
     route: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    last_code = "INGEST_UNKNOWN"
-    for attempt in range(2):
-        token = _fresh_oidc(force=attempt > 0)
-        response = requests.post(
-            f"{base_url.rstrip('/')}/{route.lstrip('/')}",
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-            timeout=base.REQUEST_TIMEOUT,
-        )
-        try:
-            data = response.json()
-        except Exception as exc:
-            if attempt == 0 and response.status_code in {401, 403}:
-                continue
-            raise RuntimeError(f"INGEST_INVALID_JSON_HTTP_{response.status_code}") from exc
-        code = str(data.get("code") or f"INGEST_HTTP_{response.status_code}")
-        last_code = code
-        if response.ok and data.get("ok") is True:
-            return data
-        if attempt == 0 and (response.status_code in {401, 403} or code == "GITHUB_OIDC_DENIED"):
-            continue
-        raise RuntimeError(code)
-    raise RuntimeError(last_code)
+    """Rotate expired GitHub OIDC; retry transient DB/Worker overload only.
 
+    Endpoint prepare, finalize and run-status are idempotent by message key/run key.
+    Authentication, source validation, storage verification and HTTP 4xx denials
+    are not bypassed: a 401/403 gets at most one fresh OIDC token.
+    """
+    url = f"{base_url.rstrip('/')}/{route.lstrip('/')}"
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    refresh_auth = False
+    for attempt in range(5):
+        token = _fresh_oidc(force=refresh_auth)
+        failure = ""
+        transient = False
+        try:
+            response = requests.post(
+                url,
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                data=body,
+                timeout=base.REQUEST_TIMEOUT,
+            )
+            try:
+                data = response.json()
+            except (ValueError, TypeError):
+                data = {}
+            if response.ok and isinstance(data, dict) and data.get("ok") is True:
+                return data
+            failure = str(data.get("code") or f"INGEST_HTTP_{response.status_code}") if isinstance(data, dict) else f"INGEST_HTTP_{response.status_code}"
+            if response.status_code in (401, 403):
+                if not refresh_auth:
+                    refresh_auth = True
+                    continue
+                raise RuntimeError(failure)
+            transient = response.status_code in (408, 429, 500, 502, 503, 504)
+        except requests.RequestException as exc:
+            failure = f"INGEST_NETWORK_{type(exc).__name__}"
+            transient = True
+        if not transient or attempt == 4:
+            raise RuntimeError(failure)
+        delay = min(2 ** attempt, 8)
+        print(json.dumps({
+            "event": "TELEGRAM_INGEST_BACKOFF",
+            "route": route,
+            "attempt": attempt + 1,
+            "retry_in_seconds": delay,
+            "code": failure[:100],
+        }))
+        time.sleep(delay)
+    raise RuntimeError("INGEST_RETRY_EXHAUSTED")
 
 def strict_infer_mime(path: Any, _content_type: str | None, _filename: str | None) -> str | None:
     """Trust file signatures, never a .pdf suffix or an HTML response header."""
