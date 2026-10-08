@@ -88,7 +88,7 @@ try{
   assert(dt.heading.includes('2026-11'),'DT RONA scenario prices were not updated');
   assert(dt.prices.length>0&&dt.prices.every(x=>x!=='—'&&x.trim()),'DT owner-authoritative scenario prices suppressed despite source model');
   await page.locator('#rona-analytics-v2 [data-product="LPG"]').click();
-  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset?.ronaChartKind==='FORWARD_TERM_STRUCTURE'&&document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent?.includes('СУГ'),{timeout:8000});
+  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset?.ronaChartKind==='FORWARD_TERM_STRUCTURE'&&document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent?.includes('СУГ')&&document.querySelector('#rona-analytics-v2 .an2-kpis .rona-owner-card:nth-child(2) .rona-owner-kpi')?.textContent?.includes('Нет актуальных данных'),{timeout:8000});
   const lpg=await page.evaluate(()=>{
     const root=document.querySelector('#rona-analytics-v2');
     return {forecast:root.querySelector('.an2-market-forecast')?.innerText||'',
