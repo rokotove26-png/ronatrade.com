@@ -1,0 +1,62 @@
+name: Client Analytics current-source browser QA v3
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'assets/portal-runtime/client-market-intelligence-v1.js'
+      - 'scripts/attach-client-market-intelligence-v1.mjs'
+      - 'scripts/qa-client-market-intelligence-v1.mjs'
+      - 'scripts/qa-client-analytics-source-safe-browser-v3.mjs'
+      - '.github/workflows/client-analytics-current-source-browser-v3.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'assets/portal-runtime/client-market-intelligence-v1.js'
+      - 'scripts/attach-client-market-intelligence-v1.mjs'
+      - 'scripts/qa-client-market-intelligence-v1.mjs'
+      - 'scripts/qa-client-analytics-source-safe-browser-v3.mjs'
+      - '.github/workflows/client-analytics-current-source-browser-v3.yml'
+permissions:
+  contents: read
+  checks: read
+jobs:
+  client-current-publications:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build canonical Client LK and verify existing visual freeze
+        run: npm run build
+      - name: Client published-content isolation and market freshness contract
+        run: |
+          node scripts/qa-client-market-intelligence-v1.mjs
+          node --test tests/analytics-client-freshness-gate-v2.test.mjs
+          node --check dist/assets/portal-runtime/client-market-intelligence-v1.js
+          node --check scripts/qa-client-analytics-source-safe-browser-v3.mjs
+      - name: Install Chromium QA runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Browser-prove Client published source & context isolation
+        run: node scripts/qa-client-analytics-source-safe-browser-v3.mjs
+      - name: Wait exact production release Cloudflare SHA
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+      - name: Verify updated Client runtime is actually deployed
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 5 --retry-delay 5 "https://ronaoil.com/assets/portal-runtime/client-market-intelligence-v1.js?qa=${GITHUB_SHA}" -o /tmp/rona-client-analytics.js
+          grep -q '20261009-client-analytics-current-source-safe-v3' /tmp/rona-client-analytics.js
+          grep -q 'CLIENT_AUTHORIZED_PUBLISHED_CURRENT_ONLY' /tmp/rona-client-analytics.js
+          grep -q 'ERROR_NO_ARCHIVE' /tmp/rona-client-analytics.js
+          if grep -q 'setInterval(' /tmp/rona-client-analytics.js; then
+            echo 'Client Analytics periodic polling violation' >&2
+            exit 1
+          fi
+          echo 'RONA_CLIENT_ANALYTICS_SOURCE_SAFE_V3_PRODUCTION=PASS'
