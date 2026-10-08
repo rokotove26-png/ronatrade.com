@@ -102,3 +102,14 @@ test('AI92/AI95 source series and scenario months remain canonical',async()=>{
   assert.equal(f.captured[0].products.AI92.values[0],1261);
   assert.equal(f.captured[0].products.AI95.values[0],1301);
 });
+
+test('stale Petromarket August benchmark is not displayed as current in October',async()=>{
+  const f=fixture(),p=payload();
+  p.products.LPG.regionalBenchmark={low:725,high:780,base:753,date:'25.08.2026'};
+  f.setPayload(p);await f.wait();
+  f.setProduct('LPG');
+  f.callbacks['document:click']({target:{closest:()=>({})}});await f.wait();
+  assert.equal(f.cards[1].value.textContent,'Нет актуальных данных');
+  assert.match(f.cards[1].note.textContent,/25\.08\.2026/);
+  assert.match(f.cards[1].note.textContent,/исторический/);
+});
