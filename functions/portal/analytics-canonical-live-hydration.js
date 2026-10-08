@@ -49,6 +49,8 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     if(!term||term.kind!=='FORWARD_TERM_STRUCTURE'||term.sourceFamily!=='PLATTS'||term.sourceStatus!=='CONFIRMED')return null;
     if(String(term.asOfDate||'')!==String(payload.latestTradeDate||payload.cutoff||''))return null;
     if(!String(term.sourceRef||'').trim()||!String(term.sourceDocId||'').trim()||!String(term.indexName||'').trim()||!String(term.basis||'').trim())return null;
+    if(!forecast||String(forecast.sourceRef||'')!==String(term.sourceRef||''))return null;
+    if(!Number.isFinite(Number(forecast.base))||Math.abs(Number(forecast.base)-Number(term.values?.[1]))>0.001)return null;
     if(!Array.isArray(term.dates)||!Array.isArray(term.values)||!Array.isArray(term.deliveryMonths))return null;
     if(term.dates.length!==3||term.values.length!==3||term.deliveryMonths.length!==3||Number(term.observationCount)!==3)return null;
     if(!term.values.every(v=>v!==null&&v!==''&&Number.isFinite(Number(v))))return null;
