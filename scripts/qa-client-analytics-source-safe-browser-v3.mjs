@@ -23,7 +23,7 @@ const operations={
     labels:['ПОДТВЕРЖДЕНО','К ПРОВЕРКЕ'],values:[5,1]}
 };
 let payload={version:'RONA_CLIENT_MARKET_INTELLIGENCE_V1',generated_at:stamp,
-  server_date:'2026-10-09',timezone:'Europe/Moscow',analytics:[operations,row('АИ-92','STALE_SOURCE')],news:[]};
+  server_date:'2026-10-09',timezone:'Europe/Moscow',analytics:[operations,row('АИ-92','STALE_SOURCE'),row('СУГ / СПБТ','TO_VERIFY_FRESHNESS')],news:[]};
 let mode='OK',latencyMs=240,requests=0;
 const html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"></head>'+
 '<body><main id="page-analytics" class="page active"><div id="legacy-static-analytics">'+
@@ -58,6 +58,7 @@ try{
   await page.waitForFunction(()=>document.querySelector('[data-rona-client-market-intelligence-owner="analytics"]')?.dataset.renderState==='PUBLISHED_CURRENT_ONLY',{timeout:10000});
   assert(await page.locator('#page-analytics [data-product="АИ-92"][data-client-source-status="NO_CURRENT_PUBLICATION"]').count()===1,'STALE_SOURCE product was not omitted');
   assert(await page.locator('#page-analytics [data-product="ДТ"][data-client-source-status="NO_CURRENT_PUBLICATION"]').count()===1,'Missing DT has no explicit unavailable state');
+  assert(await page.locator('#page-analytics [data-product="СУГ / СПБТ"][data-client-source-status="NO_CURRENT_PUBLICATION"]').count()===1,'Unverified LPG publication leaked as current');
   const initial=await page.locator('#page-analytics').innerText();
   assert(!initial.includes('21.08.2026')&&!initial.includes('Прогноз 09.2026')&&!initial.includes('1 111'),'Archived initial prices leaked visibly');
   assert(initial.includes('Подтверждённые показатели логистики'),'Verified published logistics material was removed');
