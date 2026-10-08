@@ -55,7 +55,7 @@ test('admin live hydration accepts sourced forecast-only data but never treats e
   const source=await readFile('functions/portal/analytics-canonical-live-hydration.js','utf8');
   for(const token of [
     'function availablePayload(payload)',
-    'product.dates.length!==product.values.length',
+    'dates.length!==values.length',
     'function hasSeries(',
     'const series=hasSeries(product),forecast=backedForecast(product,payload,key)',
     'if(!series&&!forecast)continue;',
