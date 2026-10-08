@@ -1,0 +1,47 @@
+name: Admin Analytics source-safe real-shape browser QA v2
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+  push:
+    branches: [release/public-go-live-v1.1]
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  analytics-real-shape-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate full Analytics runtime and real-shaped canonical payload
+        run: |
+          node --check functions/portal/analytics-canonical-live-hydration.js
+          node --test tests/analytics-hydration-source-safe-v1.test.mjs
+          node --test tests/analytics-dual-portal-functional-launch-v1.test.mjs
+          node --check scripts/qa-admin-analytics-real-shape-browser-r2.mjs
+      - name: Install Chromium browser QA runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Verify actual approved visual with raw-shaped DT and LPG data
+        run: node scripts/qa-admin-analytics-real-shape-browser-r2.mjs
+      - name: Wait for exact release deployment
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+      - name: Verify production JavaScript freshness (no authentication required)
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 5 --retry-delay 5 "https://ronaoil.com/portal/analytics-v2-ui?qa=${GITHUB_SHA}" -o /tmp/rona-analytics-live.js
+          grep -q 'source-safe-v2' /tmp/rona-analytics-live.js
+          grep -q 'canonical-daily-live-v2' /tmp/rona-analytics-live.js
+          grep -q 'SOURCE_UNAVAILABLE' /tmp/rona-analytics-live.js
+          echo 'RONA_ANALYTICS_PRODUCTION_SCRIPT_SOURCE_SAFE_V2=PASS'
