@@ -51,12 +51,14 @@ test('admin Analytics accepts partial canonical live series without visual fallb
   }
 });
 
-test('admin live hydration applies only non-empty product series',async()=>{
+test('admin live hydration accepts sourced forecast-only data but never treats empty series as a physical chart',async()=>{
   const source=await readFile('functions/portal/analytics-canonical-live-hydration.js','utf8');
   for(const token of [
     'function availablePayload(payload)',
     'product.dates.length!==product.values.length',
-    'product.dates.length===0',
+    'function hasSeries(',
+    'const series=hasSeries(product),forecast=backedForecast(product,payload,key)',
+    'if(!series&&!forecast)continue;',
     'const livePayload=availablePayload(payload)',
     'availableProducts:Object.keys(livePayload.products)'
   ])assert.ok(source.includes(token),`missing hydration guard: ${token}`);
