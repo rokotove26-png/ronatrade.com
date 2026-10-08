@@ -1,0 +1,40 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-09",
+  "owner_instruction": "Подтверждаю снятие визуальной заморозки только для раздела Аналитика клиентского ЛК без изменения других разделов и правил публикации рыночных данных.",
+  "scope": "CLIENT_ANALYTICS_CURRENT_SOURCE_SAFE_V3",
+  "decision": "SCOPED_VISUAL_FREEZE_RELEASE",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_CURRENT_SOURCE_SAFE_V3",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "authorized_post_blob_sha": "7ba5bc4f1296bb6b560adddf145cf419e0d32d71",
+      "required_marker": "20261009-client-analytics-current-source-safe-v3"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "authorized_post_blob_sha": "48f0c9c2b74e8498341dde0bc4d8f940d84d4e57",
+      "required_marker": "20261009-current-source-safe-v3"
+    }
+  },
+  "requirements": {
+    "analytics_section_only": true,
+    "approved_current_client_safe_publication_only": true,
+    "source_freshness_gate_preserved": true,
+    "source_unavailable_fail_closed": true,
+    "market_values_not_manufactured": true,
+    "market_publication_authority_unchanged": true,
+    "auth_unchanged": true,
+    "other_client_sections_unchanged": true,
+    "admin_market_news_visual_parity_preserved": true,
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "exact_blob_enforcement": true,
+    "scoped_unfreeze_only": true
+  }
+}

@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20260902-client-market-intelligence-v2-admin-news-parity';
+const MARK='20261009-client-analytics-current-source-safe-v3';
 if(window.__RONA_CLIENT_MARKET_INTELLIGENCE__===MARK)return;
 window.__RONA_CLIENT_MARKET_INTELLIGENCE__=MARK;
 
@@ -14,6 +14,17 @@ window.__RONA_CLIENT_MARKET_INTELLIGENCE_STATE__=state;
 
 const norm=v=>String(v??'').replace(/\s+/gu,' ').trim();
 const q=(s,r=document)=>r.querySelector(s);
+const MARKET_PRODUCTS=Object.freeze(['АИ-92','АИ-95','ДТ','НАФТА','СУГ / СПБТ']);
+function isMarketProduct(product){return MARKET_PRODUCTS.includes(norm(product))}
+function isAuthorizedRow(row){
+  if(!row||!row.publication_id||!row.publication_item_id||!row.product||!row.headline)return false;
+  const chart=row.public_chart;
+  if(!chart||typeof chart!=='object'||Array.isArray(chart)||!Array.isArray(chart.labels)||!Array.isArray(chart.values))return false;
+  if(chart.labels.length!==chart.values.length||chart.values.some(v=>v===null||v===''||!Number.isFinite(Number(v))))return false;
+  if(isMarketProduct(row.product)&&chart.source_freshness_state!=='CURRENT')return false;
+  return true;
+}
+
 function el(tag,attrs={},...children){
   const n=document.createElement(tag);
   for(const[k,v]of Object.entries(attrs||{})){
@@ -30,7 +41,7 @@ function finite(v){const n=Number(v);return Number.isFinite(n)?n:null}
 function fmt(v,max=2){const n=finite(v);return n===null?'—':n.toLocaleString('ru-RU',{maximumFractionDigits:max,minimumFractionDigits:Number.isInteger(n)?0:Math.min(2,max)})}
 function dateValue(v){const d=new Date(v||'');return Number.isFinite(d.getTime())?d:null}
 function dateLabel(v,withTime=false){const d=dateValue(v);if(!d)return'—';return d.toLocaleString('ru-RU',withTime?{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}:{day:'2-digit',month:'2-digit',year:'numeric'})}
-function fingerprint(data){return JSON.stringify([data?.generated_at,(data?.analytics||[]).map(x=>[x.publication_item_id,x.published_at,x.analytics_as_of])])}
+function fingerprint(data){return JSON.stringify([data?.generated_at,(data?.analytics||[]).map(x=>[x.publication_item_id,x.published_at,x.analytics_as_of,x.headline,x.content_text,x.public_chart])])}
 
 function analyticsPage(){
   return q('#page-analytics')||q('#analyticsPage')||q('#page-market-analytics')||q('[data-page-panel="analytics"]')||q('[data-page-id="analytics"]')||q('[data-page-panel="market-analytics"]');
@@ -61,6 +72,9 @@ function installStyle(){
 [${OWNER}="analytics"] .mi-fill{height:100%;min-width:2px;border-radius:99px;background:currentColor;opacity:.72}
 [${OWNER}="analytics"] .mi-value{font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}
 [${OWNER}="analytics"] .mi-empty,[${OWNER}="analytics"] .mi-error{padding:34px 0;color:var(--mi-muted);font-size:13px;line-height:1.6}
+[${OWNER}="analytics"] .mi-missing{opacity:.85}
+[${OWNER}="analytics"] .mi-missing h3{font-weight:700}
+#page-analytics>[data-rona-client-analytics-legacy="hidden-v3"]{display:none!important}
 @media(max-width:900px){[${OWNER}="analytics"] .mi-grid{grid-template-columns:1fr}}
 @media(max-width:620px){[${OWNER}="analytics"] .mi-head{align-items:flex-start;flex-direction:column}[${OWNER}="analytics"] .mi-meta{text-align:left}}
 `;
@@ -70,10 +84,13 @@ function ensureOwner(root){
   installStyle();
   let owner=root.querySelector(`:scope > [${OWNER}="analytics"]`);
   if(!owner){owner=el('section',{[OWNER]:'analytics','data-rona-client-market-intelligence-version':MARK});root.prepend(owner)}
-  if(root.dataset.ronaClientAnalyticsMigrated!=='v2'){
-    for(const child of Array.from(root.children)){if(child!==owner){child.dataset.ronaClientAnalyticsLegacy='hidden-v2';child.hidden=true}}
-    root.dataset.ronaClientAnalyticsMigrated='v2';
+  for(const child of Array.from(root.children)){
+    if(child===owner||child.dataset.ronaClientAnalyticsLegacy==='hidden-v3')continue;
+    child.dataset.ronaClientAnalyticsLegacy='hidden-v3';
+    child.hidden=true;
   }
+  root.dataset.ronaClientAnalyticsMigrated='v3';
+  root.dataset.ronaClientAnalyticsSource='CLIENT_AUTHORIZED_PUBLISHED_CURRENT_ONLY';
   return owner;
 }
 function head(data){
@@ -93,51 +110,97 @@ function chartRows(chart){
 }
 function renderAnalytics(root,data){
   const owner=ensureOwner(root),rows=Array.isArray(data?.analytics)?data.analytics:[],body=el('div',{});
-  if(!rows.length)body.append(el('div',{class:'mi-empty',text:'Опубликованных аналитических материалов для текущего клиентского доступа нет.'}));
-  else{
-    const grid=el('div',{class:'mi-grid'});
-    for(const row of rows){
-      const card=el('article',{class:'mi-card'},el('div',{class:'mi-card-top'},el('span',{class:'mi-product',text:norm(row.product)||'Аналитика'}),el('span',{class:'mi-date',text:'на '+dateLabel(row.analytics_as_of)})),el('h3',{text:norm(row.headline)||norm(row.title)||'Аналитический материал'}));
-      const copy=norm(row.content_text);if(copy)card.append(el('p',{class:'mi-copy',text:copy}));const bars=chartRows(row.public_chart);if(bars)card.append(bars);grid.append(card);
-    }
-    body.append(grid);
+  const grid=el('div',{class:'mi-grid'});
+  const byProduct=new Map(rows.filter(x=>isMarketProduct(x.product)).map(x=>[norm(x.product),x]));
+  // Missing market publications remain visibly unavailable, never replaced by embedded August/September demo quotes.
+  for(const product of MARKET_PRODUCTS){
+    if(byProduct.has(product))continue;
+    grid.append(el('article',{class:'mi-card mi-missing','data-product':product,'data-client-source-status':'NO_CURRENT_PUBLICATION'},
+      el('div',{class:'mi-card-top'},el('span',{class:'mi-product',text:product})),
+      el('h3',{text:'Нет текущей подтверждённой публикации'}),
+      el('p',{class:'mi-copy',text:'Ожидается проверенный источник и разрешённая для клиентов публикация. Архивные цены и прогнозы не показываются как актуальные.'})));
   }
+  for(const row of rows){
+    const card=el('article',{class:'mi-card','data-product':norm(row.product),'data-client-source-status':'PUBLISHED_CURRENT'},
+      el('div',{class:'mi-card-top'},el('span',{class:'mi-product',text:norm(row.product)||'Аналитика'}),
+      el('span',{class:'mi-date',text:'на '+dateLabel(row.analytics_as_of)})),
+      el('h3',{text:norm(row.headline)||norm(row.title)||'Аналитический материал'}));
+    const copy=norm(row.content_text);if(copy)card.append(el('p',{class:'mi-copy',text:copy}));
+    const bars=chartRows(row.public_chart);if(bars)card.append(bars);
+    grid.append(card);
+  }
+  body.append(grid);
   owner.replaceChildren(head(data),body);
+  owner.dataset.renderState='PUBLISHED_CURRENT_ONLY';
   root.dataset.ronaClientAnalyticsReady='true';
   root.dataset.ronaClientMarketIntelligenceFingerprint='analytics:'+state.fingerprint;
 }
-function renderError(root,message){if(!root)return;const owner=ensureOwner(root);owner.replaceChildren(head(state.data||{}),el('div',{class:'mi-error',text:message||'Данные временно недоступны. Повторная загрузка выполняется автоматически.'}))}
+function renderError(root,message){
+  const owner=ensureOwner(root);
+  if(owner.dataset.renderState==='ERROR_NO_ARCHIVE')return;
+  owner.replaceChildren(head({}),el('div',{class:'mi-error',text:message||'Нет доступа к актуальной опубликованной аналитике. Архивные котировки скрыты.'}));
+  owner.dataset.renderState='ERROR_NO_ARCHIVE';
+  root.dataset.ronaClientAnalyticsReady='false';
+}
+function renderLoading(root){
+  const owner=ensureOwner(root);
+  if(owner.dataset.renderState==='LOADING')return;
+  owner.replaceChildren(head({}),el('div',{class:'mi-empty',text:'Проверяем актуальные публикации для вашего клиентского доступа…'}));
+  owner.dataset.renderState='LOADING';
+  root.dataset.ronaClientAnalyticsReady='false';
+}
 function apply(){
   state.renderQueued=false;
   const root=analyticsPage();
-  if(state.data){if(root&&root.dataset.ronaClientMarketIntelligenceFingerprint!=='analytics:'+state.fingerprint)renderAnalytics(root,state.data);document.documentElement.dataset.ronaClientMarketIntelligence='ready'}
-  else if(state.loaded&&state.error&&root&&pageShown(root)){renderError(root,state.error);document.documentElement.dataset.ronaClientMarketIntelligence='degraded'}
+  if(!root)return;
+  ensureOwner(root);
+  if(state.data){
+    if(root.dataset.ronaClientMarketIntelligenceFingerprint!=='analytics:'+state.fingerprint)renderAnalytics(root,state.data);
+    document.documentElement.dataset.ronaClientMarketIntelligence='ready';
+  }else if(state.loaded&&state.error){
+    renderError(root,'Актуальная опубликованная аналитика временно недоступна. Архивные котировки и прогнозы скрыты.');
+    document.documentElement.dataset.ronaClientMarketIntelligence='degraded';
+  }else renderLoading(root);
 }
 function schedule(){if(state.renderQueued)return;state.renderQueued=true;requestAnimationFrame(apply)}
 function cacheData(){const entry=window.__RONA_CLIENT_BACKGROUND_CACHE__?.[API_PATH];return entry?.ok&&entry?.body?.ok&&entry?.body?.data?entry.body.data:null}
 function accept(data,reason){
   if(!data||data.version!=='RONA_CLIENT_MARKET_INTELLIGENCE_V1'||!Array.isArray(data.analytics)||!Array.isArray(data.news))return false;
-  const fp=fingerprint(data);state.data=data;state.loaded=true;state.error='';state.updatedAt=new Date().toISOString();if(fp!==state.fingerprint){state.fingerprint=fp;schedule()}
-  try{window.dispatchEvent(new CustomEvent('rona:client:market-intelligence',{detail:{reason,version:data.version,generated_at:data.generated_at,analytics_count:data.analytics.length,news_count:data.news.length}}))}catch(_){ }
+  const safe={...data,analytics:data.analytics.filter(isAuthorizedRow)};
+  const fp=fingerprint(safe);state.data=safe;state.loaded=true;state.error='';state.updatedAt=new Date().toISOString();
+  if(fp!==state.fingerprint){state.fingerprint=fp;schedule()}
+  try{window.dispatchEvent(new CustomEvent('rona:client:market-intelligence',{detail:{reason,version:safe.version,generated_at:safe.generated_at,analytics_count:safe.analytics.length,news_count:safe.news.length}}))}catch(_){ }
   return true;
 }
-async function load(reason='timer'){
-  if(state.loading)return;
-  const cached=cacheData();if(cached)accept(cached,'background-cache');
-  state.loading=true;document.documentElement.dataset.ronaClientMarketIntelligence='loading';
-  try{const r=await fetch(API,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-client-market-intelligence':MARK}});const body=await r.json().catch(()=>null);if(!r.ok||!body?.ok||!accept(body.data,reason))throw new Error(String(body?.code||`HTTP_${r.status}`));}
-  catch(error){state.loaded=true;state.error=String(error?.message||error||'CLIENT_MARKET_INTELLIGENCE_LOAD_FAILED');if(!state.data)schedule()}
-  finally{state.loading=false;if(state.data)document.documentElement.dataset.ronaClientMarketIntelligence='ready'}
+let requestSequence=0;
+async function load(reason='open'){
+  const id=++requestSequence;
+  // Never retain previous tenant or archive data across refresh/context switch, including failed responses.
+  state.data=null;state.fingerprint='';state.loaded=false;state.error='';state.loading=true;
+  const root=analyticsPage();if(root)root.dataset.ronaClientMarketIntelligenceFingerprint='';
+  document.documentElement.dataset.ronaClientMarketIntelligence='loading';schedule();
+  try{
+    const r=await fetch(API,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-client-market-intelligence':MARK}});
+    const body=await r.json().catch(()=>null);
+    if(id!==requestSequence)return;
+    if(!r.ok||!body?.ok||!accept(body.data,reason))throw new Error(String(body?.code||'CLIENT_MARKET_INTELLIGENCE_LOAD_FAILED'));
+  }catch(error){
+    if(id!==requestSequence)return;
+    state.data=null;state.fingerprint='';state.loaded=true;state.error=String(error?.message||error||'CLIENT_MARKET_INTELLIGENCE_LOAD_FAILED');schedule();
+  }finally{
+    if(id===requestSequence){state.loading=false;schedule()}
+  }
 }
 function start(){
   const cached=cacheData();if(cached)accept(cached,'initial-cache');
   load('open');
   state.timer=setInterval(()=>load('interval'),REFRESH_MS);
-  window.addEventListener('focus',schedule,{passive:true});
-  window.addEventListener('pageshow',schedule,{passive:true});
-  window.addEventListener('online',schedule,{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')schedule()});
+  window.addEventListener('focus',()=>load('focus'),{passive:true});
+  window.addEventListener('pageshow',()=>load('pageshow'),{passive:true});
+  window.addEventListener('online',()=>load('online'),{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load('visible')});
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
+  document.addEventListener('click',event=>{const trigger=event.target?.closest?.('[data-page="analytics"],[data-page-id="analytics"],[data-page-panel="analytics"]');if(trigger)queueMicrotask(()=>load('analytics-open'))},true);
   new MutationObserver(()=>schedule()).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','data-page','data-page-id']});
   schedule();
 }
