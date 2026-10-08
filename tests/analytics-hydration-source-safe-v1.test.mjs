@@ -48,7 +48,7 @@ function payload(){return{
   products:{
     AI92:{dates:['07.10'],values:[1261],forecast:forecast(1098),rona:{reference:1261,bases:[['CPT Ozinki',1200]]}},
     AI95:{dates:['07.10'],values:[1301],forecast:forecast(1138)},
-    DT:{dates:[],values:[],forecast:forecast(1370)},
+    DT:{dates:null,values:null,forecast:forecast(1370),rona:{reference:1270.083333,bases:[['CPT Озинки',1280],['CPT Сарыагаш',1385]]}},
     LPG:{dates:['07.10'],values:[725],forecast:forecast(725),
       regionalBenchmark:{low:698.5,high:775,date:'07.10.2026'}}
   }
@@ -61,7 +61,8 @@ test('forecast-only DT renders sourced November forecast while hiding stale char
   assert.ok(!('values' in f.captured[0].products.DT));
   assert.match(f.stage.innerHTML,/Нет актуального подтверждённого ряда/);
   assert.ok(f.metrics.every(x=>x.textContent==='—'));
-  assert.ok(f.prices.every(x=>Object.values(x.nodes).every(v=>v.textContent==='—')));
+  assert.deepEqual(JSON.parse(JSON.stringify(f.captured[0].products.DT.rona.bases)),[['CPT Озинки',1280],['CPT Сарыагаш',1385]]);
+  assert.equal(f.stage.innerHTML.includes('Архивный график скрыт'),true);
 });
 test('forecast change rehydrates with unchanged physical close',async()=>{
   const f=fixture(),p=payload();f.setPayload(p);await f.wait();
@@ -112,4 +113,19 @@ test('stale Petromarket August benchmark is not displayed as current in October'
   assert.equal(f.cards[1].value.textContent,'Нет актуальных данных');
   assert.match(f.cards[1].note.textContent,/25\.08\.2026/);
   assert.match(f.cards[1].note.textContent,/исторический/);
+});
+
+test('source-safe v2 runtime is chosen and marks canonical hydration for raw null DT',async()=>{
+ const f=fixture(),p=payload();f.setPayload(p);await f.wait();
+ assert.ok(f.captured.length===1);
+ assert.equal(f.captured[0].products.DT.forecast.month,'2026-11');
+ assert.equal(f.captured[0].products.DT.rona.bases[0][1],1280);
+ assert.equal(f.captured[0].products.DT.dates,undefined);
+ assert.match(source,/source-safe-v2/);
+});
+test('missing DT spot history does not suppress valid owner price calculation',async()=>{
+ const f=fixture(),p=payload();
+ for(const item of f.prices)for(const v of Object.values(item.nodes))v.textContent='CANONICAL_PRICING';
+ f.setPayload(p);await f.wait();
+ assert.ok(f.prices.every(item=>Object.values(item.nodes).every(v=>v.textContent==='CANONICAL_PRICING')));
 });
