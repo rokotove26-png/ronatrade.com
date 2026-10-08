@@ -164,9 +164,10 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else queueMicrotask(boot);
   window.addEventListener('focus',hydrate,{passive:true});
   window.addEventListener('rona:admin-pagechange',hydrate);
+  // Capture before controls() replaces the clicked button during its bubble-phase render.
   document.addEventListener('click',event=>{
     if(event.target?.closest?.('#rona-analytics-v2 .an2-controls button[data-product]'))queueMicrotask(()=>decorate(lastSource));
-  });
+  },true);
   setInterval(hydrate,300000);
 })();
 `;
