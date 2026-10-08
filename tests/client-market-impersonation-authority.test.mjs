@@ -32,7 +32,9 @@ test('effective Client feed is read-only and target-scoped',()=>{
   assert.match(projection,/client_user_has_contract_access/);
   assert.match(projection,/publication_client_targets/);
   assert.match(projection,/join authorized_clients ac on ac\.client_key=pct\.client_key/);
-  assert.match(projection,/PUBLISHED_VERIFIED_DISTRIBUTION_ALLOWED_CLIENT_SCOPE_PUBLIC_CHART_ONLY/);
+  assert.match(projection,/PUBLISHED_VERIFIED_DISTRIBUTION_ALLOWED_CLIENT_SCOPE_PUBLIC_CHART_FRESHNESS_CURRENT_MARKET_ITEMS_ONLY/);
+  assert.match(projection,/source_freshness_state/);
+  assert.match(projection,/pi\.product not in \('АИ-92','АИ-95','ДТ','НАФТА','СУГ \/ СПБТ'\)/);
   assert.match(projection,/PUBLISHED_VERIFIED_DISTRIBUTION_ALLOWED_CLIENT_SCOPE_AUTHORITATIVE_SOURCE_DATE_7_CALENDAR_DATES_DEDUP/);
   assert.match(projection,/RONA_CLIENT_MARKET_INTELLIGENCE_V1/);
   assert.doesNotMatch(projection,/\b(?:insert|update|delete|alter|drop|truncate)\s+/i);

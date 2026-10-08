@@ -50,6 +50,14 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         and coalesce(pi.metadata->>'publication_layer','')='DERIVED_ANALYTICS'
         and lower(coalesce(pi.metadata->>'public_chart_ready','false'))='true'
         and jsonb_typeof(pi.metadata->'public_chart')='object'
+        and (
+          pi.product not in ('АИ-92','АИ-95','ДТ','НАФТА','СУГ / СПБТ')
+          or coalesce(
+            pi.metadata->'public_chart'->>'source_freshness_state',
+            pi.metadata->>'source_freshness_state',
+            ''
+          )='CURRENT'
+        )
         and (pi.valid_from is null or pi.valid_from<=x.server_now)
         and (pi.valid_to is null or pi.valid_to>=x.server_now)
         and (pi.client_active_from is null or pi.client_active_from<=x.server_now)
@@ -162,7 +170,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       'timezone','Europe/Moscow',
       'analytics',a.value,
       'news',n.value,
-      'analytics_gate','PUBLISHED_VERIFIED_DISTRIBUTION_ALLOWED_CLIENT_SCOPE_PUBLIC_CHART_ONLY',
+      'analytics_gate','PUBLISHED_VERIFIED_DISTRIBUTION_ALLOWED_CLIENT_SCOPE_PUBLIC_CHART_FRESHNESS_CURRENT_MARKET_ITEMS_ONLY',
       'news_gate','PUBLISHED_VERIFIED_DISTRIBUTION_ALLOWED_CLIENT_SCOPE_AUTHORITATIVE_SOURCE_DATE_7_CALENDAR_DATES_DEDUP'
     ) as payload
     from params x
