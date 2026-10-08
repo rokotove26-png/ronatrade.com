@@ -107,10 +107,12 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     }
     if(key==='LPG'&&cards[1]){
       const regional=product?.regionalBenchmark;
-      const valid=regional&&['low','high'].every(k=>regional[k]!==null&&regional[k]!==undefined&&Number.isFinite(Number(regional[k])));
+      const date=String(regional?.date||'');
+      const regionalMonth=/^\d{2}\.\d{2}\.\d{4}$/.test(date)?date.slice(6)+'-'+date.slice(3,5):'';
+      const valid=regional&&regionalMonth>=referenceMonth(payload)&&['low','high'].every(k=>regional[k]!==null&&regional[k]!==undefined&&Number.isFinite(Number(regional[k])));
       const value=cards[1].querySelector('.rona-owner-kpi'),note=cards[1].querySelector('.rona-owner-muted');
-      if(value)value.textContent=valid?Number(regional.low).toLocaleString('ru-RU',{maximumFractionDigits:2})+'–'+Number(regional.high).toLocaleString('ru-RU',{maximumFractionDigits:2})+' USD/т':'Нет данных';
-      if(note)note.textContent=valid?'Petromarket · DAP Сарыагаш · '+String(regional.date||'дата не указана'):'Нет подтверждённого регионального ориентира';
+      if(value)value.textContent=valid?Number(regional.low).toLocaleString('ru-RU',{maximumFractionDigits:2})+'–'+Number(regional.high).toLocaleString('ru-RU',{maximumFractionDigits:2})+' USD/т':'Нет актуальных данных';
+      if(note)note.textContent=valid?'Petromarket · DAP Сарыагаш · '+date:'Petromarket · DAP Сарыагаш · последняя дата '+(date||'не указана')+'; исторический ориентир скрыт';
     }
   }
   async function hydrate(){
