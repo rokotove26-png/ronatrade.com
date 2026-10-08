@@ -7,8 +7,8 @@ const analyticsRuntimePath='dist/assets/portal-runtime/client-market-intelligenc
 const newsRuntimePath='dist/assets/portal-runtime/client-market-news-admin-parity-v1.js';
 const spacingRuntimePath='dist/assets/portal-runtime/client-analytics-forecast-spacing-v1.js';
 const analyticsId='rona-client-market-intelligence-v1';
-const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20260902-analytics-hourly-isolated-v4';
-const analyticsMarker='20260902-client-market-intelligence-v2-admin-news-parity';
+const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20261009-current-source-safe-v3';
+const analyticsMarker='20261009-client-analytics-current-source-safe-v3';
 const newsId='rona-client-market-news-admin-parity-v1';
 const newsSrc='/assets/portal-runtime/client-market-news-admin-parity-v1.js?v=20260902-news-dialog-single-owner-v5';
 const newsMarker='20260902-admin-news-canonical-exact-v1';
@@ -23,7 +23,6 @@ let analyticsRuntime=await readFile(analyticsRuntimePath,'utf8');
 for(const required of [analyticsMarker,'/v1/client/market-intelligence','RONA_CLIENT_MARKET_INTELLIGENCE_V1','public_chart','REFRESH_MS=3600000',"load('open')"])
   if(!analyticsRuntime.includes(required))throw new Error(`CLIENT_MARKET_INTELLIGENCE_RUNTIME_MISSING: ${required}`);
 analyticsRuntime=replaceRequired(analyticsRuntime,"function cacheData(){const entry=window.__RONA_CLIENT_BACKGROUND_CACHE__?.[API_PATH];return entry?.ok&&entry?.body?.ok&&entry?.body?.data?entry.body.data:null}\n",'', 'ANALYTICS_BACKGROUND_CACHE');
-analyticsRuntime=replaceRequired(analyticsRuntime,"  const cached=cacheData();if(cached)accept(cached,'background-cache');\n",'', 'ANALYTICS_LOAD_BACKGROUND_CACHE');
 analyticsRuntime=replaceRequired(analyticsRuntime,"  const cached=cacheData();if(cached)accept(cached,'initial-cache');\n",'', 'ANALYTICS_INITIAL_BACKGROUND_CACHE');
 analyticsRuntime=replaceRequired(analyticsRuntime,"  window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});\n","  document.addEventListener('rona:client:context-changed',()=>load('context-change'));\n",'ANALYTICS_BACKGROUND_EVENT');
 analyticsRuntime=replaceRequired(analyticsRuntime,"const REFRESH_MS=3600000;","const REFRESH_POLICY='OPEN_CONTEXT_CHANGE_INVALIDATION';",'ANALYTICS_REFRESH_POLICY');
