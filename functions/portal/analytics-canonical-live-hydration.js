@@ -1,7 +1,7 @@
 export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
 ;(()=>{
-  if(window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v2')return;
-  window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__='source-safe-v2';
+  if(window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v3-term')return;
+  window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__='source-safe-v3-term';
   let inFlight=null,lastApplied='',lastSource=null;
   const API='/portal/api/v1/admin/analytics';
   function valid(payload){
@@ -14,7 +14,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       latestTradeDate: payload.latestTradeDate,
       products: ['AI92','AI95','DT','LPG'].map(key=>{
         const product=payload.products[key]||{};
-        return [key,product.dates,product.values,product.forecast,product.rona,product.regionalBenchmark];
+        return [key,product.dates,product.values,product.forecast,product.rona,product.regionalBenchmark,product.termCurve];
       })
     });
   }
@@ -43,6 +43,26 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       curve:String(f.curveType||f.curve||'—'),direction:String(f.direction||'—'),confidence:String(f.confidence||'—'),
       comment:'Прогноз на '+month+' по источнику '+String(f.sourceRef).slice(0,250)+'. Индикативно; не оферта.'};
   }
+  function backedTermCurve(product,payload,key,forecast){
+    if(key!=='DT'&&key!=='LPG')return null;
+    const term=product?.termCurve;
+    if(!term||term.kind!=='FORWARD_TERM_STRUCTURE'||term.sourceFamily!=='PLATTS'||term.sourceStatus!=='CONFIRMED')return null;
+    if(String(term.asOfDate||'')!==String(payload.latestTradeDate||payload.cutoff||''))return null;
+    if(!String(term.sourceRef||'').trim()||!String(term.sourceDocId||'').trim()||!String(term.indexName||'').trim()||!String(term.basis||'').trim())return null;
+    if(!forecast||String(forecast.sourceRef||'')!==String(term.sourceRef||''))return null;
+    if(!Number.isFinite(Number(forecast.base))||Math.abs(Number(forecast.base)-Number(term.values?.[1]))>0.001)return null;
+    if(!Array.isArray(term.dates)||!Array.isArray(term.values)||!Array.isArray(term.deliveryMonths))return null;
+    if(term.dates.length!==3||term.values.length!==3||term.deliveryMonths.length!==3||Number(term.observationCount)!==3)return null;
+    if(!term.values.every(v=>v!==null&&v!==''&&Number.isFinite(Number(v))))return null;
+    if(!term.deliveryMonths.every((v,i)=>typeof v==='string'&&/^\d{4}-\d{2}$/.test(v)&&term.dates[i]===v.slice(5)+'.'+v.slice(0,4)))return null;
+    const pivot=referenceMonth(payload);
+    if(!pivot||term.deliveryMonths[0]!==pivot||term.deliveryMonths[1]!==forecast?.month)return null;
+    const nextMonth=month=>{const [y,m]=month.split('-').map(Number);const d=new Date(Date.UTC(y,m,1));return d.toISOString().slice(0,7)};
+    if(term.deliveryMonths[1]!==nextMonth(pivot)||term.deliveryMonths[2]!==nextMonth(term.deliveryMonths[1]))return null;
+    if(key==='DT'&&term.indexName!=='Composite ULSD 10 ppmS FOB ARA + CIF NWE Cargo Financial')return null;
+    if(key==='LPG'&&term.indexName!=='Propane CIF NWE Large Cargo Financial')return null;
+    return term;
+  }
   function hasPriceBase(product){
     const m=product?.rona;
     return Boolean(m&&m.reference!==null&&m.reference!==undefined&&Number.isFinite(Number(m.reference))
@@ -58,9 +78,11 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       const values=Array.isArray(product.values)?product.values:[];
       if(dates.length!==values.length)continue;
       const series=hasSeries(product),forecast=backedForecast(product,payload,key);
-      if(!series&&!forecast)continue;
+      const term=backedTermCurve(product,payload,key,forecast);
+      if(!series&&!forecast&&!term)continue;
       const safe=series?{...product}:{};
       if(!series&&hasPriceBase(product))safe.rona=product.rona;
+      if(term){safe.dates=[...term.dates];safe.values=[...term.values];safe.basis=term.indexName+' · '+term.basis;safe.termCurve=term;}
       if(forecast)safe.forecast=forecast;else delete safe.forecast;
       if(!hasPriceBase(product))delete safe.rona;
       if(!series&&product.regionalBenchmark)safe.regionalBenchmark=product.regionalBenchmark;
@@ -76,8 +98,9 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     if(!root||!view)return;
     const key=String(view.getState?.()?.product||'AI92');
     const product=payload.products?.[key],series=hasSeries(product),forecast=backedForecast(product,payload,key);
+    const term=backedTermCurve(product,payload,key,forecast);
     const cards=Array.from(root.querySelectorAll('.an2-kpis .rona-owner-card'));
-    if(!series){
+    if(!series&&!term){
       const stage=root.querySelector('[data-chart-stage]');
       if(stage)stage.innerHTML='<div class="an2-empty"><strong>Нет актуального подтверждённого ряда</strong><span>Архивный график скрыт. Прогноз показан отдельно при наличии проверенного источника.</span></div>';
       const title=root.querySelector('[data-chart-title]');if(title)title.textContent='Динамика · нет актуального ряда';
@@ -87,6 +110,29 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
         const value=cards[0].querySelector('.rona-owner-kpi');if(value)value.textContent='Нет ряда';
         const note=cards[0].querySelector('.rona-owner-muted');if(note)note.textContent='Актуальная серия по продукту отсутствует';
       }
+    }
+    if(term){
+      const displayName=key==='DT'?'ДТ':'СУГ';
+      const dates=term.dates;
+      const title=root.querySelector('[data-chart-title]');
+      if(title)title.textContent='Форвардная кривая '+displayName+' · поставка '+dates[0]+'–'+dates[2];
+      const source=root.querySelector('[data-chart-source]');
+      if(source)source.textContent='Platts Financial Forward · '+term.basis+' · котировка '+term.asOfDate+' · '+String(term.sourceRef);
+      if(cards[0]){
+        const value=cards[0].querySelector('.rona-owner-kpi');
+        if(value)value.textContent=Number(term.values[1]).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' USD/т';
+        const note=cards[0].querySelector('.rona-owner-muted');
+        if(note)note.textContent='Platts Financial · поставка '+dates[1]+' (M2) · котировка '+term.asOfDate+'; это НЕ спотовый BNK Composite';
+      }
+      // The x-axis lists DELIVERY MONTHS at a single valuation date. This is never daily trade history.
+      root.dataset.ronaChartKind='FORWARD_TERM_STRUCTURE';
+      root.dataset.ronaChartAsOf=term.asOfDate;
+      root.dataset.ronaChartSource=term.sourceDocId;
+      const metrics=Array.from(root.querySelectorAll('[data-metric]'));
+      if(metrics.length>0)metrics[0].title='Последний срок поставки '+dates[2]+' (M3), НЕ последняя торговая сессия';
+      if(metrics.length>1)metrics[1].title='Разница соседних сроков поставки, НЕ дневное изменение';
+    }else if(root.dataset.ronaChartKind==='FORWARD_TERM_STRUCTURE'){
+      delete root.dataset.ronaChartKind;delete root.dataset.ronaChartAsOf;delete root.dataset.ronaChartSource;
     }
     if(!forecast){
       const box=root.querySelector('.an2-market-forecast');
@@ -102,7 +148,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       const note=root.querySelector('.an2-model-note');
       if(note)note.textContent='Нет полного актуального базиса для расчёта индикативной цены. Исторические цены скрыты.';
     }
-    if(key==='LPG'&&cards[0]&&series){
+    if(key==='LPG'&&cards[0]&&series&&!term){
       const date=String(product.dates[product.dates.length-1]);
       const note=cards[0].querySelector('.rona-owner-muted');
       if(note)note.textContent='Platts propane · последняя точка ряда: '+date;
@@ -151,7 +197,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
         if(applied===false){indicateUnavailable('RENDER_REJECTED');return false;}
         lastApplied=sig;lastSource=payload;
         decorate(payload);
-        document.documentElement.dataset.ronaAnalyticsData='canonical-daily-live-v2';
+        document.documentElement.dataset.ronaAnalyticsData='canonical-daily-live-v3';
         document.documentElement.dataset.ronaAnalyticsAsOf=String(payload.latestTradeDate||payload.cutoff||'');
         try{window.dispatchEvent(new CustomEvent('rona:analytics-live-applied',{detail:{version:payload.version,cutoff:payload.cutoff,latestTradeDate:payload.latestTradeDate,availableProducts:Object.keys(livePayload.products)}}))}catch(_){ }
         return true;

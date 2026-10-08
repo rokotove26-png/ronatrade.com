@@ -19,6 +19,7 @@ function fixture(){
     return {nodes,querySelector:k=>nodes[k]||null};
   });
   const root={
+    dataset:{},
     querySelector:k=>({'[data-chart-stage]':stage,'[data-chart-title]':title,'[data-chart-source]':sourceLabel,'.an2-market-forecast':forecastCard,'.an2-model-note':modelNote})[k]||null,
     querySelectorAll:k=>({'.an2-kpis .rona-owner-card':cards,'[data-metric]':metrics,'.an2-price-card':prices})[k]||[]
   };
@@ -38,7 +39,7 @@ function fixture(){
     fetch:async()=>({ok:true,json:async()=>({data:{canonicalAnalytics:livePayload}})}),console};
   vm.runInNewContext(runtime,ctx,{timeout:3000});
   const wait=()=>new Promise(r=>setTimeout(r,12));
-  return {setPayload:x=>{livePayload=x},setProduct:x=>{activeProduct=x},callbacks,captured,stage,title,sourceLabel,forecastCard,modelNote,metrics,cards,prices,wait};
+  return {setPayload:x=>{livePayload=x},setProduct:x=>{activeProduct=x},callbacks,captured,root,stage,title,sourceLabel,forecastCard,modelNote,metrics,cards,prices,wait};
 }
 const forecast=(base=1250,month='2026-11',sourceRef='https://t.me/platts_digits/7510')=>
   ({month,low:base-50,base,high:base+50,forward:base,curveType:'CONTANGO',sourceRef});
@@ -115,17 +116,92 @@ test('stale Petromarket August benchmark is not displayed as current in October'
   assert.match(f.cards[1].note.textContent,/исторический/);
 });
 
-test('source-safe v2 runtime is chosen and marks canonical hydration for raw null DT',async()=>{
+test('source-safe v3 runtime remains guarded for raw null DT without term quote',async()=>{
  const f=fixture(),p=payload();f.setPayload(p);await f.wait();
  assert.ok(f.captured.length===1);
  assert.equal(f.captured[0].products.DT.forecast.month,'2026-11');
  assert.equal(f.captured[0].products.DT.rona.bases[0][1],1280);
  assert.equal(f.captured[0].products.DT.dates,undefined);
- assert.match(source,/source-safe-v2/);
+ assert.match(source,/source-safe-v3-term/);
 });
 test('missing DT spot history does not suppress valid owner price calculation',async()=>{
  const f=fixture(),p=payload();
  for(const item of f.prices)for(const v of Object.values(item.nodes))v.textContent='CANONICAL_PRICING';
  f.setPayload(p);await f.wait();
  assert.ok(f.prices.every(item=>Object.values(item.nodes).every(v=>v.textContent==='CANONICAL_PRICING')));
+});
+
+const term=(key='DT')=>({
+ kind:'FORWARD_TERM_STRUCTURE',sourceFamily:'PLATTS',sourceStatus:'CONFIRMED',
+ asOfDate:'07.10.2026',sourceRef:'https://t.me/platts_digits/7510',
+ sourceDocId:'TG-PLATTS-CF27D158005EDC786FCBDB98',
+ indexName:key==='DT'?'Composite ULSD 10 ppmS FOB ARA + CIF NWE Cargo Financial':'Propane CIF NWE Large Cargo Financial',
+ basis:key==='DT'?'Composite FOB ARA + CIF NWE':'CIF NWE Large Cargo Financial',
+ unit:'USD/т',dates:['10.2026','11.2026','12.2026'],deliveryMonths:['2026-10','2026-11','2026-12'],
+ values:key==='DT'?[1403.125,1370,1328]:[775,725,698.5],observationCount:3
+});
+test('DB source-locked DT M1/M2/M3 has three plotted delivery months and source attribution',async()=>{
+ const f=fixture(),p=payload();p.products.DT.termCurve=term();
+ f.setPayload(p);await f.wait();
+ const dt=f.captured.at(-1).products.DT;
+ assert.deepEqual(JSON.parse(JSON.stringify(dt.dates)),['10.2026','11.2026','12.2026']);
+ assert.deepEqual(JSON.parse(JSON.stringify(dt.values)),[1403.125,1370,1328]);
+ assert.match(f.title.textContent,/Форвардная кривая ДТ/);
+ assert.match(f.sourceLabel.textContent,/Composite FOB ARA \+ CIF NWE/);
+ assert.match(f.sourceLabel.textContent,/07\.10\.2026/);
+ assert.match(f.cards[0].note.textContent,/НЕ спотовый BNK Composite/);
+ assert.equal(f.root.dataset.ronaChartKind,'FORWARD_TERM_STRUCTURE');
+ assert.equal(f.captured[0].products.DT.forecast.base,1370);
+ assert.deepEqual(JSON.parse(JSON.stringify(dt.rona.bases)),[['CPT Озинки',1280],['CPT Сарыагаш',1385]]);
+});
+test('LPG Platts M1/M2/M3 forward curve replaces one-point November history without mixing delivery months',async()=>{
+ const f=fixture(),p=payload();p.products.LPG.termCurve=term('LPG');
+ p.products.LPG.regionalBenchmark={date:'25.08.2026',low:725,high:780,base:753};
+ f.setPayload(p);await f.wait();f.setProduct('LPG');
+ f.callbacks['document:click']({target:{closest:()=>({})}});await f.wait();
+ const lpg=f.captured[0].products.LPG;
+ assert.deepEqual(JSON.parse(JSON.stringify(lpg.dates)),['10.2026','11.2026','12.2026']);
+ assert.deepEqual(JSON.parse(JSON.stringify(lpg.values)),[775,725,698.5]);
+ assert.match(f.title.textContent,/Форвардная кривая СУГ/);
+ assert.match(f.cards[0].note.textContent,/поставка 11\.2026/);
+ assert.equal(f.cards[1].value.textContent,'Нет актуальных данных');
+ assert.match(f.cards[1].note.textContent,/25\.08\.2026/);
+});
+test('curve changes trigger hydration even when physical close and forecast unchanged',async()=>{
+ const f=fixture(),p=payload();p.products.DT.termCurve=term();
+ f.setPayload(p);await f.wait();
+ const p2=structuredClone(p);p2.products.DT.termCurve.values[0]=1402;
+ f.setPayload(p2);await f.callbacks.focus();await f.wait();
+ assert.equal(f.captured.length,2);
+ assert.equal(f.captured[1].products.DT.values[0],1402);
+});
+test('reject inconsistent delivery months, missing doc or mixed future as daily curve',async()=>{
+ for(const mutation of [
+   t=>{t.deliveryMonths=['2026-10','2026-12','2026-11']},
+   t=>{t.sourceDocId=''},
+   t=>{t.dates=['07.10','08.10','09.10']},
+   t=>{t.values[1]=null},
+   t=>{t.indexName='Unrelated diesel FOB Med'},
+   t=>{t.sourceStatus='UNVERIFIED'},
+   t=>{t.asOfDate='01.09.2026'}
+ ]){
+   const f=fixture(),p=payload();p.products.DT.termCurve=term();
+   mutation(p.products.DT.termCurve);
+   f.setPayload(p);await f.wait();
+   assert.equal(f.captured[0].products.DT.values,undefined);
+   assert.match(f.stage.innerHTML,/Нет актуального подтверждённого ряда/);
+ }
+});
+
+test('reject source-mismatched forecast and term curve; no market facts fabricated',async()=>{
+  for(const mutation of [
+    p=>{p.products.DT.forecast.sourceRef='https://t.me/platts_digits/other-source'},
+    p=>{p.products.DT.termCurve.values[1]=1380}
+  ]){
+    const f=fixture(),p=payload();p.products.DT.termCurve=term();
+    mutation(p);
+    f.setPayload(p);await f.wait();
+    assert.equal(f.captured[0].products.DT.values,undefined);
+    assert.match(f.stage.innerHTML,/Нет актуального подтверждённого ряда/);
+  }
 });
