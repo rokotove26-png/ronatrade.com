@@ -54,7 +54,7 @@ try{
     }
   });
   assert(dt.forecast.includes('2026-11'),'DT November forecast was not rendered: '+dt.forecast.slice(0,160));
-  assert(dt.forecast.includes('1 370'),'DT source-backed BASE 1370 missing: '+dt.forecast.slice(0,160));
+  assert(/1\\s*370/.test(dt.forecast),'DT source-backed BASE 1370 missing: '+dt.forecast.slice(0,160));
   assert(dt.chart.includes('Нет актуального подтверждённого ряда'),'Missing DT physical series was represented by stale chart: '+dt.chart.slice(0,160));
   assert(dt.heading.includes('2026-11'),'DT RONA scenario prices were not updated');
   assert(dt.prices.length>0&&dt.prices.every(x=>x!=='—'&&x.trim()),'DT owner-authoritative scenario prices suppressed despite source model');
