@@ -43,6 +43,13 @@ const prelude=[
 "const original=parent.querySelector(':scope > #rona-analytics-v2');",
 "if(!original)throw Error('CLIENT_FROZEN_NATIVE_ANALYTICS_ROOT_ABSENT');",
 "original.remove();",
+"// Remove only six pre-approved legacy Analytics styles that would otherwise",
+"// override the exact Admin-native renderer in this Client-only section.",
+"const retired=['ronaAnalyticsBalancedLayoutV2','ronaAnalyticsCanonicalHomeVisualV2',",
+"  'ronaAnalyticsDesignerChartV2','ronaAnalyticsV2Style',",
+"  'ronaAnalyticsDesignerChartV3','ronaAnalyticsFunctionalControlsV4'];",
+"for(const id of retired){const node=document.getElementById(id);",
+"  if(node?.tagName==='STYLE' && /analytics|an2|rona-market-chart/i.test(node.textContent||''))node.remove()}",
 "document.documentElement.dataset.ronaClientAnalyticsUi='ADMIN_NATIVE_V432';",
 "})();"
 ].join('\n')+'\n';
@@ -76,6 +83,7 @@ manifest.client_runtime.analytics_approved_admin_native={
   identical_admin_lpg_gap_runtime:true,
   original_legacy_chart_removed:true,
   original_legacy_view_removed:true,
+  retired_legacy_analytics_css_only:true,
   business_sources:'ROLE_SCOPED_CLIENT_PUBLISHED_ONLY',
   admin_internal_prices_exposed:false
 };
