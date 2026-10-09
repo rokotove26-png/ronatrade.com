@@ -95,12 +95,22 @@ try{
         legacyVisible:[...root?.querySelectorAll('[data-rona-client-analytics-legacy="hidden-v3"]')||[]]
           .filter(n=>getComputedStyle(n).display!=='none').length,
         visibleOldText:String(root?.innerText||'').includes('21.08.2026')||
-                        String(root?.innerText||'').includes('Прогноз 09.2026')
+                        String(root?.innerText||'').includes('Прогноз 09.2026'),
+        rootClass:root?.className||'',
+        rootDisplay:root?getComputedStyle(root).display:null,
+        rootVisibility:root?getComputedStyle(root).visibility:null,
+        rootRect:root?{width:root.getBoundingClientRect().width,height:root.getBoundingClientRect().height}:null,
+        ownerDisplay:owner?getComputedStyle(owner).display:null,
+        ownerRect:owner?{width:owner.getBoundingClientRect().width,height:owner.getBoundingClientRect().height}:null,
+        selectedNav:[...document.querySelectorAll('[data-page="analytics"]')].map(n=>({tag:n.tagName,className:n.className,ariaCurrent:n.getAttribute('aria-current')})).slice(0,3),
+        ancestorTrail:(()=>{const nodes=[];let n=root;for(let i=0;i<6&&n;i++,n=n.parentElement){const css=getComputedStyle(n);nodes.push({tag:n.tagName,id:n.id,className:String(n.className).slice(0,100),display:css.display,visibility:css.visibility,opacity:css.opacity,rectHeight:n.getBoundingClientRect().height})}return nodes})()
       };
     });
     console.log('CLIENT_CANONICAL_REENTRY',JSON.stringify({turn,observed}));
     if(observed.migrated!=='v3'||observed.ownerCount!==1||observed.legacyVisible||observed.visibleOldText)
       throw Error('CLIENT_ANALYTICS_REENTRY_LEGACY_VISIBLE: '+JSON.stringify({turn,observed}));
+    if(observed.rootDisplay==='none'||observed.rootVisibility==='hidden'||!observed.rootRect?.height||!observed.ownerRect?.height||!observed.ancestorTrail.every(n=>n.display!=='none'&&n.visibility!=='hidden'&&n.opacity!=='0'&&n.rectHeight>0))
+      throw Error('CLIENT_ANALYTICS_VISIBLE_PANEL_MISSING: '+JSON.stringify({turn,observed}));
   }
   console.log('CLIENT_CANONICAL_REAL_PAGE_ANALYTICS_BOOT=PASS');
 }finally{if(browser)await browser.close();srv.closeAllConnections?.();await new Promise(resolve=>srv.close(resolve));}
