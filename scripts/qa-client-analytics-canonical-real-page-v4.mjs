@@ -16,7 +16,7 @@ const marker='20261010-client-approved-admin-exact-v14';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
   hasBridge:html.includes(bridge),
-  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13'),
+  markerRef:html.includes('client-market-intelligence-v1.js?v=20261010-client-approved-admin-exact-v14'),
   rootStatic:/id=["']page-analytics["']/.test(html),
   analyticsNodeMatch:html.match(/.{0,180}id=["']page-analytics["'].{0,280}/)?.[0]||'not found',
   possibleIds:([...html.matchAll(/id=["']([^"']*analytic[^"']*)["']/gi)]).map(x=>x[1]).slice(0,30),
@@ -86,12 +86,12 @@ try{
       setPayloadCode:source('setPayload'),setProductCode:source('setProduct'),
       updateProductCode:source('updateProduct'),setSourceCode:source('setSource'),
       renderCode:source('render'),chartCode:String(window.renderClientMainChart||'').slice(0,1700)};
-    const chartSvg=root.querySelector('[data-chart-svg]');
+    const chartSvg=root.querySelector('.rona-market-chart-svg,[data-chart-svg]');
     const chartNodes=chartSvg?[...chartSvg.children].slice(0,35).map(n=>({tag:n.tagName,cls:n.getAttribute('class'),
       id:n.id?.baseVal||n.id||'',role:n.getAttribute('role'),
       text:n.tagName.toLowerCase()==='text'?String(n.textContent||'').slice(0,28):'',
       d:n.getAttribute('d')?.slice(0,75)||null})):null;
-    const controls=[...root.querySelectorAll('[data-an2-product],[data-an2-source]')].map(n=>({name:n.textContent.trim(),product:n.getAttribute('data-an2-product'),source:n.getAttribute('data-an2-source'),active:n.className}));
+    const controls=[...root.querySelectorAll('.an2-controls [data-product],.an2-controls [data-source]')].map(n=>({name:n.textContent.trim(),product:n.dataset.product||null,source:n.dataset.source||null,active:n.getAttribute('aria-pressed')}));
     const stateSlots=[...root.querySelectorAll('.an2-market-forecast,.an2-mf-title,.an2-mf-row,.an2-rona-head,.an2-model-note,.an2-comment')].map(n=>({cls:n.className,parts:[...n.children].slice(0,4).map(z=>({tag:z.tagName,cls:z.className})),head:String(n.textContent||'').trim().slice(0,110)}));
     return{root:inspect(root),page:inspect(parent),htmlSize:root.outerHTML.length,blocks,structure:structure.slice(0,120),numeric:numerical,views,chartNodes,controls,stateSlots};
   });
