@@ -56,7 +56,7 @@ try{
   browser=await chromium.launch({headless:true});
   const page=await browser.newPage({viewport:{width:1400,height:850}});
   const errors=[],requestFail=[];
-  page.on('pageerror',e=>errors.push(String(e.message||e)));
+  page.on('pageerror',e=>{if(errors.length<8)errors.push(String(e.stack||e.message||e))});
   page.on('requestfailed',r=>{if(requestFail.length<30)requestFail.push({url:r.url(),failure:r.failure()})});
   await page.goto(origin+'/portal/client?impSession=00000000-0000-4000-8000-000000000001',{waitUntil:'domcontentloaded',timeout:20000});
   await page.waitForTimeout(3000);
