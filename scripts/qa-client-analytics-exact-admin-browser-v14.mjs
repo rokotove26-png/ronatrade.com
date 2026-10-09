@@ -50,7 +50,8 @@ for(const p of Object.values(adminData.products)){
 }
 const clientData={...shared,projection:'CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14',
   products:Object.fromEntries(Object.entries(shared.products).map(([k,v])=>[k,
-    {...v,spotFreshness:k==='DT'?'STALE_SOURCE':k==='LPG'?'TO_VERIFY_FRESHNESS':'CURRENT'}]))};
+    {...v,priceBasisLabels:['CPT Озинки','CPT Сарыагаш'],
+      spotFreshness:k==='DT'?'STALE_SOURCE':k==='LPG'?'TO_VERIFY_FRESHNESS':'CURRENT'}]))};
 let clientFail=false,adminGets=0,clientGets=0;
 const [adminJS,clientJS,adapterJS]=await Promise.all([
   adminUI({}).then(r=>r.text()),
@@ -122,7 +123,8 @@ const required=async(page,mode)=>{
   await page.waitForFunction(expected=>
     document.documentElement.dataset.ronaAnalyticsData===expected,s,{timeout:16000});
   if(mode==='client')await page.waitForFunction(()=>
-    document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1',
+    document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1'&&
+    document.querySelectorAll('#rona-analytics-v2 .an2-rona-grid > .an2-price-card').length===2,
     null,{timeout:10000});
 };
 try{
