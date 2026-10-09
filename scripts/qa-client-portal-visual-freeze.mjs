@@ -25,6 +25,7 @@ const CLIENT_ANALYTICS_PUBLISHED_PRICE_APPROVAL_PATH='governance/client-analytic
 const CLIENT_ANALYTICS_ADMIN_PARITY_APPROVAL_PATH='governance/client-analytics-admin-parity-v10-owner-approval-20261009.json';
 const CLIENT_ANALYTICS_DT_LPG_V11_APPROVAL_PATH='governance/client-analytics-dt-lpg-forecast-source-safe-v11-owner-approval-20261009.json';
 const ANALYTICS_DAILY_V12_APPROVAL_PATH='governance/analytics-daily-observed-no-empty-overlay-v12-owner-approval-20261009.json';
+const ANALYTICS_LPG_V13_APPROVAL_PATH='governance/lpg-daily-history-v13-owner-approval-20261009.json';
 const CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH='governance/client-contract-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH='governance/client-background-manifest-event-driven-owner-approval-20260921.json';
 const CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH='governance/client-sidebar-command-nav-owner-approval-20260921.json';
@@ -56,6 +57,7 @@ const clientAnalyticsPublishedPriceApproval=JSON.parse(await readFile(CLIENT_ANA
 const clientAnalyticsAdminParityApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_ADMIN_PARITY_APPROVAL_PATH,'utf8'));
 const clientAnalyticsDtLpgV11Approval=JSON.parse(await readFile(CLIENT_ANALYTICS_DT_LPG_V11_APPROVAL_PATH,'utf8'));
 const analyticsDailyV12Approval=JSON.parse(await readFile(ANALYTICS_DAILY_V12_APPROVAL_PATH,'utf8'));
+const analyticsLpgV13Approval=JSON.parse(await readFile(ANALYTICS_LPG_V13_APPROVAL_PATH,'utf8'));
 const clientContractEventDrivenApproval=JSON.parse(await readFile(CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientBackgroundManifestEventDrivenApproval=JSON.parse(await readFile(CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientSidebarCommandNavApproval=JSON.parse(await readFile(CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH,'utf8'));
@@ -1015,6 +1017,20 @@ const analyticsDailyV12Exception=
   ].every(k=>analyticsDailyV12Approval?.requirements?.[k]===true)&&
   analyticsDailyV12Approval?.requirements?.wildcard_exception===false&&
   ANALYTICS_DAILY_V12_FILES.every(path=>Boolean(analyticsDailyV12Approval?.exact_post_blobs?.[path]));
+const ANALYTICS_LPG_V13_FILES=[...ANALYTICS_DAILY_V12_FILES];
+const analyticsLpgV13Exception=
+  analyticsLpgV13Approval?.approval==='OWNER_IN_CHAT'&&
+  analyticsLpgV13Approval?.scope==='ANALYTICS_LPG_GAP_HISTORY_V13'&&
+  analyticsLpgV13Approval?.decision==='EXACT_FROZEN_VISUAL_GAP_MARKERS_AND_DATED_HISTORY_ONLY'&&
+  analyticsLpgV13Approval?.approval_marker==='OWNER_VISUAL_APPROVAL: ANALYTICS_LPG_GAP_HISTORY_V13'&&
+  analyticsLpgV13Approval?.supersedes_scope==='ANALYTICS_DAILY_OBSERVATIONS_NO_EMPTY_OVERLAY_V12'&&
+  analyticsDailyV12Exception&&
+  JSON.stringify(analyticsLpgV13Approval?.approved_protected_files)===JSON.stringify(ANALYTICS_LPG_V13_FILES)&&
+  analyticsLpgV13Approval?.requirements?.lpg_full_verified_same_contract_history===true&&
+  analyticsLpgV13Approval?.requirements?.lpg_gap_interpolation_forbidden===true&&
+  analyticsLpgV13Approval?.requirements?.wildcard_exception===false&&
+  ANALYTICS_LPG_V13_FILES.every(path=>Boolean(analyticsLpgV13Approval?.exact_post_blobs?.[path]));
+
 
 
 
@@ -1232,6 +1248,7 @@ let clientAnalyticsPublishedPriceAppliedFiles=0;
 let clientAnalyticsAdminParityAppliedFiles=0;
 let clientAnalyticsDtLpgV11AppliedFiles=0;
 let analyticsDailyV12AppliedFiles=0;
+let analyticsLpgV13AppliedFiles=0;
 let clientContractEventDrivenAppliedFiles=0;
 let clientBackgroundManifestEventDrivenAppliedFiles=0;
 let clientDealsVisualHierarchyAppliedFiles=0;
@@ -1517,6 +1534,17 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       body.toString('utf8').includes(analyticsDailyV12Entry.required_marker)
     );
 
+
+    const analyticsLpgV13Entry=analyticsLpgV13Exception?analyticsLpgV13Approval.exact_post_blobs?.[path]:null;
+    const exactAnalyticsLpgV13=Boolean(
+      ANALYTICS_LPG_V13_FILES.includes(path)&&
+      analyticsLpgV13Entry&&
+      analyticsLpgV13Entry.visual_freeze_baseline_blob_sha===expected&&
+      analyticsLpgV13Entry.supersedes_authorized_post_blob_sha===analyticsDailyV12Approval.exact_post_blobs?.[path]?.authorized_post_blob_sha&&
+      analyticsLpgV13Entry.authorized_post_blob_sha===actual&&
+      analyticsLpgV13Entry.required_marker==='20261009-lpg-source-gap-history-v13'&&
+      body.toString('utf8').includes(analyticsLpgV13Entry.required_marker)
+    );
     const clientContractEventDrivenEntry=clientContractEventDrivenExceptionAuthorized?clientContractEventDrivenApproval?.exact_post_blobs?.[path]:null;
     const exactClientContractEventDriven=Boolean(
       clientContractEventDrivenEntry&&
@@ -1563,10 +1591,11 @@ for(const [path,expected] of Object.entries(protectedFiles)){
     if(exactClientAnalyticsAdminParity)clientAnalyticsAdminParityAppliedFiles+=1;
     if(exactClientAnalyticsDtLpgV11)clientAnalyticsDtLpgV11AppliedFiles+=1;
     if(exactAnalyticsDailyV12)analyticsDailyV12AppliedFiles+=1;
+    if(exactAnalyticsLpgV13)analyticsLpgV13AppliedFiles+=1;
     if(exactClientContractEventDriven)clientContractEventDrivenAppliedFiles+=1;
     if(exactClientDealsVisualHierarchy)clientDealsVisualHierarchyAppliedFiles+=1;
     if(exactClientBackgroundManifestEventDriven)clientBackgroundManifestEventDrivenAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientAnalyticsCanonicalRestore&&!exactClientAnalyticsAuthorizedPrice&&!exactClientAnalyticsPublishedPrice&&!exactClientAnalyticsAdminParity&&!exactClientAnalyticsDtLpgV11&&!exactAnalyticsDailyV12&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientAnalyticsCanonicalRestore&&!exactClientAnalyticsAuthorizedPrice&&!exactClientAnalyticsPublishedPrice&&!exactClientAnalyticsAdminParity&&!exactClientAnalyticsDtLpgV11&&!exactAnalyticsDailyV12&&!exactAnalyticsLpgV13&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
@@ -1593,10 +1622,15 @@ if(!clientAnalyticsPublishedPriceException)errors.push('CLIENT_ANALYTICS_PUBLISH
 if(!clientAnalyticsAdminParityException)errors.push('CLIENT_ANALYTICS_ADMIN_PARITY_V10_GOVERNANCE_NOT_AUTHORIZED');
 if(!clientAnalyticsDtLpgV11Exception)errors.push('CLIENT_ANALYTICS_DT_LPG_V11_GOVERNANCE_NOT_AUTHORIZED');
 if(!analyticsDailyV12Exception)errors.push('ANALYTICS_DAILY_V12_GOVERNANCE_NOT_AUTHORIZED');
-if(analyticsDailyV12Exception&&analyticsDailyV12AppliedFiles!==ANALYTICS_DAILY_V12_FILES.length)
-  errors.push(`ANALYTICS_DAILY_V12_EXACT_BLOB_COUNT expected=${ANALYTICS_DAILY_V12_FILES.length} actual=${analyticsDailyV12AppliedFiles}`);
+if(!analyticsLpgV13Exception)errors.push('ANALYTICS_LPG_V13_GOVERNANCE_NOT_AUTHORIZED');
+if(analyticsLpgV13Exception&&analyticsLpgV13AppliedFiles!==ANALYTICS_LPG_V13_FILES.length)
+  errors.push(`ANALYTICS_LPG_V13_EXACT_BLOB_COUNT expected=${ANALYTICS_LPG_V13_FILES.length} actual=${analyticsLpgV13AppliedFiles}`);
+const analyticsDailyV12EffectiveFiles=analyticsDailyV12AppliedFiles+
+  (analyticsLpgV13AppliedFiles===ANALYTICS_LPG_V13_FILES.length?ANALYTICS_LPG_V13_FILES.length:0);
+if(analyticsDailyV12Exception&&analyticsDailyV12EffectiveFiles!==ANALYTICS_DAILY_V12_FILES.length)
+  errors.push(`ANALYTICS_DAILY_V12_EXACT_BLOB_COUNT expected=${ANALYTICS_DAILY_V12_FILES.length} actual=${analyticsDailyV12EffectiveFiles}`);
 const clientAnalyticsDtLpgV11EffectiveFiles=clientAnalyticsDtLpgV11AppliedFiles+
-  (analyticsDailyV12AppliedFiles===ANALYTICS_DAILY_V12_FILES.length?ANALYTICS_DAILY_V12_FILES.length:0);
+  (analyticsDailyV12EffectiveFiles===ANALYTICS_DAILY_V12_FILES.length?ANALYTICS_DAILY_V12_FILES.length:0);
 if(clientAnalyticsDtLpgV11Exception&&clientAnalyticsDtLpgV11EffectiveFiles!==CLIENT_ANALYTICS_DT_LPG_V11_FILES.length)
   errors.push(`CLIENT_ANALYTICS_DT_LPG_V11_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_DT_LPG_V11_FILES.length} actual=${clientAnalyticsDtLpgV11EffectiveFiles}`);
 const clientAnalyticsAdminParityEffectiveFiles=clientAnalyticsAdminParityAppliedFiles+

@@ -25,6 +25,33 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     if(/^\d{4}-\d{2}/.test(date))return date.slice(0,7);
     return '';
   }
+  function markLpgObservationGaps(root,p){
+    const m=p?.dailyMonitor, ids=m?.segmentIds,dates=m?.observedDates;
+    const svg=root.querySelector('.rona-market-chart-svg,[data-chart-svg]');
+    const points=[...(svg?.querySelectorAll('circle.rmc-point')||[])];
+    if(!m?.historyIncludesAllGapSegments||!Array.isArray(ids)||!Array.isArray(dates)||
+       ids.length<2||ids.length!==points.length||dates.length!==points.length)return;
+    const tm=dates.map(d=>Date.parse(d+'T00:00:00Z'));
+    if(tm.some(t=>!Number.isFinite(t))||tm.at(-1)<=tm[0])return;
+    const x=tm.map(t=>62+896*(t-tm[0])/(tm.at(-1)-tm[0]));
+    const y=points.map(p=>Number(p.getAttribute('cy')));
+    points.forEach((p,i)=>p.setAttribute('cx',String(x[i])));
+    [...svg.querySelectorAll('text.rmc-point-label')].forEach((p,i)=>p.setAttribute('x',String(x[i])));
+    svg.querySelectorAll('path.rmc-area,path.rmc-line-depth,path.rmc-line-glow,path.rmc-line').forEach(n=>n.remove());
+    for(let i=1;i<ids.length;i++)if(ids[i]===ids[i-1]){
+      for(const cl of ['rmc-line-depth','rmc-line-glow','rmc-line']){
+        const n=document.createElementNS('http://www.w3.org/2000/svg','path');
+        n.setAttribute('class',cl);n.setAttribute('d','M '+x[i-1]+' '+y[i-1]+' L '+x[i]+' '+y[i]);
+        svg.insertBefore(n,points[0]);
+      }
+    }
+    for(const t of svg.querySelectorAll('text.rmc-axis')){
+      const i=dates.findIndex(d=>d.slice(8,10)+'.'+d.slice(5,7)===t.textContent.trim());
+      if(i>=0&&t.getAttribute('y')==='372')t.setAttribute('x',String(x[i]));
+    }
+    root.dataset.ronaSourceGapSegments=String(new Set(ids).size);
+    root.dataset.ronaGapInterpolation='OFF';
+  }
   function hasSeries(p,key){
     const base=Array.isArray(p?.dates)&&Array.isArray(p?.values)&&
       p.dates.length>0&&p.dates.length===p.values.length&&
@@ -149,6 +176,13 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       root.dataset.ronaChartKind='OBSERVATION_DAILY';
       root.dataset.ronaChartAsOf=String(daily.lastAsOf||'');
       root.dataset.ronaChartInstrument=String(daily.instrument||'');
+      if(key==='LPG'&&daily?.historyIncludesAllGapSegments===true&&
+         Array.isArray(daily.segmentIds)&&Array.isArray(daily.observedDates)){
+        root.dataset.ronaLpgHistorySegments=JSON.stringify({
+          dates:daily.observedDates,ids:daily.segmentIds,gaps:daily.gapBeforeDays||[]
+        });
+        markLpgObservationGaps(root,product);
+      }else delete root.dataset.ronaLpgHistorySegments;
     }else if(root.dataset.ronaChartKind==='OBSERVATION_DAILY'){
       delete root.dataset.ronaChartKind;delete root.dataset.ronaChartAsOf;delete root.dataset.ronaChartInstrument;
     }
