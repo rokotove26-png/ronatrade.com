@@ -1,0 +1,21 @@
+name: LPG V14 Full Platts Source Contract
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261010003000_lpg_verified_full_platts_backfill_v14.sql'
+      - 'supabase/migrations/20261010003100_lpg_full_source_cron_v14.sql'
+      - 'tests/market-intelligence/lpg-verified-full-platts-backfill-v14.test.mjs'
+      - '.github/workflows/lpg-v14-source-contract-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/market-intelligence/lpg-verified-full-platts-backfill-v14.test.mjs
