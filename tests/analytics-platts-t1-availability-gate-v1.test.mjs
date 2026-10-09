@@ -25,7 +25,7 @@ test('source-locked migration preserves canonical publisher and source authority
   assert.match(migration,/CREATE OR REPLACE FUNCTION portal_private\.refresh_market_intelligence_analytics_core_v1\(/);
   assert.match(migration,/portal_private\.platts_expected_source_day_v1\(now\(\)\)/);
   assert.match(migration,/data_status='CONFIRMED' and processing_state='INGESTED'/);
-  assert.match(migration,/p\.audience/i);
+  assert.match(migration,/'PUBLISHED','ALL_CLIENTS'/);
   assert.match(migration,/v_m\.latest_date<v_expected_platts/);
   assert.match(migration,/v_item_freshness/);
   assert.match(migration,/APPROVED_WITH_CONDITIONS/);
