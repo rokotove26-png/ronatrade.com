@@ -1,7 +1,8 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-client-analytics-published-price-visible-v9';
+const MARK='20261009-client-analytics-admin-canonical-parity-v10';
+const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_PARITY_SOURCE_LOCKED_V10';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
 const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
@@ -47,7 +48,7 @@ function finite(v){const n=Number(v);return Number.isFinite(n)?n:null}
 function fmt(v,max=2){const n=finite(v);return n===null?'—':n.toLocaleString('ru-RU',{maximumFractionDigits:max,minimumFractionDigits:Number.isInteger(n)?0:Math.min(2,max)})}
 function dateValue(v){const d=new Date(v||'');return Number.isFinite(d.getTime())?d:null}
 function dateLabel(v,withTime=false){const d=dateValue(v);if(!d)return'—';return d.toLocaleString('ru-RU',withTime?{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}:{day:'2-digit',month:'2-digit',year:'numeric'})}
-function fingerprint(data){return JSON.stringify([data?.generated_at,(data?.analytics||[]).map(x=>[x.publication_item_id,x.published_at,x.analytics_as_of,x.headline,x.content_text,x.public_chart])])}
+function fingerprint(data){return JSON.stringify([data?.clientCanonicalAnalytics,data?.generated_at,(data?.analytics||[]).map(x=>[x.publication_item_id,x.published_at,x.analytics_as_of,x.headline,x.content_text,x.public_chart])])}
 
 function analyticsPage(){
   return q('#page-analytics')||q('#analyticsPage')||q('#page-market-analytics')||q('[data-page-panel="analytics"]')||q('[data-page-id="analytics"]')||q('[data-page-panel="market-analytics"]');
@@ -114,30 +115,42 @@ function emptyProduct(){
     rona:{reference:NaN,bases:CANONICAL_PRICE_BASES.map(k=>[k,NaN])}};
 }
 function canonicalPayload(data){
+  const approved=data?.clientCanonicalAnalytics;
   const products={AI92:emptyProduct(),AI95:emptyProduct(),DT:emptyProduct(),LPG:emptyProduct()};
-  for(const row of Array.isArray(data?.analytics)?data.analytics:[]){
-    const key=CANONICAL_KEYS[norm(row?.product)];
-    if(!key||!isAuthorizedRow(row))continue;
-    const chart=row.public_chart;
-    const labels=chart.labels.map(x=>norm(x));
-    const isDailySeries=labels.length>=2&&labels.length===chart.values.length&&
-      labels.every(x=>/^\d{4}-\d{2}-\d{2}$/.test(x));
-    const points=isDailySeries?chart.values.map(finite):[];
-    const authorizedSeries=isDailySeries&&points.every(Number.isFinite);
-    products[key]={
-      dates:authorizedSeries?labels:[],values:authorizedSeries?points:[],
-      basis:norm(row.headline)||'Клиентская подтверждённая публикация',
-      forecast:emptyForecast(norm(row.content_text)||norm(row.headline)||EMPTY_SOURCE),
-      rona:{reference:NaN,bases:CANONICAL_PRICE_BASES.map(k=>[k,NaN])}
-    };
+  if(approved?.version==='RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1' &&
+     approved?.projection===CLIENT_CANONICAL_PARITY && approved?.products){
+    for(const key of Object.keys(products)){
+      const input=approved.products[key];
+      if(!input||typeof input!=='object')continue;
+      const dates=Array.isArray(input.dates)?input.dates:[];
+      const values=Array.isArray(input.values)?input.values:[];
+      const valid=dates.length===values.length&&values.every(v=>v!==null&&v!==''&&Number.isFinite(Number(v)));
+      const forecast=input.forecast;
+      const forecastOk=forecast&&/^\d{4}-\d{2}$/.test(String(forecast.month||''))&&
+        ['low','base','high','forward'].every(k=>forecast[k]!==null&&forecast[k]!==''&&Number.isFinite(Number(forecast[k])))&&
+        norm(forecast.sourceRef);
+      const term=input.termCurve;
+      const termOk=term?.kind==='FORWARD_TERM_STRUCTURE'&&term?.sourceStatus==='CONFIRMED'&&
+        term?.sourceFamily==='PLATTS'&&Array.isArray(term.dates)&&Array.isArray(term.values)&&
+        term.dates.length===3&&term.values.length===3&&
+        term.values.every(v=>v!==null&&Number.isFinite(Number(v)))&&forecastOk&&
+        norm(term.sourceRef)===norm(forecast.sourceRef);
+      products[key]={
+        name:input.name||key,
+        dates:valid?dates:[],
+        values:valid?values:[],
+        basis:norm(input.basis)||EMPTY_SOURCE,
+        forecast:forecastOk?forecast:emptyForecast(),
+        termCurve:termOk?term:null,
+        rona:{reference:NaN,bases:CANONICAL_PRICE_BASES.map(k=>[k,NaN])}
+      };
+    }
+    return{version:'RONA_CLIENT_ADMIN_CANONICAL_PARITY_V10',cutoff:approved.cutoff,
+      latestTradeDate:approved.latestTradeDate,
+      argus:{available:false,reason:EMPTY_SOURCE},products};
   }
-  return{
-    version:'RONA_CLIENT_CANONICAL_PUBLISHED_CURRENT_V7',
-    cutoff:data?.generated_at?dateLabel(data.generated_at,true):EMPTY_SOURCE,
-    latestTradeDate:EMPTY_SOURCE,
-    argus:{available:false,reason:EMPTY_SOURCE,required:'Argus — нет опубликованного разрешённого ряда'},
-    products
-  };
+  return{version:'RONA_CLIENT_ADMIN_CANONICAL_PARITY_V10',cutoff:EMPTY_SOURCE,
+    latestTradeDate:EMPTY_SOURCE,argus:{available:false,reason:EMPTY_SOURCE},products};
 }
 function textIfDifferent(node,value){
   if(node&&node.textContent!==value)node.textContent=value;
@@ -212,7 +225,8 @@ function ensureSafeCanonicalState(owner,payload,reason){
   const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};
   const chosen=selected.product||'AI92';
   const product=payload.products[chosen]||emptyProduct();
-  const hasSeries=selected.source!=='ARGUS'&&product.dates.length>=2&&product.values.length===product.dates.length;
+  const hasSeries=selected.source!=='ARGUS'&&product.dates.length>0&&product.values.length===product.dates.length;
+  const hasTerm=hasSeries&&product.termCurve?.kind==='FORWARD_TERM_STRUCTURE';
   const chartStage=owner.querySelector('[data-chart-stage]');
   const svg=owner.querySelector('[data-chart-svg]');
   if(svg){
@@ -231,7 +245,13 @@ function ensureSafeCanonicalState(owner,payload,reason){
     }
     if(empty.hidden!==hasSeries)empty.hidden=hasSeries;
   }
-  if(hasSeries)textIfDifferent(owner.querySelector('[data-chart-source]'),product.basis+' · разрешённая клиентская публикация');
+  if(hasSeries){
+    textIfDifferent(owner.querySelector('[data-chart-source]'),product.basis+' · разрешённая клиентская публикация');
+    if(hasTerm){
+      textIfDifferent(owner.querySelector('[data-chart-title]'),'Форвардная кривая '+(chosen==='DT'?'ДТ':'СУГ')+' · поставка '+product.termCurve.dates.join('–'));
+      owner.dataset.ronaChartKind='FORWARD_TERM_STRUCTURE';
+    }else{delete owner.dataset.ronaChartKind}
+  }
   if(!hasSeries){
     textIfDifferent(owner.querySelector('[data-chart-source]'),EMPTY_SOURCE);
     textIfDifferent(owner.querySelector('[data-chart-title]'),'Динамика · нет актуального ряда');
@@ -246,7 +266,7 @@ function ensureSafeCanonicalState(owner,payload,reason){
     textIfDifferent(second?.querySelector('.rona-owner-kpi'),'—');
     textIfDifferent(second?.querySelector('.rona-owner-muted'),EMPTY_SOURCE);
   }
-  // A failed API request must never expose historical built-in values.
+  // Selected contract prices remain the only externally authorized RONA prices.
   paintAuthorizedPrices(owner,chosen);
   if(owner.dataset.ronaClientSourceSafe!=='1')owner.dataset.ronaClientSourceSafe='1';
   if(owner.dataset.renderState!==reason)owner.dataset.renderState=reason;
@@ -294,7 +314,8 @@ function schedule(){if(state.renderQueued)return;state.renderQueued=true;request
 function cacheData(){const entry=window.__RONA_CLIENT_BACKGROUND_CACHE__?.[API_PATH];return entry?.ok&&entry?.body?.ok&&entry?.body?.data?entry.body.data:null}
 function accept(data,reason){
   if(!data||data.version!=='RONA_CLIENT_MARKET_INTELLIGENCE_V1'||!Array.isArray(data.analytics)||!Array.isArray(data.news))return false;
-  const safe={...data,analytics:data.analytics.filter(isAuthorizedRow)};
+  const safe={...data,analytics:data.analytics.filter(isAuthorizedRow),
+    clientCanonicalAnalytics:data.clientCanonicalAnalytics?.projection===CLIENT_CANONICAL_PARITY?data.clientCanonicalAnalytics:null};
   const fp=fingerprint(safe);state.data=safe;state.loaded=true;state.error='';state.updatedAt=new Date().toISOString();
   if(fp!==state.fingerprint){state.fingerprint=fp;schedule()}
   try{window.dispatchEvent(new CustomEvent('rona:client:market-intelligence',{detail:{reason,version:safe.version,generated_at:safe.generated_at,analytics_count:safe.analytics.length,news_count:safe.news.length}}))}catch(_){ }
