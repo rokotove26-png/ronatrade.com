@@ -21,3 +21,13 @@ console.log('ADMIN_CLIENT_CANONICAL_DECISION_PROBES',JSON.stringify({
  client:{script10:focus.find(z=>z.hasView)?.pre,charts:focus.find(z=>z.hasRoot&&!z.hasView)?.pre}
 }));
 if(!focus.length||!admin.includes('RONA_ANALYTICS_VIEW'))throw Error('PARITY_SOURCES_ABSENT');
+
+
+const styleTags=[...client.matchAll(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi)];
+const analyticsStyles=styleTags.map((v,i)=>({i,attr:v[1],length:v[2].length,
+  relevant:v[2].includes('page-analytics')||v[2].includes('rona-analytics-v2')||
+    v[2].includes('rona-market-chart')||v[2].includes('.an2-')||v[2].includes('.an2{'),
+  snippet:v[2].slice(0,280).replace(/\s+/g,' ')})).filter(x=>x.relevant);
+console.log('CLIENT_ANALYTICS_ORIGINAL_STYLE_OVERLAPS',JSON.stringify({
+  total:styleTags.length,relevant:analyticsStyles
+}));
