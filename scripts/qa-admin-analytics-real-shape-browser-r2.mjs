@@ -117,7 +117,8 @@ try{
       chart:root.querySelector('[data-chart-source]')?.textContent||'',
       title:root.querySelector('[data-chart-title]')?.textContent||'',
       chartKind:root.dataset.ronaChartKind,
-      source:root.dataset.ronaChartSource}
+      source:root.dataset.ronaChartSource,gapCount:root.dataset.ronaSourceGapSegments,
+      points:root.querySelectorAll('circle.rmc-point').length,lines:root.querySelectorAll('path.rmc-line').length}
   });
   assert(lpg.forecast.includes('2026-11'),'LPG November forecast missing');
   assert(lpg.forecast.includes('725'),'LPG November Platts BASE 725 missing');
