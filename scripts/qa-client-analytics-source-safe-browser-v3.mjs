@@ -128,7 +128,7 @@ try{
   must(!(await page.locator('.an2-price-base').innerText()).includes('1201'),
     'AMBIGUOUS_PRICE_AUTO_SELECTED');
   console.log('CLIENT_CANONICAL_PUBLISHED_CONTRACT_PRICES_V9=PASS '+JSON.stringify({priced,foreign}));
-  payload={...payload,generated_at:'2026-10-09T00:02:00Z',analytics:[row('АИ-92')],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","projection":"CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}}};
+  payload={...payload,generated_at:'2026-10-09T00:02:00Z',analytics:[row('АИ-92')],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","projection":"CLIENT_LPG_HISTORICAL_SEGMENTS_V13","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}}};
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1103,null,{timeout:10000});
   must(await page.locator(owner+' [data-chart-svg]').isVisible(),'CANONICAL_APPROVED_SERIES_CHART_NOT_SHOWN');
@@ -178,12 +178,18 @@ try{
           [1449.25,1323,1476.25],1370,1328,1403.125,
           'STALE_SOURCE','DIESEL_PLATTS_ULSD_CIF_NWE_PHYSICAL_COMPONENT',null,
           'VERIFIED_DAILY_OBSERVATIONS'),
-        LPG:dailyFixture('СУГ / СПБТ',['07.10'],[775],
+        LPG:dailyFixture('СУГ / СПБТ',['25.07','27.07','29.08','07.10'],[680,692,715,775],
           725,698.5,775,'TO_VERIFY_FRESHNESS',
           'LPG_PLATTS_PROPANE_CIF_NWE_FINANCIAL_FIXED_DELIVERY','2026-10',
-          'SINGLE_CONFIRMED_OBSERVATION',true)
+          'VERIFIED_DAILY_OBSERVATIONS',true)
       }
     }
+  };
+  payload.clientCanonicalAnalytics.products.LPG.dailyMonitor={
+    ...payload.clientCanonicalAnalytics.products.LPG.dailyMonitor,
+    observedDates:['2026-07-25','2026-07-27','2026-08-29','2026-10-07'],
+    segmentIds:[0,0,1,2],gapBeforeDays:[0,2,33,39],
+    segmentCount:3,historyIncludesAllGapSegments:true,availableTotal:4
   };
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>
@@ -191,7 +197,7 @@ try{
     null,{timeout:10000});
   for(const [key,label,expectedLast,expectedSpot,count] of [
     ['DT','ДТ','08.10', 'STALE_SOURCE',3],
-    ['LPG','СУГ','07.10','TO_VERIFY_FRESHNESS',1]
+    ['LPG','СУГ','07.10','TO_VERIFY_FRESHNESS',4]
   ]){
     await page.evaluate(k=>document.querySelector('[data-an2-product="'+k+'"]')?.click(),key);
     await page.waitForFunction(k=>
@@ -212,7 +218,11 @@ try{
       overlays:document.querySelectorAll(
         '#rona-analytics-v2 [data-rona-client-canonical-empty="v7"]').length,
       svgHidden:getComputedStyle(document.querySelector(
-        '#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden'
+        '#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden',
+      gapSegments:document.querySelector('#rona-analytics-v2')?.dataset.ronaSourceGapSegments,
+      gapRendered:!!document.querySelector('#rona-analytics-v2 svg')?.dataset.ronaLpgHistoryV13,
+      lineSegments:document.querySelectorAll('#rona-analytics-v2 path.rmc-line').length,
+      markerCount:document.querySelectorAll('#rona-analytics-v2 circle.rmc-point').length
     }));
     must(proof.selected===key && proof.heading.includes('Динамика '+label) &&
       !proof.heading.includes('Форвардная кривая') &&
@@ -220,7 +230,10 @@ try{
       proof.dates.every(d=>/^\d{2}\.\d{2}$/.test(d)) &&
       proof.forecast.month==='2026-11' &&
       proof.status===expectedSpot && proof.overlays===0 &&
-      !proof.svgHidden && proof.kpi===expectedLast+'.2026',
+      !proof.svgHidden && proof.kpi===expectedLast+'.2026' &&
+      (key!=='LPG'||(
+        proof.gapSegments==='3' && proof.gapRendered &&
+        proof.lineSegments===1 && proof.markerCount===4)),
       'CLIENT_DAILY_'+key+'_V12_FAILED '+JSON.stringify(proof));
     console.log('CLIENT_DAILY_OBSERVATIONS_'+key+'_V12=PASS '+JSON.stringify(proof));
   }
