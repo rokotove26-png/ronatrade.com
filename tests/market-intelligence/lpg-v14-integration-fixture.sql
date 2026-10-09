@@ -1,4 +1,7 @@
 -- TEST FIXTURE ONLY. PostgreSQL 17 ephemeral CI database. No real market data.
+CREATE ROLE anon;
+CREATE ROLE authenticated;
+CREATE ROLE service_role;
 CREATE SCHEMA portal_private;
 CREATE TABLE portal_private.market_intelligence_source_documents (
  source_doc_id text PRIMARY KEY, source_family text, data_status text,
