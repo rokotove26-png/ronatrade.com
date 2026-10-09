@@ -58,12 +58,19 @@ export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`
     }
     text(root.querySelector('[data-chart-source]'),source);
     const cards=[...root.querySelectorAll('.an2-kpis .rona-owner-card')];
-    if(key==='DT'||key==='LPG'){
-      text(cards[0]?.querySelector('.rona-owner-kpi'),series?String(daily.lastAsOf||'—'):'—');
+    if(!series){
+      // Approved Admin no-current-source state; no stale baked-in KPI values.
+      text(cards[0]?.querySelector('.rona-owner-kpi'),'Нет ряда');
+      text(cards[0]?.querySelector('.rona-owner-muted'),'Актуальная серия по продукту отсутствует');
+      root.querySelectorAll('.rona-market-chart-metric,[data-metric]')
+        .forEach(node=>text(node,'—'));
+    }
+    if(series&&(key==='DT'||key==='LPG')){
+      text(cards[0]?.querySelector('.rona-owner-kpi'),String(daily.lastAsOf||'—'));
       text(cards[0]?.querySelector('.rona-owner-muted'),series?(
         key==='DT'?'Platts ULSD CIF NWE · отдельный физический компонент, не композит БНК':
         'Platts propane Financial · поставка '+String(daily.deliveryMonth||'—')+' · не региональный спот'
-      ):'Актуальная подтверждённая серия отсутствует');
+      ));
     }
     if(key==='LPG'){
       const regional=item?.regionalBenchmark;
