@@ -217,6 +217,8 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       if(value)value.textContent=valid?Number(regional.low).toLocaleString('ru-RU',{maximumFractionDigits:2})+'–'+Number(regional.high).toLocaleString('ru-RU',{maximumFractionDigits:2})+' USD/т':'Нет актуальных данных';
       if(note)note.textContent=valid?'Petromarket · DAP Сарыагаш · '+date:'Petromarket · DAP Сарыагаш · последняя дата '+(date||'не указана')+'; исторический ориентир скрыт';
     }
+    // Same canonical Admin presentation algorithm is invoked on Client.
+    window.RONA_ANALYTICS_PRESENTER_V14?.apply(root,payload,{mode:'admin'});
   }
   function indicateUnavailable(reason){
     const root=document.querySelector('#rona-analytics-v2');
