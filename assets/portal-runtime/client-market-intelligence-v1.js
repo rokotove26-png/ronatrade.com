@@ -223,6 +223,11 @@ function paintAuthorizedPrices(owner,selectedProduct){
     // market forecasts. Published contract prices must not masquerade as forecasts.
     textIfDifferent(forecastRange,'LOW — · HIGH —');
   }
+  // The Admin-approved native heading and model description are immutable
+  // in the unified engine. Client-only values appear in the existing price
+  // fields, with published-contract labels beside those values.
+  const sharedApproved=window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v5-client-admin-engine';
+  if(!sharedApproved){
   // Change text ONLY inside existing frozen original headline, not its badge or DOM.
   const headline=box.querySelector('.an2-rona-head h2');
   textIfDifferent(headline,filled
@@ -232,6 +237,7 @@ function paintAuthorizedPrices(owner,selectedProduct){
   if(note)textIfDifferent(note,filled
     ?'Показаны только опубликованные цены выбранного договора. LOW/HIGH и прогнозные цены отсутствуют без подтверждённой рыночной публикации. Это не новая оферта.'
     :'Опубликованные цены выбранного договора отсутствуют или не подтверждены. Прогнозные цены не рассчитываются.');
+  }
   box.dataset.ronaClientPriceBridge=filled?'published-current-contract':'no-authorized-matching-price';
   box.dataset.ronaClientPriceAuthority=source?'SERVER_AUTHORITATIVE_PRICE_PROJECTION':'SOURCE_UNAVAILABLE';
   box.dataset.ronaClientPricePresentation=CLIENT_PRICE_PRESENTATION_V9;
