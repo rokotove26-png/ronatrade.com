@@ -44,13 +44,21 @@ const shared={
       forecast:forecast(725,698.5,775),dailyMonitor:daily('LPG')}
   }
 };
+// Model the actual canonical Admin product destination counts, including
+// duplicate diesel shipping bases. Client sees ONLY their public names.
+const priceBases={
+  AI92:['CPT Озинки','CPT Сарыагаш','CPT Турксиб','CPT Маргилан','CPT Уртааул'],
+  AI95:['CPT Озинки','CPT Сарыагаш','CPT Турксиб','CPT Маргилан','CPT Уртааул'],
+  DT:['CPT Озинки','CPT Озинки','CPT Сарыагаш','CPT Сарыагаш','CPT Турксиб','CPT Турксиб'],
+  LPG:['CPT Озинки','CPT Сарыагаш','CPT Турксиб','CPT Уртааул','CPT Маргилан']
+};
 const adminData=structuredClone(shared);
-for(const p of Object.values(adminData.products)){
-  p.rona={reference:1270,bases:[['CPT Озинки',1280],['CPT Сарыагаш',1385]]};
+for(const [k,p] of Object.entries(adminData.products)){
+  p.rona={reference:1270,bases:priceBases[k].map((route,i)=>[route,1280+i*10])};
 }
 const clientData={...shared,projection:'CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14',
   products:Object.fromEntries(Object.entries(shared.products).map(([k,v])=>[k,
-    {...v,priceBasisLabels:['CPT Озинки','CPT Сарыагаш'],
+    {...v,priceBasisLabels:priceBases[k],
       spotFreshness:k==='DT'?'STALE_SOURCE':k==='LPG'?'TO_VERIFY_FRESHNESS':'CURRENT'}]))};
 let clientFail=false,adminGets=0,clientGets=0;
 const [adminJS,clientJS,adapterJS]=await Promise.all([
@@ -124,7 +132,7 @@ const required=async(page,mode)=>{
     document.documentElement.dataset.ronaAnalyticsData===expected,s,{timeout:16000});
   if(mode==='client')await page.waitForFunction(()=>
     document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1'&&
-    document.querySelectorAll('#rona-analytics-v2 .an2-rona-grid > .an2-price-card').length===2,
+    document.querySelectorAll('#rona-analytics-v2 .an2-rona-grid > .an2-price-card').length===5,
     null,{timeout:10000});
 };
 try{
