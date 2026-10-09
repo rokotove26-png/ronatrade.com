@@ -12,7 +12,7 @@ if(!portalServer.includes(".on('head',new HeadPrepend(bridge))")||
 const headers=await readFile(join(DIST,'_headers'),'utf8');
 if(!headers.includes('/assets/portal-runtime/client-market-intelligence-v1.js\n  Cache-Control: no-store, no-cache, must-revalidate, max-age=0'))
   throw Error('CLIENT_MARKET_RUNTIME_NO_STORE_MISSING');
-const marker='20261009-lpg-source-gap-history-v13';
+const marker='20261010-client-approved-admin-exact-v14';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
   hasBridge:html.includes(bridge),
@@ -101,9 +101,9 @@ try{
     const pageRoot=document.querySelector('#page-analytics');
     const owner=pageRoot?.querySelector(':scope > #rona-analytics-v2');
     const r=n=>{const b=n?.getBoundingClientRect();return b?{x:b.x,y:b.y,width:b.width,height:b.height,display:getComputedStyle(n).display}:null};
-    const safeSvg=owner?.querySelector('[data-chart-svg]');
-    const empty=owner?.querySelector('[data-rona-client-canonical-empty="v7"]');
-    const structure=['.rona-analytics-hero','.an2-kpis','.an2-controls','.an2-main',
+    const safeSvg=owner?.querySelector('.rona-market-chart-svg,[data-chart-svg]');
+    const empty=owner?.querySelector('.an2-empty,[data-rona-client-canonical-empty="v7"]');
+    const structure=['.rona-visual-hero','.an2-kpis','.an2-controls','.an2-main',
       '.rona-market-chart-stage','.an2-market-forecast','.an2-rona-grid','.an2-comment']
       .map(selector=>({selector,count:owner?.querySelectorAll(selector).length||0}));
     const text=owner?.innerText||'';
@@ -116,11 +116,14 @@ try{
       nativeView:typeof window.RONA_ANALYTICS_VIEW?.getState==='function',
       nativeProduct:window.RONA_ANALYTICS_VIEW?.getState?.()?.product||null,
       visualOwner:owner?.dataset.ronaClientAnalyticsVisualOwner||null,
+      approvedAdminOwner:owner?.dataset.analyticsOwner||null,
+      exactAdminNative:owner?.dataset.ronaExactAdminVisual||null,
+      nativeViewVersion:window.RONA_ANALYTICS_VIEW?.version||null,
       sourceSafe:owner?.dataset.ronaClientSourceSafe||null,
       renderState:owner?.dataset.renderState||null,
       substituteCount:pageRoot?.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length||0,
-      controlProducts:[...owner?.querySelectorAll('[data-an2-product]')||[]].map(n=>n.getAttribute('data-an2-product')),
-      structure,svgHidden:safeSvg?getComputedStyle(safeSvg).visibility==='hidden':null,emptyVisible:!!empty&&!empty.hidden,
+      controlProducts:[...owner?.querySelectorAll('.an2-controls button[data-product],.an2-controls button[data-an2-product]')||[]].map(n=>n.dataset.product||n.dataset.an2Product),
+      structure,svgHidden:safeSvg?getComputedStyle(safeSvg).visibility==='hidden':null,emptyVisible:!!empty&&!empty.hidden&&getComputedStyle(empty).display!=='none',
       staleExposed:text.includes('21.08.2026')||text.includes('09.2026')||text.includes('725–780'),
       headHit:!!owner&&!!hit&&(owner===hit||owner.contains(hit)),
       prepaintStyle:!!document.getElementById('rona-client-analytics-canonical-prepaint-v7')
@@ -140,7 +143,8 @@ try{
   console.log('CLIENT_CANONICAL_VISUAL_RESTORED_V7_INITIAL',JSON.stringify(initial));
   if(initial.runtime!==marker||!initial.nativeView||initial.visualOwner!=='canonical-v7'||initial.substituteCount!==0||
      initial.ownerHidden||initial.owner?.display==='none'||initial.owner?.height<450||
-     !initial.headHit||initial.staleExposed||!initial.emptyVisible||!initial.svgHidden||!initial.prepaintStyle||
+     !initial.headHit||initial.staleExposed||!initial.emptyVisible||!initial.prepaintStyle||
+     initial.approvedAdminOwner!=='approved-v431'||initial.exactAdminNative!=='approved-v4.3.2'||
      initial.controlProducts.length!==4||initial.structure.some(n=>n.count<1))
     throw Error('CANONICAL_VISUAL_RESTORATION_FAILED: '+JSON.stringify(initial));
   await page.setViewportSize({width:1170,height:657});
@@ -189,12 +193,12 @@ try{
   console.log('CLIENT_CANONICAL_PRICE_TENANT_SWITCH_V9=PASS');
 
   // Existing canonical controls must work with source-safe model, not a substitute card UI.
-  await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="LPG"]')?.click());
+  await page.evaluate(()=>document.querySelector('#rona-analytics-v2 .an2-controls [data-product="LPG"]')?.click());
   await page.waitForTimeout(700);
   const lpg=await snapshot();
   if(lpg.nativeProduct!=='LPG'||lpg.staleExposed||lpg.substituteCount)
     throw Error('CANONICAL_PRODUCT_CONTROL_UNSAFE: '+JSON.stringify(lpg));
-  await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="AI92"]')?.click());
+  await page.evaluate(()=>document.querySelector('#rona-analytics-v2 .an2-controls [data-product="AI92"]')?.click());
   const currentRow={publication_id:'PUB-TEST-1',publication_item_id:'PUB-TEST-AI92',
     published_at:'2026-10-09T00:01:00Z',product:'АИ-92',
     headline:'Проверенный опубликованный ряд',analytics_as_of:'2026-10-09T00:01:00Z',
@@ -204,14 +208,14 @@ try{
   payload.data={...payload.data,analytics:[currentRow],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","projection":"CLIENT_LPG_HISTORICAL_SEGMENTS_V13","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}},generated_at:'2026-10-09T00:02:00Z'};
   await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.renderState==='PUBLISHED_CURRENT_ONLY'&&
-    getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility!=='hidden',null,{timeout:6500});
+    getComputedStyle(document.querySelector('#rona-analytics-v2 .rona-market-chart-svg,[data-chart-svg]')).visibility!=='hidden',null,{timeout:6500});
   const live=await snapshot();
   console.log('CLIENT_CANONICAL_LIVE_PUBLISHED_V7',JSON.stringify(live));
   if(live.visualOwner!=='canonical-v7'||live.substituteCount||live.svgHidden||live.staleExposed)
     throw Error('CLIENT_CANONICAL_LIVE_PUBLICATION_FAILED: '+JSON.stringify(live));
   payload.data={...payload.data,analytics:[],clientCanonicalAnalytics:null,generated_at:'2026-10-09T00:03:00Z'};
   await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
-  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden',null,{timeout:6500});
+  await page.waitForFunction(()=>!document.querySelector('#rona-analytics-v2 .rona-market-chart-svg,[data-chart-svg]')||getComputedStyle(document.querySelector('#rona-analytics-v2 .rona-market-chart-svg,[data-chart-svg]')).visibility==='hidden',null,{timeout:6500});
   await nav('home');
   await nav('analytics');
   const back=await snapshot();
@@ -222,4 +226,5 @@ try{
     console.log('CLIENT_CANONICAL_DIAGNOSTIC_ERRORS',JSON.stringify({errors:errors.slice(0,7),failed:requestFail.slice(0,7)}));
   console.log('CLIENT_CANONICAL_ANALYTICS_VISUAL_V7=PASS');
   console.log('CLIENT_CANONICAL_REAL_PAGE_ANALYTICS_BOOT=PASS');
+  console.log('CLIENT_APPROVED_ADMIN_NATIVE_V432_E2E=PASS');
 }finally{if(browser)await browser.close();srv.closeAllConnections?.();await new Promise(resolve=>srv.close(resolve));}
