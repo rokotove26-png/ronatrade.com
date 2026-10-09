@@ -16,7 +16,7 @@ const marker='20261009-client-analytics-current-source-safe-v3';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
   hasBridge:html.includes(bridge),
-  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-reentry-v4'),
+  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-visible-owner-v5'),
   rootStatic:/id=["']page-analytics["']/.test(html),
   analyticsNodeMatch:html.match(/.{0,180}id=["']page-analytics["'].{0,280}/)?.[0]||'not found',
   possibleIds:([...html.matchAll(/id=["']([^"']*analytic[^"']*)["']/gi)]).map(x=>x[1]).slice(0,30),
