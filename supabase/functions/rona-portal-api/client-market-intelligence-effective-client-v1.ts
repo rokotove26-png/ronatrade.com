@@ -213,13 +213,13 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           select
             portal_private.market_intelligence_admin_forward_term_structure_v1(
               'ДТ',to_date(
-                portal_private.market_intelligence_admin_canonical_payload_v1()->>'latestTradeDate',
+                ${text(source.latestTradeDate)}::text,
                 'DD.MM.YYYY'
               )
             ) as dt_curve,
             portal_private.market_intelligence_admin_forward_term_structure_v1(
               'СУГ',to_date(
-                portal_private.market_intelligence_admin_canonical_payload_v1()->>'latestTradeDate',
+                ${text(source.latestTradeDate)}::text,
                 'DD.MM.YYYY'
               )
             ) as lpg_curve
