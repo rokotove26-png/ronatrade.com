@@ -15,13 +15,13 @@ export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`
     if(Number(proof.observationCount)!==item.dates.length)return false;
     if(!Array.isArray(proof.observedDates)||proof.observedDates.length!==item.dates.length)return false;
     return proof.observedDates.every((d,i)=>
-      /^\\d{4}-\\d{2}-\\d{2}$/.test(String(d))&&
+      /^\d{4}-\d{2}-\d{2}$/.test(String(d))&&
       String(item.dates[i])===String(d).slice(8,10)+'.'+String(d).slice(5,7)&&
       (i===0||String(d)>String(proof.observedDates[i-1])));
   };
   const usable=(item,key)=>item&&Array.isArray(item.dates)&&Array.isArray(item.values)&&
     item.dates.length>0&&item.dates.length===item.values.length&&
-    item.dates.every(d=>/^\\d{2}\\.\\d{2}$/.test(String(d)))&&item.values.every(goodNumber)&&validDaily(item,key);
+    item.dates.every(d=>/^\d{2}\\.\d{2}$/.test(String(d)))&&item.values.every(goodNumber)&&validDaily(item,key);
   function apply(root,payload,{mode='admin'}={}){
     if(!root||!payload?.products||!window.RONA_ANALYTICS_VIEW)return false;
     const state=window.RONA_ANALYTICS_VIEW.getState?.()||{};
@@ -66,9 +66,9 @@ export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`
     if(key==='LPG'){
       const regional=item?.regionalBenchmark;
       const regionDate=String(regional?.date||'');
-      const month=/^\\d{2}\\.\\d{2}\\.\\d{4}$/.test(regionDate)?regionDate.slice(6)+'-'+regionDate.slice(3,5):'';
+      const month=/^\d{2}\\.\d{2}\\.\d{4}$/.test(regionDate)?regionDate.slice(6)+'-'+regionDate.slice(3,5):'';
       const latest=String(payload.latestTradeDate||payload.cutoff||'');
-      const activeMonth=/^\\d{2}\\.\\d{2}\\.\\d{4}$/.test(latest)?latest.slice(6)+'-'+latest.slice(3,5):'';
+      const activeMonth=/^\d{2}\\.\d{2}\\.\d{4}$/.test(latest)?latest.slice(6)+'-'+latest.slice(3,5):'';
       const valid=!!activeMonth&&month>=activeMonth&&goodNumber(regional?.low)&&goodNumber(regional?.high);
       const val=valid?Number(regional.low).toLocaleString('ru-RU',{maximumFractionDigits:2})+'–'+
         Number(regional.high).toLocaleString('ru-RU',{maximumFractionDigits:2})+' USD/т':'Нет актуальных данных';
@@ -82,7 +82,7 @@ export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`
         root.dataset.ronaLpgHistorySegments=JSON.stringify({dates:daily.observedDates,ids:daily.segmentIds,gaps:daily.gapBeforeDays||[]});
       }else delete root.dataset.ronaLpgHistorySegments;
     }else delete root.dataset.ronaLpgHistorySegments;
-    const forecastReady=forecast&&/^\\d{4}-\\d{2}$/.test(String(forecast.month||''))&&
+    const forecastReady=forecast&&/^\d{4}-\d{2}$/.test(String(forecast.month||''))&&
       ['low','base','high','forward'].every(k=>goodNumber(forecast[k]))&&
       String(forecast.sourceRef||'').trim().length>0;
     if(!forecastReady){
