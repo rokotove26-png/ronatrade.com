@@ -91,7 +91,9 @@ try{
       substitute:document.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length,
       svgHidden:c?.querySelector('[data-chart-svg]')?getComputedStyle(c.querySelector('[data-chart-svg]')).visibility==='hidden':null,oldVisible:c?.innerText.includes('21.08.2026')||
         c?.innerText.includes('09.2026')||c?.innerText.includes('1 111'),
-      values:window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values};
+      values:window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values,
+      text:c?.innerText.slice(0,950),bridge:window.RONA_ANALYTICS_APPROVED_SHARED?.version,
+      adapter:c?.dataset.ronaClientRendererAdapter};
   });
   must(first.owner==='canonical-v7'&&first.display!=='none'&&!first.substitute&&first.svgHidden!==false&&!first.oldVisible,
     'SOURCE_SAFE_CANONICAL_VISUAL_NOT_RESTORED '+JSON.stringify(first));
