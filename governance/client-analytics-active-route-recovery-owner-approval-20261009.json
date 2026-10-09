@@ -1,0 +1,53 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-09",
+  "owner_instruction": "Owner reports Client Analytics remains empty after production v5 and demands full autonomous technical remediation without console interactions. Scope strictly to active Analytics page and published-current owner recovery.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261009:CLIENT_ANALYTICS_STILL_BLANK_AFTER_V5; OWNER_IN_CHAT:20261009:SELF_EXECUTE_TECHNICAL_RECOVERY",
+  "scope": "CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_V6",
+  "decision": "SCOPED_VISUAL_FREEZE_RELEASE",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_V6",
+  "supersedes_scope": "CLIENT_ANALYTICS_VISIBLE_OWNER_V5",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "1aab9052bab1af9f6e898d7ed80e2c1832897b85",
+      "authorized_post_blob_sha": "25600324a2e9525d6d30f6c04b7c7f055ef20898",
+      "required_marker": "20261009-client-analytics-active-route-recovery-v6"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "c8c446a39a1ea58b6cf9e857b6e27c03590d8a84",
+      "authorized_post_blob_sha": "fd7a256e57d4979b921fcdbe643d058670b5e82d",
+      "required_marker": "20261009-client-analytics-active-route-recovery-v6"
+    }
+  },
+  "requirements": {
+    "analytics_section_only": true,
+    "current_published_owner_only": true,
+    "recover_nav_selected_hidden_route": true,
+    "recover_late_inline_owner_display_none": true,
+    "cleanup_on_deselection": true,
+    "protect_unpublished_and_archived_business_data": true,
+    "archived_analytics_hidden": true,
+    "market_freshness_gate_unchanged": true,
+    "market_values_not_manufactured": true,
+    "admin_impersonation_header_authority_unchanged": true,
+    "source_unavailable_fail_closed": true,
+    "auth_unchanged": true,
+    "other_client_sections_unchanged": true,
+    "supabase_schema_or_rls_unchanged": true,
+    "market_publication_authority_unchanged": true,
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "exact_blob_enforcement": true,
+    "wildcard_exception": false,
+    "scoped_unfreeze_only": true,
+    "real_canonical_browser_reentry_and_injected_hide_test_required": true,
+    "script_cache_busted": true
+  },
+  "rollback": "Restore authorized v5 protected Git blobs 1aab9052bab1af9f6e898d7ed80e2c1832897b85 and c8c446a39a1ea58b6cf9e857b6e27c03590d8a84, including v5 script URL. No business record or market data rollback."
+}
