@@ -93,17 +93,17 @@ test('client Analytics stays on safe published feed contract',async()=>{
   ])assert.ok(edgeFeed.includes(token),`missing client safe-feed gate: ${token}`);
 });
 
-test('client canonical Admin parity v10 uses the SAME source model with strict published client gates',async()=>{
+test('client canonical Admin parity v11 uses the SAME source model with strict published client gates',async()=>{
   const runtime=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
   const edge=await readFile('supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts','utf8');
   const render=await readFile('scripts/attach-client-market-intelligence-v1.mjs','utf8');
-  const approval=JSON.parse(await readFile('governance/client-analytics-admin-parity-v10-owner-approval-20261009.json','utf8'));
+  const approval=JSON.parse(await readFile('governance/client-analytics-dt-lpg-forecast-source-safe-v11-owner-approval-20261009.json','utf8'));
   assert.equal(approval.approval,'OWNER_IN_CHAT');
-  assert.equal(approval.scope,'CLIENT_ANALYTICS_ADMIN_PARITY_V10');
+  assert.equal(approval.scope,'CLIENT_ANALYTICS_DT_LPG_FORECAST_SOURCE_SAFE_V11');
   assert.equal(approval.requirements.wildcard_exception,false);
-  assert.equal(approval.requirements.canonical_design_exactly_retained,true);
-  assert.equal(approval.requirements.client_role_scope_mandatory,true);
-  assert.equal(approval.requirements.no_admin_internal_pricing_bridge_exposed,true);
+  assert.equal(approval.requirements.canonical_an2_design_exactly_retained,true);
+  assert.equal(approval.requirements.client_context_and_contract_scope_preserved,true);
+  assert.equal(approval.requirements.admin_internal_rona_prices_not_exposed,true);
   assert.deepEqual(approval.approved_protected_files,[
     'assets/portal-runtime/client-market-intelligence-v1.js',
     'scripts/attach-client-market-intelligence-v1.mjs'
@@ -111,17 +111,26 @@ test('client canonical Admin parity v10 uses the SAME source model with strict p
   for(const [path,entry] of Object.entries(approval.exact_post_blobs))
     assert.equal(entry.authorized_post_blob_sha,gitBlobSha(await readFile(path,'utf8')),path+' exact blob');
   for(const token of [
+    'forecastGrantRows',
+    'forecastPermissions',
+    'spotFreshness',
+    'sd.processing_state=\'INGESTED\'',
+    "sd.data_status='CONFIRMED'",
+    'permissionToForecast("DT")',
+    'permissionToForecast("LPG")',
+    'forecastSourceCurrent',
+    'term.asOfDate === lastSourceDate.slice(8,10)',
     'authorizedClientKeys(c)',"pi.distribution_allowed=true",
     "p.status::text='PUBLISHED'",")='CURRENT'",
     'market_intelligence_admin_canonical_payload_v1()',
     'model_version',"'RONA_FULL_PLATTS_CURVE_V1'",
-    'CLIENT_ADMIN_PARITY_SOURCE_LOCKED_V10',
+    'CLIENT_ADMIN_PARITY_FORECAST_SOURCE_SAFE_V11',
     'targetIsFuture',
     'Math.abs(Number(term.values[1])-Number(output.forecast.base))<0.001'
   ])assert.ok(edge.includes(token),'source-locked client canonical gate missing: '+token);
   for(const token of [
-    "const MARK='20261009-client-analytics-admin-canonical-parity-v10'",
-    "const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_PARITY_SOURCE_LOCKED_V10'",
+    "const MARK='20261009-client-analytics-dt-lpg-forecast-parity-v11'",
+    "const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_PARITY_FORECAST_SOURCE_SAFE_V11'",
     'function canonicalPayload(data)',
     'data?.clientCanonicalAnalytics',
     'view.setPayload(payload)',
