@@ -178,5 +178,4 @@ BEGIN
   END LOOP;
   RETURN v;
 END
-$function$
-
+$function$;
