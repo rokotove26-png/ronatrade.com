@@ -121,9 +121,9 @@ try{
     const pageRoot=document.querySelector('#page-analytics');
     const owner=pageRoot?.querySelector(':scope > #rona-analytics-v2');
     const r=n=>{const b=n?.getBoundingClientRect();return b?{x:b.x,y:b.y,width:b.width,height:b.height,display:getComputedStyle(n).display}:null};
-    const safeSvg=owner?.querySelector('[data-chart-svg]');
-    const empty=owner?.querySelector('[data-rona-client-canonical-empty="v7"]');
-    const structure=['.rona-analytics-hero','.an2-kpis','.an2-controls','.an2-main',
+    const safeSvg=owner?.querySelector('.rona-market-chart-svg,[data-chart-svg]');
+    const empty=owner?.querySelector('[data-chart-stage] .an2-empty,[data-rona-client-canonical-empty="v7"]');
+    const structure=['h1','.an2-kpis','.an2-controls','.an2-main',
       '.rona-market-chart-stage','.an2-market-forecast','.an2-rona-grid','.an2-comment']
       .map(selector=>({selector,count:owner?.querySelectorAll(selector).length||0}));
     const text=owner?.innerText||'';
@@ -225,14 +225,15 @@ try{
   await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
   await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='canonical-daily-client-authorized-v14'&&
     document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1'&&
-    getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility!=='hidden',null,{timeout:6500});
+    getComputedStyle(document.querySelector('#rona-analytics-v2 .rona-market-chart-svg,[data-chart-svg]')).visibility!=='hidden',null,{timeout:6500});
   const live=await snapshot();
   console.log('CLIENT_CANONICAL_LIVE_PUBLISHED_V7',JSON.stringify(live));
   if(live.visualOwner!=='canonical-v7'||live.substituteCount||live.svgHidden||live.staleExposed)
     throw Error('CLIENT_CANONICAL_LIVE_PUBLICATION_FAILED: '+JSON.stringify(live));
   payload.data={...payload.data,analytics:[],clientCanonicalAnalytics:null,generated_at:'2026-10-09T00:03:00Z'};
   await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
-  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden',null,{timeout:6500});
+  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='0'&&
+    !!document.querySelector('#rona-analytics-v2 [data-chart-stage] .an2-empty'),null,{timeout:6500});
   await nav('home');
   await nav('analytics');
   const back=await snapshot();
