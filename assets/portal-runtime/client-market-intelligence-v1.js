@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-lpg-source-gap-history-v13';
+const MARK='20261010-client-approved-admin-exact-mirror-v14';
 const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
@@ -238,7 +238,9 @@ function paintAuthorizedPrices(owner,selectedProduct){
 }
 function ensureSafeCanonicalState(owner,payload,reason){
   const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};
-  const visualProduct=owner.querySelector('.an2-controls [data-an2-product][aria-pressed="true"]')?.getAttribute('data-an2-product');
+  const nativeSelected=owner.querySelector('.an2-controls [data-an2-product][aria-pressed="true"]')||
+    owner.querySelector('.an2-controls button[data-product].active,.an2-controls button[data-product][aria-pressed="true"]');
+  const visualProduct=nativeSelected?.getAttribute('data-an2-product')||nativeSelected?.getAttribute('data-product');
   const chosen=(visualProduct&&payload.products[visualProduct]?visualProduct:null)||
     (selected.product&&payload.products[selected.product]?selected.product:'AI92');
   const product=payload.products[chosen]||emptyProduct();
@@ -341,6 +343,8 @@ function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
     return;
   }
   const payload=canonicalPayload(data);
+  // This is the SAME approved Admin native v4.3.2 renderer; the sole difference
+  // is the effective-client source-locked data and published contract prices.
   // The original RONA renderer owns its controls, chart, forecast, pricing cards and commentary.
   // Do not retrigger native rendering on our own MutationObserver-driven updates.
   const sig=reason==='PUBLISHED_CURRENT_ONLY'?state.fingerprint:reason;
@@ -411,7 +415,7 @@ function start(){
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
   window.addEventListener('rona:client-prices-updated',schedule,{passive:true});
   document.addEventListener('click',event=>{
-    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-an2-product]');
+    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-an2-product],#page-analytics #rona-analytics-v2 .an2-controls [data-product]');
     if(productButton){
       // Native renderer changes the product synchronously after capture. Refresh
       // source/status labels in its final selection state, without new controls.
