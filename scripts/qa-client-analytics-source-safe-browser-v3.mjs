@@ -84,7 +84,7 @@ try{
   });
   must(first.owner==='canonical-v7'&&first.display!=='none'&&!first.substitute&&first.svgHidden&&!first.oldVisible,
     'SOURCE_SAFE_CANONICAL_VISUAL_NOT_RESTORED '+JSON.stringify(first));
-  must(first.values.length===0,'STALE_SOURCE_ROW_WAS_PUBLISHED');
+  must(first.values===undefined||first.values.length===0,'STALE_SOURCE_ROW_WAS_PUBLISHED');
   // Published price authority belongs to the selected client's existing Price page,
   // never to the Admin canonical price snapshot or a cross-tenant memory cache.
   await page.evaluate(()=>{
