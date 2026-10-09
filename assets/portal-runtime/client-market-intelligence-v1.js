@@ -1,7 +1,8 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-client-analytics-current-source-safe-v3';
+const MARK='20261009-client-analytics-canonical-restored-v7';
+const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
 const REENTRY_GUARD='20261009-client-analytics-reentry-guard-v4';
 const VISIBLE_OWNER_GUARD='20261009-client-analytics-visible-owner-v5';
 const ACTIVE_ROUTE_RECOVERY='20261009-client-analytics-active-route-recovery-v6';
@@ -50,39 +51,17 @@ function analyticsPage(){
   return q('#page-analytics')||q('#analyticsPage')||q('#page-market-analytics')||q('[data-page-panel="analytics"]')||q('[data-page-id="analytics"]')||q('[data-page-panel="market-analytics"]');
 }
 function pageShown(root){if(!root||!root.isConnected)return false;const s=getComputedStyle(root);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0}
+
 function installStyle(){
-  if(document.getElementById('rona-client-market-intelligence-style-v2'))return;
-  const s=el('style',{id:'rona-client-market-intelligence-style-v2'});
-  s.textContent=`
-[${OWNER}="analytics"]{--mi-line:rgba(255,255,255,.13);--mi-soft:rgba(255,255,255,.055);--mi-soft2:rgba(255,255,255,.085);--mi-muted:rgba(225,235,245,.66);--mi-accent:#4aa8ff;width:100%;min-width:0;color:inherit;font:inherit}
-[${OWNER}="analytics"] *{box-sizing:border-box}
-[${OWNER}="analytics"] .mi-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:4px 0 20px;border-bottom:1px solid var(--mi-line)}
-[${OWNER}="analytics"] .mi-kicker{margin:0 0 7px;color:var(--mi-accent);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
-[${OWNER}="analytics"] h2{margin:0;font-size:clamp(24px,3vw,38px);line-height:1.05;font-weight:800;letter-spacing:-.025em}
-[${OWNER}="analytics"] .mi-sub{margin:9px 0 0;max-width:880px;color:var(--mi-muted);font-size:12px;line-height:1.55}
-[${OWNER}="analytics"] .mi-meta{flex:0 0 auto;color:var(--mi-muted);font-size:10px;text-align:right;line-height:1.55}
-[${OWNER}="analytics"] .mi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding-top:16px}
-[${OWNER}="analytics"] .mi-card{min-width:0;padding:16px;border:1px solid var(--mi-line);border-radius:12px;background:var(--mi-soft)}
-[${OWNER}="analytics"] .mi-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-[${OWNER}="analytics"] .mi-product{font-size:11px;font-weight:850;letter-spacing:.055em;text-transform:uppercase}
-[${OWNER}="analytics"] .mi-date{color:var(--mi-muted);font-size:10px;white-space:nowrap}
-[${OWNER}="analytics"] .mi-card h3{margin:10px 0 0;font-size:16px;line-height:1.35;font-weight:750}
-[${OWNER}="analytics"] .mi-copy{margin:9px 0 0;color:var(--mi-muted);font-size:12px;line-height:1.55;white-space:pre-wrap}
-[${OWNER}="analytics"] .mi-bars{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--mi-line)}
-[${OWNER}="analytics"] .mi-bar-row{display:grid;grid-template-columns:minmax(90px,.95fr) minmax(100px,1.8fr) auto;gap:9px;align-items:center;font-size:10px}
-[${OWNER}="analytics"] .mi-bar-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mi-muted)}
-[${OWNER}="analytics"] .mi-track{height:7px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.07)}
-[${OWNER}="analytics"] .mi-fill{height:100%;min-width:2px;border-radius:99px;background:currentColor;opacity:.72}
-[${OWNER}="analytics"] .mi-value{font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}
-[${OWNER}="analytics"] .mi-empty,[${OWNER}="analytics"] .mi-error{padding:34px 0;color:var(--mi-muted);font-size:13px;line-height:1.6}
-[${OWNER}="analytics"] .mi-missing{opacity:.85}
-[${OWNER}="analytics"] .mi-missing h3{font-weight:700}
-#page-analytics>[data-rona-client-analytics-legacy="hidden-v3"]{display:none!important}
-/* Only the published-current Client Analytics owner may override the canonical legacy-only child selector. */
-#page-analytics > :not(#rona-analytics-v2)[data-rona-client-market-intelligence-owner="analytics"]{display:block!important}
-@media(max-width:900px){[${OWNER}="analytics"] .mi-grid{grid-template-columns:1fr}}
-@media(max-width:620px){[${OWNER}="analytics"] .mi-head{align-items:flex-start;flex-direction:column}[${OWNER}="analytics"] .mi-meta{text-align:left}}
-`;
+  if(document.getElementById('rona-client-analytics-canonical-style-v7'))return;
+  const s=el('style',{id:'rona-client-analytics-canonical-style-v7'});
+  s.textContent=[
+    '#page-analytics > #rona-analytics-v2[data-rona-client-analytics-visual-owner="canonical-v7"]{display:block!important;visibility:visible!important}',
+    '#page-analytics > [data-rona-client-market-intelligence-owner="analytics"]{display:none!important}',
+    '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"]{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:28px 15px;text-align:center}',
+    '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"] strong{font-weight:700}',
+    '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"] span{font-size:12px;opacity:.72}'
+  ].join('\n');
   document.head.appendChild(s);
 }
 function recoverAnalyticsRoute(root){
@@ -104,87 +83,121 @@ function recoverAnalyticsRoute(root){
     delete root.dataset.ronaAnalyticsRouteRecovered;
   }
 }
+
+const CANONICAL_KEYS=Object.freeze({ 'АИ-92':'AI92','АИ-95':'AI95','ДТ':'DT','СУГ / СПБТ':'LPG' });
+const CANONICAL_PRICE_BASES=Object.freeze(['CPT Озинки','CPT Сарыагаш','CPT Наушки']);
+const EMPTY_SOURCE='Нет текущей подтверждённой публикации';
 function ensureOwner(root){
   installStyle();
-  let owner=root.querySelector(`:scope > [${OWNER}="analytics"]`);
-  if(!owner){owner=el('section',{[OWNER]:'analytics','data-rona-client-market-intelligence-version':MARK});root.prepend(owner)}
-  // Inline !important written by a late SPA renderer outranks the v5 stylesheet.
-  // Reassert visibility only on the safe published-current owner, never on archived siblings.
-  if(owner.hidden)owner.hidden=false;
-  if(getComputedStyle(owner).display==='none')owner.style.setProperty('display','block','important');
-  if(getComputedStyle(owner).visibility==='hidden')owner.style.setProperty('visibility','visible','important');
-  // The canonical Client SPA reopens its embedded analytics v2 child and
-  // overwrites hidden/display on every navigation. Re-lock *already marked*
-  // legacy children too; otherwise stale August/September prices reappear
-  // while the verified client owner remains mounted.
-  for(const child of Array.from(root.children)){
-    if(child===owner)continue;
-    if(child.dataset.ronaClientAnalyticsLegacy!=='hidden-v3')
-      child.dataset.ronaClientAnalyticsLegacy='hidden-v3';
-    if(!child.hidden)child.hidden=true;
-    if(child.style.getPropertyValue('display')!=='none'||child.style.getPropertyPriority('display')!=='important')
-      child.style.setProperty('display','none','important');
-  }
-  root.dataset.ronaClientAnalyticsMigrated='v3';
+  // The canonical design is the sole visual owner; never replace its subtree.
+  const original=root.querySelector(':scope > #rona-analytics-v2');
+  if(!original){root.dataset.ronaClientAnalyticsSource='CANONICAL_VISUAL_MISSING';return null}
+  const substitute=root.querySelector(':scope > [data-rona-client-market-intelligence-owner="analytics"]');
+  if(substitute)substitute.remove();
+  if(original.hidden)original.hidden=false;
+  if(original.hasAttribute('data-rona-client-analytics-legacy'))original.removeAttribute('data-rona-client-analytics-legacy');
+  if(original.style.getPropertyValue('display')==='none')original.style.removeProperty('display');
+  if(original.style.getPropertyValue('visibility')==='hidden')original.style.removeProperty('visibility');
+  if(original.dataset.ronaClientAnalyticsVisualOwner!=='canonical-v7')original.dataset.ronaClientAnalyticsVisualOwner='canonical-v7';
+  root.dataset.ronaClientAnalyticsMigrated='canonical-restored-v7';
   root.dataset.ronaClientAnalyticsSource='CLIENT_AUTHORIZED_PUBLISHED_CURRENT_ONLY';
-  return owner;
+  return original;
 }
-function head(data){
-  return el('header',{class:'mi-head'},
-    el('div',{},el('p',{class:'mi-kicker',text:'RONA TRADE · MARKET INTELLIGENCE'}),el('h2',{text:'Аналитика'}),el('p',{class:'mi-sub',text:'Опубликованный клиентский аналитический слой RONA Trade. Только верифицированные производные данные, разрешённые к клиентской дистрибуции.'})),
-    el('div',{class:'mi-meta'},el('div',{text:'Обновлено '+dateLabel(data?.generated_at,true)}),el('div',{text:'Europe/Moscow'}))
-  );
+function emptyForecast(message=EMPTY_SOURCE){
+  return{month:'нет текущих данных',low:NaN,base:NaN,high:NaN,forward:NaN,forwardLabel:'FORWARD',
+    direction:'нет публикации',confidence:'не подтверждено',curve:'нет ряда',comment:message};
 }
-function chartRows(chart){
-  const labels=Array.isArray(chart?.labels)?chart.labels:[],values=Array.isArray(chart?.values)?chart.values:[];
-  const nums=values.map(finite).filter(v=>v!==null);if(!labels.length||!nums.length)return null;
-  const max=Math.max(...nums.map(v=>Math.abs(v)),1);
-  return el('div',{class:'mi-bars'},labels.slice(0,8).map((label,i)=>{
-    const value=finite(values[i]);const width=value===null?0:Math.max(2,Math.min(100,Math.abs(value)/max*100));
-    return el('div',{class:'mi-bar-row'},el('span',{class:'mi-bar-label',text:norm(label)||'—'}),el('span',{class:'mi-track'},el('span',{class:'mi-fill',style:`display:block;width:${width.toFixed(2)}%`})),el('span',{class:'mi-value',text:value===null?'—':fmt(value,2)+(chart?.unit?' '+chart.unit:'')}));
-  }));
+function emptyProduct(){
+  return{dates:[],values:[],basis:EMPTY_SOURCE,forecast:emptyForecast(),
+    rona:{reference:NaN,bases:CANONICAL_PRICE_BASES.map(k=>[k,NaN])}};
 }
-function renderAnalytics(root,data){
-  const owner=ensureOwner(root),rows=Array.isArray(data?.analytics)?data.analytics:[],body=el('div',{});
-  const grid=el('div',{class:'mi-grid'});
-  const byProduct=new Map(rows.filter(x=>isMarketProduct(x.product)).map(x=>[norm(x.product),x]));
-  // Missing market publications remain visibly unavailable, never replaced by embedded August/September demo quotes.
-  for(const product of MARKET_PRODUCTS){
-    if(byProduct.has(product))continue;
-    grid.append(el('article',{class:'mi-card mi-missing','data-product':product,'data-client-source-status':'NO_CURRENT_PUBLICATION'},
-      el('div',{class:'mi-card-top'},el('span',{class:'mi-product',text:product})),
-      el('h3',{text:'Нет текущей подтверждённой публикации'}),
-      el('p',{class:'mi-copy',text:'Ожидается проверенный источник и разрешённая для клиентов публикация. Архивные цены и прогнозы не показываются как актуальные.'})));
+function canonicalPayload(data){
+  const products={AI92:emptyProduct(),AI95:emptyProduct(),DT:emptyProduct(),LPG:emptyProduct()};
+  for(const row of Array.isArray(data?.analytics)?data.analytics:[]){
+    const key=CANONICAL_KEYS[norm(row?.product)];
+    if(!key||!isAuthorizedRow(row))continue;
+    const chart=row.public_chart;
+    const labels=chart.labels.map(x=>norm(x));
+    const isDailySeries=labels.length>=2&&labels.length===chart.values.length&&
+      labels.every(x=>/^\d{4}-\d{2}-\d{2}$/.test(x));
+    const points=isDailySeries?chart.values.map(finite):[];
+    const authorizedSeries=isDailySeries&&points.every(Number.isFinite);
+    products[key]={
+      dates:authorizedSeries?labels:[],values:authorizedSeries?points:[],
+      basis:norm(row.headline)||'Клиентская подтверждённая публикация',
+      forecast:emptyForecast(norm(row.content_text)||norm(row.headline)||EMPTY_SOURCE),
+      rona:{reference:NaN,bases:CANONICAL_PRICE_BASES.map(k=>[k,NaN])}
+    };
   }
-  for(const row of rows){
-    const card=el('article',{class:'mi-card','data-product':norm(row.product),'data-client-source-status':'PUBLISHED_CURRENT'},
-      el('div',{class:'mi-card-top'},el('span',{class:'mi-product',text:norm(row.product)||'Аналитика'}),
-      el('span',{class:'mi-date',text:'на '+dateLabel(row.analytics_as_of)})),
-      el('h3',{text:norm(row.headline)||norm(row.title)||'Аналитический материал'}));
-    const copy=norm(row.content_text);if(copy)card.append(el('p',{class:'mi-copy',text:copy}));
-    const bars=chartRows(row.public_chart);if(bars)card.append(bars);
-    grid.append(card);
+  return{
+    version:'RONA_CLIENT_CANONICAL_PUBLISHED_CURRENT_V7',
+    cutoff:data?.generated_at?dateLabel(data.generated_at,true):EMPTY_SOURCE,
+    latestTradeDate:EMPTY_SOURCE,
+    argus:{available:false,reason:EMPTY_SOURCE,required:'Argus — нет опубликованного разрешённого ряда'},
+    products
+  };
+}
+function textIfDifferent(node,value){
+  if(node&&node.textContent!==value)node.textContent=value;
+}
+function ensureSafeCanonicalState(owner,payload,reason){
+  const chosen=window.RONA_ANALYTICS_VIEW?.getState?.()?.product||'AI92';
+  const product=payload.products[chosen]||emptyProduct();
+  const hasSeries=product.dates.length>=2&&product.values.length===product.dates.length;
+  const chartStage=owner.querySelector('[data-chart-stage]');
+  const svg=owner.querySelector('[data-chart-svg]');
+  if(svg){
+    if(svg.hidden===hasSeries)svg.hidden=!hasSeries;
+    const wanted=hasSeries?'':'hidden';
+    if(svg.style.getPropertyValue('visibility')!==wanted){
+      if(wanted)svg.style.setProperty('visibility',wanted,'important');else svg.style.removeProperty('visibility');
+    }
   }
-  body.append(grid);
-  owner.replaceChildren(head(data),body);
-  owner.dataset.renderState='PUBLISHED_CURRENT_ONLY';
-  root.dataset.ronaClientAnalyticsReady='true';
+  if(chartStage){
+    let empty=chartStage.querySelector('[data-rona-client-canonical-empty="v7"]');
+    if(!empty){
+      empty=el('div',{class:'rona-market-chart-empty','data-rona-client-canonical-empty':'v7'});
+      empty.append(el('strong',{text:EMPTY_SOURCE}),el('span',{text:'График будет построен штатным модулем после публикации проверенного ряда.'}));
+      chartStage.append(empty);
+    }
+    if(empty.hidden!==hasSeries)empty.hidden=hasSeries;
+  }
+  if(!hasSeries){
+    textIfDifferent(owner.querySelector('[data-chart-source]'),EMPTY_SOURCE);
+    textIfDifferent(owner.querySelector('[data-chart-title]'),'Динамика · нет актуального ряда');
+    for(const n of owner.querySelectorAll('.rona-market-chart-metric'))textIfDifferent(n,'—');
+  }
+  // Canonical legacy engine contains a baked historical LPG/Saryagash number
+  // that does not depend on setPayload. Neutralize only that value.
+  if(chosen==='LPG'){
+    const second=owner.querySelectorAll('.an2-kpis .rona-owner-card')[1];
+    textIfDifferent(second?.querySelector('.rona-owner-kpi'),'—');
+    textIfDifferent(second?.querySelector('.rona-owner-muted'),EMPTY_SOURCE);
+  }
+  // A failed API request must never expose historical built-in values.
+  if(owner.dataset.ronaClientSourceSafe!=='1')owner.dataset.ronaClientSourceSafe='1';
+  if(owner.dataset.renderState!==reason)owner.dataset.renderState=reason;
+}
+function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
+  const owner=ensureOwner(root);
+  if(!owner)return;
+  const view=window.RONA_ANALYTICS_VIEW;
+  if(!view||typeof view.setPayload!=='function'){
+    owner.dataset.ronaClientSourceSafe='0';
+    root.dataset.ronaClientAnalyticsReady='false';
+    return;
+  }
+  const payload=canonicalPayload(data);
+  // The original RONA renderer owns its controls, chart, forecast, pricing cards and commentary.
+  // All values are reset atomically before showing the original visual.
+  view.setPayload(payload);
+  ensureSafeCanonicalState(owner,payload,reason);
+  root.dataset.ronaClientAnalyticsReady=reason==='PUBLISHED_CURRENT_ONLY'?'true':'false';
   root.dataset.ronaClientMarketIntelligenceFingerprint='analytics:'+state.fingerprint;
 }
-function renderError(root,message){
-  const owner=ensureOwner(root);
-  if(owner.dataset.renderState==='ERROR_NO_ARCHIVE')return;
-  owner.replaceChildren(head({}),el('div',{class:'mi-error',text:message||'Нет доступа к актуальной опубликованной аналитике. Архивные котировки скрыты.'}));
-  owner.dataset.renderState='ERROR_NO_ARCHIVE';
-  root.dataset.ronaClientAnalyticsReady='false';
-}
-function renderLoading(root){
-  const owner=ensureOwner(root);
-  if(owner.dataset.renderState==='LOADING')return;
-  owner.replaceChildren(head({}),el('div',{class:'mi-empty',text:'Проверяем актуальные публикации для вашего клиентского доступа…'}));
-  owner.dataset.renderState='LOADING';
-  root.dataset.ronaClientAnalyticsReady='false';
-}
+function renderAnalytics(root,data){renderCanonical(root,data,'PUBLISHED_CURRENT_ONLY')}
+function renderError(root,message){renderCanonical(root,{analytics:[],generated_at:''},'ERROR_NO_ARCHIVE')}
+function renderLoading(root){renderCanonical(root,{analytics:[],generated_at:''},'LOADING')}
 function apply(){
   state.renderQueued=false;
   const root=analyticsPage();
