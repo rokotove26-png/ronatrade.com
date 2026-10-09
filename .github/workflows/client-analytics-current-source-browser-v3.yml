@@ -65,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL --retry 5 --retry-delay 5 "https://ronaoil.com/assets/portal-runtime/client-market-intelligence-v1.js?qa=${GITHUB_SHA}" -o /tmp/rona-client-analytics.js
-          grep -q '20261009-lpg-source-gap-history-v13' /tmp/rona-client-analytics.js
+          grep -q '20261010-client-approved-admin-exact-mirror-v14' /tmp/rona-client-analytics.js
           grep -q 'CLIENT_LPG_HISTORICAL_SEGMENTS_V13' /tmp/rona-client-analytics.js
           grep -q 'CLIENT_LPG_HISTORICAL_SEGMENTS_V13' /tmp/rona-client-analytics.js
           grep -q 'paintAuthorizedPrices' /tmp/rona-client-analytics.js
@@ -84,4 +84,4 @@ jobs:
             echo 'Client Analytics periodic polling violation' >&2
             exit 1
           fi
-          echo 'RONA_CLIENT_ANALYTICS_LPG_HISTORY_V13_PRODUCTION=PASS'
+          echo 'RONA_CLIENT_ANALYTICS_APPROVED_ADMIN_V14_PRODUCTION=PASS'

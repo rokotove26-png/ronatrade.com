@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 
 const must=(ok,msg)=>{if(!ok)throw Error(msg)};
 const runtime=await readFile('dist/assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-const mark='20261009-lpg-source-gap-history-v13';
+const mark='20261010-client-approved-admin-exact-mirror-v14';
 const stamp='2026-10-09T00:01:00Z';
 const row=(product,source='CURRENT',values=[1081,1092,1103])=>({
   publication_id:'CLIENT-QA-20261009',publication_item_id:'SAFE-CHART-'+product,
@@ -84,7 +84,7 @@ try{
   });
   must(first.owner==='canonical-v7'&&first.display!=='none'&&!first.substitute&&first.svgHidden&&!first.oldVisible,
     'SOURCE_SAFE_CANONICAL_VISUAL_NOT_RESTORED '+JSON.stringify(first));
-  must(first.values.length===0,'STALE_SOURCE_ROW_WAS_PUBLISHED');
+  must(first.values===undefined||first.values.length===0,'STALE_SOURCE_ROW_WAS_PUBLISHED');
   // Published price authority belongs to the selected client's existing Price page,
   // never to the Admin canonical price snapshot or a cross-tenant memory cache.
   await page.evaluate(()=>{

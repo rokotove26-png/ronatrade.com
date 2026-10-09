@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-lpg-source-gap-history-v13';
+const MARK='20261010-client-approved-admin-exact-mirror-v14';
 const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
@@ -238,7 +238,9 @@ function paintAuthorizedPrices(owner,selectedProduct){
 }
 function ensureSafeCanonicalState(owner,payload,reason){
   const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};
-  const visualProduct=owner.querySelector('.an2-controls [data-an2-product][aria-pressed="true"]')?.getAttribute('data-an2-product');
+  const nativeSelected=owner.querySelector('.an2-controls [data-an2-product][aria-pressed="true"]')||
+    owner.querySelector('.an2-controls button[data-product].active,.an2-controls button[data-product][aria-pressed="true"]');
+  const visualProduct=nativeSelected?.getAttribute('data-an2-product')||nativeSelected?.getAttribute('data-product');
   const chosen=(visualProduct&&payload.products[visualProduct]?visualProduct:null)||
     (selected.product&&payload.products[selected.product]?selected.product:'AI92');
   const product=payload.products[chosen]||emptyProduct();
@@ -247,7 +249,7 @@ function ensureSafeCanonicalState(owner,payload,reason){
   const hasDaily=hasSeries&&daily?.version==='RONA_MARKET_OBSERVED_DAILY_V1'&&
     daily?.granularity==='OBSERVATION_DATE'&&daily?.sourceStatus==='CONFIRMED';
   const chartStage=owner.querySelector('[data-chart-stage]');
-  const svg=owner.querySelector('[data-chart-svg]');
+  const svg=owner.querySelector('.rona-market-chart-svg,[data-chart-svg]');
   if(svg){
     if(svg.hidden===hasSeries)svg.hidden=!hasSeries;
     const wanted=hasSeries?'':'hidden';
@@ -270,6 +272,20 @@ function ensureSafeCanonicalState(owner,payload,reason){
       }
       empty.hidden=false;
     }
+  }
+  if(!hasSeries){
+    // Native Admin controls repaint baked fallback labels on every product
+    // selection. Sanitize them on EVERY scheduled client refresh, not only on
+    // network failure; never expose prior client's rates/forecast.
+    const f=owner.querySelector('.an2-market-forecast');
+    if(f){
+      const title=f.querySelector('.an2-mf-title');
+      if(title)textIfDifferent(title,'Прогноз недоступен');
+      f.querySelectorAll('.an2-mf-row strong').forEach(n=>textIfDifferent(n,'—'));
+    }
+    owner.querySelectorAll('.an2-kpis .rona-owner-kpi').forEach(n=>textIfDifferent(n,'—'));
+    const comment=owner.querySelector('.an2-comment');
+    if(comment)textIfDifferent(comment,'Нет подтверждённого ежедневного ряда по выбранному продукту');
   }
   if(hasSeries){
     if(hasDaily){
@@ -341,14 +357,46 @@ function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
     return;
   }
   const payload=canonicalPayload(data);
+  // This is the SAME approved Admin native v4.3.2 renderer; the sole difference
+  // is the effective-client source-locked data and published contract prices.
   // The original RONA renderer owns its controls, chart, forecast, pricing cards and commentary.
   // Do not retrigger native rendering on our own MutationObserver-driven updates.
   const sig=reason==='PUBLISHED_CURRENT_ONLY'?state.fingerprint:reason;
-  if(owner.dataset.ronaClientPayloadFingerprint!==sig||owner.dataset.renderState!==reason){
-    view.setPayload(payload);
-    owner.dataset.ronaClientPayloadFingerprint=sig;
+  const currentKey=String(view.getState?.()?.product||'AI92');
+  const selectedSeries=payload.products[currentKey];
+  const canDrawCurrent=reason==='PUBLISHED_CURRENT_ONLY' &&
+    Array.isArray(selectedSeries?.dates)&&Array.isArray(selectedSeries?.values)&&
+    selectedSeries.dates.length>0 &&
+    selectedSeries.values.length===selectedSeries.dates.length &&
+    selectedSeries.values.every(v=>Number.isFinite(Number(v)));
+  // The approved Admin painter expects an observation array: an empty series
+  // dereferences points[0].x and can loop forever. NEVER call it with an empty
+  // or failed client feed. The source-safe Client overlay remains separate.
+  if(canDrawCurrent &&
+     (owner.dataset.ronaClientPayloadFingerprint!==sig||owner.dataset.renderState!==reason)){
+    const applied=view.setPayload(payload);
+    if(applied!==false)owner.dataset.ronaClientPayloadFingerprint=sig;
   }
   ensureSafeCanonicalState(owner,payload,reason);
+  if(!canDrawCurrent){
+    // Do not retain the previously authorized Client data in a public
+    // view.data projection after tenant/contract change or 503. The approved
+    // Admin renderer requires nonempty chart points, so clear the exposed
+    // projection without invoking its zero-point chart painter.
+    try {
+      if(view.data && typeof view.data==='object' && 'products' in view.data)
+        view.data=payload;
+    } catch(_){}
+    const f=owner.querySelector('.an2-market-forecast');
+    if(f){
+      const title=f.querySelector('.an2-mf-title');
+      if(title)textIfDifferent(title,'Прогноз недоступен');
+      f.querySelectorAll('.an2-mf-row strong').forEach(x=>textIfDifferent(x,'—'));
+    }
+    owner.querySelectorAll('.an2-kpis .rona-owner-kpi').forEach(x=>textIfDifferent(x,'—'));
+    const comment=owner.querySelector('.an2-comment');
+    if(comment)textIfDifferent(comment,'Текущий опубликованный ряд для выбранного продукта отсутствует');
+  }
   root.dataset.ronaClientAnalyticsReady=reason==='PUBLISHED_CURRENT_ONLY'?'true':'false';
   root.dataset.ronaClientMarketIntelligenceFingerprint='analytics:'+state.fingerprint;
 }
@@ -411,7 +459,7 @@ function start(){
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
   window.addEventListener('rona:client-prices-updated',schedule,{passive:true});
   document.addEventListener('click',event=>{
-    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-an2-product]');
+    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-an2-product],#page-analytics #rona-analytics-v2 .an2-controls [data-product]');
     if(productButton){
       // Native renderer changes the product synchronously after capture. Refresh
       // source/status labels in its final selection state, without new controls.
