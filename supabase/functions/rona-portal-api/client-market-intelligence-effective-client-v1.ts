@@ -237,7 +237,11 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
   });
   const sourceProducts: Record<string, any> = {};
   try {
-    const sourceRows = await sql`select public.owner_analytics_admin_bootstrap()->'canonicalAnalytics' as canonical`;
+    // Both roles consume the same canonical market-data function. The owner
+    // bootstrap RPC itself is ADMIN-AUTHORIZED and must NEVER be called in
+    // a Client session (PORTAL_ACCESS_DENIED). DT/LPG daily projection below
+    // uses the same internal verified daily_monitor_v1 as the Admin wrapper.
+    const sourceRows = await sql`select portal_private.market_intelligence_admin_canonical_payload_v1() as canonical`;
     const source = sourceRows.length === 1 ? sourceRows[0].canonical : null;
     if (source?.version !== "RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1" ||
         !source.products || !/^\d{2}\.\d{2}\.\d{4}$/.test(text(source.latestTradeDate))) {
@@ -332,13 +336,16 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       };
       // Only already public route labels. Never project Admin destination rates,
       // internal gross margins, rail costs or benchmark/reference values.
-      const visibleBasisNames = new Set(["CPT Озинки","CPT Сарыагаш","CPT Наушки"]);
+      const visibleBasisNames = new Set([
+        "CPT Озинки","CPT Сарыагаш","CPT Турксиб","CPT Маргилан",
+        "CPT Уртааул","CPT Наушки"
+      ]);
       output.priceBasisLabels = Array.isArray(raw.rona?.bases)
         ? raw.rona.bases
             .filter((item: unknown) => Array.isArray(item) && item.length === 2 &&
               visibleBasisNames.has(text(item[0])))
             .map((item: any[]) => text(item[0]))
-            .slice(0,3)
+            .slice(0,12)
         : [];
       const model: any = modelSources.get(key === "LPG" ? "СУГ" : productName);
       const target = text(model?.target_month).slice(0,7);
