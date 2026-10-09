@@ -190,7 +190,7 @@ try{
         window.RONA_ANALYTICS_VIEW.getState().product]?.forecast,
       kpi:document.querySelector('#rona-analytics-v2 .an2-kpis .rona-owner-kpi')?.textContent,
       overlays:document.querySelectorAll(
-        '#rona-analytics-v2 [data-rona-client-canonical-empty="v7"]').length,
+        '#rona-analytics-v2 [data-chart-stage] .an2-empty').length,
       svgHidden:getComputedStyle(document.querySelector(
         '#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden',
       gapHistory:document.querySelector('#rona-analytics-v2')?.dataset.ronaLpgHistorySegments,
@@ -215,7 +215,7 @@ try{
   await page.waitForFunction(()=>
     document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct==='AI92',
     null,{timeout:7000});
-  must(await page.locator('#rona-analytics-v2 [data-rona-client-canonical-empty="v7"]').count()===0,
+  must(await page.locator('#rona-analytics-v2 [data-chart-stage] .an2-empty').count()===0,
     'OBSOLETE_NO_DATA_OVERLAY_COVERS_GASOLINE_CHART');
   mode='ERROR';latencyMs=40;
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
