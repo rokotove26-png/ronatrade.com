@@ -146,7 +146,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       if(stage)stage.innerHTML='<div class="an2-empty"><strong>Нет актуального подтверждённого ряда</strong><span>Архивный график скрыт. Прогноз показан отдельно при наличии проверенного источника.</span></div>';
       const title=root.querySelector('[data-chart-title]');if(title)title.textContent='Динамика · нет актуального ряда';
       const source=root.querySelector('[data-chart-source]');if(source)source.textContent='SOURCE UNAVAILABLE';
-      root.querySelectorAll('[data-metric]').forEach(el=>{el.textContent='—'});
+      root.querySelectorAll('[data-metric],.rona-market-chart-metric').forEach(el=>{el.textContent='—'});
       if(cards[0]){
         const value=cards[0].querySelector('.rona-owner-kpi');if(value)value.textContent='Нет ряда';
         const note=cards[0].querySelector('.rona-owner-muted');if(note)note.textContent='Актуальная серия по продукту отсутствует';
@@ -223,9 +223,16 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     document.documentElement.dataset.ronaAnalyticsData='SOURCE_UNAVAILABLE';
     document.documentElement.dataset.ronaAnalyticsError=String(reason||'DATA_NOT_AVAILABLE').slice(0,60);
     if(!root)return;
+    const title=root.querySelector('[data-chart-title]');
+    if(title)title.textContent='Динамика · актуальный ряд недоступен';
+    const source=root.querySelector('[data-chart-source]');
+    if(source)source.textContent='SOURCE UNAVAILABLE';
+    const comment=root.querySelector('.an2-comment');
+    if(comment)comment.textContent='Нет актуального подтверждённого аналитического вывода.';
     const stage=root.querySelector('[data-chart-stage]');
     if(stage)stage.innerHTML='<div class="an2-empty"><strong>Текущие данные недоступны</strong><span>Загрузка подтверждённых котировок и прогнозов не выполнена. Архивные значения скрыты.</span></div>';
-    root.querySelectorAll('[data-metric],.an2-kpis .rona-owner-kpi,.an2-price-base,.an2-price-range,.an2-price-current').forEach(el=>{el.textContent='—'});
+    root.querySelectorAll('[data-metric],.rona-market-chart-metric,.an2-kpis .rona-owner-kpi,.an2-price-base,.an2-price-range,.an2-price-current').forEach(el=>{el.textContent='—'});
+    root.querySelectorAll('.an2-kpis .rona-owner-muted').forEach(el=>{el.textContent='Нет актуальных данных'});
     const box=root.querySelector('.an2-market-forecast');
     if(box)box.innerHTML='<div class="an2-mf-title">Прогноз недоступен</div><div class="an2-mf-sub">Нет действующего ответа аналитического сервера. Неподтверждённые значения скрыты.</div>';
     const model=root.querySelector('.an2-model-note');

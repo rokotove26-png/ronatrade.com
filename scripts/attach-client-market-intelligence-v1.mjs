@@ -6,9 +6,11 @@ const integrityPath='dist/canonical-visual-integrity.json';
 const analyticsRuntimePath='dist/assets/portal-runtime/client-market-intelligence-v1.js';
 const newsRuntimePath='dist/assets/portal-runtime/client-market-news-admin-parity-v1.js';
 const spacingRuntimePath='dist/assets/portal-runtime/client-analytics-forecast-spacing-v1.js';
+const adminRendererId='rona-client-approved-admin-analytics-v14';
+const adminRendererSrc='/portal/analytics-client-approved-ui?v=20261010-approved-admin-exact-v14';
 const analyticsId='rona-client-market-intelligence-v1';
-const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13';
-const analyticsMarker='20261009-lpg-source-gap-history-v13';
+const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20261010-approved-admin-renderer-client-adapter-v14';
+const analyticsMarker='20261010-approved-admin-renderer-client-adapter-v14';
 const newsId='rona-client-market-news-admin-parity-v1';
 const newsSrc='/assets/portal-runtime/client-market-news-admin-parity-v1.js?v=20260902-news-dialog-single-owner-v5';
 const newsMarker='20260902-admin-news-canonical-exact-v1';
@@ -61,20 +63,21 @@ if(!html.includes('</head>')||html.includes('rona-client-analytics-canonical-pre
 html=html.replace('</head>',CANONICAL_SOURCE_GATE+'</head>');
 html=html.replace(/<script\b[^>]*\bsrc=(['"])[^'"]*\/assets\/portal-market-news-current-v1\.js(?:\?[^'"]*)?\1[^>]*>\s*<\/script>/gi,'');
 if(html.includes('portal-market-news-current-v1.js'))throw new Error('CLIENT_COMPETING_MARKET_NEWS_RUNTIME_PRESENT');
-for(const token of [analyticsId,'client-market-intelligence-v1.js',newsId,'client-market-news-admin-parity-v1.js',spacingId,'client-analytics-forecast-spacing-v1.js'])if(html.includes(token))throw new Error(`CLIENT_MARKET_INTELLIGENCE_ALREADY_PRESENT: ${token}`);
+for(const token of [adminRendererId,analyticsId,'client-market-intelligence-v1.js',newsId,'client-market-news-admin-parity-v1.js',spacingId,'client-analytics-forecast-spacing-v1.js'])if(html.includes(token))throw new Error(`CLIENT_MARKET_INTELLIGENCE_ALREADY_PRESENT: ${token}`);
 const close=html.toLowerCase().lastIndexOf('</body>');if(close<0)throw new Error('CLIENT_BODY_CLOSE_MISSING');
-const bridges=`<script id="${analyticsId}" src="${analyticsSrc}" defer></script><script id="${newsId}" src="${newsSrc}" defer></script><script id="${spacingId}" src="${spacingSrc}" defer></script>`;
+const bridges=`<script id="${adminRendererId}" src="${adminRendererSrc}" defer></script><script id="${analyticsId}" src="${analyticsSrc}" defer></script><script id="${newsId}" src="${newsSrc}" defer></script><script id="${spacingId}" src="${spacingSrc}" defer></script>`;
 html=html.slice(0,close)+bridges+html.slice(close);await writeFile(htmlPath,html,'utf8');
 
 const emitted=Buffer.from(html,'utf8');const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
 integrity.client_runtime.emitted_sha256=sha256(emitted);integrity.client_runtime.emitted_bytes=emitted.length;
 integrity.client_runtime.market_intelligence={
-  id:analyticsId,src:analyticsSrc,marker:analyticsMarker,mode:'ADMIN_PRINCIPLE_CLIENT_SAFE_PROJECTION',endpoint:'/portal/api/v1/client/market-intelligence',trigger:'PORTAL_OPEN',refresh_ms:null,refresh_policy:'OPEN_CONTEXT_CHANGE_INVALIDATION',invalidation_events:['rona:client-market-intelligence-invalidated','rona:client-market-news-invalidated'],background_preload_dependency:false,background_30s_event_dependency:false,
+  id:analyticsId,src:analyticsSrc,marker:analyticsMarker,mode:'APPROVED_ADMIN_CANONICAL_SOURCE_SHARED_CLIENT_SCOPED_DATA_V14',
+  approved_admin_renderer:{id:adminRendererId,src:adminRendererSrc,source:'functions/portal/analytics-v2-approved-base.js',shared_decorator:'functions/portal/analytics-canonical-live-hydration.js',runtime_owner:'ADMIN_CANONICAL_RENDERER_CLIENT_ADAPTER_V14',privacy:'ONLY_EFFECTIVE_CLIENT_PUBLICATION'},endpoint:'/portal/api/v1/client/market-intelligence',trigger:'PORTAL_OPEN',refresh_ms:null,refresh_policy:'OPEN_CONTEXT_CHANGE_INVALIDATION',invalidation_events:['rona:client-market-intelligence-invalidated','rona:client-market-news-invalidated'],background_preload_dependency:false,background_30s_event_dependency:false,
   sections:['analytics','market-news'],analytics_gate:'PUBLISHED_VERIFIED_DISTRIBUTION_ALLOWED_CLIENT_SCOPE_PUBLIC_CHART_ONLY',news_gate:'PUBLISHED_VERIFIED_DISTRIBUTION_ALLOWED_CLIENT_SCOPE_AUTHORITATIVE_SOURCE_DATE_7_CALENDAR_DATES_DEDUP',authoritative_news_date:'source_published_at',news_window_calendar_dates:7,deduplication:'duplicate_group_then_news_id_then_publication_item_id',
   news_visual_owner:'ADMIN_MARKET_NEWS_CANONICAL_EXACT_V1',news_visual_contract:newsVisualContract,news_owner_asset:newsSrc,news_dom_contract:['mn-masthead','mn-front','mn-lead','mn-rail-item','mn-grid','mn-dialog'],news_visual_parity:'EXACT_ADMIN_RENDERER_DOM_CSS_TEXT',competing_client_news_renderer:false,news_dialog_host:'PAGE_SIBLING_OUTSIDE_RENDER_ROOT',
   analytics_forecast_spacing:{id:spacingId,src:spacingSrc,marker:spacingMarker,selector:'.an2-market-forecast',padding:'16px 18px',same_origin_iframe_aware:true,visual_scope:'INNER_SPACING_ONLY'},
   raw_internal_benchmarks_exposed:false,business_mutation:false,read_only:true
 };
 await writeFile(integrityPath,JSON.stringify(integrity),'utf8');
-for(const token of [`id="${analyticsId}"`,analyticsSrc,`id="${newsId}"`,newsSrc,`id="${spacingId}"`,spacingSrc,'rona-client-analytics-canonical-prepaint-v7'])if(!html.includes(token))throw new Error(`CLIENT_MARKET_INTELLIGENCE_BRIDGE_MISSING_AFTER_WRITE: ${token}`);
+for(const token of [`id="${adminRendererId}"`,adminRendererSrc,`id="${analyticsId}"`,analyticsSrc,`id="${newsId}"`,newsSrc,`id="${spacingId}"`,spacingSrc,'rona-client-analytics-canonical-prepaint-v7'])if(!html.includes(token))throw new Error(`CLIENT_MARKET_INTELLIGENCE_BRIDGE_MISSING_AFTER_WRITE: ${token}`);
 console.log('CLIENT_MARKET_INTELLIGENCE_ATTACH=PASS Analytics and Market News are event-driven: portal open + context change + explicit invalidation; no periodic polling; Client News has one renderer; article dialog is outside the replaceable render root');

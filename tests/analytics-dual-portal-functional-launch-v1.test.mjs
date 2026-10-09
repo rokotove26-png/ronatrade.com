@@ -97,9 +97,9 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
   const runtime=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
   const edge=await readFile('supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts','utf8');
   const render=await readFile('scripts/attach-client-market-intelligence-v1.mjs','utf8');
-  const approval=JSON.parse(await readFile('governance/lpg-daily-history-v13-owner-approval-20261009.json','utf8'));
+  const approval=JSON.parse(await readFile('governance/client-analytics-exact-approved-admin-renderer-v14-owner-approval-20261010.json','utf8'));
   assert.equal(approval.approval,'OWNER_IN_CHAT');
-  assert.equal(approval.scope,'ANALYTICS_LPG_GAP_HISTORY_V13');
+  assert.equal(approval.scope,'CLIENT_ANALYTICS_EXACT_APPROVED_ADMIN_RENDERER_V14');
   assert.equal(approval.requirements.wildcard_exception,false);
   assert.equal(approval.requirements.client_native_an2_graph_preserved,true);
   assert.equal(approval.requirements.context_switch_fail_closed,true);
@@ -136,15 +136,17 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'Math.abs(Number(term.values[1])-Number(output.forecast.base))<0.001'
   ])assert.ok(edge.includes(token),'source-locked client canonical gate missing: '+token);
   for(const token of [
-    "const MARK='20261009-lpg-source-gap-history-v13'",
+    "const MARK='20261010-approved-admin-renderer-client-adapter-v14'",
     "const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13'",
     'function canonicalPayload(data)',
     'data?.clientCanonicalAnalytics',
-    'view.setPayload(payload)',
+    'shared.apply(payload,true)',
     'publishedPriceContext()',
-    'paintAuthorizedPrices(owner,chosen)'
+    'paintAuthorizedPrices(owner,selection)'
   ])assert.ok(runtime.includes(token),'frozen client runtime missing: '+token);
-  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13'));
+  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13')===false);
+  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261010-approved-admin-renderer-client-adapter-v14'));
+  assert.ok(render.includes('/portal/analytics-client-approved-ui?v=20261010-approved-admin-exact-v14'));
   assert.equal(runtime.includes("fetch('/portal/api/v1/admin/analytics'"),false,'client must not fetch Admin API');
   assert.equal(edge.includes('payload.clientCanonicalAnalytics = canonical'),false,'never expose unsanitized admin canonical payload');
   assert.equal(edge.includes('output.rona ='),false,'never expose internal RONA price bridge');
@@ -195,4 +197,30 @@ test('LPG v13 source-gap history retains verified same-contract dates but draws 
   assert.ok(page.includes('LPG_GAP_RUNTIME'),'Admin and Client should share gap-aware graph painter');
   for(const marker of ['new Set(ids.map(Number))','path.rmc-area','ids[i-1]','Date.parse','rmc-point'])
     assert.ok(renderer.includes(marker),'gap-free visualization marker missing '+marker);
+});
+
+test('Client visual and product/forecast behavior come from exactly ONE approved Admin source',async()=>{
+  const route=await readFile('functions/portal/analytics-client-approved-ui.js','utf8');
+  const admin=await readFile('functions/portal/analytics-canonical-live-hydration.js','utf8');
+  const client=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
+  const inject=await readFile('scripts/attach-client-market-intelligence-v1.mjs','utf8');
+  for(const needle of [
+    "import {onRequest as approvedAnalytics} from './analytics-v2-approved-base.js'",
+    "import {CANONICAL_LIVE_HYDRATION_RUNTIME} from './analytics-canonical-live-hydration.js'",
+    "const frozenAdminCore=await response.text()",
+    "const clientSeries=availablePayload(payload)",
+    "decorate(payload)",
+    "window.RONA_ANALYTICS_APPROVED_SHARED",
+    "const native=window.RONA_ANALYTICS_VIEW",
+    "ADMIN_CANONICAL_RENDERER_CLIENT_ADAPTER_V14",
+    "const API='/portal/api/v1/client/market-intelligence'"
+  ])assert.ok(route.includes(needle),'Admin source reuse contract missing '+needle);
+  assert.ok(admin.includes("function availablePayload(payload)"));
+  assert.ok(admin.includes("function decorate(payload)"));
+  assert.ok(client.includes("shared.apply(payload,true)"));
+  assert.ok(client.includes("shared.decorate()"));
+  assert.equal(client.split('ensureSafeCanonicalState(').length,2,'retired client-specific painter must not be invoked');
+  assert.ok(client.includes("paintAuthorizedPrices(owner,selection)"),'selected client contract price must be separate');
+  assert.ok(inject.includes('<script id="${adminRendererId}" src="${adminRendererSrc}" defer></script><script id="${analyticsId}"'),'approved Admin source must load BEFORE Client data');
+  assert.ok(!route.includes('CANONICAL_PRICING_BRIDGE_RUNTIME'),'internal Admin price bridge must not be mounted in Client');
 });
