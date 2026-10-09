@@ -17,6 +17,16 @@ CREATE TABLE portal_private.market_intelligence_facts (
  unit text,data_status text,quality_status text,source_ref text,
  source_note text,metadata jsonb
 );
+CREATE TABLE portal_private.ai_coordination_records (
+  record_id uuid PRIMARY KEY,record_type text,functional_role text,status text,payload jsonb
+);
+INSERT INTO portal_private.ai_coordination_records VALUES
+('5697e762-4cdc-47a8-972c-eeb4a2a67c8f','BUSINESS_CHANGE_PROPOSAL',
+ 'COMMERCIAL_DIRECTOR','PROPOSED',
+ '{"proposed_field":"analytics.full_platts_curve_forecast_v1"}'::jsonb),
+('b295fe31-92ca-4702-8e5c-4a199699fb30','OPERATIONS_INTERNAL_DECISION',
+ 'OPERATIONS_DIRECTOR','APPROVE_FOR_NEXT_STAGE',
+ '{"record_id":"5697e762-4cdc-47a8-972c-eeb4a2a67c8f"}'::jsonb);
 CREATE FUNCTION portal_private.mi_curve_code_value_v1(t text,c text)
 RETURNS numeric LANGUAGE plpgsql IMMUTABLE AS $$
 DECLARE v text[];
