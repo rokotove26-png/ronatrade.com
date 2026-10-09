@@ -221,11 +221,33 @@ try{
       labels:['2026-10-07','2026-10-08','2026-10-09'],values:[1100,1110,1120]}};
   payload.data={...payload.data,analytics:[currentRow],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","projection":"CLIENT_LPG_HISTORICAL_SEGMENTS_V13","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}},generated_at:'2026-10-09T00:02:00Z'};
   await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
-  await page.waitForFunction(()=>{
-    const svg=document.querySelector('#rona-analytics-v2 .rona-market-chart-svg,[data-chart-svg]');
-    return document.querySelector('#rona-analytics-v2')?.dataset.renderState==='PUBLISHED_CURRENT_ONLY'&&
-      !!svg&&getComputedStyle(svg).visibility!=='hidden';
-  },null,{timeout:6500});
+  try{
+    await page.waitForFunction(()=>{
+      const svg=document.querySelector('#rona-analytics-v2 .rona-market-chart-svg,[data-chart-svg]');
+      return document.querySelector('#rona-analytics-v2')?.dataset.renderState==='PUBLISHED_CURRENT_ONLY'&&
+        !!svg&&getComputedStyle(svg).visibility!=='hidden';
+    },null,{timeout:6500});
+  }catch(error){
+    const details=await page.evaluate(()=>{
+      const root=document.querySelector('#rona-analytics-v2');
+      const chart=root?.querySelector('[data-chart-stage]');
+      const view=window.RONA_ANALYTICS_VIEW;
+      return {
+        rootDataset:root?.dataset,
+        page:document.querySelector('#page-analytics')?.className,
+        view: view?.getState?.(),
+        ai92: view?.data?.products?.AI92,
+        nativeError:root?.dataset.ronaApprovedNativeRenderError,
+        chartNodes:chart?.innerHTML?.slice(0,800),
+        svgCount:root?.querySelectorAll('svg').length,
+        chartTitle:root?.querySelector('[data-chart-title]')?.textContent,
+        source:root?.querySelector('[data-chart-source]')?.textContent,
+        lastTrade:root?.querySelector('.an2-kpis .rona-owner-kpi')?.textContent
+      };
+    });
+    console.log('CLIENT_ADMIN_NATIVE_SERIES_FAIL_DIAGNOSTIC',JSON.stringify({details,errors,reason:String(error)}));
+    throw error;
+  }
   const live=await snapshot();
   console.log('CLIENT_CANONICAL_LIVE_PUBLISHED_V7',JSON.stringify(live));
   if(live.visualOwner!=='canonical-v7'||live.substituteCount||live.svgHidden||live.staleExposed)
