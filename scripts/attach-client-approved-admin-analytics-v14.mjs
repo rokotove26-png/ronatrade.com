@@ -3,6 +3,7 @@ import {createHash} from 'node:crypto';
 import {dirname} from 'node:path';
 import {onRequest as approvedAdminBase} from '../functions/portal/analytics-v2-approved-base.js';
 import {canonicalNativeAnalyticsV432} from '../functions/portal/analytics-v2-ui.js';
+import {LPG_GAP_RUNTIME} from '../functions/portal/lpg-observation-gap-runtime-v13.js';
 
 const ROOT='dist/portal/client.html';
 const ASSET='dist/assets/portal-runtime/client-approved-admin-analytics-v14.js';
@@ -56,7 +57,7 @@ const postlude=[
 "document.documentElement.dataset.ronaClientAnalyticsNative='EXACT_ADMIN_APPROVED_V432';",
 "})();"
 ].join('\n')+'\n';
-const js=prelude+approved+postlude;
+const js=prelude+approved+'\n'+LPG_GAP_RUNTIME+postlude;
 await mkdir(dirname(ASSET),{recursive:true});
 await writeFile(ASSET,js,'utf8');
 const tag='<script id="'+BOOT_ID+'" src="'+CLIENT_ASSET_URL+'" defer></script>';
@@ -72,6 +73,7 @@ manifest.client_runtime.analytics_approved_admin_native={
   approved_native_sha256:sha(approved),
   client_asset_sha256:sha(js),
   exact_admin_renderer:true,
+  identical_admin_lpg_gap_runtime:true,
   original_legacy_chart_removed:true,
   original_legacy_view_removed:true,
   business_sources:'ROLE_SCOPED_CLIENT_PUBLISHED_ONLY',
