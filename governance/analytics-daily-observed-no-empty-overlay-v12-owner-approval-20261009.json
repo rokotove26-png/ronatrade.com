@@ -1,0 +1,78 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-09",
+  "owner_instruction": "Owner rejected prior Client Analytics v11 screenshot: obsolete 'Нет текущей подтверждённой публикации' overlay covers all plotted charts, DT and LPG main chart uses three delivery maturities not observation trading dates. Mandated identical daily observed monitoring per product, same as Admin, with Commercial Director owning source data and forecast separate.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261009:FOUR_SCREENSHOTS:DAILY_OBSERVATION_MONITOR_AND_REMOVE_GHOST_OVERLAY",
+  "scope": "ANALYTICS_DAILY_OBSERVATIONS_NO_EMPTY_OVERLAY_V12",
+  "decision": "DATA_SEMANTICS_AND_EXISTING_EMPTY_STATE_CORRECTION_NO_RELAYOUT",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: ANALYTICS_DAILY_OBSERVATIONS_NO_EMPTY_OVERLAY_V12",
+  "supersedes_scope": "CLIENT_ANALYTICS_DT_LPG_FORECAST_SOURCE_SAFE_V11",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "03e286193013331edc1465bcf32d5d9194017975",
+      "authorized_post_blob_sha": "d0ef0fcec2e82f5723690fcd1da5c0826ee3b6cf",
+      "required_marker": "20261009-client-analytics-observed-daily-v12"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "e92fa0204ec19f86417cd24aeffed115f7377f6d",
+      "authorized_post_blob_sha": "7bffbc9f1ae1b687db14f7ea62537db0ed6888f7",
+      "required_marker": "20261009-client-analytics-observed-daily-v12"
+    }
+  },
+  "requirements": {
+    "no_owner_approved_html_layout_change": true,
+    "no_original_css_layout_change": true,
+    "existing_empty_overlay_removed_only_if_series": true,
+    "no_new_controls_or_cards": true,
+    "client_native_an2_graph_preserved": true,
+    "admin_client_single_daily_data_function": true,
+    "observation_dates_not_maturity_months": true,
+    "monthly_forecast_separate": true,
+    "dt_same_physical_component_basis": true,
+    "lpg_fixed_maturity_per_displayed_segment": true,
+    "source_gaps_not_interpolated": true,
+    "source_verified_platts_documents_only": true,
+    "client_published_product_permissions_retained": true,
+    "commercial_director_market_data_authority_preserved": true,
+    "stale_bnk_composite_not_claimed_current": true,
+    "stale_lpg_regional_not_claimed_current": true,
+    "no_admin_internal_margin_or_price_bridge_in_client": true,
+    "selected_contract_price_scope_preserved": true,
+    "context_switch_fail_closed": true,
+    "no_business_data_mutation": true,
+    "exact_blob_freeze_enabled": true,
+    "owner_approved_exact_two_protected_files": true,
+    "rollback_point_documented": true,
+    "real_browser_qas_required": true,
+    "wildcard_exception": false
+  },
+  "rollback": "Restore release commit 96444b278bfac89601870ded0f7681408421371b; protected blobs JS 03e286193013331edc1465bcf32d5d9194017975 and attach e92fa0204ec19f86417cd24aeffed115f7377f6d. DB migration reversion requires approved reversal of function changes; no market data rows ever mutated.",
+  "publication_authorization": {
+    "granted_by": "RONA_TRADE_OWNER",
+    "explicit_owner_message_date": "2026-10-09",
+    "owner_message": "Я разрешаю все публикации в этом разделе",
+    "scope": "RONA_TRADE_CLIENT_ANALYTICS_ALL_PRODUCT_PUBLICATIONS",
+    "authority": "RONA_TRADE_BUSINESS_PUBLICATION_APPROVAL_GRANTED",
+    "market_source_owner": "AI-COMMERCIAL-DIRECTOR",
+    "data_access": "published_verified_client_scoped_only",
+    "source_format": "verified_derived_daily_observations_and_separate_monthly_forecast",
+    "not_reclassified_as_current": [
+      "DT_BNK_COMPOSITE_AUGUST_2026",
+      "LPG_REGIONAL_PETROMARKET_AUGUST_2026"
+    ],
+    "safeguards": [
+      "NO_PRIVATE_SOURCE_PDFS_OR_RAW_SOURCE_DOCUMENT_FIELDS",
+      "THIRD_PARTY_SOURCE_LICENSE_TERMS_REMAIN_APPLICABLE",
+      "NO_FAKE_OBSERVATIONS",
+      "NO_CROSS_CLIENT_INTERNAL_CONTRACT_PRICES"
+    ],
+    "distinction": "Owner authorizes RONA's publications, without asserting a third party Platts redistribution licence not evidenced in the source registry."
+  },
+  "revision_note": "Owner reaffirmed full RONA client Analytics publication authority 2026-10-09; no need to wait for human Commercial Director. Commercial Director is an AI employee; retain accountable market provenance and correct gaps."
+}

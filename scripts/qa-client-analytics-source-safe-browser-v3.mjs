@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 
 const must=(ok,msg)=>{if(!ok)throw Error(msg)};
 const runtime=await readFile('dist/assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-const mark='20261009-client-analytics-dt-lpg-forecast-parity-v11';
+const mark='20261009-client-analytics-observed-daily-v12';
 const stamp='2026-10-09T00:01:00Z';
 const row=(product,source='CURRENT',values=[1081,1092,1103])=>({
   publication_id:'CLIENT-QA-20261009',publication_item_id:'SAFE-CHART-'+product,
@@ -128,7 +128,7 @@ try{
   must(!(await page.locator('.an2-price-base').innerText()).includes('1201'),
     'AMBIGUOUS_PRICE_AUTO_SELECTED');
   console.log('CLIENT_CANONICAL_PUBLISHED_CONTRACT_PRICES_V9=PASS '+JSON.stringify({priced,foreign}));
-  payload={...payload,generated_at:'2026-10-09T00:02:00Z',analytics:[row('АИ-92')],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","projection":"CLIENT_ADMIN_PARITY_FORECAST_SOURCE_SAFE_V11","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}}};
+  payload={...payload,generated_at:'2026-10-09T00:02:00Z',analytics:[row('АИ-92')],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","projection":"CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}}};
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1103,null,{timeout:10000});
   must(await page.locator(owner+' [data-chart-svg]').isVisible(),'CANONICAL_APPROVED_SERIES_CHART_NOT_SHOWN');
@@ -136,24 +136,35 @@ try{
   payload={...payload,generated_at:'2026-10-09T00:03:00Z',analytics:[row('АИ-92','CURRENT',[1081,1092,1145])],clientCanonicalAnalytics:{...payload.clientCanonicalAnalytics,products:{...payload.clientCanonicalAnalytics.products,AI92:{...payload.clientCanonicalAnalytics.products.AI92,values:[1081,1092,1145]}}}};
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1145,null,{timeout:10000});
-  // A verified, distributed product may have source-locked FINANCIAL forwards
-  // even when its physical/regional price is STALE_SOURCE/TO_VERIFY_FRESHNESS.
-  // A current spot is never manufactured from the dated forward curve.
-  const termFixture=(name,base,low,high,spotFreshness,indexName)=>({
-    name,basis:'Platts · финансовый форвард 07.10.2026',
-    spotFreshness,dates:['10.2026','11.2026','12.2026'],
-    values:[high,base,low],
-    forecast:{
-      month:'2026-11',low,base,high,forward:base,
-      sourceRef:'https://t.me/platts_digits/7510',
-      sourceAsOf:'2026-10-07',
-      comment:'Индикативный прогноз, не является физической котировкой'
+  // The main chart is a DATE-OF-OBSERVATION monitor, never a three-maturity curve.
+  // Monthly LOW/BASE/HIGH remains separately sourced on the right-hand side.
+  const dailyFixture=(name,days,values,forecastBase,forecastLow,forecastHigh,
+    spotFreshness,instrument,deliveryMonth,status,sourceGap=false)=>({
+    name,basis:name==='ДТ'
+      ?'Platts Diesel ULSD 10 ppm · Cargoes CIF NWE/Basis ARA · физический компонент, не композит БНК'
+      :'Platts Propane CIF NWE Large Cargo Financial · поставка 10.2026',
+    spotFreshness,dates:days,values,
+    dailyMonitor:{
+      version:'RONA_MARKET_OBSERVED_DAILY_V1',
+      granularity:'OBSERVATION_DATE',sourceFamily:'PLATTS',sourceStatus:'CONFIRMED',
+      unit:'USD/т',instrument,observationCount:days.length,
+      availableTotal:days.length+(sourceGap?3:0),
+      firstAsOf:days[0]+'.2026',lastAsOf:days.at(-1)+'.2026',
+      referenceDate:'08.10.2026',status,sourceGap,deliveryMonth,noInterpolation:true
     },
+    forecast:{
+      month:'2026-11',low:forecastLow,base:forecastBase,high:forecastHigh,
+      forward:forecastBase,sourceRef:'https://t.me/platts_digits/7510',
+      comment:'Индикативный прогноз (отдельно от дневного графика)'
+    },
+    // A valid finance curve may be provided as forecast metadata but MUST NOT
+    // override the primary daily series dates.
     termCurve:{
       kind:'FORWARD_TERM_STRUCTURE',sourceFamily:'PLATTS',sourceStatus:'CONFIRMED',
       asOfDate:'07.10.2026',sourceDocId:'QA-PLATTS-CONFIRMED',
-      sourceRef:'https://t.me/platts_digits/7510',indexName,
-      dates:['10.2026','11.2026','12.2026'],values:[high,base,low],
+      sourceRef:'https://t.me/platts_digits/7510',indexName:'Financial',
+      dates:['10.2026','11.2026','12.2026'],
+      values:[forecastHigh,forecastBase,forecastLow],
       deliveryMonths:['2026-10','2026-11','2026-12'],observationCount:3
     }
   });
@@ -163,38 +174,63 @@ try{
       ...payload.clientCanonicalAnalytics,
       products:{
         ...payload.clientCanonicalAnalytics.products,
-        DT:termFixture('ДТ',1370,1328,1403.125,'STALE_SOURCE',
-          'Composite ULSD 10 ppmS FOB ARA + CIF NWE Cargo Financial'),
-        LPG:termFixture('СУГ / СПБТ',725,698.5,775,'TO_VERIFY_FRESHNESS',
-          'Propane CIF NWE Large Cargo Financial')
+        DT:dailyFixture('ДТ',['01.10','06.10','08.10'],
+          [1449.25,1323,1476.25],1370,1328,1403.125,
+          'STALE_SOURCE','DIESEL_PLATTS_ULSD_CIF_NWE_PHYSICAL_COMPONENT',null,
+          'VERIFIED_DAILY_OBSERVATIONS'),
+        LPG:dailyFixture('СУГ / СПБТ',['07.10'],[775],
+          725,698.5,775,'TO_VERIFY_FRESHNESS',
+          'LPG_PLATTS_PROPANE_CIF_NWE_FINANCIAL_FIXED_DELIVERY','2026-10',
+          'SINGLE_CONFIRMED_OBSERVATION',true)
       }
     }
   };
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>
-    window.RONA_ANALYTICS_VIEW?.data?.products?.DT?.termCurve?.sourceStatus==='CONFIRMED',null,{timeout:10000});
-  for(const [key,label,amount,spotStatus] of [
-    ['DT','ДТ',1370,'STALE_SOURCE'],['LPG','СУГ',725,'TO_VERIFY_FRESHNESS']
+    window.RONA_ANALYTICS_VIEW?.data?.products?.DT?.dailyMonitor?.sourceStatus==='CONFIRMED',
+    null,{timeout:10000});
+  for(const [key,label,expectedLast,expectedSpot,count] of [
+    ['DT','ДТ','08.10', 'STALE_SOURCE',3],
+    ['LPG','СУГ','07.10','TO_VERIFY_FRESHNESS',1]
   ]){
     await page.evaluate(k=>document.querySelector('[data-an2-product="'+k+'"]')?.click(),key);
-    await page.waitForFunction(k=>document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct===k,key,{timeout:7000});
+    await page.waitForFunction(k=>
+      document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct===k,
+      key,{timeout:7000});
     const proof=await page.evaluate(()=>({
       selected:window.RONA_ANALYTICS_VIEW.getState().product,
       heading:document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent,
       source:document.querySelector('#rona-analytics-v2 [data-chart-source]')?.textContent,
-      spot:document.querySelector('#rona-analytics-v2')?.dataset.ronaPhysicalSpotFreshness,
-      curve:window.RONA_ANALYTICS_VIEW.data.products[
-        window.RONA_ANALYTICS_VIEW.getState().product]?.termCurve?.values,
-      currentKpi:document.querySelector('#rona-analytics-v2 .an2-kpis .rona-owner-kpi')?.textContent,
-      svgHidden:getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden'
+      status:document.querySelector('#rona-analytics-v2')?.dataset.ronaPhysicalSpotFreshness,
+      dates:window.RONA_ANALYTICS_VIEW.data.products[
+        window.RONA_ANALYTICS_VIEW.getState().product]?.dates,
+      values:window.RONA_ANALYTICS_VIEW.data.products[
+        window.RONA_ANALYTICS_VIEW.getState().product]?.values,
+      forecast:window.RONA_ANALYTICS_VIEW.data.products[
+        window.RONA_ANALYTICS_VIEW.getState().product]?.forecast,
+      kpi:document.querySelector('#rona-analytics-v2 .an2-kpis .rona-owner-kpi')?.textContent,
+      overlays:document.querySelectorAll(
+        '#rona-analytics-v2 [data-rona-client-canonical-empty="v7"]').length,
+      svgHidden:getComputedStyle(document.querySelector(
+        '#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden'
     }));
-    must(proof.selected===key && proof.heading.includes('Форвардная кривая '+label) &&
-      proof.source.includes('07.10.2026') && proof.source.includes('не физическая котировка') &&
-      proof.spot===spotStatus && proof.curve[1]===amount &&
-      !proof.svgHidden && proof.currentKpi==='07.10.2026',
-      'CLIENT_FORECAST_ONLY_'+key+'_V11_FAILED '+JSON.stringify(proof));
-    console.log('CLIENT_DATED_FINANCIAL_FORWARD_'+key+'_V11=PASS '+JSON.stringify(proof));
+    must(proof.selected===key && proof.heading.includes('Динамика '+label) &&
+      !proof.heading.includes('Форвардная кривая') &&
+      proof.dates.length===count && proof.dates.at(-1)===expectedLast &&
+      proof.dates.every(d=>/^\d{2}\.\d{2}$/.test(d)) &&
+      proof.forecast.month==='2026-11' &&
+      proof.status===expectedSpot && proof.overlays===0 &&
+      !proof.svgHidden && proof.kpi===expectedLast+'.2026',
+      'CLIENT_DAILY_'+key+'_V12_FAILED '+JSON.stringify(proof));
+    console.log('CLIENT_DAILY_OBSERVATIONS_'+key+'_V12=PASS '+JSON.stringify(proof));
   }
+  // The pre-v12 "no publication" overlay MUST be absent on petrol as well.
+  await page.evaluate(()=>document.querySelector('[data-an2-product="AI92"]')?.click());
+  await page.waitForFunction(()=>
+    document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct==='AI92',
+    null,{timeout:7000});
+  must(await page.locator('#rona-analytics-v2 [data-rona-client-canonical-empty="v7"]').count()===0,
+    'OBSOLETE_NO_DATA_OVERLAY_COVERS_GASOLINE_CHART');
   mode='ERROR';latencyMs=40;
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.renderState==='ERROR_NO_ARCHIVE',null,{timeout:10000});

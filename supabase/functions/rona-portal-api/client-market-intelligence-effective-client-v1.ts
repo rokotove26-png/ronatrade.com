@@ -263,6 +263,21 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       order by fs.product,fs.target_month desc,fs.created_at desc
     `;
     const modelSources = new Map(modelRows.map((row: any) => [text(row.product), row]));
+    // Same read-only, source-verified daily monitor consumed by Admin RPC.
+    // Market source delivery and publication remain Commercial Director authority.
+    const dailyRows = await sql`
+      select
+        portal_private.market_intelligence_daily_monitor_v1(
+          'ДТ',to_date(${text(source.latestTradeDate)},'DD.MM.YYYY')
+        ) as dt,
+        portal_private.market_intelligence_daily_monitor_v1(
+          'СУГ',to_date(${text(source.latestTradeDate)},'DD.MM.YYYY')
+        ) as lpg
+    `;
+    const dailyByKey: Record<string, any> = {
+      DT: dailyRows[0]?.dt || null,
+      LPG: dailyRows[0]?.lpg || null
+    };
     const permissionToForecast = (key: string): boolean =>
       publicNames.has(sourceNames[key]) ||
       ((key === "DT" || key === "LPG") && forecastPermissions.has(sourceNames[key]));
@@ -354,6 +369,53 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
                    "; источник: " + text(model.source_ref) + ". Не является офертой."
         };
       }
+      // The main chart ALWAYS means observed AS-OF DATES, never the three
+      // delivery maturities of a single financial forward curve.
+      const daily = dailyByKey[key];
+      const dailyDates: unknown[] = Array.isArray(daily?.dates) ? daily.dates : [];
+      const dailyValues: unknown[] = Array.isArray(daily?.values) ? daily.values : [];
+      const observedDates: unknown[] = Array.isArray(daily?.observedDates) ? daily.observedDates : [];
+      const dailyApproved = (key === "DT" || key === "LPG") &&
+        permissionToForecast(key) &&
+        daily?.version === "RONA_MARKET_OBSERVED_DAILY_V1" &&
+        daily?.granularity === "OBSERVATION_DATE" &&
+        daily?.sourceFamily === "PLATTS" &&
+        daily?.sourceStatus === "CONFIRMED" &&
+        daily?.noInterpolation === true &&
+        daily?.notMonthlyMaturityCurve === true &&
+        dailyDates.length > 0 &&
+        dailyDates.length === dailyValues.length &&
+        observedDates.length === dailyDates.length &&
+        dailyDates.every((v: unknown, i: number) =>
+          /^\d{2}\.\d{2}$/.test(text(v)) &&
+          /^\d{4}-\d{2}-\d{2}$/.test(text(observedDates[i])) &&
+          text(v) === text(observedDates[i]).slice(8,10) + "." +
+                      text(observedDates[i]).slice(5,7)) &&
+        observedDates.every((v: unknown, i: number) =>
+          i === 0 || text(v) > text(observedDates[i-1])) &&
+        dailyValues.every((v: unknown) => finite(v)) &&
+        ["VERIFIED_DAILY_OBSERVATIONS","SINGLE_CONFIRMED_OBSERVATION"].includes(text(daily?.status)) &&
+        text(daily.lastAsOf) === text(observedDates[observedDates.length-1]).slice(8,10)+"."+
+                                text(observedDates[observedDates.length-1]).slice(5,7)+"."+
+                                text(observedDates[observedDates.length-1]).slice(0,4) &&
+        (key !== "LPG" || text(daily.deliveryMonth) ===
+          text(source.latestTradeDate).slice(6)+"-"+text(source.latestTradeDate).slice(3,5));
+      if (dailyApproved) {
+        output.dates = dailyDates.map((v: unknown) => text(v));
+        output.values = dailyValues.map((v: unknown) => Number(v));
+        output.basis = text(daily.basis);
+        output.dailyMonitor = {
+          version: daily.version, granularity: daily.granularity,
+          sourceFamily: text(daily.sourceFamily), sourceStatus: text(daily.sourceStatus),
+          instrument: text(daily.instrument), unit: text(daily.unit),
+          observationCount: Number(daily.observationCount),
+          availableTotal: Number(daily.availableTotal),
+          firstAsOf: text(daily.firstAsOf), lastAsOf: text(daily.lastAsOf),
+          referenceDate: text(daily.referenceDate),
+          status: text(daily.status), sourceGap: daily.sourceGap === true,
+          deliveryMonth: daily.deliveryMonth || null, noInterpolation: true
+        };
+      }
       const term = termByKey[key];
       if ((key === "DT" || key === "LPG") && output.forecast && term &&
           term.kind === "FORWARD_TERM_STRUCTURE" &&
@@ -370,17 +432,15 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           term.values.every((value: unknown) => finite(value)) &&
           Math.abs(Number(term.values[1])-Number(output.forecast.base))<0.001) {
         output.termCurve = term;
-        output.dates = [...term.dates];
-        output.values = term.values.map(Number);
-        output.basis = text(term.indexName) + " · " + text(term.basis) +
-          " · форвард  " + term.asOfDate + " (не текущая физическая котировка)";
+        // Keep termCurve as forecast metadata only; never override daily dates
+        // with month-of-delivery labels (M1/M2/M3).
       }
       sourceProducts[key] = output;
     }
     // Same shape as Admin; only permitted client projection is serialized.
     payload.clientCanonicalAnalytics = {
       version: "RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1",
-      projection: "CLIENT_ADMIN_PARITY_FORECAST_SOURCE_SAFE_V11",
+      projection: "CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12",
       cutoff: source.cutoff, latestTradeDate: source.latestTradeDate,
       products: sourceProducts
     };
