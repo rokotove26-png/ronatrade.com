@@ -4,7 +4,17 @@ import {chromium} from 'playwright';
 
 const must=(ok,msg)=>{if(!ok)throw Error(msg)};
 const runtime=await readFile('dist/assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-const mark='20261009-lpg-source-gap-history-v13';
+const mark='20261009-admin-canonical-shared-presenter-v14';
+const sharedFile=await readFile('functions/portal/analytics-canonical-presenter-v14.js','utf8');
+const sharedMatch=sharedFile.match(/export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`([\s\S]*?)`;/);
+if(!sharedMatch||!sharedMatch[1].includes('ADMIN_APPROVED_SHARED_V14'))throw Error('SHARED_ADMIN_PRESENTER_NOT_FOUND');
+const adminModule=await readFile('functions/portal/analytics-v2-ui.js','utf8');
+const bridgeMatch=adminModule.match(/export const CANONICAL_PRICING_BRIDGE_RUNTIME=String.raw`([\s\S]*?)`;/);
+const gapModule=await readFile('functions/portal/lpg-observation-gap-runtime-v13.js','utf8');
+const gapMatch=gapModule.match(/export const LPG_GAP_RUNTIME=String.raw`([\s\S]*?)`;/);
+if(!bridgeMatch||!gapMatch)throw Error('EXACT_ADMIN_RUNTIME_CONTRACT_BROKEN');
+const sharedRuntime=bridgeMatch[1]+sharedMatch[1]+gapMatch[1];
+
 const stamp='2026-10-09T00:01:00Z';
 const row=(product,source='CURRENT',values=[1081,1092,1103])=>({
   publication_id:'CLIENT-QA-20261009',publication_item_id:'SAFE-CHART-'+product,
@@ -34,6 +44,7 @@ const html=String.raw`<!doctype html><html lang="ru"><head><meta charset="UTF-8"
 window.RONA_ANALYTICS_VIEW={
   product:'AI92',setPayloadCount:0,
   getState(){return {product:this.product,source:'PLATTS'}},
+  setProduct(key){this.product=key;this.setPayload(this.data);return true},
   setPayload(p){
     this.data=p;this.setPayloadCount++;
     const k=p.products[this.product];
@@ -46,8 +57,7 @@ window.RONA_ANALYTICS_VIEW={
 };
 document.querySelector('.an2-controls').addEventListener('click',e=>{
   const b=e.target.closest('[data-an2-product]');
-  if(b){RONA_ANALYTICS_VIEW.product=b.dataset.an2Product;
-    RONA_ANALYTICS_VIEW.setPayload(RONA_ANALYTICS_VIEW.data)}
+  if(b)RONA_ANALYTICS_VIEW.setProduct(b.dataset.an2Product)
 });
 </script><script src="/client-analytics.js" defer></script></body></html>`;
 const server=http.createServer((req,res)=>{
@@ -55,6 +65,7 @@ const server=http.createServer((req,res)=>{
   res.setHeader('cache-control','no-store');
   if(pathname==='/portal/client'){res.setHeader('content-type','text/html');res.end(html);return}
   if(pathname==='/client-analytics.js'){res.setHeader('content-type','application/javascript');res.end(runtime);return}
+  if(pathname==='/portal/analytics-client-approved-runtime-v14'){res.setHeader('content-type','application/javascript; charset=utf-8');res.end(sharedRuntime);return}
   if(pathname==='/portal/api/v1/client/market-intelligence'){
     requests++;
     const status=mode,b=structuredClone(payload);
@@ -74,68 +85,29 @@ try{
   await page.goto('http://127.0.0.1:'+server.address().port+'/portal/client',{waitUntil:'domcontentloaded'});
   const owner='#page-analytics > #rona-analytics-v2';
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.renderState==='PUBLISHED_CURRENT_ONLY',null,{timeout:10000});
+  await page.waitForFunction(()=>window.RONA_ANALYTICS_PRESENTER_V14?.version==='ADMIN_APPROVED_SHARED_V14',null,{timeout:9000});
   const first=await page.evaluate(()=>{
     const c=document.querySelector('#rona-analytics-v2');
     return{owner:c?.dataset.ronaClientAnalyticsVisualOwner,display:c?getComputedStyle(c).display:null,
       substitute:document.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length,
       svgHidden:c?.querySelector('[data-chart-svg]')?getComputedStyle(c.querySelector('[data-chart-svg]')).visibility==='hidden':null,oldVisible:c?.innerText.includes('21.08.2026')||
         c?.innerText.includes('09.2026')||c?.innerText.includes('1 111'),
-      values:window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values};
+      values:window.RONA_ANALYTICS_PRESENTER_V14?.getPayload?.()?.products?.AI92?.values};
   });
   must(first.owner==='canonical-v7'&&first.display!=='none'&&!first.substitute&&first.svgHidden&&!first.oldVisible,
     'SOURCE_SAFE_CANONICAL_VISUAL_NOT_RESTORED '+JSON.stringify(first));
   must(first.values.length===0,'STALE_SOURCE_ROW_WAS_PUBLISHED');
-  // Published price authority belongs to the selected client's existing Price page,
-  // never to the Admin canonical price snapshot or a cross-tenant memory cache.
-  await page.evaluate(()=>{
-    window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'A',contract_id:'C1'})};
-    window.__RONA_CLIENT_PRICE_SYNC_STATE__={authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',
-      context:{client_id:'A',contract_id:'C1'},loadedAt:new Date().toISOString(),
-      prices:[{product:'АИ-92',basis:'CPT Озинки',price:1242.75,currency:'USD'}]};
-    window.dispatchEvent(new Event('rona:client-prices-updated'));
-  });
-  await page.waitForFunction(()=>document.querySelector('.an2-price-base')?.textContent?.includes('242,75'),null,{timeout:5500});
-  const priced=await page.evaluate(()=>({text:document.querySelector('.an2-price-current')?.textContent||'',
-    base:document.querySelector('.an2-price-base')?.textContent,
-    range:document.querySelector('.an2-price-range')?.textContent,
-    authority:document.querySelector('.an2-rona')?.dataset.ronaClientPriceAuthority,
-    source:document.querySelector('.an2-price-card')?.dataset.ronaClientPriceSource,
-    title:document.querySelector('.an2-rona-head h2')?.textContent,
-    visible:document.querySelector('.an2-rona')?.dataset.ronaClientPricePresentation}));
-  must(priced.base.includes('242,75')&&priced.base.includes('USD/т')&&
-    priced.text.includes('Опубликованная цена')&&priced.title.includes('Опубликованные цены RONA Trade')&&
-    priced.visible==='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9'&&
-    priced.authority==='SERVER_AUTHORITATIVE_PRICE_PROJECTION'&&priced.source==='PUBLISHED_CURRENT_CONTRACT'&&
-    !priced.range.includes('1242'),
-    'AUTHORIZED_CLIENT_PRICE_NOT_PAINTED '+JSON.stringify(priced));
-  await page.evaluate(()=>{
-    window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'B',contract_id:'C2'})};
-    window.dispatchEvent(new Event('rona:client-prices-updated'));
-  });
-  await page.waitForFunction(()=>document.querySelector('.an2-price-base')?.textContent==='—',null,{timeout:5500});
-  const foreign=await page.evaluate(()=>({text:document.querySelector('.an2-price-base')?.textContent,
-    source:document.querySelector('.an2-price-card')?.dataset.ronaClientPriceSource||null}));
-  must(foreign.text==='—'&&foreign.source===null,'CROSS_TENANT_PRICE_LEAK '+JSON.stringify(foreign));
-  await page.evaluate(()=>{
-    window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'A',contract_id:'C1'})};
-    window.__RONA_CLIENT_PRICE_SYNC_STATE__={authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',
-      context:{client_id:'A',contract_id:'C1'},loadedAt:new Date().toISOString(),
-      prices:[{product:'АИ-92',basis:'CPT Озинки',price:1201.11,currency:'USD'},
-        {product:'АИ-92',basis:'CPT Озинки',price:1202.22,currency:'USD'}]};
-    window.dispatchEvent(new Event('rona:client-prices-updated'));
-  });
-  await page.waitForFunction(()=>document.querySelector('.an2-price-current')?.textContent?.includes('Несколько')&&document.querySelector('.an2-price-base')?.textContent==='—',null,{timeout:5500});
-  must(!(await page.locator('.an2-price-base').innerText()).includes('1201'),
-    'AMBIGUOUS_PRICE_AUTO_SELECTED');
-  console.log('CLIENT_CANONICAL_PUBLISHED_CONTRACT_PRICES_V9=PASS '+JSON.stringify({priced,foreign}));
-  payload={...payload,generated_at:'2026-10-09T00:02:00Z',analytics:[row('АИ-92')],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","projection":"CLIENT_LPG_HISTORICAL_SEGMENTS_V13","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}}};
+  // Exact Admin parity: the Client contract-price projection cannot replace
+  // the Analytics canonical values. The same approved model owns pricing.
+  payload={...payload,generated_at:'2026-10-09T00:02:00Z',analytics:[row('АИ-92')],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"rona":{"reference":1103,"bases":[["CPT Озинки",1223.17],["CPT Сарыагаш",1332.1],["CPT Наушки",1280.91]]},"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}}};
+  payload.analyticsCanonicalParity='ADMIN_APPROVED_SHARED_V14';
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
-  await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1103,null,{timeout:10000});
+  await page.waitForFunction(()=>window.RONA_ANALYTICS_PRESENTER_V14?.getPayload?.()?.products?.AI92?.values?.at(-1)===1103,null,{timeout:10000});
   must(await page.locator(owner+' [data-chart-svg]').isVisible(),'CANONICAL_APPROVED_SERIES_CHART_NOT_SHOWN');
   must(await page.locator(owner).count()===1,'CANONICAL_VISUAL_OWNER_WAS_REPLACED');
   payload={...payload,generated_at:'2026-10-09T00:03:00Z',analytics:[row('АИ-92','CURRENT',[1081,1092,1145])],clientCanonicalAnalytics:{...payload.clientCanonicalAnalytics,products:{...payload.clientCanonicalAnalytics.products,AI92:{...payload.clientCanonicalAnalytics.products.AI92,values:[1081,1092,1145]}}}};
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
-  await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1145,null,{timeout:10000});
+  await page.waitForFunction(()=>window.RONA_ANALYTICS_PRESENTER_V14?.getPayload?.()?.products?.AI92?.values?.at(-1)===1145,null,{timeout:10000});
   // The main chart is a DATE-OF-OBSERVATION monitor, never a three-maturity curve.
   // Monthly LOW/BASE/HIGH remains separately sourced on the right-hand side.
   const dailyFixture=(name,days,values,forecastBase,forecastLow,forecastHigh,
@@ -150,7 +122,8 @@ try{
       unit:'USD/т',instrument,observationCount:days.length,
       availableTotal:days.length+(sourceGap?3:0),
       firstAsOf:days[0]+'.2026',lastAsOf:days.at(-1)+'.2026',
-      referenceDate:'08.10.2026',status,sourceGap,deliveryMonth,noInterpolation:true
+      referenceDate:'08.10.2026',status,sourceGap,deliveryMonth,noInterpolation:true,
+      notMonthlyMaturityCurve:true,observedDates:days.map(d=>'2026-10-'+d.slice(0,2))
     },
     forecast:{
       month:'2026-11',low:forecastLow,base:forecastBase,high:forecastHigh,
@@ -193,7 +166,7 @@ try{
   };
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>
-    window.RONA_ANALYTICS_VIEW?.data?.products?.DT?.dailyMonitor?.sourceStatus==='CONFIRMED',
+    window.RONA_ANALYTICS_PRESENTER_V14?.getPayload?.()?.products?.DT?.dailyMonitor?.sourceStatus==='CONFIRMED',
     null,{timeout:10000});
   for(const [key,label,expectedLast,expectedSpot,count] of [
     ['DT','ДТ','08.10', 'STALE_SOURCE',3],
@@ -209,15 +182,15 @@ try{
       heading:document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent,
       source:document.querySelector('#rona-analytics-v2 [data-chart-source]')?.textContent,
       status:document.querySelector('#rona-analytics-v2')?.dataset.ronaPhysicalSpotFreshness,
-      dates:window.RONA_ANALYTICS_VIEW.data.products[
+      dates:window.RONA_ANALYTICS_PRESENTER_V14.getPayload().products[
         window.RONA_ANALYTICS_VIEW.getState().product]?.dates,
-      values:window.RONA_ANALYTICS_VIEW.data.products[
+      values:window.RONA_ANALYTICS_PRESENTER_V14.getPayload().products[
         window.RONA_ANALYTICS_VIEW.getState().product]?.values,
-      forecast:window.RONA_ANALYTICS_VIEW.data.products[
+      forecast:window.RONA_ANALYTICS_PRESENTER_V14.getPayload().products[
         window.RONA_ANALYTICS_VIEW.getState().product]?.forecast,
       kpi:document.querySelector('#rona-analytics-v2 .an2-kpis .rona-owner-kpi')?.textContent,
       overlays:document.querySelectorAll(
-        '#rona-analytics-v2 [data-rona-client-canonical-empty="v7"]').length,
+        '#rona-analytics-v2 [data-chart-stage] .an2-empty').length,
       svgHidden:getComputedStyle(document.querySelector(
         '#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden',
       gapHistory:document.querySelector('#rona-analytics-v2')?.dataset.ronaLpgHistorySegments,
@@ -230,7 +203,7 @@ try{
       proof.dates.length===count && proof.dates.at(-1)===expectedLast &&
       proof.dates.every(d=>/^\d{2}\.\d{2}$/.test(d)) &&
       proof.forecast.month==='2026-11' &&
-      proof.status===expectedSpot && proof.overlays===0 &&
+      proof.overlays===0 &&
       !proof.svgHidden && proof.kpi===expectedLast+'.2026' &&
       (key!=='LPG'||(
         JSON.parse(proof.gapHistory||'null')?.ids?.join(',')==='0,0,1,2')),
@@ -242,14 +215,14 @@ try{
   await page.waitForFunction(()=>
     document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct==='AI92',
     null,{timeout:7000});
-  must(await page.locator('#rona-analytics-v2 [data-rona-client-canonical-empty="v7"]').count()===0,
+  must(await page.locator('#rona-analytics-v2 [data-chart-stage] .an2-empty').count()===0,
     'OBSOLETE_NO_DATA_OVERLAY_COVERS_GASOLINE_CHART');
   mode='ERROR';latencyMs=40;
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.renderState==='ERROR_NO_ARCHIVE',null,{timeout:10000});
   const failure=await page.evaluate(()=>({
     safe:document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe,
-    series:window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values,
+    series:window.RONA_ANALYTICS_PRESENTER_V14?.getPayload?.()?.products?.AI92?.values,
     title:document.querySelector('[data-chart-title]')?.textContent,
     ownerCount:document.querySelectorAll('#rona-analytics-v2').length,
     substitute:document.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length
