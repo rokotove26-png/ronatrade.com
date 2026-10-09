@@ -127,6 +127,7 @@ try{
   assert(lpg.chart.includes('07.10')&&lpg.chart.includes('CIF NWE Large Cargo Financial'),'LPG verified observation date/basis missing: '+lpg.chart);
   assert(lpg.title.includes('Динамика СУГ'),'LPG main chart must use day of observation: '+lpg.title);
   assert(lpg.chartKind==='OBSERVATION_DAILY','LPG observed-day point not rendered');
+  assert(lpg.gapCount==='3'&&lpg.points===4&&lpg.lines===1,'LPG dates/gap rendering mismatch '+JSON.stringify(lpg));
   mode='ERROR';
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='SOURCE_UNAVAILABLE',{timeout:8000});
