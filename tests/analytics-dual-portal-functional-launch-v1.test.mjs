@@ -93,106 +93,66 @@ test('client Analytics stays on safe published feed contract',async()=>{
   ])assert.ok(edgeFeed.includes(token),`missing client safe-feed gate: ${token}`);
 });
 
-test('client canonical Admin daily observation parity v12 uses the SAME source model with strict published client gates',async()=>{
-  const runtime=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
+test('Client Analytics v14 consumes identical approved Admin canonical data with NO section-specific Client restrictions',async()=>{
+  const client=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
   const edge=await readFile('supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts','utf8');
-  const render=await readFile('scripts/attach-client-market-intelligence-v1.mjs','utf8');
-  const approval=JSON.parse(await readFile('governance/lpg-daily-history-v13-owner-approval-20261009.json','utf8'));
+  const admin=await readFile('functions/portal/analytics-v2-ui.js','utf8');
+  const endpoint=await readFile('functions/portal/analytics-client-approved-runtime-v14.js','utf8');
+  const shared=await readFile('functions/portal/analytics-canonical-presenter-v14.js','utf8');
+  const migration=await readFile('supabase/migrations/20261009233000_client_analytics_exact_admin_shared_v14.sql','utf8');
+  const approval=JSON.parse(await readFile('governance/client-analytics-admin-shared-v14-owner-approval-20261009.json','utf8'));
   assert.equal(approval.approval,'OWNER_IN_CHAT');
-  assert.equal(approval.scope,'ANALYTICS_LPG_GAP_HISTORY_V13');
-  assert.equal(approval.requirements.wildcard_exception,false);
-  assert.equal(approval.requirements.client_native_an2_graph_preserved,true);
-  assert.equal(approval.requirements.context_switch_fail_closed,true);
-  assert.equal(approval.requirements.no_admin_internal_margin_or_price_bridge_in_client,true);
-  assert.deepEqual(approval.approved_protected_files,[
-    'assets/portal-runtime/client-market-intelligence-v1.js',
-    'scripts/attach-client-market-intelligence-v1.mjs'
-  ]);
+  assert.equal(approval.scope,'CLIENT_ANALYTICS_ADMIN_CANONICAL_SHARED_V14');
+  assert.equal(approval.requirements.no_client_specific_product_forecast_pricing_or_presentation_filters,true);
+  assert.equal(approval.requirements.client_section_data_not_filtered_by_tenant_contract_publication,true);
+  assert.equal(approval.requirements.authentication_of_client_cabinet_still_mandatory,true);
   for(const [path,entry] of Object.entries(approval.exact_post_blobs))
-    assert.equal(entry.authorized_post_blob_sha,gitBlobSha(await readFile(path,'utf8')),path+' exact blob');
-  for(const token of [
-    'market_intelligence_daily_monitor_v1',
-    'RONA_MARKET_OBSERVED_DAILY_V1',
-    'dailyApproved',
-    'daily?.granularity === "OBSERVATION_DATE"',
-    'daily?.noInterpolation === true',
-    'observedDates.length === dailyDates.length',
-    'CLIENT_LPG_HISTORICAL_SEGMENTS_V13',
-    'forecastGrantRows',
-    'forecastPermissions',
-    'spotFreshness',
-    'sd.processing_state=\'INGESTED\'',
-    "sd.data_status='CONFIRMED'",
-    'permissionToForecast("DT")',
-    'permissionToForecast("LPG")',
-    'forecastSourceCurrent',
-    'term.asOfDate === lastSourceDate.slice(8,10)',
-    'authorizedClientKeys(c)',"pi.distribution_allowed=true",
-    "p.status::text='PUBLISHED'",")='CURRENT'",
-    'market_intelligence_admin_canonical_payload_v1()',
-    'model_version',"'RONA_FULL_PLATTS_CURVE_V1'",
-    'CLIENT_LPG_HISTORICAL_SEGMENTS_V13',
-    'targetIsFuture',
-    'Math.abs(Number(term.values[1])-Number(output.forecast.base))<0.001'
-  ])assert.ok(edge.includes(token),'source-locked client canonical gate missing: '+token);
+    assert.equal(entry.authorized_post_blob_sha,gitBlobSha(await readFile(path,'utf8')),path+' exact approved blob');
+  for(const text of ["portal_private.market_intelligence_admin_client_shared_payload_v14","market_intelligence_admin_canonical_payload_v1","market_intelligence_daily_monitor_v1","market_intelligence_admin_forward_term_structure_v1","market_intelligence_forecast_snapshots"])
+    assert.ok(migration.includes(text),'Admin forecast/daily SQL proof missing '+text);
+  assert.ok(migration.includes("v:=jsonb_build_object('canonicalAnalytics',portal_private.market_intelligence_admin_canonical_payload_v1());"));
+  assert.ok(migration.includes("RETURN v->'canonicalAnalytics';"));
+  for(const marker of [
+    'market_intelligence_admin_client_shared_payload_v14()',
+    'payload.clientCanonicalAnalytics = canonical;',
+    "payload.analyticsCanonicalParity = 'ADMIN_APPROVED_SHARED_V14'",
+    "c.roles.includes(\"CLIENT\")","c.impersonation?.effectiveRole"
+  ])assert.ok(edge.includes(marker),'full Admin client feed proof missing '+marker);
+  for(const no of ["permissionToForecast","forecastPermissions","publicNames.has","clientCanonicalAnalytics = null; // all products filtered"])
+    assert.equal(edge.includes(no),false,'Client Analytics cannot filter Admin '+no);
   for(const token of [
     "const MARK='20261009-admin-canonical-shared-presenter-v14'",
-    "const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13'",
-    'function canonicalPayload(data)',
-    'data?.clientCanonicalAnalytics',
-    'view.setPayload(payload)',
-    'publishedPriceContext()',
-    'paintAuthorizedPrices(owner,chosen)'
-  ])assert.ok(runtime.includes(token),'frozen client runtime missing: '+token);
-  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-admin-canonical-shared-presenter-v14'));
-  assert.equal(runtime.includes("fetch('/portal/api/v1/admin/analytics'"),false,'client must not fetch Admin API');
-  assert.equal(edge.includes('payload.clientCanonicalAnalytics = canonical'),false,'never expose unsanitized admin canonical payload');
-  assert.equal(edge.includes('output.rona ='),false,'never expose internal RONA price bridge');
-  assert.equal(edge.includes("update portal_private."),false,'client projection must be read only');
+    "const CLIENT_CANONICAL_PARITY='ADMIN_APPROVED_SHARED_V14'",
+    "const ADMIN_SHARED_PRESENTER_SRC='/portal/analytics-client-approved-runtime-v14'",
+    "data.analyticsCanonicalParity===CLIENT_CANONICAL_PARITY",
+    'return approved;',
+    "shared.apply(owner,payload,{mode:'client'})",
+    'view.setPayload(payload)'
+  ])assert.ok(client.includes(token),'exact Admin Client view proof missing '+token);
+  assert.equal(client.includes('paintAuthorizedPrices(owner,chosen)'),false,'no Client-specific contract price overrides');
+  assert.equal(client.includes("fetch('/portal/api/v1/admin/analytics'"),false,'client cannot open Admin endpoint');
+  assert.ok(admin.includes('SHARED_ANALYTICS_PRESENTER_V14'));
+  assert.ok(endpoint.includes('CANONICAL_PRICING_BRIDGE_RUNTIME+'));
+  assert.ok(endpoint.includes('SHARED_ANALYTICS_PRESENTER_V14+LPG_GAP_RUNTIME'));
+  assert.ok(shared.includes('ADMIN_APPROVED_SHARED_V14'));
+  assert.ok(edge.includes('pi.distribution_allowed=true'),'other publication/news gates remain unchanged');
 });
 
-
-test('Admin and Client daily observation graph contract rejects monthly-maturity interpolation',async()=>{
-  const migration=await readFile(
-    'supabase/migrations/20261009180500_analytics_daily_observed_dt_lpg_v12.sql','utf8');
-  const admin=await readFile('functions/portal/analytics-canonical-live-hydration.js','utf8');
-  const client=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-  for(const token of [
-    'CREATE OR REPLACE FUNCTION portal_private.market_intelligence_daily_monitor_v1',
-    "s.source_family='PLATTS'",
-    "s.processing_state='INGESTED'",
-    "s.data_status='CONFIRMED'",
-    "f.basis='Cargoes CIF NWE/Basis ARA'",
-    "f.basis='CIF NWE Large Cargo Financial'",
-    "f.delivery_month=date_trunc('month',p_reference_date)::date",
-    "WHEN prev_date IS NOT NULL AND as_of_date-prev_date>10",
-    "'granularity','OBSERVATION_DATE'",
-    "'noInterpolation',true",
-    "'notMonthlyMaturityCurve',true",
-    "REVOKE ALL ON FUNCTION portal_private.market_intelligence_daily_monitor_v1",
-    "v:=jsonb_set(v,ARRAY['canonicalAnalytics','products',r.k,'dailyMonitor']"
-  ])assert.ok(migration.includes(token),'missing audited daily series source rule '+token);
-  assert.ok(admin.includes("source-safe-v4-observation-daily"),'admin must share daily monitor');
-  assert.ok(admin.includes('const term=null; // Maturity months cannot be charted as daily observations.'));
-  assert.ok(!admin.includes("safe.dates=[...term.dates]"),'admin maturity labels must never replace observed dates');
-  assert.ok(client.includes("if(empty)empty.remove()"),'all four products must remove obsolete no-publication overlay when graph present');
-  assert.ok(client.includes('CLIENT_LPG_HISTORICAL_SEGMENTS_V13'));
-  assert.ok(!client.includes("hasTerm?product.termCurve.asOfDate"),'client must not use last delivery as trade date');
-  assert.ok(client.includes("dates.every(d=>"),'monthly term labels rejected for main chart');
-});
-
-test('LPG v13 source-gap history retains verified same-contract dates but draws no cross-gap line',async()=>{
+test('Admin and Client share the identical observed-day chart contract, never a delivery maturity line',async()=>{
   const db=await readFile('supabase/migrations/20261009221000_lpg_verified_observation_segments_v13.sql','utf8');
-  const api=await readFile('supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts','utf8');
+  const shared=await readFile('functions/portal/analytics-canonical-presenter-v14.js','utf8');
+  const graph=await readFile('functions/portal/lpg-observation-gap-runtime-v13.js','utf8');
+  const adminHydration=await readFile('functions/portal/analytics-canonical-live-hydration.js','utf8');
+  const admin=await readFile('functions/portal/analytics-v2-ui.js','utf8');
   const client=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-  const renderer=await readFile('functions/portal/lpg-observation-gap-runtime-v13.js','utf8');
-  const page=await readFile('functions/portal/analytics-v2-ui.js','utf8');
-  for(const marker of ['historyIncludesAllGapSegments','segmentIds','gapBeforeDays','segmentCount','WHERE true'])
-    assert.ok(db.includes(marker),'LPG gap-aware DB proof missing '+marker);
-  for(const marker of ['segmentIds','observedDates','historyIncludesAllGapSegments','CLIENT_LPG_HISTORICAL_SEGMENTS_V13'])
-    assert.ok(api.includes(marker),'safe client projection absent '+marker);
-  assert.ok(client.includes('ronaLpgHistorySegments'),'client must expose source-provenanced gaps');
-  assert.ok(page.includes('LPG_GAP_RUNTIME'),'Admin and Client should share gap-aware graph painter');
+  for(const item of ['historyIncludesAllGapSegments','segmentIds','gapBeforeDays','segmentCount','WHERE true'])
+    assert.ok(db.includes(item),'audited raw LPG source segment rule missing '+item);
+  for(const marker of ['sourceFamily','observedDates','noInterpolation','dates','values','ADMIN_APPROVED_SHARED_V14'])
+    assert.ok(shared.includes(marker),'common daily history presenter missing '+marker);
   for(const marker of ['new Set(ids.map(Number))','path.rmc-area','ids[i-1]','Date.parse','rmc-point'])
-    assert.ok(renderer.includes(marker),'gap-free visualization marker missing '+marker);
+    assert.ok(graph.includes(marker),'unobserved dates must not become fake lines '+marker);
+  assert.ok(adminHydration.includes('const term=null; // Maturity months cannot be charted as daily observations.'));
+  assert.ok(admin.includes('SHARED_ANALYTICS_PRESENTER_V14'));
+  assert.ok(client.includes('ADMIN_SHARED_PRESENTER_SRC'));
+  assert.equal(client.includes('paintAuthorizedPrices(owner,chosen)'),false);
 });
