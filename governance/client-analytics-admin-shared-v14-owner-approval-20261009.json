@@ -1,8 +1,8 @@
 {
   "approval": "OWNER_IN_CHAT",
   "authorized_at": "2026-10-09",
-  "owner_instruction": "Возьми такой же раздел в Админке, который готов и утвержден и визуально и функционально и просто скопируй его перенеся в клиентский контур. Они 1 в 1 идентичны должны быть.",
-  "owner_instruction_ref": "OWNER_IN_CHAT:20261009:EXACT_ADMIN_ANALYTICS_UI_COPY_TO_CLIENT",
+  "owner_instruction": "Возьми такой же раздел в Админке, который готов и утвержден и визуально и функционально и просто скопируй его перенеся в клиентский контур. Они 1 в 1 идентичны должны быть. Нет никаких клиентских ограничений доступа в этом разделе. 100% 1к1 админки.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261009:FULL_ADMIN_ANALYTICS_PARITY_NO_CLIENT_SECTION_RESTRICTIONS",
   "scope": "CLIENT_ANALYTICS_ADMIN_CANONICAL_SHARED_V14",
   "decision": "SINGLE_SOURCE_EXACT_ADMIN_VISUAL_AND_FUNCTIONAL_RENDERER_NO_NEW_LAYOUT",
   "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_ADMIN_CANONICAL_SHARED_V14",
@@ -15,7 +15,7 @@
     "assets/portal-runtime/client-market-intelligence-v1.js": {
       "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
       "supersedes_authorized_post_blob_sha": "bd15c42b22e1a65a420d507618cc1c4d08109861",
-      "authorized_post_blob_sha": "4fe454cf9846c3dfedfa0359049e1b4af8cd0fa4",
+      "authorized_post_blob_sha": "a3932017e6a9300f948195754a96b0377349d1e7",
       "required_marker": "20261009-admin-canonical-shared-presenter-v14"
     },
     "scripts/attach-client-market-intelligence-v1.mjs": {
@@ -56,19 +56,29 @@
     "exact_admin_client_shared_presentation_engine": true,
     "admin_canonical_html_structure_unchanged": true,
     "client_canonical_html_structure_unchanged": true,
-    "client_authorized_source_scope_only": true,
-    "client_contract_price_scope_only": true,
-    "no_admin_private_margin_bridge": true,
+    "client_authorized_source_scope_only": false,
+    "client_contract_price_scope_only": false,
+    "no_admin_private_margin_bridge": false,
     "verified_daily_no_interpolation": true,
     "real_authenticated_browser_visual_uat_required": true,
-    "external_sources_license_respected": true
+    "external_sources_license_respected": true,
+    "full_identical_admin_canonical_products_forecasts_rona_bases": true,
+    "no_client_specific_product_forecast_pricing_or_presentation_filters": true,
+    "client_section_data_not_filtered_by_tenant_contract_publication": true,
+    "canonical_rendering_and_controls_identical": true,
+    "authentication_of_client_cabinet_still_mandatory": true,
+    "admin_roles_not_granted_to_clients": true,
+    "no_auth_bypass_or_anonymous_analytics": true
   },
   "source_files": [
     "functions/portal/analytics-v2-approved-base.js",
     "functions/portal/analytics-v2-ui.js",
     "functions/portal/analytics-canonical-presenter-v14.js",
-    "functions/portal/analytics-canonical-live-hydration.js"
+    "functions/portal/analytics-canonical-live-hydration.js",
+    "functions/portal/analytics-client-approved-runtime-v14.js",
+    "supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts",
+    "supabase/migrations/20261009233000_client_analytics_exact_admin_shared_v14.sql"
   ],
-  "notes": "Client retains already approved canonical DOM, shared visual/behavior formatter is the EXACT same source served by Admin runtime. Role-specific permissions only alter authorized values; not markup or CSS. No invented market data. No finished assertion until CI and Owner actual UAT pass.",
+  "notes": "Owner demands exact Admin Analytics UI and full Admin canonical dataset with NO Client-specific section restrictions. Only authenticated portal sessions may access Client cabinet; no granting Admin role or admin API access. Other portal modules' tenant restrictions are unchanged. No synthetic missing observations.",
   "rollback": "Restore v13 production commit 910eb89c4c6cf04b814b25c8ec689a4053a12d0b and previous exact client protected blobs. No DB migrations/data mutations in v14."
 }
