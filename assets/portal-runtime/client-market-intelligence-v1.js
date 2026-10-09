@@ -162,6 +162,7 @@ function ensureSafeCanonicalState(owner,payload,reason){
     }
     if(empty.hidden!==hasSeries)empty.hidden=hasSeries;
   }
+  if(hasSeries)textIfDifferent(owner.querySelector('[data-chart-source]'),product.basis+' · разрешённая клиентская публикация');
   if(!hasSeries){
     textIfDifferent(owner.querySelector('[data-chart-source]'),EMPTY_SOURCE);
     textIfDifferent(owner.querySelector('[data-chart-title]'),'Динамика · нет актуального ряда');
@@ -170,7 +171,9 @@ function ensureSafeCanonicalState(owner,payload,reason){
   // Canonical legacy engine contains a baked historical LPG/Saryagash number
   // that does not depend on setPayload. Neutralize only that value.
   if(chosen==='LPG'){
-    const second=owner.querySelectorAll('.an2-kpis .rona-owner-card')[1];
+    const cards=owner.querySelectorAll('.an2-kpis .rona-owner-card');
+    textIfDifferent(cards[0]?.querySelector('.rona-owner-muted'),hasSeries?'Клиентская подтверждённая публикация':EMPTY_SOURCE);
+    const second=cards[1];
     textIfDifferent(second?.querySelector('.rona-owner-kpi'),'—');
     textIfDifferent(second?.querySelector('.rona-owner-muted'),EMPTY_SOURCE);
   }
