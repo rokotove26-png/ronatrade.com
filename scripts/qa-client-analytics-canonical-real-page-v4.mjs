@@ -114,7 +114,7 @@ try{
     const owner=pageRoot?.querySelector(':scope > #rona-analytics-v2');
     const r=n=>{const b=n?.getBoundingClientRect();return b?{x:b.x,y:b.y,width:b.width,height:b.height,display:getComputedStyle(n).display}:null};
     const safeSvg=owner?.querySelector('[data-chart-svg]');
-    const empty=owner?.querySelector('[data-rona-client-canonical-empty="v7"]');
+    const empty=owner?.querySelector('[data-chart-stage] .an2-empty,[data-rona-shared-empty-v14]');
     const structure=['.rona-analytics-hero','.an2-kpis','.an2-controls','.an2-main',
       '.rona-market-chart-stage','.an2-market-forecast','.an2-rona-grid','.an2-comment']
       .map(selector=>({selector,count:owner?.querySelectorAll(selector).length||0}));
