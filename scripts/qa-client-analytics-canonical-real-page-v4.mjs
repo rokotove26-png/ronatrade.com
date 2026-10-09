@@ -10,7 +10,7 @@ if(!portalServer.includes(".on('head',new HeadPrepend(bridge))")||
    portalServer.includes('CLIENT_ANALYTICS_HEAD_BOOT'))
   throw Error('ADMIN_IMPERSONATION_HEAD_BRIDGE_AUTHORITY_CHANGED');
 const headers=await readFile(join(DIST,'_headers'),'utf8');
-if(!headers.includes('/assets/portal-runtime/client-market-intelligence-v1.js\\n  Cache-Control: no-store, no-cache, must-revalidate, max-age=0'))
+if(!headers.includes('/assets/portal-runtime/client-market-intelligence-v1.js\n  Cache-Control: no-store, no-cache, must-revalidate, max-age=0'))
   throw Error('CLIENT_MARKET_RUNTIME_NO_STORE_MISSING');
 const marker='20261009-client-analytics-current-source-safe-v3';
 const bridge='<script id="rona-client-market-intelligence-v1"';
