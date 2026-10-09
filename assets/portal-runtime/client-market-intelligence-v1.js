@@ -317,6 +317,13 @@ function ensureSafeCanonicalState(owner,payload,reason){
         'Региональная цена требует обновления; архив не является текущим');
     }
   }
+  if(chosen==='LPG'&&hasDaily&&daily.historyIncludesAllGapSegments===true&&
+     Array.isArray(daily.segmentIds)&&Array.isArray(daily.observedDates)&&
+     daily.segmentIds.length===product.dates.length&&daily.observedDates.length===product.dates.length){
+    owner.dataset.ronaLpgHistorySegments=JSON.stringify({
+      dates:daily.observedDates,ids:daily.segmentIds,gaps:daily.gapBeforeDays||[]
+    });
+  }else delete owner.dataset.ronaLpgHistorySegments;
   owner.dataset.ronaSelectedProduct=chosen;
   owner.dataset.ronaPhysicalSpotFreshness=product.spotFreshness||'UNAVAILABLE';
   // Selected contract prices remain the only externally authorized RONA prices.
