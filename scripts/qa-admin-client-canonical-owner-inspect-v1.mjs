@@ -14,4 +14,10 @@ const focus=analysis.filter(x=>x.hasView||x.hasData||x.hasRoot);
 const markers=['const DATA=','RONA_ANALYTICS_VIEW','function renderChart','function render()','function renderAnalytics','function showSeries','id="rona-analytics-v2"',"getElementById('rona-analytics-v2')",'#rona-analytics-v2','/portal/api/v1/admin/analytics'];
 const around=(s,p)=>{const x=s.indexOf(p);return x<0?null:{at:x,excerpt:s.slice(Math.max(0,x-110),x+210).replace(/\s+/g,' ')}};
 console.log('ADMIN_CLIENT_CANONICAL_SOURCE_AUDIT',JSON.stringify({admin:{sha:sha(admin),size:admin.length,markers:Object.fromEntries(markers.map(m=>[m,around(admin,m)])),head:admin.slice(0,500)},client:{sha:sha(client),size:client.length,markers:Object.fromEntries(markers.map(m=>[m,around(client,m)])),scripts:focus},client_screens:client.includes('id="page-analytics"'),admin_in_client:client.includes('approved-v4.3.2-pricing-bridge-single-owner')}));
+
+const snippets=['function ensure()','function shell()','function controls(','function render()','window.RONA_ANALYTICS_VIEW=','document.readyState','data-product','data-an2-product','function chart(','function kpis(','function showSeries('];
+console.log('ADMIN_CLIENT_CANONICAL_DECISION_PROBES',JSON.stringify({
+ admin:Object.fromEntries(snippets.map(token=>[token,(()=>{const i=admin.indexOf(token);return i<0?null:admin.slice(Math.max(0,i-200),i+1050)})()])),
+ client:{script10:focus.find(z=>z.hasView)?.pre,charts:focus.find(z=>z.hasRoot&&!z.hasView)?.pre}
+}));
 if(!focus.length||!admin.includes('RONA_ANALYTICS_VIEW'))throw Error('PARITY_SOURCES_ABSENT');
