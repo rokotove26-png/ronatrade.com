@@ -27,7 +27,7 @@
   },
   "new_attachment": {
     "path": "scripts/attach-client-approved-admin-analytics-v14.mjs",
-    "blob_sha": "e0515ef93dc1aeb8c13632c4781647d6eac9b2a8",
+    "blob_sha": "90c6382dc97baf97e960ba7eae725393d14dd920",
     "build_order": "AFTER_MATERIALIZE_ADMIN_BEFORE_CLIENT_MARKET",
     "native_source": "functions/portal/analytics-v2-approved-base.js",
     "owner_source": "functions/portal/analytics-v2-ui.js"
@@ -52,7 +52,8 @@
     "rollback_provided": true,
     "wildcard_exception": false,
     "identical_admin_lpg_gap_runtime": true,
-    "fail_closed_no_market_data": true
+    "fail_closed_no_market_data": true,
+    "retired_competing_client_analytics_styles_exact": true
   },
   "rollback": "Revert release branch to last known v13 commit 910eb89c4c6cf04b814b25c8ec689a4053a12d0b. Restore protected JS bd15c42b22e1a65a420d507618cc1c4d08109861 and attachment 2c77459224d88580d58c1ab7dc42b69aa6dc2be4, drop v14 generated native loader from client build and return previous Client inline renderer. Database and Commercial market facts untouched."
 }
