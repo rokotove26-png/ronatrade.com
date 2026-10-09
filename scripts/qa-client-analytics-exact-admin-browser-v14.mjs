@@ -148,6 +148,12 @@ try{
     await Promise.all([admin,client].map(p=>p.locator('#rona-analytics-v2 button[data-product="'+product+'"]').click()));
     await Promise.all([admin,client].map(p=>p.waitForFunction(k=>
       window.RONA_ANALYTICS_VIEW?.getState?.().product===k,product,{timeout:5000})));
+    // Client-only published-price adapter runs after the native Admin redraw.
+    // Wait for its safe route-only DOM alignment; no arbitrary sleep.
+    await client.waitForFunction(names=>
+      JSON.stringify([...document.querySelectorAll('#rona-analytics-v2 .an2-rona-grid > .an2-price-card')]
+        .map(c=>c.querySelector('h3')?.textContent?.trim()))===JSON.stringify(names),
+      priceBases[product],{timeout:9000});
     const [a,c]=await Promise.all([status(admin),status(client)]);
     if(JSON.stringify(a.nodes)!==JSON.stringify(c.nodes)){
       const mismatch=a.nodes.findIndex((v,i)=>JSON.stringify(v)!==JSON.stringify(c.nodes[i]));
