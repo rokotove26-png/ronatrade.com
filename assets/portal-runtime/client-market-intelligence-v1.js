@@ -1,8 +1,9 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-lpg-source-gap-history-v13';
+const MARK='20261010-client-approved-admin-exact-v14';
 const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13';
+const APPROVED_ADMIN_NATIVE='approved-v4.3.2';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
 const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
@@ -96,6 +97,11 @@ function ensureOwner(root){
   // The canonical design is the sole visual owner; never replace its subtree.
   const original=root.querySelector(':scope > #rona-analytics-v2');
   if(!original){root.dataset.ronaClientAnalyticsSource='CANONICAL_VISUAL_MISSING';return null}
+  if(original.dataset.analyticsOwner!=='approved-v431'||
+     original.dataset.ronaExactAdminVisual!==APPROVED_ADMIN_NATIVE){
+    root.dataset.ronaClientAnalyticsSource='APPROVED_ADMIN_NATIVE_MISSING';
+    return null;
+  }
   const substitute=root.querySelector(':scope > [data-rona-client-market-intelligence-owner="analytics"]');
   if(substitute)substitute.remove();
   if(original.hidden)original.hidden=false;
@@ -238,7 +244,8 @@ function paintAuthorizedPrices(owner,selectedProduct){
 }
 function ensureSafeCanonicalState(owner,payload,reason){
   const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};
-  const visualProduct=owner.querySelector('.an2-controls [data-an2-product][aria-pressed="true"]')?.getAttribute('data-an2-product');
+  const currentButton=owner.querySelector('.an2-controls [data-product][aria-pressed="true"],.an2-controls [data-an2-product][aria-pressed="true"]');
+  const visualProduct=currentButton?.getAttribute('data-product')||currentButton?.getAttribute('data-an2-product');
   const chosen=(visualProduct&&payload.products[visualProduct]?visualProduct:null)||
     (selected.product&&payload.products[selected.product]?selected.product:'AI92');
   const product=payload.products[chosen]||emptyProduct();
@@ -247,7 +254,7 @@ function ensureSafeCanonicalState(owner,payload,reason){
   const hasDaily=hasSeries&&daily?.version==='RONA_MARKET_OBSERVED_DAILY_V1'&&
     daily?.granularity==='OBSERVATION_DATE'&&daily?.sourceStatus==='CONFIRMED';
   const chartStage=owner.querySelector('[data-chart-stage]');
-  const svg=owner.querySelector('[data-chart-svg]');
+  const svg=owner.querySelector('.rona-market-chart-svg,[data-chart-svg]');
   if(svg){
     if(svg.hidden===hasSeries)svg.hidden=!hasSeries;
     const wanted=hasSeries?'':'hidden';
@@ -256,19 +263,11 @@ function ensureSafeCanonicalState(owner,payload,reason){
     }
   }
   if(chartStage){
-    let empty=chartStage.querySelector('[data-rona-client-canonical-empty="v7"]');
-    if(hasSeries){
-      // The old CSS forced display:flex over HTML [hidden], covering every
-      // populated graph. Remove the no-data element rather than merely hiding.
-      if(empty)empty.remove();
-    }else{
-      if(!empty){
-        empty=el('div',{class:'rona-market-chart-empty','data-rona-client-canonical-empty':'v7'});
-        empty.append(el('strong',{text:'Нет подтверждённого ежедневного ряда'}),
-          el('span',{text:'Появится после публикации проверенных наблюдений по датам. Прогноз отображается отдельно.'}));
-        chartStage.append(empty);
-      }
-      empty.hidden=false;
+    // Use EXACTLY the Admin-native .an2-empty state. Remove the previous
+    // client-only overlay; it must never cover an approved graph.
+    chartStage.querySelectorAll('[data-rona-client-canonical-empty="v7"]').forEach(n=>n.remove());
+    if(!hasSeries&& !chartStage.querySelector('.an2-empty')){
+      chartStage.innerHTML='<div class="an2-empty"><strong>Нет актуального подтверждённого ряда</strong><span>Наблюдения отсутствуют в разрешённой клиентской публикации.</span></div>';
     }
   }
   if(hasSeries){
@@ -411,7 +410,7 @@ function start(){
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
   window.addEventListener('rona:client-prices-updated',schedule,{passive:true});
   document.addEventListener('click',event=>{
-    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-an2-product]');
+    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-product],#page-analytics #rona-analytics-v2 [data-an2-product]');
     if(productButton){
       // Native renderer changes the product synchronously after capture. Refresh
       // source/status labels in its final selection state, without new controls.
