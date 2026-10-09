@@ -15,7 +15,7 @@ const migration=await read('supabase/migrations/20260902173000_client_market_int
 
 for(const token of [
   'id="rona-client-background-section-preload-v1"','client-background-section-preload-v1.js?v=20260902-current-context-v6',
-  'id="rona-client-market-intelligence-v1"','client-market-intelligence-v1.js?v=20261009-client-analytics-dt-lpg-forecast-parity-v11',
+  'id="rona-client-market-intelligence-v1"','client-market-intelligence-v1.js?v=20261009-client-analytics-observed-daily-v12',
   'id="rona-client-market-news-admin-parity-v1"','client-market-news-admin-parity-v1.js?v=20260902-news-dialog-single-owner-v5',
   'id="rona-client-analytics-forecast-spacing-v1"','client-analytics-forecast-spacing-v1.js?v=20260902-forecast-spacing-v2'
 ])must(html,token,'built client');
@@ -25,7 +25,7 @@ for(const token of ['20260902-client-background-section-preload-current-context-
 for(const token of ['/v1/client/bootstrap','getAuthorizedContexts','state.contexts.map(preloadContext)','/v1/client/market-intelligence','MARKET_INTELLIGENCE_REFRESH_MS','readMarketIntelligence',"markSection('analytics'", "markSection('market_news'",'REFRESH_MS=30000','legacyRefreshMs','setInterval(','fetch('])forbid(preload,token,'core background manifest');
 
 for(const token of ["REFRESH_POLICY='OPEN_CONTEXT_CHANGE_INVALIDATION'","load('open')",'/v1/client/market-intelligence','RONA_CLIENT_MARKET_INTELLIGENCE_V1','public_chart',"rona:client:context-changed",'rona:client-market-intelligence-invalidated',
-  '20261009-client-analytics-dt-lpg-forecast-parity-v11',"#rona-analytics-v2",'CANONICAL_VISUAL_OWNER',
+  '20261009-client-analytics-observed-daily-v12',"#rona-analytics-v2",'CANONICAL_VISUAL_OWNER',
   'view.setPayload(payload)','CLIENT_AUTHORIZED_PUBLISHED_CURRENT_ONLY'])must(analytics,token,'analytics runtime');
 for(const token of ['owner.replaceChildren(',"root.prepend(owner)",'mi-grid','mi-card'])forbid(analytics,token,'new Analytics visual owner must not replace canonical design');
 for(const token of ['rona-client-analytics-canonical-prepaint-v7','id="rona-client-market-intelligence-v1"'])must(html,token,'source-safe canonical visual prepaint');
