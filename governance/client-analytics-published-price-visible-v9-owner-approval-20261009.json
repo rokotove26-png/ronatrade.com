@@ -1,0 +1,50 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-09",
+  "owner_instruction": "Populate the exact canonical Client Analytics using existing authorized contract-published data. Follow-up owner screenshot shows current published price is visible only as tiny caption under empty forecast amount, creating a misleading no-data visual. Preserve unchanged original AN2 HTML, CSS, slots and authority; show the already authorized contract price as the main numeric field with an explicit label. No market source publication, forecast synthesis or admin data disclosure.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261009:FILL_CLIENT_ANALYTICS_1_TO_1_ADMIN; OWNER_IN_CHAT:20261009:EXECUTE; OWNER_SCREENSHOT:20261009-115324",
+  "scope": "CLIENT_ANALYTICS_PUBLISHED_PRICE_PRESENTATION_V9",
+  "decision": "DATA_TEXT_ONLY_NO_VISUAL_STRUCTURE_CHANGE",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_PUBLISHED_PRICE_PRESENTATION_V9",
+  "supersedes_scope": "CLIENT_ANALYTICS_AUTHORIZED_CONTEXT_PRICE_BRIDGE_V8",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "a627db9b057ba59427121dd969455f58fefc649c",
+      "authorized_post_blob_sha": "61504a59dfead320b3515e7fa4175f79ba6a8133",
+      "required_marker": "20261009-client-analytics-published-price-visible-v9"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "8648e2debeaa37211354a338bf2f4b0832b66f95",
+      "authorized_post_blob_sha": "879ceab85b4caf20c36403d10f29922d1eeba24f",
+      "required_marker": "20261009-client-analytics-published-price-visible-v9"
+    }
+  },
+  "requirements": {
+    "canonical_design_exactly_retained": true,
+    "no_html_css_dom_change": true,
+    "no_new_cards_or_controls": true,
+    "only_existing_slot_texts_changed": true,
+    "client_and_contract_authority_unchanged": true,
+    "source_scoped_to_published_contract_price": true,
+    "prominent_existing_price_base_slot": true,
+    "source_type_clearly_labeled": true,
+    "low_high_forecasts_not_fabricated": true,
+    "no_admin_quote_disclosure": true,
+    "no_raw_platts_source": true,
+    "existing_client_market_freshness_preserved": true,
+    "missing_ambiguous_price_fail_closed": true,
+    "context_switch_clears_prior_value": true,
+    "exact_sha_protection": true,
+    "no_wildcard_exception": true,
+    "rollback_to_v8_exact_blobs": true,
+    "no_business_data_mutation": true,
+    "real_chromium_and_visual_freeze_required": true
+  },
+  "rollback": "Restore v8 exact protected blobs: assets/portal-runtime/client-market-intelligence-v1.js=a627db9b057ba59427121dd969455f58fefc649c; scripts/attach-client-market-intelligence-v1.mjs=8648e2debeaa37211354a338bf2f4b0832b66f95"
+}
