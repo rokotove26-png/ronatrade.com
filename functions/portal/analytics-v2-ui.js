@@ -152,8 +152,8 @@ function canonicalizeV432(source,{adminRuntime=true}={}){
   out=out.replaceAll("version:'functional-v4.3.1'","version:'functional-v4.3.2'");
   out=out.replaceAll('approved-v4.3.1-single-owner',CANONICAL_ANALYTICS_MARKER);
   if(adminRuntime)out+=CANONICAL_PRICING_BRIDGE_RUNTIME+CANONICAL_LIVE_HYDRATION_RUNTIME+LPG_GAP_RUNTIME+APPROVED_DATA_VALIDATION;
-  const required=['RONA TRADE · ANALYTICS','Внутренний аналитический контур','Базовая котировка','Возможные цены RONA Trade','Аналитический вывод','1075.25','1226.75'];
-  if(adminRuntime)required.push('function pricingBridgeFor','function calculateRonaScenario',"version:'functional-v4.3.2'",'setPricingBridge','rona:analytics-price-model','RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1','canonical-daily-live','__RONA_LPG_OBSERVATION_GAPS_V13__');
+  const required=['RONA TRADE · ANALYTICS','Внутренний аналитический контур','Базовая котировка','Возможные цены RONA Trade','Аналитический вывод'];
+  if(adminRuntime)required.push('function pricingBridgeFor','function calculateRonaScenario',"version:'functional-v4.3.2'",'setPricingBridge','rona:analytics-price-model','RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1','canonical-daily-live','__RONA_LPG_OBSERVATION_GAPS_V13__','1075.25','1226.75');
   for(const token of required)if(!out.includes(token))throw new Error(`CANONICAL_ANALYTICS_V432_MISSING:${token}`);
   for(const stale of ['rona-analytics-canonical-title','Комментарий Коммерческого директора','Аналитическая лента'])if(out.includes(stale))throw new Error(`CANONICAL_ANALYTICS_STALE_OWNER:${stale}`);
   return out;
