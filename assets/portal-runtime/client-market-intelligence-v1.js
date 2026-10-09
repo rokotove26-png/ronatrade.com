@@ -313,6 +313,7 @@ function start(){
   window.addEventListener('online',()=>load('online'),{passive:true});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load('visible')});
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
+  window.addEventListener('rona:client-prices-updated',schedule,{passive:true});
   document.addEventListener('click',event=>{const trigger=event.target?.closest?.('[data-page="analytics"],[data-page-id="analytics"],[data-page-panel="analytics"]');if(trigger)queueMicrotask(()=>load('analytics-open'))},true);
   new MutationObserver(()=>schedule()).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','data-page','data-page-id']});
   schedule();
