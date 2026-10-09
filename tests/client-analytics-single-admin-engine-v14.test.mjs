@@ -49,7 +49,7 @@ test('Client is thin role-scoped adapter; no second chart renderer can overwrite
   assert.ok(attach.includes('src="${canonicalEngineSrc}" defer'));
   assert.ok(attach.includes('src="${analyticsSrc}" defer'));
   assert.ok(attach.indexOf('src="${canonicalEngineSrc}"')<attach.indexOf('src="${analyticsSrc}"'));
-  assert.ok(edge.includes("public.owner_analytics_admin_bootstrap()->'canonicalAnalytics'"));
+  assert.ok(edge.includes("portal_private.market_intelligence_admin_canonical_payload_v1()"));
   assert.ok(edge.includes('portal_private.client_user_has_contract_access'));
   assert.ok(edge.includes('pi.distribution_allowed=true'));
   assert.ok(edge.includes('publication_client_targets'));
