@@ -151,7 +151,7 @@ try{
     const y=Math.min(innerHeight-2,Math.max(2,heading.top+heading.height/2));
     const hit=document.elementFromPoint(x,y);
     return hit===owner||owner.contains(hit);
-  },{timeout:6500});
+  },null,{timeout:6500});
   const recovered=await page.evaluate(()=>{
     const root=document.querySelector('#page-analytics'),owner=root.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
     const r=owner.getBoundingClientRect();
