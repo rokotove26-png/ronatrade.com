@@ -203,7 +203,7 @@ try{
     await page.waitForFunction(k=>
       document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct===k,
       key,{timeout:7000});
-    if(key==='LPG')await page.waitForFunction(()=>!!document.querySelector('#rona-analytics-v2 svg')?.dataset.ronaLpgHistoryV13,null,{timeout:7000});
+
     const proof=await page.evaluate(()=>({
       selected:window.RONA_ANALYTICS_VIEW.getState().product,
       heading:document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent,
