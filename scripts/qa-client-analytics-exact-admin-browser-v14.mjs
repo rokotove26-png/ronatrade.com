@@ -139,11 +139,22 @@ try{
     await Promise.all([admin,client].map(p=>p.waitForFunction(k=>
       window.RONA_ANALYTICS_VIEW?.getState?.().product===k,product,{timeout:5000})));
     const [a,c]=await Promise.all([status(admin),status(client)]);
-    assert(JSON.stringify(a.nodes)===JSON.stringify(c.nodes),
-      'ADMIN_CLIENT_DOM_NOT_IDENTICAL '+product+' '+JSON.stringify({
-        adminNodes:a.nodes.length,clientNodes:c.nodes.length,
-        adminTitle:a.chartTitle,clientTitle:c.chartTitle,
-        adminControls:a.controls,clientControls:c.controls}));
+    if(JSON.stringify(a.nodes)!==JSON.stringify(c.nodes)){
+      const mismatch=a.nodes.findIndex((v,i)=>JSON.stringify(v)!==JSON.stringify(c.nodes[i]));
+      const groups=arr=>Object.entries(arr.reduce((m,z)=>(m[z[0]+'|'+z[1]]=(m[z[0]+'|'+z[1]]||0)+1,m),{}))
+        .sort((x,y)=>x[0].localeCompare(y[0]));
+      const ag=groups(a.nodes),cg=groups(c.nodes);
+      const union=new Map([...ag,...cg].map(x=>[x[0],{admin:0,client:0}]));
+      ag.forEach(([k,v])=>union.get(k).admin=v);
+      cg.forEach(([k,v])=>union.get(k).client=v);
+      const differences=[...union].filter(([k,v])=>v.admin!==v.client).slice(0,18);
+      throw Error('ADMIN_CLIENT_DOM_NOT_IDENTICAL '+product+' '+JSON.stringify({
+        adminNodes:a.nodes.length,clientNodes:c.nodes.length,mismatch,
+        adminAt:a.nodes.slice(Math.max(mismatch-2,0),mismatch+7),
+        clientAt:c.nodes.slice(Math.max(mismatch-2,0),mismatch+7),
+        classDiff:differences,adminTitle:a.chartTitle,clientTitle:c.chartTitle
+      }));
+    }
     assert(JSON.stringify(a.controls)===JSON.stringify(c.controls),
       'NATIVE_PRODUCT_CONTROLS_DIFFER '+product);
     assert(a.chartTitle===c.chartTitle,'CHART_TITLE_DIFFER '+product);
