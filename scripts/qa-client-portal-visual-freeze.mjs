@@ -20,6 +20,7 @@ const CLIENT_ANALYTICS_REENTRY_APPROVAL_PATH='governance/client-analytics-reentr
 const CLIENT_ANALYTICS_VISIBILITY_APPROVAL_PATH='governance/client-analytics-visible-owner-approval-20261009.json';
 const CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_APPROVAL_PATH='governance/client-analytics-active-route-recovery-owner-approval-20261009.json';
 const CLIENT_ANALYTICS_CANONICAL_RESTORE_APPROVAL_PATH='governance/client-analytics-canonical-restore-owner-approval-20261009.json';
+const CLIENT_ANALYTICS_AUTHORIZED_PRICE_APPROVAL_PATH='governance/client-analytics-authorized-price-bridge-20261009.json';
 const CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH='governance/client-contract-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH='governance/client-background-manifest-event-driven-owner-approval-20260921.json';
 const CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH='governance/client-sidebar-command-nav-owner-approval-20260921.json';
@@ -46,6 +47,7 @@ const clientAnalyticsReentryApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_
 const clientAnalyticsVisibilityApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_VISIBILITY_APPROVAL_PATH,'utf8'));
 const clientAnalyticsActiveRouteRecoveryApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_APPROVAL_PATH,'utf8'));
 const clientAnalyticsCanonicalRestoreApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_CANONICAL_RESTORE_APPROVAL_PATH,'utf8'));
+const clientAnalyticsAuthorizedPriceApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_AUTHORIZED_PRICE_APPROVAL_PATH,'utf8'));
 const clientContractEventDrivenApproval=JSON.parse(await readFile(CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientBackgroundManifestEventDrivenApproval=JSON.parse(await readFile(CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientSidebarCommandNavApproval=JSON.parse(await readFile(CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH,'utf8'));
@@ -869,6 +871,37 @@ const clientAnalyticsCanonicalRestoreExceptionAuthorized=
   clientAnalyticsCanonicalRestoreApproval?.requirements?.wildcard_exception===false&&
   CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.every(path=>Boolean(clientAnalyticsCanonicalRestoreApproval?.exact_post_blobs?.[path]));
 
+const CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES=[...CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES];
+const clientAnalyticsAuthorizedPriceException=
+  clientAnalyticsAuthorizedPriceApproval?.approval==='OWNER_IN_CHAT'&&
+  clientAnalyticsAuthorizedPriceApproval?.authorized_at==='2026-10-09'&&
+  clientAnalyticsAuthorizedPriceApproval?.scope==='CLIENT_ANALYTICS_AUTHORIZED_CONTEXT_PRICE_BRIDGE_V8'&&
+  clientAnalyticsAuthorizedPriceApproval?.decision==='SCOPED_DATA_ONLY_VISUAL_FREEZE_PRESERVED'&&
+  clientAnalyticsAuthorizedPriceApproval?.approval_marker==='OWNER_DATA_APPROVAL: CLIENT_ANALYTICS_AUTHORIZED_CONTEXT_PRICE_BRIDGE_V8'&&
+  clientAnalyticsAuthorizedPriceApproval?.supersedes_scope==='CLIENT_ANALYTICS_CANONICAL_RESTORE_V7'&&
+  clientAnalyticsCanonicalRestoreExceptionAuthorized&&
+  JSON.stringify(clientAnalyticsAuthorizedPriceApproval?.approved_protected_files)===JSON.stringify(CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES)&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.restore_existing_canonical_node_only===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.identical_css_html_dom_structure===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.no_new_cards_or_chart_types===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.auth_and_impersonation_unchanged===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.market_source_freshness_gate_unchanged===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.raw_platts_private===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.commercial_prices_from_client_price_sync_only===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.contract_and_client_id_both_must_match===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.price_sync_authority_required===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.missing_or_ambiguous_prices_fail_closed===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.context_switch_clears_previous_client_prices===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.preserve_original_visual_freeze===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.exact_file_enforcement===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.exact_blob_enforcement===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.scoped_data_only===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.no_database_or_authoritative_publication_changes===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.real_canonical_browser_tests_required===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.rollback_documented===true&&
+  clientAnalyticsAuthorizedPriceApproval?.requirements?.no_wildcard_exception===true&&
+  CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.every(path=>Boolean(clientAnalyticsAuthorizedPriceApproval?.exact_post_blobs?.[path]));
+
 const CLIENT_CONTRACT_EVENT_DRIVEN_FILES=[
   'assets/portal-runtime/client-contract-download-v3.js'
 ];
@@ -1077,6 +1110,7 @@ let clientAnalyticsReentryAppliedFiles=0;
 let clientAnalyticsVisibilityAppliedFiles=0;
 let clientAnalyticsActiveRouteRecoveryAppliedFiles=0;
 let clientAnalyticsCanonicalRestoreAppliedFiles=0;
+let clientAnalyticsAuthorizedPriceAppliedFiles=0;
 let clientContractEventDrivenAppliedFiles=0;
 let clientBackgroundManifestEventDrivenAppliedFiles=0;
 let clientDealsVisualHierarchyAppliedFiles=0;
@@ -1307,6 +1341,17 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       clientAnalyticsCanonicalRestoreEntry.required_marker.length>0&&
       body.toString('utf8').includes(clientAnalyticsCanonicalRestoreEntry.required_marker)
     );
+    const clientAnalyticsAuthorizedPriceEntry=clientAnalyticsAuthorizedPriceException?clientAnalyticsAuthorizedPriceApproval.exact_post_blobs?.[path]:null;
+    const exactClientAnalyticsAuthorizedPrice=Boolean(
+      CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.includes(path)&&
+      clientAnalyticsAuthorizedPriceEntry&&
+      clientAnalyticsAuthorizedPriceEntry.visual_freeze_baseline_blob_sha===expected&&
+      clientAnalyticsAuthorizedPriceEntry.supersedes_authorized_post_blob_sha===clientAnalyticsCanonicalRestoreApproval.exact_post_blobs?.[path]?.authorized_post_blob_sha&&
+      clientAnalyticsAuthorizedPriceEntry.authorized_post_blob_sha===actual&&
+      typeof clientAnalyticsAuthorizedPriceEntry.required_marker==='string'&&
+      clientAnalyticsAuthorizedPriceEntry.required_marker.length>0&&
+      body.toString('utf8').includes(clientAnalyticsAuthorizedPriceEntry.required_marker)
+    );
     const clientContractEventDrivenEntry=clientContractEventDrivenExceptionAuthorized?clientContractEventDrivenApproval?.exact_post_blobs?.[path]:null;
     const exactClientContractEventDriven=Boolean(
       clientContractEventDrivenEntry&&
@@ -1348,10 +1393,11 @@ for(const [path,expected] of Object.entries(protectedFiles)){
     if(exactClientAnalyticsVisibility)clientAnalyticsVisibilityAppliedFiles+=1;
     if(exactClientAnalyticsActiveRouteRecovery)clientAnalyticsActiveRouteRecoveryAppliedFiles+=1;
     if(exactClientAnalyticsCanonicalRestore)clientAnalyticsCanonicalRestoreAppliedFiles+=1;
+    if(exactClientAnalyticsAuthorizedPrice)clientAnalyticsAuthorizedPriceAppliedFiles+=1;
     if(exactClientContractEventDriven)clientContractEventDrivenAppliedFiles+=1;
     if(exactClientDealsVisualHierarchy)clientDealsVisualHierarchyAppliedFiles+=1;
     if(exactClientBackgroundManifestEventDriven)clientBackgroundManifestEventDrivenAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientAnalyticsCanonicalRestore&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientAnalyticsCanonicalRestore&&!exactClientAnalyticsAuthorizedPrice&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
@@ -1373,10 +1419,15 @@ if(!clientAnalyticsReentryExceptionAuthorized)errors.push('CLIENT_ANALYTICS_REEN
 if(!clientAnalyticsVisibilityExceptionAuthorized)errors.push('CLIENT_ANALYTICS_VISIBLE_OWNER_V5_GOVERNANCE_NOT_AUTHORIZED');
 if(!clientAnalyticsActiveRouteRecoveryExceptionAuthorized)errors.push('CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_V6_GOVERNANCE_NOT_AUTHORIZED');
 if(!clientAnalyticsCanonicalRestoreExceptionAuthorized)errors.push('CLIENT_ANALYTICS_CANONICAL_RESTORE_V7_GOVERNANCE_NOT_AUTHORIZED');
-if(clientAnalyticsCanonicalRestoreExceptionAuthorized&&clientAnalyticsCanonicalRestoreAppliedFiles!==CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length)
-  errors.push(`CLIENT_ANALYTICS_CANONICAL_RESTORE_V7_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length} actual=${clientAnalyticsCanonicalRestoreAppliedFiles}`);
+if(!clientAnalyticsAuthorizedPriceException)errors.push('CLIENT_ANALYTICS_AUTHORIZED_PRICE_V8_GOVERNANCE_NOT_AUTHORIZED');
+if(clientAnalyticsAuthorizedPriceException&&clientAnalyticsAuthorizedPriceAppliedFiles!==CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length)
+  errors.push(`CLIENT_ANALYTICS_AUTHORIZED_PRICE_V8_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length} actual=${clientAnalyticsAuthorizedPriceAppliedFiles}`);
+const clientAnalyticsCanonicalRestoreEffectiveFiles=clientAnalyticsCanonicalRestoreAppliedFiles+
+  (clientAnalyticsAuthorizedPriceAppliedFiles===CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length?CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length:0);
+if(clientAnalyticsCanonicalRestoreExceptionAuthorized&&clientAnalyticsCanonicalRestoreEffectiveFiles!==CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length)
+  errors.push(`CLIENT_ANALYTICS_CANONICAL_RESTORE_V7_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length} actual=${clientAnalyticsCanonicalRestoreEffectiveFiles}`);
 const clientAnalyticsActiveRouteRecoveryEffectiveFiles=clientAnalyticsActiveRouteRecoveryAppliedFiles+
-  (clientAnalyticsCanonicalRestoreAppliedFiles===CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length?CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length:0);
+  (clientAnalyticsCanonicalRestoreEffectiveFiles===CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length?CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length:0);
 if(clientAnalyticsActiveRouteRecoveryExceptionAuthorized&&clientAnalyticsActiveRouteRecoveryEffectiveFiles!==CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES.length)
   errors.push(`CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_V6_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES.length} actual=${clientAnalyticsActiveRouteRecoveryEffectiveFiles}`);
 const clientAnalyticsVisibilityEffectiveFiles=clientAnalyticsVisibilityAppliedFiles+
