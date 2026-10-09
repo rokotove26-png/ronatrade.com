@@ -54,6 +54,8 @@ test('Client is thin role-scoped adapter; no second chart renderer can overwrite
   assert.ok(edge.includes('pi.distribution_allowed=true'));
   assert.ok(edge.includes('publication_client_targets'));
   assert.ok(edge.includes('CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14'));
+  assert.ok(edge.includes('output.priceBasisLabels'),'Client may project only Admin public destination names');
+  assert.ok(client.includes('permitted.has(route)'),'Client mirrors Admin destination-card count');
   assert.ok(edge.includes('notMonthlyMaturityCurve: daily.notMonthlyMaturityCurve === true'));
   assert.ok(!edge.includes('payload.clientCanonicalAnalytics = source'));
 });
