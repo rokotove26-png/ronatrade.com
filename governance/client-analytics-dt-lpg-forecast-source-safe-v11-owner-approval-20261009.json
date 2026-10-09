@@ -1,0 +1,54 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-09",
+  "owner_instruction": "After production v10 Owner visually verified that Client Analytics has no DT or LPG data for both selected products. Correct the functional gap relative to approved Admin canonical Analytics; Commercial Director is the single market-source owner. Use only sourced, forecast-labelled, auditable, role-authorized model data and never present stale DT physical or LPG regional prices as current.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261009:CLIENT_ANALYTICS_DT_LPG_NO_DATA_WITH_TWO_PRODUCTION_SCREENSHOTS; OWNER_IN_CHAT:20261009:FINISH_ADMIN_PARITY",
+  "scope": "CLIENT_ANALYTICS_DT_LPG_FORECAST_SOURCE_SAFE_V11",
+  "decision": "SOURCE_SCOPED_DATA_BINDING_AND_PRODUCT_LABEL_CORRECTION_NO_VISUAL_STRUCTURE_CHANGE",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_DT_LPG_FORECAST_SOURCE_SAFE_V11",
+  "supersedes_scope": "CLIENT_ANALYTICS_ADMIN_PARITY_V10",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "1f102342827346c43d2f3d2390dafc1f34a90b9c",
+      "authorized_post_blob_sha": "03e286193013331edc1465bcf32d5d9194017975",
+      "required_marker": "20261009-client-analytics-dt-lpg-forecast-parity-v11"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "1982f76357fe60b2fc9f33765333075dae10036b",
+      "authorized_post_blob_sha": "e92fa0204ec19f86417cd24aeffed115f7377f6d",
+      "required_marker": "20261009-client-analytics-dt-lpg-forecast-parity-v11"
+    }
+  },
+  "requirements": {
+    "canonical_an2_design_exactly_retained": true,
+    "no_html_css_dom_change": true,
+    "no_new_cards_or_controls": true,
+    "client_context_and_contract_scope_preserved": true,
+    "published_verified_client_audience_gate": true,
+    "physical_spot_current_only_gate_preserved": true,
+    "dt_physical_stale_not_shown_as_current": true,
+    "lpg_regional_unverified_not_shown_as_current": true,
+    "confirmed_platts_forward_as_of_date_required": true,
+    "forecast_indicative_not_spot": true,
+    "forecast_source_ref_and_doc_status_locked": true,
+    "commercial_director_source_ownership_preserved": true,
+    "admin_internal_rona_prices_not_exposed": true,
+    "selected_product_chart_labels_corrected": true,
+    "context_switch_clears_prices": true,
+    "api_error_fail_closed": true,
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "exact_blob_enforcement": true,
+    "scoped_unfreeze_only": true,
+    "wildcard_exception": false,
+    "real_browser_and_production_proof_required": true,
+    "no_business_data_mutation": true
+  },
+  "rollback": "Rollback code at previous release commit caedd3850576247c1d564bad5c580d0c93a706b7; exact protected v10 blobs client JS=1f102342827346c43d2f3d2390dafc1f34a90b9c and attachment=1982f76357fe60b2fc9f33765333075dae10036b. Revert Edge wrapper pin to previous production commit caedd3850576247c1d564bad5c580d0c93a706b7."
+}
