@@ -26,7 +26,7 @@ for(const token of ['/v1/client/bootstrap','getAuthorizedContexts','state.contex
 
 for(const token of ["REFRESH_POLICY='OPEN_CONTEXT_CHANGE_INVALIDATION'","load('open')",'/v1/client/market-intelligence','RONA_CLIENT_MARKET_INTELLIGENCE_V1','public_chart',"rona:client:context-changed",'rona:client-market-intelligence-invalidated',
   '20261010-approved-admin-renderer-client-adapter-v14',"#rona-analytics-v2",'CANONICAL_VISUAL_OWNER',
-  'view.setPayload(payload)','CLIENT_AUTHORIZED_PUBLISHED_CURRENT_ONLY'])must(analytics,token,'analytics runtime');
+  'shared.apply(payload,true)','CLIENT_AUTHORIZED_PUBLISHED_CURRENT_ONLY'])must(analytics,token,'analytics runtime');
 for(const token of ['owner.replaceChildren(',"root.prepend(owner)",'mi-grid','mi-card'])forbid(analytics,token,'new Analytics visual owner must not replace canonical design');
 for(const token of ['rona-client-analytics-canonical-prepaint-v7','id="rona-client-market-intelligence-v1"'])must(html,token,'source-safe canonical visual prepaint');
 for(const token of ['rona:client:background-sections','__RONA_CLIENT_BACKGROUND_CACHE__','background-cache','background-event','REFRESH_MS=','setInterval('])forbid(analytics,token,'analytics runtime');
