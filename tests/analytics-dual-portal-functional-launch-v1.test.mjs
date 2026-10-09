@@ -97,13 +97,13 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
   const runtime=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
   const edge=await readFile('supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts','utf8');
   const render=await readFile('scripts/attach-client-market-intelligence-v1.mjs','utf8');
-  const approval=JSON.parse(await readFile('governance/lpg-daily-history-v13-owner-approval-20261009.json','utf8'));
+  const approval=JSON.parse(await readFile('governance/client-analytics-exact-admin-single-engine-v14-owner-approval-20261010.json','utf8'));
   assert.equal(approval.approval,'OWNER_IN_CHAT');
-  assert.equal(approval.scope,'ANALYTICS_LPG_GAP_HISTORY_V13');
+  assert.equal(approval.scope,'ANALYTICS_ADMIN_EXACT_NATIVE_CLIENT_SINGLE_ENGINE_V14');
   assert.equal(approval.requirements.wildcard_exception,false);
-  assert.equal(approval.requirements.client_native_an2_graph_preserved,true);
-  assert.equal(approval.requirements.context_switch_fail_closed,true);
-  assert.equal(approval.requirements.no_admin_internal_margin_or_price_bridge_in_client,true);
+  assert.equal(approval.requirements.unchanged_approved_admin_markup_css_native_controls,true);
+  assert.equal(approval.requirements.no_cross_client_context_retention,true);
+  assert.equal(approval.requirements.no_private_admin_pricing_bridge_in_client,true);
   assert.deepEqual(approval.approved_protected_files,[
     'assets/portal-runtime/client-market-intelligence-v1.js',
     'scripts/attach-client-market-intelligence-v1.mjs'
@@ -129,7 +129,7 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'term.asOfDate === lastSourceDate.slice(8,10)',
     'authorizedClientKeys(c)',"pi.distribution_allowed=true",
     "p.status::text='PUBLISHED'",")='CURRENT'",
-    'market_intelligence_admin_canonical_payload_v1()',
+    "public.owner_analytics_admin_bootstrap()->'canonicalAnalytics'",
     'model_version',"'RONA_FULL_PLATTS_CURVE_V1'",
     'CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14',
     'targetIsFuture',
@@ -142,7 +142,8 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'data?.clientCanonicalAnalytics',
     'view.setPayload(payload)',
     'publishedPriceContext()',
-    'paintAuthorizedPrices(owner,chosen)'
+    'paintAuthorizedPrices(owner,chosen)',
+    'source-safe-v5-client-admin-engine'
   ])assert.ok(runtime.includes(token),'frozen client runtime missing: '+token);
   assert.ok(render.includes('client-market-intelligence-v1.js?v=20261010-client-approved-admin-single-engine-v14'));
   assert.equal(runtime.includes("fetch('/portal/api/v1/admin/analytics'"),false,'client must not fetch Admin API');
