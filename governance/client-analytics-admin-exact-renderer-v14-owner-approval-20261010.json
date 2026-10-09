@@ -15,7 +15,7 @@
     "assets/portal-runtime/client-market-intelligence-v1.js": {
       "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
       "supersedes_authorized_post_blob_sha": "bd15c42b22e1a65a420d507618cc1c4d08109861",
-      "authorized_post_blob_sha": "dc1757a13d5cd0502a70e09121f59b2bf2547c57",
+      "authorized_post_blob_sha": "168a77d4d184a3cd729bfc16a59896e6f65cdff0",
       "required_marker": "20261010-client-approved-admin-exact-mirror-v14"
     },
     "scripts/attach-client-market-intelligence-v1.mjs": {
@@ -46,7 +46,8 @@
     "production_rollback_required": true,
     "wildcard_exception": false,
     "no_admin_internal_margin_or_price_bridge_in_client": true,
-    "empty_client_feed_chart_fail_closed": true
+    "empty_client_feed_chart_fail_closed": true,
+    "approved_admin_svg_hidden_on_missing_client_data": true
   },
   "rollback": "Revert PR v14 only and restore production SHA 910eb89c4c6cf04b814b25c8ec689a4053a12d0b, Client asset bd15c42b22e1a65a420d507618cc1c4d08109861, attach 2c77459224d88580d58c1ab7dc42b69aa6dc2be4. No DB migration or new business facts."
 }
