@@ -12,11 +12,11 @@ if(!portalServer.includes(".on('head',new HeadPrepend(bridge))")||
 const headers=await readFile(join(DIST,'_headers'),'utf8');
 if(!headers.includes('/assets/portal-runtime/client-market-intelligence-v1.js\n  Cache-Control: no-store, no-cache, must-revalidate, max-age=0'))
   throw Error('CLIENT_MARKET_RUNTIME_NO_STORE_MISSING');
-const marker='20261009-lpg-source-gap-history-v13';
+const marker='20261009-admin-canonical-shared-presenter-v14';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
   hasBridge:html.includes(bridge),
-  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13'),
+  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-admin-canonical-shared-presenter-v14'),
   rootStatic:/id=["']page-analytics["']/.test(html),
   analyticsNodeMatch:html.match(/.{0,180}id=["']page-analytics["'].{0,280}/)?.[0]||'not found',
   possibleIds:([...html.matchAll(/id=["']([^"']*analytic[^"']*)["']/gi)]).map(x=>x[1]).slice(0,30),
@@ -28,6 +28,10 @@ const canonicalMethods={};for(const key of ['const DATA=','DATA.products','funct
 }
 console.log('CLIENT_CANONICAL_ORIGINAL_DATA_CONTRACT',JSON.stringify(canonicalMethods));
 
+const sharedFile=await readFile('functions/portal/analytics-canonical-presenter-v14.js','utf8');
+const sharedMatch=sharedFile.match(/export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`([\s\S]*?)`;/);
+if(!sharedMatch||!sharedMatch[1].includes('ADMIN_APPROVED_SHARED_V14'))throw Error('SHARED_ADMIN_PRESENTER_NOT_FOUND');
+const sharedRuntime=sharedMatch[1];
 const payload={ok:true,data:{version:'RONA_CLIENT_MARKET_INTELLIGENCE_V1',generated_at:'2026-10-09T00:01:00Z',analytics:[],news:[]}};
 const MIME={'.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.html':'text/html; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp'};
 const srv=http.createServer(async(req,res)=>{
@@ -36,6 +40,9 @@ const srv=http.createServer(async(req,res)=>{
     res.setHeader('cache-control','no-store');
     if(u.pathname==='/portal/client'){
       res.setHeader('content-type','text/html; charset=utf-8');res.end(html);return;
+    }
+    if(u.pathname==='/portal/analytics-canonical-presenter-v14'){
+      res.setHeader('content-type','application/javascript; charset=utf-8');res.end(sharedRuntime);return;
     }
     if(u.pathname==='/portal/api/v1/client/market-intelligence'){
       res.setHeader('content-type','application/json; charset=utf-8');res.end(JSON.stringify(payload));return;
@@ -137,6 +144,7 @@ try{
   await nav('analytics');
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1',null,{timeout:6500});
   const initial=await snapshot();
+  if(await page.evaluate(()=>window.RONA_ANALYTICS_PRESENTER_V14?.version)!=='ADMIN_APPROVED_SHARED_V14')throw Error('ADMIN_SHARED_PRESENTER_NOT_LOADED_IN_CLIENT');
   console.log('CLIENT_CANONICAL_VISUAL_RESTORED_V7_INITIAL',JSON.stringify(initial));
   if(initial.runtime!==marker||!initial.nativeView||initial.visualOwner!=='canonical-v7'||initial.substituteCount!==0||
      initial.ownerHidden||initial.owner?.display==='none'||initial.owner?.height<450||
