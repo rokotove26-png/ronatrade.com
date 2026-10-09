@@ -21,7 +21,7 @@ export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`
   };
   const usable=(item,key)=>item&&Array.isArray(item.dates)&&Array.isArray(item.values)&&
     item.dates.length>0&&item.dates.length===item.values.length&&
-    item.dates.every(d=>/^\d{2}\\.\d{2}$/.test(String(d)))&&item.values.every(goodNumber)&&validDaily(item,key);
+    item.dates.every(d=>/^\d{2}\.\d{2}$/.test(String(d)))&&item.values.every(goodNumber)&&validDaily(item,key);
   function apply(root,payload,{mode='admin'}={}){
     if(!root||!payload?.products||!window.RONA_ANALYTICS_VIEW)return false;
     const state=window.RONA_ANALYTICS_VIEW.getState?.()||{};
@@ -37,7 +37,7 @@ export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`
       stage?.querySelectorAll('[data-rona-client-canonical-empty],.an2-empty,.rona-market-chart-empty').forEach(x=>x.remove());
     }else{
       if(svg){svg.hidden=true;svg.style.setProperty('visibility','hidden','important')}
-      if(stage&&!stage.querySelector('[data-rona-shared-empty-v14]')){
+      if(stage&&!stage.querySelector('.an2-empty,[data-rona-shared-empty-v14]')){
         const msg=document.createElement('div');
         msg.className='an2-empty';msg.dataset.ronaSharedEmptyV14='1';
         const strong=document.createElement('strong'),sub=document.createElement('span');
@@ -66,9 +66,9 @@ export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`
     if(key==='LPG'){
       const regional=item?.regionalBenchmark;
       const regionDate=String(regional?.date||'');
-      const month=/^\d{2}\\.\d{2}\\.\d{4}$/.test(regionDate)?regionDate.slice(6)+'-'+regionDate.slice(3,5):'';
+      const month=/^\d{2}\.\d{2}\.\d{4}$/.test(regionDate)?regionDate.slice(6)+'-'+regionDate.slice(3,5):'';
       const latest=String(payload.latestTradeDate||payload.cutoff||'');
-      const activeMonth=/^\d{2}\\.\d{2}\\.\d{4}$/.test(latest)?latest.slice(6)+'-'+latest.slice(3,5):'';
+      const activeMonth=/^\d{2}\.\d{2}\.\d{4}$/.test(latest)?latest.slice(6)+'-'+latest.slice(3,5):'';
       const valid=!!activeMonth&&month>=activeMonth&&goodNumber(regional?.low)&&goodNumber(regional?.high);
       const val=valid?Number(regional.low).toLocaleString('ru-RU',{maximumFractionDigits:2})+'–'+
         Number(regional.high).toLocaleString('ru-RU',{maximumFractionDigits:2})+' USD/т':'Нет актуальных данных';
@@ -85,6 +85,12 @@ export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`
     const forecastReady=forecast&&/^\d{4}-\d{2}$/.test(String(forecast.month||''))&&
       ['low','base','high','forward'].every(k=>goodNumber(forecast[k]))&&
       String(forecast.sourceRef||'').trim().length>0;
+    const hasPriceBase=Array.isArray(item?.rona?.bases)&&item.rona.bases.length>0&&
+      item.rona.bases.every(b=>Array.isArray(b)&&b.length===2&&goodNumber(b[1]));
+    if(!forecastReady||!hasPriceBase){
+      root.querySelectorAll('.an2-price-base,.an2-price-range,.an2-price-current')
+        .forEach(node=>text(node,'—'));
+    }
     if(!forecastReady){
       const box=root.querySelector('.an2-market-forecast');
       if(box){box.replaceChildren();const h=document.createElement('div'),sub=document.createElement('div');h.className='an2-mf-title';h.textContent='Прогноз недоступен';sub.className='an2-mf-sub';sub.textContent='Нет полного подтверждённого прогноза со ссылкой на источник.';box.append(h,sub)}
