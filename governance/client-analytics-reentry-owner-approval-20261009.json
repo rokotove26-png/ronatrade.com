@@ -1,14 +1,15 @@
 {
   "approval": "OWNER_IN_CHAT",
   "authorized_at": "2026-10-09",
-  "owner_instruction": "Owner authorized Client Analytics-only visual freeze release and subsequently reported no change in the authenticated Client LK screenshot. Remediation limited to legacy visibility re-entry bug and no other Client LK visual sections.",
+  "owner_instruction": "Owner-authorized Client Analytics-only correction to stale SPA reentry and script caching. Maintain all unrelated Client LK sections and market publication policy.",
   "owner_instruction_ref": "OWNER_IN_CHAT:20261009:CLIENT_ANALYTICS_SCOPED_VISUAL_FREEZE; OWNER_CLIENT_SCREENSHOT:20261008-235822",
   "scope": "CLIENT_ANALYTICS_REENTRY_GUARD_V4",
   "decision": "SCOPED_VISUAL_FREEZE_RELEASE",
   "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_REENTRY_GUARD_V4",
   "supersedes_scope": "CLIENT_ANALYTICS_CURRENT_SOURCE_SAFE_V3",
   "approved_protected_files": [
-    "assets/portal-runtime/client-market-intelligence-v1.js"
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
   ],
   "exact_post_blobs": {
     "assets/portal-runtime/client-market-intelligence-v1.js": {
@@ -16,6 +17,12 @@
       "supersedes_authorized_post_blob_sha": "7ba5bc4f1296bb6b560adddf145cf419e0d32d71",
       "authorized_post_blob_sha": "95f92544606e831318eb06ca6bd1022e75533d67",
       "required_marker": "20261009-client-analytics-reentry-guard-v4"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "48f0c9c2b74e8498341dde0bc4d8f940d84d4e57",
+      "authorized_post_blob_sha": "cbafacfd48457efb07c757eb2796c88213dfa65e",
+      "required_marker": "20261009-client-analytics-reentry-v4"
     }
   },
   "requirements": {
@@ -35,6 +42,8 @@
     "wildcard_exception": false,
     "exact_blob_enforcement": true,
     "scoped_unfreeze_only": true,
-    "rollback": "Revert protected analytics runtime to prior authorized v3 Git blob 7ba5bc4f1296bb6b560adddf145cf419e0d32d71 and revert v4 supersession; no business data rollback needed."
-  }
+    "rollback": "Revert protected analytics runtime to prior authorized v3 Git blob 7ba5bc4f1296bb6b560adddf145cf419e0d32d71 and revert v4 supersession; no business data rollback needed.",
+    "analytics_runtime_cache_busted": true
+  },
+  "rollback": "Restore analytics runtime blob 7ba5bc4f1296bb6b560adddf145cf419e0d32d71 and injector blob 48f0c9c2b74e8498341dde0bc4d8f940d84d4e57; all non-Analytics features unchanged."
 }
