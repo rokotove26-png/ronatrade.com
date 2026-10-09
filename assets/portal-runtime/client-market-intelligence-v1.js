@@ -348,11 +348,33 @@ function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
   // The original RONA renderer owns its controls, chart, forecast, pricing cards and commentary.
   // Do not retrigger native rendering on our own MutationObserver-driven updates.
   const sig=reason==='PUBLISHED_CURRENT_ONLY'?state.fingerprint:reason;
-  if(owner.dataset.ronaClientPayloadFingerprint!==sig||owner.dataset.renderState!==reason){
-    view.setPayload(payload);
-    owner.dataset.ronaClientPayloadFingerprint=sig;
+  const currentKey=String(view.getState?.()?.product||'AI92');
+  const selectedSeries=payload.products[currentKey];
+  const canDrawCurrent=reason==='PUBLISHED_CURRENT_ONLY' &&
+    Array.isArray(selectedSeries?.dates)&&Array.isArray(selectedSeries?.values)&&
+    selectedSeries.dates.length>0 &&
+    selectedSeries.values.length===selectedSeries.dates.length &&
+    selectedSeries.values.every(v=>Number.isFinite(Number(v)));
+  // The approved Admin painter expects an observation array: an empty series
+  // dereferences points[0].x and can loop forever. NEVER call it with an empty
+  // or failed client feed. The source-safe Client overlay remains separate.
+  if(canDrawCurrent &&
+     (owner.dataset.ronaClientPayloadFingerprint!==sig||owner.dataset.renderState!==reason)){
+    const applied=view.setPayload(payload);
+    if(applied!==false)owner.dataset.ronaClientPayloadFingerprint=sig;
   }
   ensureSafeCanonicalState(owner,payload,reason);
+  if(!canDrawCurrent){
+    const f=owner.querySelector('.an2-market-forecast');
+    if(f){
+      const title=f.querySelector('.an2-mf-title');
+      if(title)textIfDifferent(title,'Прогноз недоступен');
+      f.querySelectorAll('.an2-mf-row strong').forEach(x=>textIfDifferent(x,'—'));
+    }
+    owner.querySelectorAll('.an2-kpis .rona-owner-kpi').forEach(x=>textIfDifferent(x,'—'));
+    const comment=owner.querySelector('.an2-comment');
+    if(comment)textIfDifferent(comment,'Текущий опубликованный ряд для выбранного продукта отсутствует');
+  }
   root.dataset.ronaClientAnalyticsReady=reason==='PUBLISHED_CURRENT_ONLY'?'true':'false';
   root.dataset.ronaClientMarketIntelligenceFingerprint='analytics:'+state.fingerprint;
 }
