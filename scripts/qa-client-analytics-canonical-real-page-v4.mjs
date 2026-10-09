@@ -71,7 +71,18 @@ try{
     }));
     const blocks=[...root.children].map(n=>({node:inspect(n),descendants:n.querySelectorAll('*').length}));
     const numerical=[...root.querySelectorAll('[class*="kpi"],[class*="chart"],[class*="forecast"],[class*="price"],canvas,iframe')].slice(0,55).map(inspect);
-    return{root:inspect(root),page:inspect(parent),htmlSize:root.outerHTML.length,blocks,structure:structure.slice(0,120),numeric:numerical};
+    const views={analyticsView:typeof window.RONA_ANALYTICS_VIEW,
+      api:Object.keys(window.RONA_ANALYTICS_VIEW||{}).slice(0,30),
+      runtime:typeof window.RONA_ANALYTICS_RUNTIME,
+      controllers:[...Object.keys(window)].filter(s=>/analyti|chart/i.test(s)).slice(0,22)};
+    const chartSvg=root.querySelector('[data-chart-svg]');
+    const chartNodes=chartSvg?[...chartSvg.children].slice(0,35).map(n=>({tag:n.tagName,cls:n.getAttribute('class'),
+      id:n.id?.baseVal||n.id||'',role:n.getAttribute('role'),
+      text:n.tagName.toLowerCase()==='text'?String(n.textContent||'').slice(0,28):'',
+      d:n.getAttribute('d')?.slice(0,75)||null})):null;
+    const controls=[...root.querySelectorAll('[data-an2-product],[data-an2-source]')].map(n=>({name:n.textContent.trim(),product:n.getAttribute('data-an2-product'),source:n.getAttribute('data-an2-source'),active:n.className}));
+    const stateSlots=[...root.querySelectorAll('.an2-market-forecast,.an2-mf-title,.an2-mf-row,.an2-rona-head,.an2-model-note,.an2-comment')].map(n=>({cls:n.className,parts:[...n.children].slice(0,4).map(z=>({tag:z.tagName,cls:z.className})),head:String(n.textContent||'').trim().slice(0,110)}));
+    return{root:inspect(root),page:inspect(parent),htmlSize:root.outerHTML.length,blocks,structure:structure.slice(0,120),numeric:numerical,views,chartNodes,controls,stateSlots};
   });
   console.log('CLIENT_CANONICAL_ORIGINAL_VISUAL_CONTRACT',JSON.stringify(canonicalProbe));
   const d=await page.evaluate(()=>({
