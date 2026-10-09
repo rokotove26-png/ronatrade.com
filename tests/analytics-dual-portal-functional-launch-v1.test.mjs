@@ -97,9 +97,9 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
   const runtime=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
   const edge=await readFile('supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts','utf8');
   const render=await readFile('scripts/attach-client-market-intelligence-v1.mjs','utf8');
-  const approval=JSON.parse(await readFile('governance/lpg-daily-history-v13-owner-approval-20261009.json','utf8'));
+  const approval=JSON.parse(await readFile('governance/client-analytics-admin-exact-renderer-v14-owner-approval-20261010.json','utf8'));
   assert.equal(approval.approval,'OWNER_IN_CHAT');
-  assert.equal(approval.scope,'ANALYTICS_LPG_GAP_HISTORY_V13');
+  assert.equal(approval.scope,'CLIENT_ANALYTICS_APPROVED_ADMIN_RENDERER_EXACT_V14');
   assert.equal(approval.requirements.wildcard_exception,false);
   assert.equal(approval.requirements.client_native_an2_graph_preserved,true);
   assert.equal(approval.requirements.context_switch_fail_closed,true);
@@ -136,7 +136,7 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'Math.abs(Number(term.values[1])-Number(output.forecast.base))<0.001'
   ])assert.ok(edge.includes(token),'source-locked client canonical gate missing: '+token);
   for(const token of [
-    "const MARK='20261009-lpg-source-gap-history-v13'",
+    "const MARK='20261010-client-approved-admin-exact-mirror-v14'",
     "const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13'",
     'function canonicalPayload(data)',
     'data?.clientCanonicalAnalytics',
@@ -144,7 +144,7 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'publishedPriceContext()',
     'paintAuthorizedPrices(owner,chosen)'
   ])assert.ok(runtime.includes(token),'frozen client runtime missing: '+token);
-  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13'));
+  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261010-client-approved-admin-exact-mirror-v14'));
   assert.equal(runtime.includes("fetch('/portal/api/v1/admin/analytics'"),false,'client must not fetch Admin API');
   assert.equal(edge.includes('payload.clientCanonicalAnalytics = canonical'),false,'never expose unsanitized admin canonical payload');
   assert.equal(edge.includes('output.rona ='),false,'never expose internal RONA price bridge');
