@@ -4,6 +4,7 @@ if(location.pathname!=='/portal/client')return;
 const MARK='20261009-client-analytics-current-source-safe-v3';
 const REENTRY_GUARD='20261009-client-analytics-reentry-guard-v4';
 const VISIBLE_OWNER_GUARD='20261009-client-analytics-visible-owner-v5';
+const ACTIVE_ROUTE_RECOVERY='20261009-client-analytics-active-route-recovery-v6';
 if(window.__RONA_CLIENT_MARKET_INTELLIGENCE__===MARK)return;
 window.__RONA_CLIENT_MARKET_INTELLIGENCE__=MARK;
 
@@ -84,10 +85,34 @@ function installStyle(){
 `;
   document.head.appendChild(s);
 }
+function recoverAnalyticsRoute(root){
+  const active=[...document.querySelectorAll('.sidebar [data-page="analytics"],#nav [data-page="analytics"]')].some(n=>n.classList.contains('active')||n.getAttribute('aria-current')==='page');
+  if(active){
+    if(root.hidden)root.hidden=false;
+    const css=getComputedStyle(root);
+    if(css.display==='none'){
+      root.style.setProperty('display','block','important');
+      root.dataset.ronaAnalyticsRouteRecovered='v6';
+    }
+    if(css.visibility==='hidden'){
+      root.style.setProperty('visibility','visible','important');
+      root.dataset.ronaAnalyticsRouteRecovered='v6';
+    }
+  }else if(root.dataset.ronaAnalyticsRouteRecovered==='v6'){
+    if(root.style.getPropertyValue('display')==='block'&&root.style.getPropertyPriority('display')==='important')root.style.removeProperty('display');
+    if(root.style.getPropertyValue('visibility')==='visible'&&root.style.getPropertyPriority('visibility')==='important')root.style.removeProperty('visibility');
+    delete root.dataset.ronaAnalyticsRouteRecovered;
+  }
+}
 function ensureOwner(root){
   installStyle();
   let owner=root.querySelector(`:scope > [${OWNER}="analytics"]`);
   if(!owner){owner=el('section',{[OWNER]:'analytics','data-rona-client-market-intelligence-version':MARK});root.prepend(owner)}
+  // Inline !important written by a late SPA renderer outranks the v5 stylesheet.
+  // Reassert visibility only on the safe published-current owner, never on archived siblings.
+  if(owner.hidden)owner.hidden=false;
+  if(getComputedStyle(owner).display==='none')owner.style.setProperty('display','block','important');
+  if(getComputedStyle(owner).visibility==='hidden')owner.style.setProperty('visibility','visible','important');
   // The canonical Client SPA reopens its embedded analytics v2 child and
   // overwrites hidden/display on every navigation. Re-lock *already marked*
   // legacy children too; otherwise stale August/September prices reappear
@@ -164,6 +189,7 @@ function apply(){
   state.renderQueued=false;
   const root=analyticsPage();
   if(!root)return;
+  recoverAnalyticsRoute(root);
   ensureOwner(root);
   if(state.data){
     if(root.dataset.ronaClientMarketIntelligenceFingerprint!=='analytics:'+state.fingerprint)renderAnalytics(root,state.data);
