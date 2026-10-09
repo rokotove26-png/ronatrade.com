@@ -32,9 +32,9 @@ const sharedFile=await readFile('functions/portal/analytics-canonical-presenter-
 const sharedMatch=sharedFile.match(/export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`([\s\S]*?)`;/);
 if(!sharedMatch||!sharedMatch[1].includes('ADMIN_APPROVED_SHARED_V14'))throw Error('SHARED_ADMIN_PRESENTER_NOT_FOUND');
 const adminModule=await readFile('functions/portal/analytics-v2-ui.js','utf8');
-const bridgeMatch=adminModule.match(/export const CANONICAL_PRICING_BRIDGE_RUNTIME=String.raw`([\\s\\S]*?)`;/);
+const bridgeMatch=adminModule.match(/export const CANONICAL_PRICING_BRIDGE_RUNTIME=String.raw`([\s\S]*?)`;/);
 const gapModule=await readFile('functions/portal/lpg-observation-gap-runtime-v13.js','utf8');
-const gapMatch=gapModule.match(/export const LPG_GAP_RUNTIME=String.raw`([\\s\\S]*?)`;/);
+const gapMatch=gapModule.match(/export const LPG_GAP_RUNTIME=String.raw`([\s\S]*?)`;/);
 if(!bridgeMatch||!gapMatch)throw Error('ADMIN_CANONICAL_BRIDGE_MISSING');
 const sharedRuntime=bridgeMatch[1]+sharedMatch[1]+gapMatch[1];
 const payload={ok:true,data:{version:'RONA_CLIENT_MARKET_INTELLIGENCE_V1',generated_at:'2026-10-09T00:01:00Z',analytics:[],news:[]}};
