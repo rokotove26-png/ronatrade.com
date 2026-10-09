@@ -17,7 +17,7 @@ let payload={version:'RONA_CLIENT_MARKET_INTELLIGENCE_V1',generated_at:stamp,ana
   row('АИ-92','STALE_SOURCE'),row('СУГ / СПБТ','TO_VERIFY_FRESHNESS')],news:[]};
 let mode='OK',requests=0,latencyMs=75;
 const html=String.raw`<!doctype html><html lang="ru"><head><meta charset="UTF-8"></head><body>
-<section id="page-analytics" class="page active"><section id="rona-analytics-v2" class="an2">
+<section id="page-analytics" class="page active"><section id="rona-analytics-v2" class="an2" data-analytics-owner="approved-v431" data-rona-exact-admin-visual="approved-v4.3.2">
 <section class="rona-visual-hero rona-analytics-hero"><h1>Аналитика</h1></section>
 <div class="an2-kpis"><section class="rona-owner-card"><h2>Platts</h2><div class="rona-owner-kpi">21.08.2026</div><div class="rona-owner-muted">Архив</div></section>
 <section class="rona-owner-card"><h2>Argus</h2><div class="rona-owner-kpi">1 111</div><div class="rona-owner-muted">Архив</div></section>
