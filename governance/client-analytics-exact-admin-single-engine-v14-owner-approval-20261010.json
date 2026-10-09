@@ -15,7 +15,7 @@
     "assets/portal-runtime/client-market-intelligence-v1.js": {
       "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
       "supersedes_authorized_post_blob_sha": "bd15c42b22e1a65a420d507618cc1c4d08109861",
-      "authorized_post_blob_sha": "4b6b53b26d0d279725b4e9d5e987b5595216a51c",
+      "authorized_post_blob_sha": "83ebedfc2411f2bc8664a590538ddd3ea3a79c01",
       "required_marker": "20261010-client-approved-admin-single-engine-v14"
     },
     "scripts/attach-client-market-intelligence-v1.mjs": {
@@ -49,7 +49,9 @@
     "real_client_browser_qa_required": true,
     "production_release_proof_required": true,
     "no_business_data_mutation": true,
-    "wildcard_exception": false
+    "wildcard_exception": false,
+    "client_price_card_count_equal_admin": true,
+    "only_public_destination_names_projected": true
   },
   "rollback": "Revert release to PR#1138 merge 910eb89c4c6cf04b814b25c8ec689a4053a12d0b and Supabase Edge wrapper v99. Restore two v13 exact blobs and remove client-only approved Admin script route injection. Does not revert historical source migrations."
 }
