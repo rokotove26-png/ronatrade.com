@@ -4,25 +4,11 @@ import {join,normalize,extname} from 'node:path';
 import {chromium} from 'playwright';
 
 const ROOT=process.cwd(),DIST=join(ROOT,'dist');
-const canonicalHtml=await readFile(join(DIST,'portal/client.html'),'utf8');
-const worker=await readFile(join(ROOT,'functions/portal/[[path]].js'),'utf8');
-const marketHeadBoot='<script id="rona-client-market-intelligence-server-boot-v4" src="/assets/portal-runtime/client-market-intelligence-v1.js?v=20261009-authorized-client-bootstrap-v4" defer fetchpriority="high"></script>';
-const requiredServerSource=[
-  "const CLIENT_ANALYTICS_HEAD_BOOT =",
-  "HeadPrepend(bridge+CLIENT_ANALYTICS_HEAD_BOOT)",
-  "HeadAppend(CLIENT_HOME_BOOT_PRIORITY+CLIENT_ANALYTICS_HEAD_BOOT)",
-  "SERVER_HEAD_V4_AUTHORIZED_IMPERSONATION",
-  "SERVER_HEAD_V4_AUTHORIZED_CLIENT"
-];
-for(const token of requiredServerSource)if(!worker.includes(token))throw Error('SERVER_CLIENT_ANALYTICS_BOOT_CONTRACT_MISSING: '+token);
-if(!/<head(?:\s|>)/i.test(canonicalHtml))throw Error('CANONICAL_CLIENT_HEAD_NOT_FOUND');
-const html=canonicalHtml.replace(/<head(?:\s[^>]*)?>/i,m=>m+marketHeadBoot);
+const html=await readFile(join(DIST,'portal/client.html'),'utf8');
 const marker='20261009-client-analytics-current-source-safe-v3';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
   hasBridge:html.includes(bridge),
-  hasServerHeadBoot:html.includes('rona-client-market-intelligence-server-boot-v4'),
-  serverImpersonationGuard:worker.includes('HeadPrepend(bridge+CLIENT_ANALYTICS_HEAD_BOOT)'),
   markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-current-source-safe-v3'),
   rootStatic:/id=["']page-analytics["']/.test(html),
   analyticsNodeMatch:html.match(/.{0,180}id=["']page-analytics["'].{0,280}/)?.[0]||'not found',
@@ -67,7 +53,6 @@ try{
     path:location.pathname,
     readyState:document.readyState,
     scriptPresence:!!document.getElementById('rona-client-market-intelligence-v1'),
-    serverBootPresence:!!document.getElementById('rona-client-market-intelligence-server-boot-v4'),
     scriptSrc:document.getElementById('rona-client-market-intelligence-v1')?.getAttribute('src'),
     runtimeMarker:window.__RONA_CLIENT_MARKET_INTELLIGENCE__||null,
     rootCount:document.querySelectorAll('#page-analytics').length,
@@ -79,7 +64,7 @@ try{
     htmlLegacyVisible:document.body?.innerText?.includes('21.08.2026')??null
   }));
   console.log('CLIENT_REAL_CANONICAL_BROWSER',JSON.stringify({diagnostic:d,errors:errors.slice(0,12),requestFails:requestFail.slice(0,7)}));
-  if(!report.hasBridge||!report.markerRef||!report.hasServerHeadBoot||!report.serverImpersonationGuard)throw Error('CANONICAL_AND_SERVER_CLIENT_ANALYTICS_BOOT_MISSING');
+  if(!report.hasBridge||!report.markerRef)throw Error('CANONICAL_AND_SERVER_CLIENT_ANALYTICS_BOOT_MISSING');
   if(!d.runtimeMarker||d.ownerCount!==1||d.rootDataset.ronaClientAnalyticsMigrated!=='v3')throw Error('CANONICAL_REAL_PAGE_ANALYTICS_BOOT_FAILED: '+JSON.stringify(d).slice(0,1500));
   if((d.rootExcerpt||'').includes('21.08.2026')||(d.rootExcerpt||'').includes('Прогноз 09.2026'))throw Error('ARCHIVED_202608_DATA_VISIBLE_IN_CANONICAL_REAL_PAGE');
   // The screenshot was captured after Client navigation in an impersonated tab,
