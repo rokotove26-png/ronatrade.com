@@ -1,0 +1,21 @@
+name: Analytics Admin Client Native Source Parity Inspector
+on:
+  pull_request:
+    paths:
+      - 'scripts/qa-admin-client-canonical-owner-inspect-v1.mjs'
+      - 'scripts/attach-client-market-intelligence-v1.mjs'
+      - 'scripts/materialize-admin-current-modules.mjs'
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/analytics-v2-approved-base.js'
+      - '.github/workflows/analytics-admin-client-native-source-parity.yml'
+  workflow_dispatch:
+jobs:
+  source-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/qa-admin-client-canonical-owner-inspect-v1.mjs
