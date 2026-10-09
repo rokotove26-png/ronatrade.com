@@ -12,11 +12,11 @@ if(!portalServer.includes(".on('head',new HeadPrepend(bridge))")||
 const headers=await readFile(join(DIST,'_headers'),'utf8');
 if(!headers.includes('/assets/portal-runtime/client-market-intelligence-v1.js\n  Cache-Control: no-store, no-cache, must-revalidate, max-age=0'))
   throw Error('CLIENT_MARKET_RUNTIME_NO_STORE_MISSING');
-const marker='20261009-client-analytics-current-source-safe-v3';
+const marker='20261009-client-analytics-canonical-restored-v7';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
   hasBridge:html.includes(bridge),
-  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-active-route-recovery-v6'),
+  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-canonical-restored-v7'),
   rootStatic:/id=["']page-analytics["']/.test(html),
   analyticsNodeMatch:html.match(/.{0,180}id=["']page-analytics["'].{0,280}/)?.[0]||'not found',
   possibleIds:([...html.matchAll(/id=["']([^"']*analytic[^"']*)["']/gi)]).map(x=>x[1]).slice(0,30),
@@ -96,163 +96,91 @@ try{
     return{root:inspect(root),page:inspect(parent),htmlSize:root.outerHTML.length,blocks,structure:structure.slice(0,120),numeric:numerical,views,chartNodes,controls,stateSlots};
   });
   console.log('CLIENT_CANONICAL_ORIGINAL_VISUAL_CONTRACT',JSON.stringify(canonicalProbe));
-  const d=await page.evaluate(()=>({
-    path:location.pathname,
-    readyState:document.readyState,
-    scriptPresence:!!document.getElementById('rona-client-market-intelligence-v1'),
-    scriptSrc:document.getElementById('rona-client-market-intelligence-v1')?.getAttribute('src'),
-    runtimeMarker:window.__RONA_CLIENT_MARKET_INTELLIGENCE__||null,
-    rootCount:document.querySelectorAll('#page-analytics').length,
-    rootIds:[...document.querySelectorAll('[id*="analyt"],[data-page*="analyt"]')].slice(0,30).map(n=>({tag:n.tagName,id:n.id,dataPage:n.dataset.page,text:String(n.textContent||'').trim().slice(0,75)})),
-    rootDataset:{...document.querySelector('#page-analytics')?.dataset},
-    ownerCount:document.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length,
-    ownerState:document.querySelector('[data-rona-client-market-intelligence-owner="analytics"]')?.dataset.renderState,
-    rootExcerpt:document.querySelector('#page-analytics')?.innerText?.slice(0,650),
-    htmlLegacyVisible:document.body?.innerText?.includes('21.08.2026')??null
-  }));
-  console.log('CLIENT_REAL_CANONICAL_BROWSER',JSON.stringify({diagnostic:d,errors:errors.slice(0,12),requestFails:requestFail.slice(0,7)}));
-  if(!report.hasBridge||!report.markerRef)throw Error('CANONICAL_AND_SERVER_CLIENT_ANALYTICS_BOOT_MISSING');
-  if(!d.runtimeMarker||d.ownerCount!==1||d.rootDataset.ronaClientAnalyticsMigrated!=='v3')throw Error('CANONICAL_REAL_PAGE_ANALYTICS_BOOT_FAILED: '+JSON.stringify(d).slice(0,1500));
-  if((d.rootExcerpt||'').includes('21.08.2026')||(d.rootExcerpt||'').includes('Прогноз 09.2026'))throw Error('ARCHIVED_202608_DATA_VISIBLE_IN_CANONICAL_REAL_PAGE');
-  // The screenshot was captured after Client navigation in an impersonated tab,
-  // not on initial DOMContentLoaded. Prove the same canonical page after re-entry.
-  for(const turn of ['first-nav','second-nav']){
-    await page.evaluate(()=>{
-      const nav=[...document.querySelectorAll('[data-page="analytics"]')].find(n=>n.tagName==='BUTTON')||
-                document.querySelector('[data-page="analytics"]');
-      if(!nav)throw Error('CANONICAL_ANALYTICS_NAVIGATION_NOT_FOUND');
-      nav.click();
-    });
-    await page.waitForTimeout(1200);
-    const observed=await page.evaluate(()=>{
-      const root=document.getElementById('page-analytics');
-      const owner=root?.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
-      return {
-        migrated:root?.dataset.ronaClientAnalyticsMigrated||null,
-        marker:window.__RONA_CLIENT_MARKET_INTELLIGENCE__||null,
-        ownerCount:root?.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length||0,
-        ownerState:owner?.dataset.renderState||null,
-        legacyVisible:[...root?.querySelectorAll('[data-rona-client-analytics-legacy="hidden-v3"]')||[]]
-          .filter(n=>getComputedStyle(n).display!=='none').length,
-        visibleOldText:String(root?.innerText||'').includes('21.08.2026')||
-                        String(root?.innerText||'').includes('Прогноз 09.2026'),
-        rootClass:root?.className||'',
-        rootDisplay:root?getComputedStyle(root).display:null,
-        rootVisibility:root?getComputedStyle(root).visibility:null,
-        rootRect:root?{width:root.getBoundingClientRect().width,height:root.getBoundingClientRect().height}:null,
-        ownerDisplay:owner?getComputedStyle(owner).display:null,
-        ownerRect:owner?{width:owner.getBoundingClientRect().width,height:owner.getBoundingClientRect().height}:null,
-        ownerHidden:owner?.hidden??null,
-        ownerAttributes:owner?[...owner.attributes].map(a=>[a.name,a.value]).slice(0,16):[],
-        rootChildren:root?[...root.children].slice(0,5).map(n=>({tag:n.tagName,id:n.id,attr:[...n.attributes].map(a=>[a.name,a.value]).slice(0,10),display:getComputedStyle(n).display})):[],
-        ownerMatchingDisplayRules:(()=>{
-          if(!owner)return [];const matches=[];
-          function visit(rules){for(const rule of rules||[]){if(rule.cssRules)visit(rule.cssRules);if(rule.type!==1||!rule.selectorText)continue;const display=rule.style?.getPropertyValue('display');if(!display&&!rule.style?.getPropertyValue('visibility'))continue;try{if(owner.matches(rule.selectorText))matches.push({selector:rule.selectorText.slice(0,190),display,important:rule.style.getPropertyPriority('display')})}catch{}}}
-          for(const sheet of document.styleSheets){try{visit(sheet.cssRules)}catch{}}return matches.slice(-18);
-        })(),
-        selectedNav:[...document.querySelectorAll('[data-page="analytics"]')].map(n=>({tag:n.tagName,className:n.className,ariaCurrent:n.getAttribute('aria-current')})).slice(0,3),
-        ancestorTrail:(()=>{const nodes=[];let n=root;for(let i=0;i<6&&n;i++,n=n.parentElement){const css=getComputedStyle(n);nodes.push({tag:n.tagName,id:n.id,className:String(n.className).slice(0,100),display:css.display,visibility:css.visibility,opacity:css.opacity,rectHeight:n.getBoundingClientRect().height})}return nodes})()
-      };
-    });
-    console.log('CLIENT_CANONICAL_REENTRY',JSON.stringify({turn,observed}));
-    if(observed.migrated!=='v3'||observed.ownerCount!==1||observed.legacyVisible||observed.visibleOldText)
-      throw Error('CLIENT_ANALYTICS_REENTRY_LEGACY_VISIBLE: '+JSON.stringify({turn,observed}));
-    if(observed.rootDisplay==='none'||observed.rootVisibility==='hidden'||!observed.rootRect?.height||!observed.ownerRect?.height||!observed.ancestorTrail.every(n=>n.display!=='none'&&n.visibility!=='hidden'&&n.opacity!=='0'&&n.rectHeight>0))
-      throw Error('CLIENT_ANALYTICS_VISIBLE_PANEL_MISSING: '+JSON.stringify({turn,observed}));
-    if(turn==='first-nav'){
-      await page.evaluate(()=>{
-        const home=[...document.querySelectorAll('[data-page="home"]')].find(n=>n.tagName==='BUTTON')||document.querySelector('[data-page="home"]');
-        if(!home)throw Error('CANONICAL_HOME_NAVIGATION_NOT_FOUND');
-        home.click();
-      });
-      await page.waitForTimeout(500);
-    }
-  }
-  // Owner screenshot shows a split desktop viewport of approximately 1170x657,
-  // not the 1400x850 canvas used by the previous (false-green) canonical QA.
+
+  const snapshot=()=>page.evaluate(()=>{
+    const pageRoot=document.querySelector('#page-analytics');
+    const owner=pageRoot?.querySelector(':scope > #rona-analytics-v2');
+    const r=n=>{const b=n?.getBoundingClientRect();return b?{x:b.x,y:b.y,width:b.width,height:b.height,display:getComputedStyle(n).display}:null};
+    const safeSvg=owner?.querySelector('[data-chart-svg]');
+    const empty=owner?.querySelector('[data-rona-client-canonical-empty="v7"]');
+    const structure=['.rona-analytics-hero','.an2-kpis','.an2-controls','.an2-main',
+      '.rona-market-chart-stage','.an2-market-forecast','.an2-rona-grid','.an2-comment']
+      .map(selector=>({selector,count:owner?.querySelectorAll(selector).length||0}));
+    const text=owner?.innerText||'';
+    const heading=owner?.querySelector('h1')?.getBoundingClientRect();
+    const hit=heading?document.elementFromPoint(Math.min(innerWidth-2,Math.max(2,heading.left+heading.width/2)),
+      Math.min(innerHeight-2,Math.max(2,heading.top+heading.height/2))):null;
+    return{
+      runtime:window.__RONA_CLIENT_MARKET_INTELLIGENCE__||null,
+      root:r(pageRoot),owner:r(owner),ownerHidden:owner?.hidden??true,
+      nativeView:typeof window.RONA_ANALYTICS_VIEW?.getState==='function',
+      nativeProduct:window.RONA_ANALYTICS_VIEW?.getState?.()?.product||null,
+      visualOwner:owner?.dataset.ronaClientAnalyticsVisualOwner||null,
+      sourceSafe:owner?.dataset.ronaClientSourceSafe||null,
+      renderState:owner?.dataset.renderState||null,
+      substituteCount:pageRoot?.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length||0,
+      controlProducts:[...owner?.querySelectorAll('[data-an2-product]')||[]].map(n=>n.getAttribute('data-an2-product')),
+      structure,svgHidden:safeSvg?.hidden,emptyVisible:!!empty&&!empty.hidden,
+      staleExposed:text.includes('21.08.2026')||text.includes('09.2026')||text.includes('725–780'),
+      headHit:!!owner&&!!hit&&(owner===hit||owner.contains(hit)),
+      prepaintStyle:!!document.getElementById('rona-client-analytics-canonical-prepaint-v7')
+    };
+  });
+  const nav=async section=>{
+    await page.evaluate(name=>{
+      const b=[...document.querySelectorAll('[data-page]')].find(n=>n.tagName==='BUTTON'&&n.dataset.page===name);
+      if(!b)throw Error('CANONICAL_NAVIGATION_MISSING:'+name);
+      b.click();
+    },section);
+    await page.waitForTimeout(700);
+  };
+  await nav('analytics');
+  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1',null,{timeout:6500});
+  const initial=await snapshot();
+  console.log('CLIENT_CANONICAL_VISUAL_RESTORED_V7_INITIAL',JSON.stringify(initial));
+  if(initial.runtime!==marker||!initial.nativeView||initial.visualOwner!=='canonical-v7'||initial.substituteCount!==0||
+     initial.ownerHidden||initial.owner?.display==='none'||initial.owner?.height<450||
+     !initial.headHit||initial.staleExposed||!initial.emptyVisible||!initial.svgHidden||!initial.prepaintStyle||
+     initial.controlProducts.length!==4||initial.structure.some(n=>n.count<1))
+    throw Error('CANONICAL_VISUAL_RESTORATION_FAILED: '+JSON.stringify(initial));
   await page.setViewportSize({width:1170,height:657});
-  await page.waitForTimeout(850);
-  const splitViewport=await page.evaluate(()=>{
-    const root=document.querySelector('#page-analytics'),owner=root?.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
-    const heading=owner?.querySelector('h2');
-    const xy=n=>{if(!n)return null;const r=n.getBoundingClientRect(),s=getComputedStyle(n);return {x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height),display:s.display,visibility:s.visibility,opacity:s.opacity}};
-    const h=heading?.getBoundingClientRect();
-    const px=h?Math.min(innerWidth-2,Math.max(2,h.left+h.width/2)):null;
-    const py=h?Math.min(innerHeight-2,Math.max(2,h.top+h.height/2)):null;
-    const hit=px!==null&&py!==null?document.elementFromPoint(px,py):null;
-    return{viewport:{width:innerWidth,height:innerHeight},root:xy(root),owner:xy(owner),heading:xy(heading),
-      headingHitSafe:!!owner&&(hit===owner||owner.contains(hit)),hitTag:hit?.tagName||null,
-      navActive:!!document.querySelector('.sidebar [data-page="analytics"].active,#nav [data-page="analytics"].active')};
-  });
-  console.log('CLIENT_ANALYTICS_SPLIT_VIEWPORT_1170x657',JSON.stringify(splitViewport));
-  if(!splitViewport.navActive||!splitViewport.owner||splitViewport.owner.display==='none'||splitViewport.owner.opacity==='0'||
-     !splitViewport.heading||splitViewport.heading.y<0||splitViewport.heading.y>=657||
-     splitViewport.heading.width<50||splitViewport.heading.height<14||!splitViewport.headingHitSafe)
-    throw Error('CLIENT_ANALYTICS_SPLIT_VIEWPORT_BLANK: '+JSON.stringify(splitViewport));
-  // Reproduce the Owner's post-navigation empty panel: a late SPA runtime
-  // can apply inline !important on both the active page and the safe owner.
-  await page.evaluate(()=>{
-    const root=document.querySelector('#page-analytics');
-    const owner=root?.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
-    const nav=document.querySelector('.sidebar [data-page="analytics"].active,#nav [data-page="analytics"].active');
-    if(!root||!owner||!nav)throw Error('NO_AUTHENTICATED_ANALYTICS_RECOVERY_FIXTURE');
-    // The real failure reports an active Analytics nav while the panel is hidden.
-    // Keep the canonical selected route intact while reproducing late inline hides.
-    root.hidden=true;
-    root.style.setProperty('display','none','important');
-    owner.hidden=true;
-    owner.style.setProperty('display','none','important');
-  });
-  await page.waitForTimeout(1100);
-  const injectedState=await page.evaluate(()=>{
-    const root=document.querySelector('#page-analytics'),owner=root?.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
-    const nav=[...document.querySelectorAll('.sidebar [data-page="analytics"],#nav [data-page="analytics"]')].map(n=>({cls:n.className,aria:n.getAttribute('aria-current')}));
-    const elem=owner?.querySelector('h2'),heading=elem?.getBoundingClientRect();
-    const x=heading?Math.min(innerWidth-2,Math.max(2,heading.left+heading.width/2)):null;
-    const y=heading?Math.min(innerHeight-2,Math.max(2,heading.top+heading.height/2)):null;
-    const hit=(x!==null&&y!==null)?document.elementFromPoint(x,y):null;
-    return{nav,rootClass:root?.className,rootStyle:root?.getAttribute('style'),rootDataset:{...root?.dataset},
-      rootDisplay:root?getComputedStyle(root).display:null,rootVisible:root?getComputedStyle(root).visibility:null,rootHidden:root?.hidden,
-      ownerStyle:owner?.getAttribute('style'),ownerDisplay:owner?getComputedStyle(owner).display:null,
-      ownerVisible:owner?getComputedStyle(owner).visibility:null,ownerHidden:owner?.hidden,
-      ownerRect:owner?{x:owner.getBoundingClientRect().x,y:owner.getBoundingClientRect().y,width:owner.getBoundingClientRect().width,height:owner.getBoundingClientRect().height}:null,
-      hit:hit?{tag:hit.tagName,id:hit.id,cls:String(hit.className).slice(0,70),insideOwner:owner?.contains(hit)}:null};
-  });
-  console.log('CLIENT_ANALYTICS_V6_INJECTED_HIDE_DIAGNOSTIC',JSON.stringify(injectedState));
-  await page.waitForFunction(()=>{
-    const root=document.querySelector('#page-analytics'),owner=root?.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
-    if(!root||!owner)return false;
-    const r=root.getBoundingClientRect(),o=owner.getBoundingClientRect(),heading=owner.querySelector('h2')?.getBoundingClientRect();
-    if(getComputedStyle(root).display==='none'||getComputedStyle(owner).display==='none'||root.hidden||owner.hidden)return false;
-    if(!(r.width>0&&r.height>0&&o.width>0&&o.height>0&&heading?.width>0&&heading?.height>0))return false;
-    const x=Math.min(innerWidth-2,Math.max(2,heading.left+heading.width/2));
-    const y=Math.min(innerHeight-2,Math.max(2,heading.top+heading.height/2));
-    const hit=document.elementFromPoint(x,y);
-    return hit===owner||owner.contains(hit);
-  },null,{timeout:6500});
-  const recovered=await page.evaluate(()=>{
-    const root=document.querySelector('#page-analytics'),owner=root.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
-    const r=owner.getBoundingClientRect();
-    return{rootDisplay:getComputedStyle(root).display,ownerDisplay:getComputedStyle(owner).display,
-      rootHidden:root.hidden,ownerHidden:owner.hidden,width:r.width,height:r.height,
-      legacyVisible:[...root.querySelectorAll('[data-rona-client-analytics-legacy="hidden-v3"]')].filter(n=>getComputedStyle(n).display!=='none').length};
-  });
-  if(recovered.legacyVisible||recovered.rootHidden||recovered.ownerHidden)
-    throw Error('CLIENT_ANALYTICS_V6_RECOVERY_UNSAFE: '+JSON.stringify(recovered));
-  console.log('CLIENT_ANALYTICS_V6_INLINE_HIDE_RECOVERY',JSON.stringify(recovered));
-  await page.evaluate(()=>{
-    const home=document.querySelector('.sidebar [data-page="home"],#nav [data-page="home"]');
-    if(!home)throw Error('CANONICAL_HOME_NAVIGATION_NOT_FOUND_AFTER_RECOVERY');
-    home.click();
-  });
-  await page.waitForTimeout(450);
-  const away=await page.evaluate(()=>{
-    const root=document.querySelector('#page-analytics');
-    return{active:!!document.querySelector('.sidebar [data-page="analytics"].active,#nav [data-page="analytics"].active'),
-      routeRecovery:root?.dataset.ronaAnalyticsRouteRecovered||'',
-      rootDisplay:getComputedStyle(root).display};
-  });
-  if(away.active||away.routeRecovery==='v6')throw Error('CLIENT_ANALYTICS_V6_ROUTE_NOT_RELEASED: '+JSON.stringify(away));
-  console.log('CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_V6=PASS');
+  await page.waitForTimeout(750);
+  const split=await snapshot();
+  console.log('CLIENT_CANONICAL_VISUAL_RESTORED_V7_SPLIT_VIEW',JSON.stringify(split));
+  if(!split.headHit||split.owner?.width<700||split.owner?.height<450||split.staleExposed||split.substituteCount)
+    throw Error('CLIENT_CANONICAL_SPLIT_VIEW_NOT_RESTORED: '+JSON.stringify(split));
+  // Existing canonical controls must work with source-safe model, not a substitute card UI.
+  await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="LPG"]')?.click());
+  await page.waitForTimeout(700);
+  const lpg=await snapshot();
+  if(lpg.nativeProduct!=='LPG'||lpg.staleExposed||lpg.substituteCount)
+    throw Error('CANONICAL_PRODUCT_CONTROL_UNSAFE: '+JSON.stringify(lpg));
+  await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="AI92"]')?.click());
+  const currentRow={publication_id:'PUB-TEST-1',publication_item_id:'PUB-TEST-AI92',
+    published_at:'2026-10-09T00:01:00Z',product:'АИ-92',
+    headline:'Проверенный опубликованный ряд',analytics_as_of:'2026-10-09T00:01:00Z',
+    content_text:'Опубликованный текущий ряд только для теста',
+    public_chart:{type:'DAILY_SERIES',unit:'USD/т',source_freshness_state:'CURRENT',
+      labels:['2026-10-07','2026-10-08','2026-10-09'],values:[1100,1110,1120]}};
+  payload.data={...payload.data,analytics:[currentRow],generated_at:'2026-10-09T00:02:00Z'};
+  await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
+  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.renderState==='PUBLISHED_CURRENT_ONLY'&&
+    document.querySelector('#rona-analytics-v2 [data-chart-svg]')?.hidden===false,null,{timeout:6500});
+  const live=await snapshot();
+  console.log('CLIENT_CANONICAL_LIVE_PUBLISHED_V7',JSON.stringify(live));
+  if(live.visualOwner!=='canonical-v7'||live.substituteCount||live.svgHidden||live.staleExposed)
+    throw Error('CLIENT_CANONICAL_LIVE_PUBLICATION_FAILED: '+JSON.stringify(live));
+  payload.data={...payload.data,analytics:[],generated_at:'2026-10-09T00:03:00Z'};
+  await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
+  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 [data-chart-svg]')?.hidden===true,null,{timeout:6500});
+  await nav('home');
+  await nav('analytics');
+  const back=await snapshot();
+  console.log('CLIENT_CANONICAL_VISUAL_REENTRY_V7',JSON.stringify(back));
+  if(back.owner?.display==='none'||back.substituteCount||back.staleExposed||!back.emptyVisible||back.visualOwner!=='canonical-v7')
+    throw Error('CLIENT_CANONICAL_VISUAL_REENTRY_REGRESSION: '+JSON.stringify(back));
+  if(errors.length||requestFail.length)
+    console.log('CLIENT_CANONICAL_DIAGNOSTIC_ERRORS',JSON.stringify({errors:errors.slice(0,7),failed:requestFail.slice(0,7)}));
+  console.log('CLIENT_CANONICAL_ANALYTICS_VISUAL_V7=PASS');
   console.log('CLIENT_CANONICAL_REAL_PAGE_ANALYTICS_BOOT=PASS');
 }finally{if(browser)await browser.close();srv.closeAllConnections?.();await new Promise(resolve=>srv.close(resolve));}
