@@ -15,7 +15,7 @@
     "assets/portal-runtime/client-market-intelligence-v1.js": {
       "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
       "supersedes_authorized_post_blob_sha": "bd15c42b22e1a65a420d507618cc1c4d08109861",
-      "authorized_post_blob_sha": "812b9d5b4b0716baa5658f97a5196fb599105e34",
+      "authorized_post_blob_sha": "28cf52a325cf6fcfd17c1c41af84ac11bd69c93f",
       "required_marker": "20261010-client-approved-admin-exact-v14"
     },
     "scripts/attach-client-market-intelligence-v1.mjs": {
@@ -51,7 +51,8 @@
     "real_browser_parity_gate_required": true,
     "rollback_provided": true,
     "wildcard_exception": false,
-    "identical_admin_lpg_gap_runtime": true
+    "identical_admin_lpg_gap_runtime": true,
+    "fail_closed_no_market_data": true
   },
   "rollback": "Revert release branch to last known v13 commit 910eb89c4c6cf04b814b25c8ec689a4053a12d0b. Restore protected JS bd15c42b22e1a65a420d507618cc1c4d08109861 and attachment 2c77459224d88580d58c1ab7dc42b69aa6dc2be4, drop v14 generated native loader from client build and return previous Client inline renderer. Database and Commercial market facts untouched."
 }
