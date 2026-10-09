@@ -136,6 +136,65 @@ try{
   payload={...payload,generated_at:'2026-10-09T00:03:00Z',analytics:[row('АИ-92','CURRENT',[1081,1092,1145])],clientCanonicalAnalytics:{...payload.clientCanonicalAnalytics,products:{...payload.clientCanonicalAnalytics.products,AI92:{...payload.clientCanonicalAnalytics.products.AI92,values:[1081,1092,1145]}}}};
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1145,null,{timeout:10000});
+  // A verified, distributed product may have source-locked FINANCIAL forwards
+  // even when its physical/regional price is STALE_SOURCE/TO_VERIFY_FRESHNESS.
+  // A current spot is never manufactured from the dated forward curve.
+  const termFixture=(name,base,low,high,spotFreshness,indexName)=>({
+    name,basis:'Platts · финансовый форвард 07.10.2026',
+    spotFreshness,dates:['10.2026','11.2026','12.2026'],
+    values:[high,base,low],
+    forecast:{
+      month:'2026-11',low,base,high,forward:base,
+      sourceRef:'https://t.me/platts_digits/7510',
+      sourceAsOf:'2026-10-07',
+      comment:'Индикативный прогноз, не является физической котировкой'
+    },
+    termCurve:{
+      kind:'FORWARD_TERM_STRUCTURE',sourceFamily:'PLATTS',sourceStatus:'CONFIRMED',
+      asOfDate:'07.10.2026',sourceDocId:'QA-PLATTS-CONFIRMED',
+      sourceRef:'https://t.me/platts_digits/7510',indexName,
+      dates:['10.2026','11.2026','12.2026'],values:[high,base,low],
+      deliveryMonths:['2026-10','2026-11','2026-12'],observationCount:3
+    }
+  });
+  payload={
+    ...payload,generated_at:'2026-10-09T00:04:00Z',
+    clientCanonicalAnalytics:{
+      ...payload.clientCanonicalAnalytics,
+      products:{
+        ...payload.clientCanonicalAnalytics.products,
+        DT:termFixture('ДТ',1370,1328,1403.125,'STALE_SOURCE',
+          'Composite ULSD 10 ppmS FOB ARA + CIF NWE Cargo Financial'),
+        LPG:termFixture('СУГ / СПБТ',725,698.5,775,'TO_VERIFY_FRESHNESS',
+          'Propane CIF NWE Large Cargo Financial')
+      }
+    }
+  };
+  await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
+  await page.waitForFunction(()=>
+    window.RONA_ANALYTICS_VIEW?.data?.products?.DT?.termCurve?.sourceStatus==='CONFIRMED',null,{timeout:10000});
+  for(const [key,label,amount,spotStatus] of [
+    ['DT','ДТ',1370,'STALE_SOURCE'],['LPG','СУГ',725,'TO_VERIFY_FRESHNESS']
+  ]){
+    await page.evaluate(k=>document.querySelector('[data-an2-product="'+k+'"]')?.click(),key);
+    await page.waitForFunction(k=>document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct===k,key,{timeout:7000});
+    const proof=await page.evaluate(()=>({
+      selected:window.RONA_ANALYTICS_VIEW.getState().product,
+      heading:document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent,
+      source:document.querySelector('#rona-analytics-v2 [data-chart-source]')?.textContent,
+      spot:document.querySelector('#rona-analytics-v2')?.dataset.ronaPhysicalSpotFreshness,
+      curve:window.RONA_ANALYTICS_VIEW.data.products[
+        window.RONA_ANALYTICS_VIEW.getState().product]?.termCurve?.values,
+      currentKpi:document.querySelector('#rona-analytics-v2 .an2-kpis .rona-owner-kpi')?.textContent,
+      svgHidden:getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden'
+    }));
+    must(proof.selected===key && proof.heading.includes('Форвардная кривая '+label) &&
+      proof.source.includes('07.10.2026') && proof.source.includes('не физическая котировка') &&
+      proof.spot===spotStatus && proof.curve[1]===amount &&
+      !proof.svgHidden && proof.currentKpi==='07.10.2026',
+      'CLIENT_FORECAST_ONLY_'+key+'_V11_FAILED '+JSON.stringify(proof));
+    console.log('CLIENT_DATED_FINANCIAL_FORWARD_'+key+'_V11=PASS '+JSON.stringify(proof));
+  }
   mode='ERROR';latencyMs=40;
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.renderState==='ERROR_NO_ARCHIVE',null,{timeout:10000});
