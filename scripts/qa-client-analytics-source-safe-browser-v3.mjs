@@ -1,10 +1,11 @@
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
+import {onRequest as approvedClientUI} from '../functions/portal/analytics-client-approved-ui.js';
 
 const must=(ok,msg)=>{if(!ok)throw Error(msg)};
 const runtime=await readFile('dist/assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-const mark='20261009-lpg-source-gap-history-v13';
+const mark='20261010-approved-admin-renderer-client-adapter-v14';
 const stamp='2026-10-09T00:01:00Z';
 const row=(product,source='CURRENT',values=[1081,1092,1103])=>({
   publication_id:'CLIENT-QA-20261009',publication_item_id:'SAFE-CHART-'+product,
@@ -31,6 +32,8 @@ const html=String.raw`<!doctype html><html lang="ru"><head><meta charset="UTF-8"
 <section class="rona-owner-card"><div class="an2-comment">Архивная котировка</div></section>
 </section></section>
 <script>
+document.querySelector('#rona-analytics-v2').dataset.analyticsOwner='approved-v431';
+window.__RONA_ANALYTICS_APPROVED_SINGLE_OWNER__='20260827-approved-v431-single-owner';
 window.RONA_ANALYTICS_VIEW={
   product:'AI92',setPayloadCount:0,
   getState(){return {product:this.product,source:'PLATTS'}},
@@ -49,11 +52,19 @@ document.querySelector('.an2-controls').addEventListener('click',e=>{
   if(b){RONA_ANALYTICS_VIEW.product=b.dataset.an2Product;
     RONA_ANALYTICS_VIEW.setPayload(RONA_ANALYTICS_VIEW.data)}
 });
-</script><script src="/client-analytics.js" defer></script></body></html>`;
-const server=http.createServer((req,res)=>{
+</script><script src="/portal/analytics-client-approved-ui" defer></script><script src="/client-analytics.js" defer></script></body></html>`;
+const server=http.createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://127.0.0.1').pathname;
   res.setHeader('cache-control','no-store');
   if(pathname==='/portal/client'){res.setHeader('content-type','text/html');res.end(html);return}
+  if(pathname==='/portal/analytics-client-approved-ui'){
+    try{
+      const shared=await approvedClientUI({request:new Request('https://ronaoil.com'+req.url)});
+      res.statusCode=shared.status;res.setHeader('content-type',shared.headers.get('content-type')||'application/javascript');
+      res.end(await shared.text());
+    }catch(error){res.statusCode=500;res.end(String(error));}
+    return;
+  }
   if(pathname==='/client-analytics.js'){res.setHeader('content-type','application/javascript');res.end(runtime);return}
   if(pathname==='/portal/api/v1/client/market-intelligence'){
     requests++;
@@ -145,7 +156,8 @@ try{
       :'Platts Propane CIF NWE Large Cargo Financial · поставка 10.2026',
     spotFreshness,dates:days,values,
     dailyMonitor:{
-      version:'RONA_MARKET_OBSERVED_DAILY_V1',
+      version:'RONA_MARKET_OBSERVED_DAILY_V1',notMonthlyMaturityCurve:true,
+      observedDates:days.map(d=>'2026-'+d.slice(3,5)+'-'+d.slice(0,2)),
       granularity:'OBSERVATION_DATE',sourceFamily:'PLATTS',sourceStatus:'CONFIRMED',
       unit:'USD/т',instrument,observationCount:days.length,
       availableTotal:days.length+(sourceGap?3:0),
