@@ -1,7 +1,7 @@
 export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
 ;(()=>{
-  if(window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v3-term')return;
-  window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__='source-safe-v3-term';
+  if(window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v4-observation-daily')return;
+  window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__='source-safe-v4-observation-daily';
   let inFlight=null,lastApplied='',lastSource=null;
   const API='/portal/api/v1/admin/analytics';
   function valid(payload){
@@ -14,7 +14,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       latestTradeDate: payload.latestTradeDate,
       products: ['AI92','AI95','DT','LPG'].map(key=>{
         const product=payload.products[key]||{};
-        return [key,product.dates,product.values,product.forecast,product.rona,product.regionalBenchmark,product.termCurve];
+        return [key,product.dates,product.values,product.forecast,product.rona,product.regionalBenchmark,product.dailyMonitor,product.termCurve];
       })
     });
   }
@@ -78,11 +78,11 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       const values=Array.isArray(product.values)?product.values:[];
       if(dates.length!==values.length)continue;
       const series=hasSeries(product),forecast=backedForecast(product,payload,key);
-      const term=backedTermCurve(product,payload,key,forecast);
+      const term=null; // Maturity months cannot be charted as daily observations.
       if(!series&&!forecast&&!term)continue;
       const safe=series?{...product}:{};
       if(!series&&hasPriceBase(product))safe.rona=product.rona;
-      if(term){safe.dates=[...term.dates];safe.values=[...term.values];safe.basis=term.indexName+' · '+term.basis;safe.termCurve=term;}
+      // Never replace observation dates with month-of-delivery labels.
       if(forecast)safe.forecast=forecast;else delete safe.forecast;
       if(!hasPriceBase(product))delete safe.rona;
       if(!series&&product.regionalBenchmark)safe.regionalBenchmark=product.regionalBenchmark;
@@ -98,7 +98,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     if(!root||!view)return;
     const key=String(view.getState?.()?.product||'AI92');
     const product=payload.products?.[key],series=hasSeries(product),forecast=backedForecast(product,payload,key);
-    const term=backedTermCurve(product,payload,key,forecast);
+    const term=null; // Maturity months cannot be charted as daily observations.
     const cards=Array.from(root.querySelectorAll('.an2-kpis .rona-owner-card'));
     if(!series&&!term){
       const stage=root.querySelector('[data-chart-stage]');
@@ -111,29 +111,34 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
         const note=cards[0].querySelector('.rona-owner-muted');if(note)note.textContent='Актуальная серия по продукту отсутствует';
       }
     }
-    if(term){
-      const displayName=key==='DT'?'ДТ':'СУГ';
-      const dates=term.dates;
+    const daily=product?.dailyMonitor;
+    const confirmedDaily=(key==='DT'||key==='LPG')&&series&&
+      daily?.version==='RONA_MARKET_OBSERVED_DAILY_V1'&&
+      daily?.granularity==='OBSERVATION_DATE'&&daily?.noInterpolation===true&&
+      daily?.sourceStatus==='CONFIRMED';
+    if(confirmedDaily){
       const title=root.querySelector('[data-chart-title]');
-      if(title)title.textContent='Форвардная кривая '+displayName+' · поставка '+dates[0]+'–'+dates[2];
+      if(title)title.textContent='Динамика '+(key==='DT'?'ДТ':'СУГ / СПБТ')+' · USD/т';
       const source=root.querySelector('[data-chart-source]');
-      if(source)source.textContent='Platts Financial Forward · '+term.basis+' · котировка '+term.asOfDate+' · '+String(term.sourceRef);
+      if(source)source.textContent=String(product.basis||'Platts')+
+        ' · даты наблюдений '+daily.firstAsOf+'–'+daily.lastAsOf+
+        (daily.sourceGap?' · пропуски в источнике; интерполяция запрещена':'')+
+        (daily.observationCount===1?' · одно подтверждённое наблюдение':'');
       if(cards[0]){
         const value=cards[0].querySelector('.rona-owner-kpi');
-        if(value)value.textContent=Number(term.values[1]).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' USD/т';
+        if(value)value.textContent=daily.lastAsOf||'—';
         const note=cards[0].querySelector('.rona-owner-muted');
-        if(note)note.textContent='Platts Financial · поставка '+dates[1]+' (M2) · котировка '+term.asOfDate+'; это НЕ спотовый BNK Composite';
+        if(note)note.textContent=key==='DT'
+          ?'Platts ULSD CIF NWE · физический компонент, не композит БНК'
+          :'Platts Financial · фиксированный месяц поставки '+daily.deliveryMonth+' · не региональный спот';
       }
-      // The x-axis lists DELIVERY MONTHS at a single valuation date. This is never daily trade history.
-      root.dataset.ronaChartKind='FORWARD_TERM_STRUCTURE';
-      root.dataset.ronaChartAsOf=term.asOfDate;
-      root.dataset.ronaChartSource=term.sourceDocId;
-      const metrics=Array.from(root.querySelectorAll('[data-metric]'));
-      if(metrics.length>0)metrics[0].title='Последний срок поставки '+dates[2]+' (M3), НЕ последняя торговая сессия';
-      if(metrics.length>1)metrics[1].title='Разница соседних сроков поставки, НЕ дневное изменение';
-    }else if(root.dataset.ronaChartKind==='FORWARD_TERM_STRUCTURE'){
-      delete root.dataset.ronaChartKind;delete root.dataset.ronaChartAsOf;delete root.dataset.ronaChartSource;
+      root.dataset.ronaChartKind='OBSERVATION_DAILY';
+      root.dataset.ronaChartAsOf=String(daily.lastAsOf||'');
+      root.dataset.ronaChartInstrument=String(daily.instrument||'');
+    }else if(root.dataset.ronaChartKind==='OBSERVATION_DAILY'){
+      delete root.dataset.ronaChartKind;delete root.dataset.ronaChartAsOf;delete root.dataset.ronaChartInstrument;
     }
+
     if(!forecast){
       const box=root.querySelector('.an2-market-forecast');
       if(box)box.innerHTML='<div class="an2-mf-title">Прогноз недоступен</div><div class="an2-mf-sub">Нет полного актуального прогноза со ссылкой на источник.</div>';
