@@ -137,7 +137,7 @@ test('client canonical Admin parity v11 uses the SAME source model with strict p
     'publishedPriceContext()',
     'paintAuthorizedPrices(owner,chosen)'
   ])assert.ok(runtime.includes(token),'frozen client runtime missing: '+token);
-  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-admin-canonical-parity-v10'));
+  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-dt-lpg-forecast-parity-v11'));
   assert.equal(runtime.includes("fetch('/portal/api/v1/admin/analytics'"),false,'client must not fetch Admin API');
   assert.equal(edge.includes('payload.clientCanonicalAnalytics = canonical'),false,'never expose unsanitized admin canonical payload');
   assert.equal(edge.includes('output.rona ='),false,'never expose internal RONA price bridge');
