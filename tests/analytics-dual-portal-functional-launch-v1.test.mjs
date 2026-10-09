@@ -136,7 +136,7 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'Math.abs(Number(term.values[1])-Number(output.forecast.base))<0.001'
   ])assert.ok(edge.includes(token),'source-locked client canonical gate missing: '+token);
   for(const token of [
-    "const MARK='20261009-lpg-source-gap-history-v13'",
+    "const MARK='20261009-admin-canonical-shared-presenter-v14'",
     "const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13'",
     'function canonicalPayload(data)',
     'data?.clientCanonicalAnalytics',
@@ -144,7 +144,7 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'publishedPriceContext()',
     'paintAuthorizedPrices(owner,chosen)'
   ])assert.ok(runtime.includes(token),'frozen client runtime missing: '+token);
-  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13'));
+  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-admin-canonical-shared-presenter-v14'));
   assert.equal(runtime.includes("fetch('/portal/api/v1/admin/analytics'"),false,'client must not fetch Admin API');
   assert.equal(edge.includes('payload.clientCanonicalAnalytics = canonical'),false,'never expose unsanitized admin canonical payload');
   assert.equal(edge.includes('output.rona ='),false,'never expose internal RONA price bridge');
