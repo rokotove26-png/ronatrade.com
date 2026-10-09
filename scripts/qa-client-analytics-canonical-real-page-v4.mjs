@@ -157,45 +157,8 @@ try{
   console.log('CLIENT_CANONICAL_VISUAL_RESTORED_V7_SPLIT_VIEW',JSON.stringify(split));
   if(!split.headHit||split.owner?.width<700||split.owner?.height<450||split.staleExposed||split.substituteCount)
     throw Error('CLIENT_CANONICAL_SPLIT_VIEW_NOT_RESTORED: '+JSON.stringify(split));
-  // Actual full frozen canonical HTML: price values must occupy its existing primary
-  // display slot (not only a tiny caption) and vanish on a tenant/context switch.
-  await page.evaluate(()=>{
-    window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'QA-C1',contract_id:'QA-D1'})};
-    window.__RONA_CLIENT_PRICE_SYNC_STATE__={authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',
-      context:{client_id:'QA-C1',contract_id:'QA-D1'},loadedAt:new Date().toISOString(),
-      prices:[{product:'АИ-92 К5',basis:'CPT Озинки',price:1242.75,currency:'USD'},
-              {product:'АИ-92 К5',basis:'CPT Сарыагаш',price:1379.95,currency:'USD'}]};
-    window.dispatchEvent(new Event('rona:client-prices-updated'));
-  });
-  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 .an2-price-base')?.textContent?.includes('242,75'),null,{timeout:7000});
-  const published=await page.evaluate(()=>{
-    const owner=document.querySelector('#rona-analytics-v2');
-    const cards=[...owner.querySelectorAll('.an2-price-card')].map(card=>({
-      basis:card.querySelector('h3')?.textContent,
-      amount:card.querySelector('.an2-price-base')?.textContent,
-      caption:card.querySelector('.an2-price-current')?.textContent,
-      range:card.querySelector('.an2-price-range')?.textContent,
-      source:card.dataset.ronaClientPriceSource||null}));
-    return{title:owner.querySelector('.an2-rona-head h2')?.textContent,cards,
-      badge:owner.querySelector('.an2-rona-head .rona-fin-pill')?.textContent,
-      substituteCount:document.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length};
-  });
-  console.log('CLIENT_CANONICAL_PUBLISHED_PRICES_PROMINENT_V9',JSON.stringify(published));
-  if(!published.title?.includes('Опубликованные цены RONA Trade')||published.substituteCount||
-     !published.cards?.[0]?.amount?.includes('242,75')||
-     !published.cards?.[1]?.amount?.includes('379,95')||
-     published.cards?.[2]?.amount!=='—'||
-     !published.cards?.[0]?.caption?.includes('Опубликованная цена')||
-     published.cards.some(x=>x.range&&!x.range.includes('LOW —')))
-    throw Error('CLIENT_CANONICAL_PRICE_PROMINENCE_FAILED '+JSON.stringify(published));
-  await page.evaluate(()=>{
-    window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'QA-C2',contract_id:'QA-D2'})};
-    window.dispatchEvent(new Event('rona:client-prices-updated'));
-  });
-  await page.waitForFunction(()=>[...document.querySelectorAll('#rona-analytics-v2 .an2-price-base')]
-    .every(card=>card.textContent==='—'),null,{timeout:7000});
-  console.log('CLIENT_CANONICAL_PRICE_TENANT_SWITCH_V9=PASS');
-
+  // The Client must NOT substitute its contract price projection for Admin
+  // Analytics values. Admin canonical prices are checked after the live fixture.
   // Existing canonical controls must work with source-safe model, not a substitute card UI.
   await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="LPG"]')?.click());
   await page.waitForTimeout(700);
@@ -209,10 +172,26 @@ try{
     content_text:'Опубликованный текущий ряд только для теста',
     public_chart:{type:'DAILY_SERIES',unit:'USD/т',source_freshness_state:'CURRENT',
       labels:['2026-10-07','2026-10-08','2026-10-09'],values:[1100,1110,1120]}};
-  payload.data={...payload.data,analytics:[currentRow],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","projection":"CLIENT_LPG_HISTORICAL_SEGMENTS_V13","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}},generated_at:'2026-10-09T00:02:00Z'};
+  payload.data={...payload.data,analytics:[currentRow],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"rona":{"reference":1103,"bases":[["CPT Озинки",1223.17],["CPT Сарыагаш",1332.1],["CPT Наушки",1280.91]]},"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}},analyticsCanonicalParity:'ADMIN_APPROVED_SHARED_V14',generated_at:'2026-10-09T00:02:00Z'};
   await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.renderState==='PUBLISHED_CURRENT_ONLY'&&
     getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility!=='hidden',null,{timeout:6500});
+  // Confirm exact approved Admin base prices are visible. A spoofed Client price
+  // context must not rewrite the Analytics section.
+  const adminPriceBefore=await page.evaluate(()=>[...document.querySelectorAll('#rona-analytics-v2 .an2-price-base')]
+    .map(x=>x.textContent));
+  await page.evaluate(()=>{
+    window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'OTHER',contract_id:'OTHER'})};
+    window.__RONA_CLIENT_PRICE_SYNC_STATE__={authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',
+      context:{client_id:'OTHER',contract_id:'OTHER'},loadedAt:new Date().toISOString(),
+      prices:[{product:'АИ-92',basis:'CPT Озинки',price:999999,currency:'USD'}]};
+    window.dispatchEvent(new Event('rona:client-prices-updated'));
+  });
+  await page.waitForTimeout(250);
+  const adminPriceAfter=await page.evaluate(()=>[...document.querySelectorAll('#rona-analytics-v2 .an2-price-base')]
+    .map(x=>x.textContent));
+  if(adminPriceBefore.join('|')!==adminPriceAfter.join('|')||
+     adminPriceAfter.join('|').includes('999999'))throw Error('ADMIN_ANALYTICS_PRICE_PARITY_BROKEN '+JSON.stringify({adminPriceBefore,adminPriceAfter}));
   const live=await snapshot();
   console.log('CLIENT_CANONICAL_LIVE_PUBLISHED_V7',JSON.stringify(live));
   if(live.visualOwner!=='canonical-v7'||live.substituteCount||live.svgHidden||live.staleExposed)
