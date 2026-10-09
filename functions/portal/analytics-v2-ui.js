@@ -8,7 +8,7 @@ const CANONICAL_ANALYTICS_MARKER='approved-v4.3.2-pricing-bridge-single-owner';
 const CANONICAL_PROVENANCE=`\n/* canonical-analytics-source: ${CANONICAL_ANALYTICS_SOURCE}; canonical-runtime: v4.3.2; single-owner */\n`;
 const APPROVED_DATA_VALIDATION='\n/* approved-data-contract: AI95 first=1075.25 last=1226.75; differential=AI92+40 USD/t; live-payload=RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1 */\n';
 
-const CANONICAL_PRICING_BRIDGE_RUNTIME=String.raw`
+export const CANONICAL_PRICING_BRIDGE_RUNTIME=String.raw`
 ;(()=>{
   if(window.__RONA_ANALYTICS_PRICING_BRIDGE_V432__==='canonical-v4.3.2')return;
   window.__RONA_ANALYTICS_PRICING_BRIDGE_V432__='canonical-v4.3.2';
