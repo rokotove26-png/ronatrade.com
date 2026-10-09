@@ -220,7 +220,7 @@ try{
         '#rona-analytics-v2 [data-rona-client-canonical-empty="v7"]').length,
       svgHidden:getComputedStyle(document.querySelector(
         '#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden',
-      gapSegments:document.querySelector('#rona-analytics-v2')?.dataset.ronaSourceGapSegments,
+      gapHistory:document.querySelector('#rona-analytics-v2')?.dataset.ronaLpgHistorySegments,
       gapRendered:!!document.querySelector('#rona-analytics-v2 svg')?.dataset.ronaLpgHistoryV13,
       lineSegments:document.querySelectorAll('#rona-analytics-v2 path.rmc-line').length,
       markerCount:document.querySelectorAll('#rona-analytics-v2 circle.rmc-point').length
