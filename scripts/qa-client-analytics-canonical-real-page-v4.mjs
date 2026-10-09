@@ -119,6 +119,15 @@ try{
       throw Error('CLIENT_ANALYTICS_REENTRY_LEGACY_VISIBLE: '+JSON.stringify({turn,observed}));
     if(observed.rootDisplay==='none'||observed.rootVisibility==='hidden'||!observed.rootRect?.height||!observed.ownerRect?.height||!observed.ancestorTrail.every(n=>n.display!=='none'&&n.visibility!=='hidden'&&n.opacity!=='0'&&n.rectHeight>0))
       throw Error('CLIENT_ANALYTICS_VISIBLE_PANEL_MISSING: '+JSON.stringify({turn,observed}));
+    if(turn==='first-nav'){
+      await page.evaluate(()=>{
+        const home=[...document.querySelectorAll('[data-page="home"]')].find(n=>n.tagName==='BUTTON')||document.querySelector('[data-page="home"]');
+        if(!home)throw Error('CANONICAL_HOME_NAVIGATION_NOT_FOUND');
+        home.click();
+      });
+      await page.waitForTimeout(500);
+    }
   }
+  console.log('CLIENT_ANALYTICS_VISIBLE_OWNER_V5=PASS');
   console.log('CLIENT_CANONICAL_REAL_PAGE_ANALYTICS_BOOT=PASS');
 }finally{if(browser)await browser.close();srv.closeAllConnections?.();await new Promise(resolve=>srv.close(resolve));}
