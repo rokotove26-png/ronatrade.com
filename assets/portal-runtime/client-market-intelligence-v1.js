@@ -1,8 +1,8 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-lpg-source-gap-history-v13';
-const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13';
+const MARK='20261010-client-approved-admin-single-engine-v14';
+const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
 const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
@@ -237,6 +237,16 @@ function paintAuthorizedPrices(owner,selectedProduct){
   box.dataset.ronaClientPricePresentation=CLIENT_PRICE_PRESENTATION_V9;
 }
 function ensureSafeCanonicalState(owner,payload,reason){
+  // One visual and functional owner: the approved Admin v4.3.2 native renderer.
+  // This CLIENT-only module may paint authorized contract prices, but may NOT
+  // replace chart axes, labels, period, forecast, KPIs or selected product.
+  if(window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v5-client-admin-engine'){
+    if(owner.dataset.ronaClientSourceSafe==='1'){
+      const product=window.RONA_ANALYTICS_VIEW?.getState?.()?.product||'AI92';
+      paintAuthorizedPrices(owner,product);
+    }
+    return;
+  }
   const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};
   const visualProduct=owner.querySelector('.an2-controls [data-an2-product][aria-pressed="true"]')?.getAttribute('data-an2-product');
   const chosen=(visualProduct&&payload.products[visualProduct]?visualProduct:null)||
@@ -334,6 +344,14 @@ function ensureSafeCanonicalState(owner,payload,reason){
 function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
   const owner=ensureOwner(root);
   if(!owner)return;
+  if(window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v5-client-admin-engine'){
+    // Shared Admin renderer/hydration is authoritative for data and DOM.
+    // Suppress the legacy second client setPayload and all chart rewrites.
+    ensureSafeCanonicalState(owner,null,reason);
+    root.dataset.ronaClientMarketIntelligenceFingerprint='analytics:'+state.fingerprint;
+    root.dataset.ronaClientAnalyticsReady=owner.dataset.ronaClientSourceSafe==='1'?'true':'false';
+    return;
+  }
   const view=window.RONA_ANALYTICS_VIEW;
   if(!view||typeof view.setPayload!=='function'){
     owner.dataset.ronaClientSourceSafe='0';
@@ -410,8 +428,9 @@ function start(){
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load('visible')});
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
   window.addEventListener('rona:client-prices-updated',schedule,{passive:true});
+  window.addEventListener('rona:analytics-live-applied',schedule,{passive:true});
   document.addEventListener('click',event=>{
-    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-an2-product]');
+    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-an2-product],#page-analytics #rona-analytics-v2 .an2-controls button[data-product]');
     if(productButton){
       // Native renderer changes the product synchronously after capture. Refresh
       // source/status labels in its final selection state, without new controls.
