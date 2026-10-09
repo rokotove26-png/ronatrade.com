@@ -1,8 +1,8 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-client-analytics-admin-canonical-parity-v10';
-const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_PARITY_SOURCE_LOCKED_V10';
+const MARK='20261009-client-analytics-dt-lpg-forecast-parity-v11';
+const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_PARITY_FORECAST_SOURCE_SAFE_V11';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
 const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
@@ -137,6 +137,7 @@ function canonicalPayload(data){
         norm(term.sourceRef)===norm(forecast.sourceRef);
       products[key]={
         name:input.name||key,
+        spotFreshness:norm(input.spotFreshness)||'UNAVAILABLE',
         dates:valid?dates:[],
         values:valid?values:[],
         basis:norm(input.basis)||EMPTY_SOURCE,
@@ -223,7 +224,9 @@ function paintAuthorizedPrices(owner,selectedProduct){
 }
 function ensureSafeCanonicalState(owner,payload,reason){
   const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};
-  const chosen=selected.product||'AI92';
+  const visualProduct=owner.querySelector('.an2-controls [data-an2-product][aria-pressed="true"]')?.getAttribute('data-an2-product');
+  const chosen=(visualProduct&&payload.products[visualProduct]?visualProduct:null)||
+    (selected.product&&payload.products[selected.product]?selected.product:'AI92');
   const product=payload.products[chosen]||emptyProduct();
   const hasSeries=selected.source!=='ARGUS'&&product.dates.length>0&&product.values.length===product.dates.length;
   const hasTerm=hasSeries&&product.termCurve?.kind==='FORWARD_TERM_STRUCTURE';
@@ -248,24 +251,44 @@ function ensureSafeCanonicalState(owner,payload,reason){
   if(hasSeries){
     textIfDifferent(owner.querySelector('[data-chart-source]'),product.basis+' · разрешённая клиентская публикация');
     if(hasTerm){
-      textIfDifferent(owner.querySelector('[data-chart-title]'),'Форвардная кривая '+(chosen==='DT'?'ДТ':'СУГ')+' · поставка '+product.termCurve.dates.join('–'));
+      textIfDifferent(owner.querySelector('[data-chart-title]'),'Форвардная кривая '+(chosen==='DT'?'ДТ':'СУГ')+
+        ' · '+product.termCurve.dates.join('–'));
+      textIfDifferent(owner.querySelector('[data-chart-source]'),
+        'Platts · '+product.termCurve.asOfDate+
+        ' · индикативный финансовый форвард, не физическая котировка');
       owner.dataset.ronaChartKind='FORWARD_TERM_STRUCTURE';
-    }else{delete owner.dataset.ronaChartKind}
+    }else{
+      textIfDifferent(owner.querySelector('[data-chart-title]'),
+        'Динамика '+(chosen==='AI92'?'АИ-92':chosen==='AI95'?'АИ-95':chosen==='DT'?'ДТ':'СУГ')+' · USD/т');
+      delete owner.dataset.ronaChartKind;
+    }
   }
   if(!hasSeries){
     textIfDifferent(owner.querySelector('[data-chart-source]'),EMPTY_SOURCE);
-    textIfDifferent(owner.querySelector('[data-chart-title]'),'Динамика · нет актуального ряда');
+    textIfDifferent(owner.querySelector('[data-chart-title]'),
+      (chosen==='DT'?'ДТ':chosen==='LPG'?'СУГ':chosen==='AI95'?'АИ-95':'АИ-92')+
+      ' · нет подтверждённого актуального ряда');
     for(const n of owner.querySelectorAll('.rona-market-chart-metric'))textIfDifferent(n,'—');
   }
   // Canonical legacy engine contains a baked historical LPG/Saryagash number
   // that does not depend on setPayload. Neutralize only that value.
-  if(chosen==='LPG'){
+  if(chosen==='LPG'||chosen==='DT'){
     const cards=owner.querySelectorAll('.an2-kpis .rona-owner-card');
-    textIfDifferent(cards[0]?.querySelector('.rona-owner-muted'),hasSeries?'Клиентская подтверждённая публикация':EMPTY_SOURCE);
-    const second=cards[1];
-    textIfDifferent(second?.querySelector('.rona-owner-kpi'),'—');
-    textIfDifferent(second?.querySelector('.rona-owner-muted'),EMPTY_SOURCE);
+    // Native LPG KPI assumes the last data point is a current physical price.
+    // On a financial term structure this would mislabel December as spot.
+    textIfDifferent(cards[0]?.querySelector('.rona-owner-kpi'),
+      hasTerm?product.termCurve.asOfDate:'—');
+    textIfDifferent(cards[0]?.querySelector('.rona-owner-muted'),
+      hasTerm?'Финансовый форвард Platts; физическая цена не подтверждена':EMPTY_SOURCE);
+    if(chosen==='LPG'){
+      const second=cards[1];
+      textIfDifferent(second?.querySelector('.rona-owner-kpi'),'—');
+      textIfDifferent(second?.querySelector('.rona-owner-muted'),
+        'Региональная цена требует обновления; архив не является текущим');
+    }
   }
+  owner.dataset.ronaSelectedProduct=chosen;
+  owner.dataset.ronaPhysicalSpotFreshness=product.spotFreshness||'UNAVAILABLE';
   // Selected contract prices remain the only externally authorized RONA prices.
   paintAuthorizedPrices(owner,chosen);
   if(owner.dataset.ronaClientSourceSafe!=='1')owner.dataset.ronaClientSourceSafe='1';
@@ -350,7 +373,18 @@ function start(){
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load('visible')});
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
   window.addEventListener('rona:client-prices-updated',schedule,{passive:true});
-  document.addEventListener('click',event=>{const trigger=event.target?.closest?.('[data-page="analytics"],[data-page-id="analytics"],[data-page-panel="analytics"]');if(trigger)queueMicrotask(()=>load('analytics-open'))},true);
+  document.addEventListener('click',event=>{
+    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-an2-product]');
+    if(productButton){
+      // Native renderer changes the product synchronously after capture. Refresh
+      // source/status labels in its final selection state, without new controls.
+      queueMicrotask(schedule);
+      requestAnimationFrame(schedule);
+      return;
+    }
+    const trigger=event.target?.closest?.('[data-page="analytics"],[data-page-id="analytics"],[data-page-panel="analytics"]');
+    if(trigger)queueMicrotask(()=>load('analytics-open'));
+  },true);
   new MutationObserver(()=>schedule()).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','data-page','data-page-id']});
   schedule();
 }
