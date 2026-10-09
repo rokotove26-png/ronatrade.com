@@ -1,0 +1,37 @@
+name: Client Analytics canonical real-page boot QA v4
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - .github/workflows/client-analytics-real-page-boot-qa-v4.yml
+      - functions/portal/[[path]].js
+      - assets/portal-runtime/client-market-intelligence-v1.js
+      - scripts/attach-client-market-intelligence-v1.mjs
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - .github/workflows/client-analytics-real-page-boot-qa-v4.yml
+      - functions/portal/[[path]].js
+      - assets/portal-runtime/client-market-intelligence-v1.js
+      - scripts/attach-client-market-intelligence-v1.mjs
+permissions:
+  contents: read
+jobs:
+  real-canonical-client-page:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build canonical Client LK, enforce visual freeze and all source gates
+        run: npm run build
+      - name: Install Chromium QA runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Verify actual built Client page with impersonation URL
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
