@@ -8,6 +8,7 @@ on:
       - 'functions/portal/analytics-canonical-live-hydration.js'
       - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
       - 'tests/client-analytics-single-admin-engine-v14.test.mjs'
+      - 'scripts/qa-client-analytics-exact-admin-browser-v14.mjs'
       - 'assets/portal-runtime/client-market-intelligence-v1.js'
       - 'scripts/attach-client-market-intelligence-v1.mjs'
       - 'scripts/qa-client-market-intelligence-v1.mjs'
@@ -22,6 +23,7 @@ on:
       - 'functions/portal/analytics-canonical-live-hydration.js'
       - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
       - 'tests/client-analytics-single-admin-engine-v14.test.mjs'
+      - 'scripts/qa-client-analytics-exact-admin-browser-v14.mjs'
       - 'assets/portal-runtime/client-market-intelligence-v1.js'
       - 'scripts/attach-client-market-intelligence-v1.mjs'
       - 'scripts/qa-client-market-intelligence-v1.mjs'
@@ -66,6 +68,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Browser-prove Client published source & context isolation
         run: node scripts/qa-client-analytics-source-safe-browser-v3.mjs
+      - name: Browser-prove identical approved Admin and Client Analytics controls and charts
+        run: node scripts/qa-client-analytics-exact-admin-browser-v14.mjs
       - name: Browser-prove real canonical Client LK page with impersonation query
         run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
       - name: Wait exact production release Cloudflare SHA
