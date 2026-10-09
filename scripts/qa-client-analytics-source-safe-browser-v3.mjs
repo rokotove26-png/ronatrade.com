@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 
 const must=(ok,msg)=>{if(!ok)throw Error(msg)};
 const runtime=await readFile('dist/assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-const mark='20261009-client-analytics-published-price-visible-v9';
+const mark='20261009-client-analytics-admin-canonical-parity-v10';
 const stamp='2026-10-09T00:01:00Z';
 const row=(product,source='CURRENT',values=[1081,1092,1103])=>({
   publication_id:'CLIENT-QA-20261009',publication_item_id:'SAFE-CHART-'+product,
@@ -128,12 +128,12 @@ try{
   must(!(await page.locator('.an2-price-base').innerText()).includes('1201'),
     'AMBIGUOUS_PRICE_AUTO_SELECTED');
   console.log('CLIENT_CANONICAL_PUBLISHED_CONTRACT_PRICES_V9=PASS '+JSON.stringify({priced,foreign}));
-  payload={...payload,generated_at:'2026-10-09T00:02:00Z',analytics:[row('АИ-92')]};
+  payload={...payload,generated_at:'2026-10-09T00:02:00Z',analytics:[row('АИ-92')],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","projection":"CLIENT_ADMIN_PARITY_SOURCE_LOCKED_V10","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}}};
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1103,null,{timeout:10000});
   must(await page.locator(owner+' [data-chart-svg]').isVisible(),'CANONICAL_APPROVED_SERIES_CHART_NOT_SHOWN');
   must(await page.locator(owner).count()===1,'CANONICAL_VISUAL_OWNER_WAS_REPLACED');
-  payload={...payload,generated_at:'2026-10-09T00:03:00Z',analytics:[row('АИ-92','CURRENT',[1081,1092,1145])]};
+  payload={...payload,generated_at:'2026-10-09T00:03:00Z',analytics:[row('АИ-92','CURRENT',[1081,1092,1145])],clientCanonicalAnalytics:{...payload.clientCanonicalAnalytics,products:{...payload.clientCanonicalAnalytics.products,AI92:{...payload.clientCanonicalAnalytics.products.AI92,values:[1081,1092,1145]}}}};
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1145,null,{timeout:10000});
   mode='ERROR';latencyMs=40;
