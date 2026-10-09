@@ -10,7 +10,7 @@ const adminRendererId='rona-client-approved-admin-analytics-v14';
 const adminRendererSrc='/portal/analytics-client-approved-ui?v=20261010-approved-admin-exact-v14';
 const analyticsId='rona-client-market-intelligence-v1';
 const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13';
-const analyticsMarker='20261009-lpg-source-gap-history-v13';
+const analyticsMarker='20261010-approved-admin-renderer-client-adapter-v14';
 const newsId='rona-client-market-news-admin-parity-v1';
 const newsSrc='/assets/portal-runtime/client-market-news-admin-parity-v1.js?v=20260902-news-dialog-single-owner-v5';
 const newsMarker='20260902-admin-news-canonical-exact-v1';
