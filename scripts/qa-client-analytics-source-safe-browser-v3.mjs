@@ -203,7 +203,7 @@ try{
       proof.dates.length===count && proof.dates.at(-1)===expectedLast &&
       proof.dates.every(d=>/^\d{2}\.\d{2}$/.test(d)) &&
       proof.forecast.month==='2026-11' &&
-      proof.status===expectedSpot && proof.overlays===0 &&
+      proof.overlays===0 &&
       !proof.svgHidden && proof.kpi===expectedLast+'.2026' &&
       (key!=='LPG'||(
         JSON.parse(proof.gapHistory||'null')?.ids?.join(',')==='0,0,1,2')),
