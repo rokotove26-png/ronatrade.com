@@ -60,7 +60,6 @@ function installStyle(){
   if(document.getElementById('rona-client-analytics-canonical-style-v7'))return;
   const s=el('style',{id:'rona-client-analytics-canonical-style-v7'});
   s.textContent=[
-    '#page-analytics > #rona-analytics-v2[data-rona-client-analytics-visual-owner="canonical-v7"]{display:block!important;visibility:visible!important}',
     '#page-analytics > [data-rona-client-market-intelligence-owner="analytics"]{display:none!important}',
     '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"]{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:28px 15px;text-align:center}',
     '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"] strong{font-weight:700}',
