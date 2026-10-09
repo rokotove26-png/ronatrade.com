@@ -39,11 +39,16 @@ window.RONA_ANALYTICS_VIEW={
   getState(){return {product:this.product,source:'PLATTS'}},
   setPayload(p){
     this.data=p;this.setPayloadCount++;
-    const k=p.products[this.product];
+    const k=p.products[this.product]||{dates:[],values:[],forecast:null};
     document.querySelectorAll('.an2-kpis .rona-owner-kpi').forEach(n=>n.textContent=p.latestTradeDate);
-    document.querySelector('.an2-comment').textContent=k.forecast.comment;
+    document.querySelector('.an2-comment').textContent=k.forecast?.comment||'—';
     document.querySelector('[data-chart-title]').textContent=k.dates.length?'Динамика '+this.product:'Нет текущего ряда';
-    document.querySelector('.an2-mf-title').textContent='Прогноз: '+k.forecast.month;
+    document.querySelector('.an2-mf-title').textContent='Прогноз: '+(k.forecast?.month||'—');
+    const stage=document.querySelector('[data-chart-stage]');
+    if(stage&&k.dates.length){
+      stage.innerHTML='<svg data-chart-svg class="rona-market-chart-svg" viewBox="0 0 1020 380">'+
+        k.values.map((v,i)=>'<circle class="rmc-point" cx="'+(62+i*75)+'" cy="'+(150-i*18)+'" r="4"></circle>').join('')+'</svg>';
+    }
     return true;
   }
 };
