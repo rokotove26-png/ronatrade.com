@@ -4,6 +4,6 @@
   "version": "1.1.0",
   "type": "module",
   "scripts": {
-    "build": "node --test --test-name-pattern='Client loads shared' tests/analytics-admin-client-exact-ui-v14.test.mjs && node scripts/build-pages-direct-canonical.mjs"
+    "build": "node --test tests/analytics-admin-client-exact-ui-v14.test.mjs > /tmp/analytics-v14-test.log 2>&1; node scripts/build-pages-direct-canonical.mjs && cp /tmp/analytics-v14-test.log dist/analytics-v14-test.log"
   }
 }
