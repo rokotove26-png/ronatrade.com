@@ -200,11 +200,33 @@ function paintAuthorizedPrices(owner,selectedProduct){
   // not show for this product.
   const singleEngine=window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v5-client-admin-engine';
   const basisNames=state.data?.clientCanonicalAnalytics?.products?.[selectedProduct]?.priceBasisLabels;
-  if(singleEngine&&Array.isArray(basisNames)&&basisNames.length){
-    const permitted=new Set(basisNames.map(basisCode));
-    for(const card of box.querySelectorAll('.an2-rona-grid > .an2-price-card')){
-      const route=basisCode(card.querySelector('h3')?.textContent);
-      if(route&&!permitted.has(route))card.remove();
+  const grid=box.querySelector('.an2-rona-grid');
+  if(singleEngine&&grid&&Array.isArray(basisNames)&&basisNames.length&&basisNames.length<=12){
+    const current=[...grid.querySelectorAll(':scope > .an2-price-card')];
+    const intended=basisNames.map(basisCode);
+    const same=current.length===intended.length&&
+      current.every((card,i)=>basisCode(card.querySelector('h3')?.textContent)===intended[i]);
+    if(!same&&current.length){
+      const unused=[...current];
+      const output=[];
+      for(const name of basisNames){
+        const normName=basisCode(name);
+        let card=unused.find(c=>basisCode(c.querySelector('h3')?.textContent)===normName);
+        if(card)unused.splice(unused.indexOf(card),1);
+        else{
+          card=current[0].cloneNode(true);
+          for(const key of ['ronaClientPriceSource','ronaClientPricePresentation'])
+            delete card.dataset[key];
+        }
+        const title=card.querySelector('h3');
+        if(title)title.textContent=name;
+        for(const cls of ['.an2-price-base','.an2-price-range','.an2-price-current']){
+          const field=card.querySelector(cls);
+          if(field)field.textContent='—';
+        }
+        output.push(card);
+      }
+      grid.replaceChildren(...output);
     }
   }
   const source=publishedPriceContext();
