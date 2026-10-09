@@ -67,5 +67,33 @@ try{
   if(!report.hasBridge||!report.markerRef)throw Error('BUILT_CANONICAL_SCRIPT_BRIDGE_MISSING');
   if(!d.runtimeMarker||d.ownerCount!==1||d.rootDataset.ronaClientAnalyticsMigrated!=='v3')throw Error('CANONICAL_REAL_PAGE_ANALYTICS_BOOT_FAILED: '+JSON.stringify(d).slice(0,1500));
   if((d.rootExcerpt||'').includes('21.08.2026')||(d.rootExcerpt||'').includes('Прогноз 09.2026'))throw Error('ARCHIVED_202608_DATA_VISIBLE_IN_CANONICAL_REAL_PAGE');
+  // The screenshot was captured after Client navigation in an impersonated tab,
+  // not on initial DOMContentLoaded. Prove the same canonical page after re-entry.
+  for(const turn of ['first-nav','second-nav']){
+    await page.evaluate(()=>{
+      const nav=[...document.querySelectorAll('[data-page="analytics"]')].find(n=>n.tagName==='BUTTON')||
+                document.querySelector('[data-page="analytics"]');
+      if(!nav)throw Error('CANONICAL_ANALYTICS_NAVIGATION_NOT_FOUND');
+      nav.click();
+    });
+    await page.waitForTimeout(1200);
+    const observed=await page.evaluate(()=>{
+      const root=document.getElementById('page-analytics');
+      const owner=root?.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
+      return {
+        migrated:root?.dataset.ronaClientAnalyticsMigrated||null,
+        marker:window.__RONA_CLIENT_MARKET_INTELLIGENCE__||null,
+        ownerCount:root?.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length||0,
+        ownerState:owner?.dataset.renderState||null,
+        legacyVisible:[...root?.querySelectorAll('[data-rona-client-analytics-legacy="hidden-v3"]')||[]]
+          .filter(n=>getComputedStyle(n).display!=='none').length,
+        visibleOldText:String(root?.innerText||'').includes('21.08.2026')||
+                        String(root?.innerText||'').includes('Прогноз 09.2026')
+      };
+    });
+    console.log('CLIENT_CANONICAL_REENTRY',JSON.stringify({turn,observed}));
+    if(observed.migrated!=='v3'||observed.ownerCount!==1||observed.legacyVisible||observed.visibleOldText)
+      throw Error('CLIENT_ANALYTICS_REENTRY_LEGACY_VISIBLE: '+JSON.stringify({turn,observed}));
+  }
   console.log('CLIENT_CANONICAL_REAL_PAGE_ANALYTICS_BOOT=PASS');
 }finally{if(browser)await browser.close();srv.closeAllConnections?.();await new Promise(resolve=>srv.close(resolve));}
