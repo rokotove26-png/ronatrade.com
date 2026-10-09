@@ -16,7 +16,7 @@ const marker='20261009-client-analytics-current-source-safe-v3';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
   hasBridge:html.includes(bridge),
-  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-reentry-v4'),
+  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-visible-owner-v5'),
   rootStatic:/id=["']page-analytics["']/.test(html),
   analyticsNodeMatch:html.match(/.{0,180}id=["']page-analytics["'].{0,280}/)?.[0]||'not found',
   possibleIds:([...html.matchAll(/id=["']([^"']*analytic[^"']*)["']/gi)]).map(x=>x[1]).slice(0,30),
@@ -95,12 +95,39 @@ try{
         legacyVisible:[...root?.querySelectorAll('[data-rona-client-analytics-legacy="hidden-v3"]')||[]]
           .filter(n=>getComputedStyle(n).display!=='none').length,
         visibleOldText:String(root?.innerText||'').includes('21.08.2026')||
-                        String(root?.innerText||'').includes('Прогноз 09.2026')
+                        String(root?.innerText||'').includes('Прогноз 09.2026'),
+        rootClass:root?.className||'',
+        rootDisplay:root?getComputedStyle(root).display:null,
+        rootVisibility:root?getComputedStyle(root).visibility:null,
+        rootRect:root?{width:root.getBoundingClientRect().width,height:root.getBoundingClientRect().height}:null,
+        ownerDisplay:owner?getComputedStyle(owner).display:null,
+        ownerRect:owner?{width:owner.getBoundingClientRect().width,height:owner.getBoundingClientRect().height}:null,
+        ownerHidden:owner?.hidden??null,
+        ownerAttributes:owner?[...owner.attributes].map(a=>[a.name,a.value]).slice(0,16):[],
+        rootChildren:root?[...root.children].slice(0,5).map(n=>({tag:n.tagName,id:n.id,attr:[...n.attributes].map(a=>[a.name,a.value]).slice(0,10),display:getComputedStyle(n).display})):[],
+        ownerMatchingDisplayRules:(()=>{
+          if(!owner)return [];const matches=[];
+          function visit(rules){for(const rule of rules||[]){if(rule.cssRules)visit(rule.cssRules);if(rule.type!==1||!rule.selectorText)continue;const display=rule.style?.getPropertyValue('display');if(!display&&!rule.style?.getPropertyValue('visibility'))continue;try{if(owner.matches(rule.selectorText))matches.push({selector:rule.selectorText.slice(0,190),display,important:rule.style.getPropertyPriority('display')})}catch{}}}
+          for(const sheet of document.styleSheets){try{visit(sheet.cssRules)}catch{}}return matches.slice(-18);
+        })(),
+        selectedNav:[...document.querySelectorAll('[data-page="analytics"]')].map(n=>({tag:n.tagName,className:n.className,ariaCurrent:n.getAttribute('aria-current')})).slice(0,3),
+        ancestorTrail:(()=>{const nodes=[];let n=root;for(let i=0;i<6&&n;i++,n=n.parentElement){const css=getComputedStyle(n);nodes.push({tag:n.tagName,id:n.id,className:String(n.className).slice(0,100),display:css.display,visibility:css.visibility,opacity:css.opacity,rectHeight:n.getBoundingClientRect().height})}return nodes})()
       };
     });
     console.log('CLIENT_CANONICAL_REENTRY',JSON.stringify({turn,observed}));
     if(observed.migrated!=='v3'||observed.ownerCount!==1||observed.legacyVisible||observed.visibleOldText)
       throw Error('CLIENT_ANALYTICS_REENTRY_LEGACY_VISIBLE: '+JSON.stringify({turn,observed}));
+    if(observed.rootDisplay==='none'||observed.rootVisibility==='hidden'||!observed.rootRect?.height||!observed.ownerRect?.height||!observed.ancestorTrail.every(n=>n.display!=='none'&&n.visibility!=='hidden'&&n.opacity!=='0'&&n.rectHeight>0))
+      throw Error('CLIENT_ANALYTICS_VISIBLE_PANEL_MISSING: '+JSON.stringify({turn,observed}));
+    if(turn==='first-nav'){
+      await page.evaluate(()=>{
+        const home=[...document.querySelectorAll('[data-page="home"]')].find(n=>n.tagName==='BUTTON')||document.querySelector('[data-page="home"]');
+        if(!home)throw Error('CANONICAL_HOME_NAVIGATION_NOT_FOUND');
+        home.click();
+      });
+      await page.waitForTimeout(500);
+    }
   }
+  console.log('CLIENT_ANALYTICS_VISIBLE_OWNER_V5=PASS');
   console.log('CLIENT_CANONICAL_REAL_PAGE_ANALYTICS_BOOT=PASS');
 }finally{if(browser)await browser.close();srv.closeAllConnections?.();await new Promise(resolve=>srv.close(resolve));}

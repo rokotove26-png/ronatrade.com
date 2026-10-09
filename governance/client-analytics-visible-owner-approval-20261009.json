@@ -1,0 +1,50 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-09",
+  "owner_instruction": "Owner requests repair of blank Client Analytics section after previous work; allow only the new published-current analytics owner to be visibly rendered, leaving source freshness and all other Client LK sections unchanged.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261009:CLIENT_ANALYTICS_BLANK_SECTION_REPAIR; OWNER_SCREENSHOT:20261009-010004",
+  "scope": "CLIENT_ANALYTICS_VISIBLE_OWNER_V5",
+  "decision": "SCOPED_VISUAL_FREEZE_RELEASE",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_VISIBLE_OWNER_V5",
+  "supersedes_scope": "CLIENT_ANALYTICS_REENTRY_GUARD_V4",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "95f92544606e831318eb06ca6bd1022e75533d67",
+      "authorized_post_blob_sha": "1aab9052bab1af9f6e898d7ed80e2c1832897b85",
+      "required_marker": "20261009-client-analytics-visible-owner-v5"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "cbafacfd48457efb07c757eb2796c88213dfa65e",
+      "authorized_post_blob_sha": "c8c446a39a1ea58b6cf9e857b6e27c03590d8a84",
+      "required_marker": "20261009-client-analytics-visible-owner-v5"
+    }
+  },
+  "requirements": {
+    "analytics_section_only": true,
+    "visible_published_current_owner_only": true,
+    "canonical_legacy_id_remains_hidden": true,
+    "canonical_client_payload_untouched": true,
+    "market_values_not_manufactured": true,
+    "published_current_gate_preserved": true,
+    "source_unavailable_fail_closed": true,
+    "admin_impersonation_bridge_unchanged": true,
+    "other_client_sections_unchanged": true,
+    "auth_unchanged": true,
+    "supabase_unchanged": true,
+    "market_publication_authority_unchanged": true,
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "exact_blob_enforcement": true,
+    "wildcard_exception": false,
+    "scoped_unfreeze_only": true,
+    "chromium_visible_viewport_test_required": true,
+    "script_cache_busted": true
+  },
+  "rollback": "Restore exactly previous protected blobs 95f92544606e831318eb06ca6bd1022e75533d67 and cbafacfd48457efb07c757eb2796c88213dfa65e; restore corresponding previous analytics asset URL."
+}

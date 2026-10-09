@@ -17,6 +17,7 @@ const CLIENT_COMPANY_DIRECTORY_EVENT_DRIVEN_APPROVAL_PATH='governance/client-com
 const CLIENT_MARKET_EVENT_DRIVEN_APPROVAL_PATH='governance/client-market-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_ANALYTICS_CURRENT_SOURCE_APPROVAL_PATH='governance/client-analytics-current-source-owner-approval-20261009.json';
 const CLIENT_ANALYTICS_REENTRY_APPROVAL_PATH='governance/client-analytics-reentry-owner-approval-20261009.json';
+const CLIENT_ANALYTICS_VISIBILITY_APPROVAL_PATH='governance/client-analytics-visible-owner-approval-20261009.json';
 const CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH='governance/client-contract-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH='governance/client-background-manifest-event-driven-owner-approval-20260921.json';
 const CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH='governance/client-sidebar-command-nav-owner-approval-20260921.json';
@@ -40,6 +41,7 @@ const clientCompanyDirectoryEventDrivenApproval=JSON.parse(await readFile(CLIENT
 const clientMarketEventDrivenApproval=JSON.parse(await readFile(CLIENT_MARKET_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientAnalyticsCurrentSourceApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_CURRENT_SOURCE_APPROVAL_PATH,'utf8'));
 const clientAnalyticsReentryApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_REENTRY_APPROVAL_PATH,'utf8'));
+const clientAnalyticsVisibilityApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_VISIBILITY_APPROVAL_PATH,'utf8'));
 const clientContractEventDrivenApproval=JSON.parse(await readFile(CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientBackgroundManifestEventDrivenApproval=JSON.parse(await readFile(CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientSidebarCommandNavApproval=JSON.parse(await readFile(CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH,'utf8'));
@@ -774,6 +776,34 @@ const clientAnalyticsReentryExceptionAuthorized=
   clientAnalyticsReentryApproval?.requirements?.scoped_unfreeze_only===true&&
   CLIENT_ANALYTICS_REENTRY_FILES.every(path=>Boolean(clientAnalyticsReentryApproval?.exact_post_blobs?.[path]));
 
+const CLIENT_ANALYTICS_VISIBILITY_FILES=[...CLIENT_ANALYTICS_REENTRY_FILES];
+const clientAnalyticsVisibilityExceptionAuthorized=
+  clientAnalyticsVisibilityApproval?.approval==='OWNER_IN_CHAT'&&
+  clientAnalyticsVisibilityApproval?.authorized_at==='2026-10-09'&&
+  clientAnalyticsVisibilityApproval?.scope==='CLIENT_ANALYTICS_VISIBLE_OWNER_V5'&&
+  clientAnalyticsVisibilityApproval?.decision==='SCOPED_VISUAL_FREEZE_RELEASE'&&
+  clientAnalyticsVisibilityApproval?.approval_marker==='OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_VISIBLE_OWNER_V5'&&
+  clientAnalyticsVisibilityApproval?.supersedes_scope==='CLIENT_ANALYTICS_REENTRY_GUARD_V4'&&
+  clientAnalyticsReentryExceptionAuthorized&&
+  JSON.stringify(clientAnalyticsVisibilityApproval?.approved_protected_files)===JSON.stringify(CLIENT_ANALYTICS_VISIBILITY_FILES)&&
+  clientAnalyticsVisibilityApproval?.requirements?.analytics_section_only===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.visible_published_current_owner_only===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.canonical_legacy_id_remains_hidden===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.market_values_not_manufactured===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.published_current_gate_preserved===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.source_unavailable_fail_closed===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.auth_unchanged===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.other_client_sections_unchanged===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.market_publication_authority_unchanged===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.visual_freeze_remains_enabled===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.exact_file_enforcement_remains_active===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.exact_blob_enforcement===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.wildcard_exception===false&&
+  clientAnalyticsVisibilityApproval?.requirements?.scoped_unfreeze_only===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.chromium_visible_viewport_test_required===true&&
+  clientAnalyticsVisibilityApproval?.requirements?.script_cache_busted===true&&
+  CLIENT_ANALYTICS_VISIBILITY_FILES.every(path=>Boolean(clientAnalyticsVisibilityApproval?.exact_post_blobs?.[path]));
+
 const CLIENT_CONTRACT_EVENT_DRIVEN_FILES=[
   'assets/portal-runtime/client-contract-download-v3.js'
 ];
@@ -979,6 +1009,7 @@ let clientDealAttentionPaymentsExitAppliedFiles=0;
 let clientMarketEventDrivenAppliedFiles=0;
 let clientAnalyticsCurrentSourceAppliedFiles=0;
 let clientAnalyticsReentryAppliedFiles=0;
+let clientAnalyticsVisibilityAppliedFiles=0;
 let clientContractEventDrivenAppliedFiles=0;
 let clientBackgroundManifestEventDrivenAppliedFiles=0;
 let clientDealsVisualHierarchyAppliedFiles=0;
@@ -1176,6 +1207,17 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       clientAnalyticsReentryEntry.required_marker.length>0&&
       body.toString('utf8').includes(clientAnalyticsReentryEntry.required_marker)
     );
+    const clientAnalyticsVisibilityEntry=clientAnalyticsVisibilityExceptionAuthorized?clientAnalyticsVisibilityApproval.exact_post_blobs?.[path]:null;
+    const exactClientAnalyticsVisibility=Boolean(
+      CLIENT_ANALYTICS_VISIBILITY_FILES.includes(path)&&
+      clientAnalyticsVisibilityEntry&&
+      clientAnalyticsVisibilityEntry.visual_freeze_baseline_blob_sha===expected&&
+      clientAnalyticsVisibilityEntry.supersedes_authorized_post_blob_sha===clientAnalyticsReentryApproval.exact_post_blobs?.[path]?.authorized_post_blob_sha&&
+      clientAnalyticsVisibilityEntry.authorized_post_blob_sha===actual&&
+      typeof clientAnalyticsVisibilityEntry.required_marker==='string'&&
+      clientAnalyticsVisibilityEntry.required_marker.length>0&&
+      body.toString('utf8').includes(clientAnalyticsVisibilityEntry.required_marker)
+    );
     const clientContractEventDrivenEntry=clientContractEventDrivenExceptionAuthorized?clientContractEventDrivenApproval?.exact_post_blobs?.[path]:null;
     const exactClientContractEventDriven=Boolean(
       clientContractEventDrivenEntry&&
@@ -1214,10 +1256,11 @@ for(const [path,expected] of Object.entries(protectedFiles)){
     if(exactClientMarketEventDriven)clientMarketEventDrivenAppliedFiles+=1;
     if(exactClientAnalyticsCurrentSource)clientAnalyticsCurrentSourceAppliedFiles+=1;
     if(exactClientAnalyticsReentry)clientAnalyticsReentryAppliedFiles+=1;
+    if(exactClientAnalyticsVisibility)clientAnalyticsVisibilityAppliedFiles+=1;
     if(exactClientContractEventDriven)clientContractEventDrivenAppliedFiles+=1;
     if(exactClientDealsVisualHierarchy)clientDealsVisualHierarchyAppliedFiles+=1;
     if(exactClientBackgroundManifestEventDriven)clientBackgroundManifestEventDrivenAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
@@ -1236,9 +1279,13 @@ if(clientEventDrivenRefreshExceptionAuthorized&&clientEventDrivenRefreshEffectiv
 if(!clientMarketEventDrivenExceptionAuthorized)errors.push('CLIENT_MARKET_EVENT_DRIVEN_GOVERNANCE_NOT_AUTHORIZED');
 if(!clientAnalyticsCurrentSourceExceptionAuthorized)errors.push('CLIENT_ANALYTICS_CURRENT_SOURCE_GOVERNANCE_NOT_AUTHORIZED');
 if(!clientAnalyticsReentryExceptionAuthorized)errors.push('CLIENT_ANALYTICS_REENTRY_GOVERNANCE_NOT_AUTHORIZED');
-if(clientAnalyticsReentryExceptionAuthorized&&clientAnalyticsReentryAppliedFiles!==CLIENT_ANALYTICS_REENTRY_FILES.length)
-  errors.push(`CLIENT_ANALYTICS_REENTRY_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_REENTRY_FILES.length} actual=${clientAnalyticsReentryAppliedFiles}`);
-const clientAnalyticsCurrentSourceEffectiveFiles=clientAnalyticsCurrentSourceAppliedFiles+(clientAnalyticsReentryAppliedFiles===CLIENT_ANALYTICS_REENTRY_FILES.length?CLIENT_ANALYTICS_REENTRY_FILES.length:0);
+if(!clientAnalyticsVisibilityExceptionAuthorized)errors.push('CLIENT_ANALYTICS_VISIBLE_OWNER_V5_GOVERNANCE_NOT_AUTHORIZED');
+if(clientAnalyticsVisibilityExceptionAuthorized&&clientAnalyticsVisibilityAppliedFiles!==CLIENT_ANALYTICS_VISIBILITY_FILES.length)
+  errors.push(`CLIENT_ANALYTICS_VISIBLE_OWNER_V5_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_VISIBILITY_FILES.length} actual=${clientAnalyticsVisibilityAppliedFiles}`);
+const clientAnalyticsReentryEffectiveFiles=clientAnalyticsReentryAppliedFiles+(clientAnalyticsVisibilityAppliedFiles===CLIENT_ANALYTICS_VISIBILITY_FILES.length?CLIENT_ANALYTICS_VISIBILITY_FILES.length:0);
+if(clientAnalyticsReentryExceptionAuthorized&&clientAnalyticsReentryEffectiveFiles!==CLIENT_ANALYTICS_REENTRY_FILES.length)
+  errors.push(`CLIENT_ANALYTICS_REENTRY_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_REENTRY_FILES.length} actual=${clientAnalyticsReentryEffectiveFiles}`);
+const clientAnalyticsCurrentSourceEffectiveFiles=clientAnalyticsCurrentSourceAppliedFiles+(clientAnalyticsReentryEffectiveFiles===CLIENT_ANALYTICS_REENTRY_FILES.length?CLIENT_ANALYTICS_REENTRY_FILES.length:0);
 if(clientAnalyticsCurrentSourceExceptionAuthorized&&clientAnalyticsCurrentSourceEffectiveFiles!==CLIENT_ANALYTICS_CURRENT_SOURCE_FILES.length)
   errors.push(`CLIENT_ANALYTICS_CURRENT_SOURCE_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_CURRENT_SOURCE_FILES.length} actual=${clientAnalyticsCurrentSourceEffectiveFiles}`);
 const clientMarketEventDrivenEffectiveFiles=Math.max(clientMarketEventDrivenAppliedFiles,clientAnalyticsCurrentSourceEffectiveFiles===CLIENT_ANALYTICS_CURRENT_SOURCE_FILES.length?1:0);

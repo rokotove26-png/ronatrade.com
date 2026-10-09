@@ -3,6 +3,7 @@
 if(location.pathname!=='/portal/client')return;
 const MARK='20261009-client-analytics-current-source-safe-v3';
 const REENTRY_GUARD='20261009-client-analytics-reentry-guard-v4';
+const VISIBLE_OWNER_GUARD='20261009-client-analytics-visible-owner-v5';
 if(window.__RONA_CLIENT_MARKET_INTELLIGENCE__===MARK)return;
 window.__RONA_CLIENT_MARKET_INTELLIGENCE__=MARK;
 
@@ -76,6 +77,8 @@ function installStyle(){
 [${OWNER}="analytics"] .mi-missing{opacity:.85}
 [${OWNER}="analytics"] .mi-missing h3{font-weight:700}
 #page-analytics>[data-rona-client-analytics-legacy="hidden-v3"]{display:none!important}
+/* Only the published-current Client Analytics owner may override the canonical legacy-only child selector. */
+#page-analytics > :not(#rona-analytics-v2)[data-rona-client-market-intelligence-owner="analytics"]{display:block!important}
 @media(max-width:900px){[${OWNER}="analytics"] .mi-grid{grid-template-columns:1fr}}
 @media(max-width:620px){[${OWNER}="analytics"] .mi-head{align-items:flex-start;flex-direction:column}[${OWNER}="analytics"] .mi-meta{text-align:left}}
 `;
