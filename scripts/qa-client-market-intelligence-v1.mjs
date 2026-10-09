@@ -15,7 +15,7 @@ const migration=await read('supabase/migrations/20260902173000_client_market_int
 
 for(const token of [
   'id="rona-client-background-section-preload-v1"','client-background-section-preload-v1.js?v=20260902-current-context-v6',
-  'id="rona-client-market-intelligence-v1"','client-market-intelligence-v1.js?v=20261009-current-source-safe-v3',
+  'id="rona-client-market-intelligence-v1"','client-market-intelligence-v1.js?v=20261009-client-analytics-reentry-v4',
   'id="rona-client-market-news-admin-parity-v1"','client-market-news-admin-parity-v1.js?v=20260902-news-dialog-single-owner-v5',
   'id="rona-client-analytics-forecast-spacing-v1"','client-analytics-forecast-spacing-v1.js?v=20260902-forecast-spacing-v2'
 ])must(html,token,'built client');

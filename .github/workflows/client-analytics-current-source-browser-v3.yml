@@ -7,6 +7,7 @@ on:
       - 'scripts/attach-client-market-intelligence-v1.mjs'
       - 'scripts/qa-client-market-intelligence-v1.mjs'
       - 'scripts/qa-client-analytics-source-safe-browser-v3.mjs'
+      - 'scripts/qa-client-analytics-canonical-real-page-v4.mjs'
       - '.github/workflows/client-analytics-current-source-browser-v3.yml'
   push:
     branches: [release/public-go-live-v1.1]
@@ -15,6 +16,7 @@ on:
       - 'scripts/attach-client-market-intelligence-v1.mjs'
       - 'scripts/qa-client-market-intelligence-v1.mjs'
       - 'scripts/qa-client-analytics-source-safe-browser-v3.mjs'
+      - 'scripts/qa-client-analytics-canonical-real-page-v4.mjs'
       - '.github/workflows/client-analytics-current-source-browser-v3.yml'
 permissions:
   contents: read
@@ -51,6 +53,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Browser-prove Client published source & context isolation
         run: node scripts/qa-client-analytics-source-safe-browser-v3.mjs
+      - name: Browser-prove real canonical Client LK page with impersonation query
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
       - name: Wait exact production release Cloudflare SHA
         if: github.event_name == 'push'
         env:

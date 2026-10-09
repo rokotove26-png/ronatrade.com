@@ -2,6 +2,7 @@
 'use strict';
 if(location.pathname!=='/portal/client')return;
 const MARK='20261009-client-analytics-current-source-safe-v3';
+const REENTRY_GUARD='20261009-client-analytics-reentry-guard-v4';
 if(window.__RONA_CLIENT_MARKET_INTELLIGENCE__===MARK)return;
 window.__RONA_CLIENT_MARKET_INTELLIGENCE__=MARK;
 
@@ -84,10 +85,17 @@ function ensureOwner(root){
   installStyle();
   let owner=root.querySelector(`:scope > [${OWNER}="analytics"]`);
   if(!owner){owner=el('section',{[OWNER]:'analytics','data-rona-client-market-intelligence-version':MARK});root.prepend(owner)}
+  // The canonical Client SPA reopens its embedded analytics v2 child and
+  // overwrites hidden/display on every navigation. Re-lock *already marked*
+  // legacy children too; otherwise stale August/September prices reappear
+  // while the verified client owner remains mounted.
   for(const child of Array.from(root.children)){
-    if(child===owner||child.dataset.ronaClientAnalyticsLegacy==='hidden-v3')continue;
-    child.dataset.ronaClientAnalyticsLegacy='hidden-v3';
-    child.hidden=true;
+    if(child===owner)continue;
+    if(child.dataset.ronaClientAnalyticsLegacy!=='hidden-v3')
+      child.dataset.ronaClientAnalyticsLegacy='hidden-v3';
+    if(!child.hidden)child.hidden=true;
+    if(child.style.getPropertyValue('display')!=='none'||child.style.getPropertyPriority('display')!=='important')
+      child.style.setProperty('display','none','important');
   }
   root.dataset.ronaClientAnalyticsMigrated='v3';
   root.dataset.ronaClientAnalyticsSource='CLIENT_AUTHORIZED_PUBLISHED_CURRENT_ONLY';

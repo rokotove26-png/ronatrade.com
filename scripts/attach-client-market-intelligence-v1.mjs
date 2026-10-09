@@ -7,7 +7,7 @@ const analyticsRuntimePath='dist/assets/portal-runtime/client-market-intelligenc
 const newsRuntimePath='dist/assets/portal-runtime/client-market-news-admin-parity-v1.js';
 const spacingRuntimePath='dist/assets/portal-runtime/client-analytics-forecast-spacing-v1.js';
 const analyticsId='rona-client-market-intelligence-v1';
-const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20261009-current-source-safe-v3';
+const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20261009-client-analytics-reentry-v4';
 const analyticsMarker='20261009-client-analytics-current-source-safe-v3';
 const newsId='rona-client-market-news-admin-parity-v1';
 const newsSrc='/assets/portal-runtime/client-market-news-admin-parity-v1.js?v=20260902-news-dialog-single-owner-v5';

@@ -10,6 +10,9 @@ const policy=`/portal/client
 /assets/portal-runtime/client-home-current-only-v1.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
+/assets/portal-runtime/client-market-intelligence-v1.js
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
 /assets/portal-runtime/client-background-section-preload-v1.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
