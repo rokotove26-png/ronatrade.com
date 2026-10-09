@@ -270,6 +270,20 @@ function ensureSafeCanonicalState(owner,payload,reason){
       chartStage.innerHTML='<div class="an2-empty"><strong>Нет актуального подтверждённого ряда</strong><span>Наблюдения отсутствуют в разрешённой клиентской публикации.</span></div>';
     }
   }
+  if(!hasSeries){
+    // Exact Admin-side NO_SOURCE decoration for Client effective permissions.
+    for(const node of owner.querySelectorAll('[data-metric],.an2-kpis .rona-owner-kpi'))
+      textIfDifferent(node,'—');
+    for(const card of owner.querySelectorAll('.an2-kpis .rona-owner-card'))
+      textIfDifferent(card.querySelector('.rona-owner-muted'),'Нет подтверждённого ряда');
+    if(!product.forecast||!/^\d{4}-\d{2}$/.test(String(product.forecast.month||''))){
+      const forecastTitle=owner.querySelector('.an2-market-forecast .an2-mf-title');
+      textIfDifferent(forecastTitle,'Прогноз недоступен');
+      for(const node of owner.querySelectorAll('.an2-market-forecast .an2-mf-sub,.an2-market-forecast .an2-mf-row'))
+        textIfDifferent(node,'Нет подтверждённого источника');
+    }
+    textIfDifferent(owner.querySelector('.an2-comment'),'Текущие подтверждённые рыночные данные отсутствуют.');
+  }
   if(hasSeries){
     if(hasDaily){
       textIfDifferent(owner.querySelector('[data-chart-title]'),
@@ -344,9 +358,22 @@ function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
   // Do not retrigger native rendering on our own MutationObserver-driven updates.
   const sig=reason==='PUBLISHED_CURRENT_ONLY'?state.fingerprint:reason;
   if(owner.dataset.ronaClientPayloadFingerprint!==sig||owner.dataset.renderState!==reason){
-    view.setPayload(payload);
+    let applied=false;
+    try{applied=view.setPayload(payload)!==false}
+    catch(error){
+      owner.dataset.ronaApprovedNativeRenderError=String(error?.name||'NATIVE_RENDER_ERROR').slice(0,64);
+    }
+    const renderable=Object.values(payload.products).some(p=>Array.isArray(p.dates)&&p.dates.length>0);
+    if(!applied&&renderable){
+      owner.dataset.ronaClientSourceSafe='0';
+      root.dataset.ronaClientAnalyticsReady='false';
+      return;
+    }
     owner.dataset.ronaClientPayloadFingerprint=sig;
   }
+  // Admin renderer alone cannot represent an entirely empty historical sample
+  // until its Admin-side LIVE hydration decorator runs. The Client adapter
+  // performs the equivalent fail-closed empty-state decoration below.
   ensureSafeCanonicalState(owner,payload,reason);
   root.dataset.ronaClientAnalyticsReady=reason==='PUBLISHED_CURRENT_ONLY'?'true':'false';
   root.dataset.ronaClientMarketIntelligenceFingerprint='analytics:'+state.fingerprint;
