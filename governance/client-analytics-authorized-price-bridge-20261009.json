@@ -1,0 +1,50 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-09",
+  "owner_instruction": "Fill the existing canonical Client Analytics to match its working Admin counterpart; no visual changes. Populate only from source-authorized and client-scoped data, preserving the original #rona-analytics-v2 design and protected market data gates.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261009:POPULATE_CLIENT_ANALYTICS_IDENTICAL_TO_ADMIN; OWNER_IN_CHAT:20261009:EXECUTE",
+  "scope": "CLIENT_ANALYTICS_AUTHORIZED_CONTEXT_PRICE_BRIDGE_V8",
+  "decision": "SCOPED_DATA_ONLY_VISUAL_FREEZE_PRESERVED",
+  "approval_marker": "OWNER_DATA_APPROVAL: CLIENT_ANALYTICS_AUTHORIZED_CONTEXT_PRICE_BRIDGE_V8",
+  "supersedes_scope": "CLIENT_ANALYTICS_CANONICAL_RESTORE_V7",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "4625e490e3a989926c056ce77c1b24fc5471a7b5",
+      "authorized_post_blob_sha": "a627db9b057ba59427121dd969455f58fefc649c",
+      "required_marker": "20261009-client-analytics-authorized-price-bridge-v8"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "0eb069586e5d1f04ee775c64b2b48ecbc4110265",
+      "authorized_post_blob_sha": "8648e2debeaa37211354a338bf2f4b0832b66f95",
+      "required_marker": "20261009-client-analytics-authorized-price-bridge-v8"
+    }
+  },
+  "requirements": {
+    "restore_existing_canonical_node_only": true,
+    "identical_css_html_dom_structure": true,
+    "no_new_cards_or_chart_types": true,
+    "auth_and_impersonation_unchanged": true,
+    "market_source_freshness_gate_unchanged": true,
+    "raw_platts_private": true,
+    "commercial_prices_from_client_price_sync_only": true,
+    "contract_and_client_id_both_must_match": true,
+    "price_sync_authority_required": true,
+    "missing_or_ambiguous_prices_fail_closed": true,
+    "context_switch_clears_previous_client_prices": true,
+    "preserve_original_visual_freeze": true,
+    "exact_file_enforcement": true,
+    "exact_blob_enforcement": true,
+    "scoped_data_only": true,
+    "no_wildcard_exception": true,
+    "no_database_or_authoritative_publication_changes": true,
+    "real_canonical_browser_tests_required": true,
+    "rollback_documented": true
+  },
+  "rollback": "Restore exactly the two prior v7 approved blobs assets/portal-runtime/client-market-intelligence-v1.js=4625e490e3a989926c056ce77c1b24fc5471a7b5; scripts/attach-client-market-intelligence-v1.mjs=0eb069586e5d1f04ee775c64b2b48ecbc4110265. No business data rollback."
+}

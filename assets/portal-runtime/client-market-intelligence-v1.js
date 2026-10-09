@@ -1,7 +1,8 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-client-analytics-canonical-restored-v7';
+const MARK='20261009-client-analytics-authorized-price-bridge-v8';
+const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
 const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
 const REENTRY_GUARD='20261009-client-analytics-reentry-guard-v4';
 const VISIBLE_OWNER_GUARD='20261009-client-analytics-visible-owner-v5';
@@ -140,6 +141,58 @@ function canonicalPayload(data){
 function textIfDifferent(node,value){
   if(node&&node.textContent!==value)node.textContent=value;
 }
+// Populate only existing frozen AN2 price fields using the SAME client/contract-scoped
+// published price projection as the client Price tab. Admin quote data never crosses this bridge.
+function productCode(raw){
+  const s=norm(raw).toLocaleLowerCase('ru-RU').replace(/\s+/g,' ');
+  if(/^(аи[- ]?92|ai[- ]?92)(?:\b|[- /]|$)/u.test(s))return 'AI92';
+  if(/^(аи[- ]?95|ai[- ]?95)(?:\b|[- /]|$)/u.test(s))return 'AI95';
+  if(/^(дт|дизель|diesel)(?:\b|[- /]|$)/u.test(s))return 'DT';
+  if(/^(суг|спбт|lpg|сжиж)(?:\b|[- /]|$)/u.test(s))return 'LPG';
+  return '';
+}
+function basisCode(raw){return norm(raw).toLocaleLowerCase('ru-RU').replace(/[\s\u00a0]+/g,' ').trim()}
+function publishedPriceContext(){
+  const state=window.__RONA_CLIENT_PRICE_SYNC_STATE__,authoritative=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();
+  if(!authoritative||!state||state.authority!=='SERVER_AUTHORITATIVE_PRICE_PROJECTION'||!Array.isArray(state.prices)||!state.loadedAt)return null;
+  if(String(authoritative.client_id||'')!==String(state.context?.client_id||'')||
+     String(authoritative.contract_id||'')!==String(state.context?.contract_id||'')||
+     !authoritative.client_id||!authoritative.contract_id)return null;
+  const ts=Date.parse(state.loadedAt);
+  if(!Number.isFinite(ts)||ts>Date.now()+60000||Date.now()-ts>300000)return null;
+  return state;
+}
+function paintAuthorizedPrices(owner,selectedProduct){
+  const box=owner.querySelector('.an2-rona');
+  if(!box)return;
+  const source=publishedPriceContext();
+  let filled=0;
+  for(const card of box.querySelectorAll('.an2-price-card')){
+    const basis=basisCode(card.querySelector('h3')?.textContent);
+    const matches=source?.prices.filter(p=>productCode(p.product)===selectedProduct&&basisCode(p.basis)===basis&&
+      Number.isFinite(Number(p.price))&&Number(p.price)>0&&norm(p.currency))||[];
+    const current=card.querySelector('.an2-price-current');
+    const shown=matches.length===1?matches[0]:null;
+    if(shown){
+      const value=Number(shown.price).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+      textIfDifferent(current,'Опубликовано: '+value+' '+String(shown.currency).trim()+'/т');
+      card.dataset.ronaClientPriceSource='PUBLISHED_CURRENT_CONTRACT';
+      filled++;
+    }else{
+      textIfDifferent(current,matches.length>1?'Несколько опубликованных предложений — см. «Цены»':'—');
+      delete card.dataset.ronaClientPriceSource;
+    }
+    // Raw market forecast is not commercially approved for automatic price formulae.
+    textIfDifferent(card.querySelector('.an2-price-base'),'—');
+    textIfDifferent(card.querySelector('.an2-price-range'),'LOW — · HIGH —');
+  }
+  const note=box.querySelector('.an2-model-note');
+  if(note)textIfDifferent(note,filled
+    ?'Показаны действующие опубликованные цены выбранного договора. Прогнозный расчет RONA Trade не выполняется без подтвержденной рыночной публикации. Не является новой офертой.'
+    :'Опубликованные цены выбранного договора отсутствуют или не подтверждены. Прогнозные цены не рассчитываются.');
+  box.dataset.ronaClientPriceBridge=filled?'published-current-contract':'no-authorized-matching-price';
+  box.dataset.ronaClientPriceAuthority=source?'SERVER_AUTHORITATIVE_PRICE_PROJECTION':'SOURCE_UNAVAILABLE';
+}
 function ensureSafeCanonicalState(owner,payload,reason){
   const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};
   const chosen=selected.product||'AI92';
@@ -179,6 +232,7 @@ function ensureSafeCanonicalState(owner,payload,reason){
     textIfDifferent(second?.querySelector('.rona-owner-muted'),EMPTY_SOURCE);
   }
   // A failed API request must never expose historical built-in values.
+  paintAuthorizedPrices(owner,chosen);
   if(owner.dataset.ronaClientSourceSafe!=='1')owner.dataset.ronaClientSourceSafe='1';
   if(owner.dataset.renderState!==reason)owner.dataset.renderState=reason;
 }
@@ -259,6 +313,7 @@ function start(){
   window.addEventListener('online',()=>load('online'),{passive:true});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load('visible')});
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
+  window.addEventListener('rona:client-prices-updated',schedule,{passive:true});
   document.addEventListener('click',event=>{const trigger=event.target?.closest?.('[data-page="analytics"],[data-page-id="analytics"],[data-page-panel="analytics"]');if(trigger)queueMicrotask(()=>load('analytics-open'))},true);
   new MutationObserver(()=>schedule()).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','data-page','data-page-id']});
   schedule();

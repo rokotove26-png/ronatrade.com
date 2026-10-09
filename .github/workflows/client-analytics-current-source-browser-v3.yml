@@ -65,7 +65,9 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL --retry 5 --retry-delay 5 "https://ronaoil.com/assets/portal-runtime/client-market-intelligence-v1.js?qa=${GITHUB_SHA}" -o /tmp/rona-client-analytics.js
-          grep -q '20261009-client-analytics-canonical-restored-v7' /tmp/rona-client-analytics.js
+          grep -q '20261009-client-analytics-authorized-price-bridge-v8' /tmp/rona-client-analytics.js
+          grep -q 'paintAuthorizedPrices' /tmp/rona-client-analytics.js
+          grep -q 'SERVER_AUTHORITATIVE_PRICE_PROJECTION' /tmp/rona-client-analytics.js
           grep -q 'CANONICAL_VISUAL_OWNER' /tmp/rona-client-analytics.js
           grep -q "root.querySelector(':scope > #rona-analytics-v2')" /tmp/rona-client-analytics.js
           grep -q 'view.setPayload(payload)' /tmp/rona-client-analytics.js
@@ -79,4 +81,4 @@ jobs:
             echo 'Client Analytics periodic polling violation' >&2
             exit 1
           fi
-          echo 'RONA_CLIENT_ANALYTICS_CANONICAL_V7_PRODUCTION=PASS'
+          echo 'RONA_CLIENT_ANALYTICS_AUTHORIZED_PRICES_V8_PRODUCTION=PASS'

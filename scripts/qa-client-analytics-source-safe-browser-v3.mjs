@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 
 const must=(ok,msg)=>{if(!ok)throw Error(msg)};
 const runtime=await readFile('dist/assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-const mark='20261009-client-analytics-canonical-restored-v7';
+const mark='20261009-client-analytics-authorized-price-bridge-v8';
 const stamp='2026-10-09T00:01:00Z';
 const row=(product,source='CURRENT',values=[1081,1092,1103])=>({
   publication_id:'CLIENT-QA-20261009',publication_item_id:'SAFE-CHART-'+product,
@@ -27,7 +27,7 @@ const html=String.raw`<!doctype html><html lang="ru"><head><meta charset="UTF-8"
 <div data-chart-source>Platts · архив</div><div class="rona-market-chart-metric">1111</div>
 <div class="rona-market-chart-stage" data-chart-stage><svg data-chart-svg><text>21.08.2026</text></svg></div>
 <aside class="an2-market-forecast"><div class="an2-mf-title">Прогноз на 09.2026</div></aside></section></div>
-<section class="rona-owner-card an2-rona"><div class="an2-rona-grid"><section class="rona-owner-card an2-price-card">CPT Озинки</section></div></section>
+<section class="rona-owner-card an2-rona"><div class="an2-rona-grid"><section class="rona-owner-card an2-price-card"><h3>CPT Озинки</h3><div class="an2-price-base">—</div><div class="an2-price-range">LOW — · HIGH —</div><div class="an2-price-current">—</div></section></div><div class="an2-model-note">Нет текущих данных</div></section>
 <section class="rona-owner-card"><div class="an2-comment">Архивная котировка</div></section>
 </section></section>
 <script>
@@ -85,6 +85,45 @@ try{
   must(first.owner==='canonical-v7'&&first.display!=='none'&&!first.substitute&&first.svgHidden&&!first.oldVisible,
     'SOURCE_SAFE_CANONICAL_VISUAL_NOT_RESTORED '+JSON.stringify(first));
   must(first.values.length===0,'STALE_SOURCE_ROW_WAS_PUBLISHED');
+  // Published price authority belongs to the selected client's existing Price page,
+  // never to the Admin canonical price snapshot or a cross-tenant memory cache.
+  await page.evaluate(()=>{
+    window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'A',contract_id:'C1'})};
+    window.__RONA_CLIENT_PRICE_SYNC_STATE__={authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',
+      context:{client_id:'A',contract_id:'C1'},loadedAt:new Date().toISOString(),
+      prices:[{product:'АИ-92',basis:'CPT Озинки',price:1242.75,currency:'USD'}]};
+    window.dispatchEvent(new Event('rona:client-prices-updated'));
+  });
+  await page.waitForFunction(()=>document.querySelector('.an2-price-current')?.textContent?.includes('242,75'),null,{timeout:5500});
+  const priced=await page.evaluate(()=>({text:document.querySelector('.an2-price-current')?.textContent||'',
+    base:document.querySelector('.an2-price-base')?.textContent,
+    range:document.querySelector('.an2-price-range')?.textContent,
+    authority:document.querySelector('.an2-rona')?.dataset.ronaClientPriceAuthority,
+    source:document.querySelector('.an2-price-card')?.dataset.ronaClientPriceSource}));
+  must(priced.text.includes('1')&&priced.text.includes('242,75')&&priced.text.includes('USD/т')&&
+    priced.authority==='SERVER_AUTHORITATIVE_PRICE_PROJECTION'&&priced.source==='PUBLISHED_CURRENT_CONTRACT'&&
+    priced.base==='—'&&!priced.range.includes('1242'),
+    'AUTHORIZED_CLIENT_PRICE_NOT_PAINTED '+JSON.stringify(priced));
+  await page.evaluate(()=>{
+    window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'B',contract_id:'C2'})};
+    window.dispatchEvent(new Event('rona:client-prices-updated'));
+  });
+  await page.waitForFunction(()=>document.querySelector('.an2-price-current')?.textContent==='—',null,{timeout:5500});
+  const foreign=await page.evaluate(()=>({text:document.querySelector('.an2-price-current')?.textContent,
+    source:document.querySelector('.an2-price-card')?.dataset.ronaClientPriceSource||null}));
+  must(foreign.text==='—'&&foreign.source===null,'CROSS_TENANT_PRICE_LEAK '+JSON.stringify(foreign));
+  await page.evaluate(()=>{
+    window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'A',contract_id:'C1'})};
+    window.__RONA_CLIENT_PRICE_SYNC_STATE__={authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',
+      context:{client_id:'A',contract_id:'C1'},loadedAt:new Date().toISOString(),
+      prices:[{product:'АИ-92',basis:'CPT Озинки',price:1201.11,currency:'USD'},
+        {product:'АИ-92',basis:'CPT Озинки',price:1202.22,currency:'USD'}]};
+    window.dispatchEvent(new Event('rona:client-prices-updated'));
+  });
+  await page.waitForFunction(()=>document.querySelector('.an2-price-current')?.textContent?.includes('Несколько'),null,{timeout:5500});
+  must(!(await page.locator('.an2-price-current').innerText()).includes('1201'),
+    'AMBIGUOUS_PRICE_AUTO_SELECTED');
+  console.log('CLIENT_CANONICAL_PUBLISHED_CONTRACT_PRICES_V8=PASS '+JSON.stringify({priced,foreign}));
   payload={...payload,generated_at:'2026-10-09T00:02:00Z',analytics:[row('АИ-92')]};
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1103,null,{timeout:10000});
