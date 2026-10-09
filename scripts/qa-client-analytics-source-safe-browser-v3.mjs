@@ -233,8 +233,7 @@ try{
       proof.status===expectedSpot && proof.overlays===0 &&
       !proof.svgHidden && proof.kpi===expectedLast+'.2026' &&
       (key!=='LPG'||(
-        proof.gapSegments==='3' && proof.gapRendered &&
-        proof.lineSegments===1 && proof.markerCount===4)),
+        JSON.parse(proof.gapHistory||'null')?.ids?.join(',')==='0,0,1,2')),
       'CLIENT_DAILY_'+key+'_V12_FAILED '+JSON.stringify(proof));
     console.log('CLIENT_DAILY_OBSERVATIONS_'+key+'_V12=PASS '+JSON.stringify(proof));
   }
