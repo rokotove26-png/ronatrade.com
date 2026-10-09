@@ -23,6 +23,10 @@ const report={
   matchesOldText:html.includes('21.08.2026')||html.includes('09.2026')
 };
 console.log('CLIENT_REAL_CANONICAL_HTML',JSON.stringify(report));
+const canonicalMethods={};for(const key of ['const DATA=','DATA.products','function updateKpis(', 'function updateForecast(', 'function updateRona(', 'function updateCommentary(', 'function showSeries(', 'function showUnavailable(', 'function render()', 'function rebuildControls(']){
+  const index=html.indexOf(key);canonicalMethods[key]=index<0?null:html.slice(index,index+2350);
+}
+console.log('CLIENT_CANONICAL_ORIGINAL_DATA_CONTRACT',JSON.stringify(canonicalMethods));
 
 const payload={ok:true,data:{version:'RONA_CLIENT_MARKET_INTELLIGENCE_V1',generated_at:'2026-10-09T00:01:00Z',analytics:[],news:[]}};
 const MIME={'.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.html':'text/html; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp'};
