@@ -27,7 +27,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
   }
   function markLpgObservationGaps(root,p){
     const m=p?.dailyMonitor, ids=m?.segmentIds,dates=m?.observedDates;
-    const svg=root.querySelector('[data-chart-svg]');
+    const svg=root.querySelector('.rona-market-chart-svg,[data-chart-svg]');
     const points=[...(svg?.querySelectorAll('circle.rmc-point')||[])];
     if(!m?.historyIncludesAllGapSegments||!Array.isArray(ids)||!Array.isArray(dates)||
        ids.length<2||ids.length!==points.length||dates.length!==points.length)return;
