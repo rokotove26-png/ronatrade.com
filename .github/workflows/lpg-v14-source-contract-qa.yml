@@ -42,4 +42,4 @@ jobs:
       - name: Reversible hook smoke
         run: |
           docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/rollbacks/20261010003000_lpg_verified_full_platts_backfill_v14_rollback.sql
-          docker exec ${{ job.services.postgres.id }} psql -U postgres -d postgres -v ON_ERROR_STOP=1 -tAc "SELECT CASE WHEN to_regprocedure('portal_private.mi_backfill_lpg_observations_v14()') IS NULL AND position('lpg_history' in pg_get_functiondef('portal_private.market_intelligence_source_processor_cron_tick_v5()'::regprocedure))=0 THEN 'LPG_V14_ROLLBACK_PASS' ELSE (1/0)::text END"
+          docker exec ${{ job.services.postgres.id }} psql -U postgres -d postgres -v ON_ERROR_STOP=1 -tAc "SELECT CASE WHEN to_regprocedure('portal_private.mi_backfill_lpg_observations_v14()') IS NULL AND position('lpg_history' in pg_get_functiondef('portal_private.market_intelligence_source_processor_cron_tick_v5()'::regprocedure))=0 THEN 'LPG_V14_ROLLBACK_PASS' ELSE 'LPG_V14_ROLLBACK_FAIL' END" | grep -qx 'LPG_V14_ROLLBACK_PASS'"
