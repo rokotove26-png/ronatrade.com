@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-lpg-source-gap-history-v13';
+const MARK='20261010-approved-admin-renderer-client-adapter-v14';
 const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
@@ -160,11 +160,11 @@ function canonicalPayload(data){
         rona:{reference:NaN,bases:CANONICAL_PRICE_BASES.map(k=>[k,NaN])}
       };
     }
-    return{version:'RONA_CLIENT_ADMIN_CANONICAL_PARITY_V10',cutoff:approved.cutoff,
+    return{version:'RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1',cutoff:approved.cutoff,
       latestTradeDate:approved.latestTradeDate,
       argus:{available:false,reason:EMPTY_SOURCE},products};
   }
-  return{version:'RONA_CLIENT_ADMIN_CANONICAL_PARITY_V10',cutoff:EMPTY_SOURCE,
+  return{version:'RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1',cutoff:EMPTY_SOURCE,
     latestTradeDate:EMPTY_SOURCE,argus:{available:false,reason:EMPTY_SOURCE},products};
 }
 function textIfDifferent(node,value){
@@ -335,20 +335,41 @@ function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
   const owner=ensureOwner(root);
   if(!owner)return;
   const view=window.RONA_ANALYTICS_VIEW;
-  if(!view||typeof view.setPayload!=='function'){
+  const shared=window.RONA_ANALYTICS_APPROVED_SHARED;
+  if(!view||typeof view.setPayload!=='function'||
+     shared?.version!=='ADMIN_CANONICAL_RENDERER_CLIENT_ADAPTER_V14'||
+     typeof shared.apply!=='function'||typeof shared.decorate!=='function'){
+    // Never fall back to a second, independently implemented renderer.
     owner.dataset.ronaClientSourceSafe='0';
+    owner.dataset.ronaClientRendererAdapter='APPROVED_ADMIN_SOURCE_UNAVAILABLE';
     root.dataset.ronaClientAnalyticsReady='false';
     return;
   }
   const payload=canonicalPayload(data);
-  // The original RONA renderer owns its controls, chart, forecast, pricing cards and commentary.
-  // Do not retrigger native rendering on our own MutationObserver-driven updates.
   const sig=reason==='PUBLISHED_CURRENT_ONLY'?state.fingerprint:reason;
-  if(owner.dataset.ronaClientPayloadFingerprint!==sig||owner.dataset.renderState!==reason){
-    view.setPayload(payload);
+  const selection=String(view.getState?.()?.product||'AI92');
+  const redraw=owner.dataset.ronaClientPayloadFingerprint!==sig||
+    owner.dataset.renderState!==reason;
+  if(redraw){
+    const result=reason==='PUBLISHED_CURRENT_ONLY'?shared.apply(payload,true):false;
+    if(result===false)shared.unavailable(reason);
     owner.dataset.ronaClientPayloadFingerprint=sig;
+    owner.dataset.ronaSharedPresentationProduct=selection;
+  }else if(owner.dataset.ronaSharedPresentationProduct!==selection){
+    // The Admin's exact decoration follows native button state; not a second
+    // client-specific chart, forecast or KPI implementation.
+    shared.decorate();
+    owner.dataset.ronaSharedPresentationProduct=selection;
   }
-  ensureSafeCanonicalState(owner,payload,reason);
+  owner.dataset.ronaSelectedProduct=selection;
+  owner.dataset.ronaPhysicalSpotFreshness=
+    payload.products?.[selection]?.spotFreshness||'UNAVAILABLE';
+  // RONA contract numbers alone are client scoped; the Admin model's
+  // internal margins, rail pricing bridges and source rows never leave Edge.
+  if(reason==='PUBLISHED_CURRENT_ONLY')paintAuthorizedPrices(owner,selection);
+  else paintAuthorizedPrices(owner,'UNAVAILABLE');
+  owner.dataset.ronaClientSourceSafe='1';
+  owner.dataset.renderState=reason;
   root.dataset.ronaClientAnalyticsReady=reason==='PUBLISHED_CURRENT_ONLY'?'true':'false';
   root.dataset.ronaClientMarketIntelligenceFingerprint='analytics:'+state.fingerprint;
 }
@@ -363,7 +384,7 @@ function apply(){
   ensureOwner(root);
   if(state.data){
     if(root.dataset.ronaClientMarketIntelligenceFingerprint!=='analytics:'+state.fingerprint)renderAnalytics(root,state.data);
-    else{const canonical=ensureOwner(root);if(canonical)ensureSafeCanonicalState(canonical,canonicalPayload(state.data),'PUBLISHED_CURRENT_ONLY')}
+    else renderCanonical(root,state.data,'PUBLISHED_CURRENT_ONLY')
     document.documentElement.dataset.ronaClientMarketIntelligence='ready';
   }else if(state.loaded&&state.error){
     renderError(root,'Актуальная опубликованная аналитика временно недоступна. Архивные котировки и прогнозы скрыты.');
