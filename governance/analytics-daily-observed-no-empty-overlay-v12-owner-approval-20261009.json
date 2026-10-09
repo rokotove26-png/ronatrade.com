@@ -52,5 +52,27 @@
     "real_browser_qas_required": true,
     "wildcard_exception": false
   },
-  "rollback": "Restore release commit 96444b278bfac89601870ded0f7681408421371b; protected blobs JS 03e286193013331edc1465bcf32d5d9194017975 and attach e92fa0204ec19f86417cd24aeffed115f7377f6d. DB migration reversion requires approved reversal of function changes; no market data rows ever mutated."
+  "rollback": "Restore release commit 96444b278bfac89601870ded0f7681408421371b; protected blobs JS 03e286193013331edc1465bcf32d5d9194017975 and attach e92fa0204ec19f86417cd24aeffed115f7377f6d. DB migration reversion requires approved reversal of function changes; no market data rows ever mutated.",
+  "publication_authorization": {
+    "granted_by": "RONA_TRADE_OWNER",
+    "explicit_owner_message_date": "2026-10-09",
+    "owner_message": "Я разрешаю все публикации в этом разделе",
+    "scope": "RONA_TRADE_CLIENT_ANALYTICS_ALL_PRODUCT_PUBLICATIONS",
+    "authority": "RONA_TRADE_BUSINESS_PUBLICATION_APPROVAL_GRANTED",
+    "market_source_owner": "AI-COMMERCIAL-DIRECTOR",
+    "data_access": "published_verified_client_scoped_only",
+    "source_format": "verified_derived_daily_observations_and_separate_monthly_forecast",
+    "not_reclassified_as_current": [
+      "DT_BNK_COMPOSITE_AUGUST_2026",
+      "LPG_REGIONAL_PETROMARKET_AUGUST_2026"
+    ],
+    "safeguards": [
+      "NO_PRIVATE_SOURCE_PDFS_OR_RAW_SOURCE_DOCUMENT_FIELDS",
+      "THIRD_PARTY_SOURCE_LICENSE_TERMS_REMAIN_APPLICABLE",
+      "NO_FAKE_OBSERVATIONS",
+      "NO_CROSS_CLIENT_INTERNAL_CONTRACT_PRICES"
+    ],
+    "distinction": "Owner authorizes RONA's publications, without asserting a third party Platts redistribution licence not evidenced in the source registry."
+  },
+  "revision_note": "Owner reaffirmed full RONA client Analytics publication authority 2026-10-09; no need to wait for human Commercial Director. Commercial Director is an AI employee; retain accountable market provenance and correct gaps."
 }
