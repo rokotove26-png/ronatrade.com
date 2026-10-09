@@ -67,6 +67,6 @@ BEGIN
   END LOOP;
   RETURN v;
 END
-$function$
+$function$;
 
 DROP FUNCTION IF EXISTS portal_private.market_intelligence_daily_monitor_v1(text,date);
