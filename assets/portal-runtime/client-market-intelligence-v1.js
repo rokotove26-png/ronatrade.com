@@ -249,7 +249,7 @@ function ensureSafeCanonicalState(owner,payload,reason){
   const hasDaily=hasSeries&&daily?.version==='RONA_MARKET_OBSERVED_DAILY_V1'&&
     daily?.granularity==='OBSERVATION_DATE'&&daily?.sourceStatus==='CONFIRMED';
   const chartStage=owner.querySelector('[data-chart-stage]');
-  const svg=owner.querySelector('[data-chart-svg]');
+  const svg=owner.querySelector('.rona-market-chart-svg,[data-chart-svg]');
   if(svg){
     if(svg.hidden===hasSeries)svg.hidden=!hasSeries;
     const wanted=hasSeries?'':'hidden';
