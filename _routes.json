@@ -32,6 +32,7 @@
     "/portal/claims-r2-ui",
     "/portal/remaining-sections-ui",
     "/portal/analytics-v2-ui",
+    "/portal/analytics-v2-client-mirror",
     "/favicon.ico",
     "/robots.txt",
     "/sitemap.xml"
