@@ -3,7 +3,7 @@
 if(location.pathname!=='/portal/client')return;
 const MARK='20261009-admin-canonical-shared-presenter-v14';
 const ADMIN_SHARED_PRESENTER='ADMIN_APPROVED_SHARED_V14';
-const ADMIN_SHARED_PRESENTER_SRC='/portal/analytics-canonical-presenter-v14';
+const ADMIN_SHARED_PRESENTER_SRC='/portal/analytics-client-approved-runtime-v14';
 const CLIENT_CANONICAL_PARITY='ADMIN_APPROVED_SHARED_V14';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
