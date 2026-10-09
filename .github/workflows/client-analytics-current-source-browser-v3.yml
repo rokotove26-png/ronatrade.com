@@ -1,4 +1,4 @@
-name: Client Analytics current-source browser QA v3
+name: Client Analytics canonical published-current browser QA v7
 on:
   pull_request:
     branches: [release/public-go-live-v1.1]
@@ -65,11 +65,18 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL --retry 5 --retry-delay 5 "https://ronaoil.com/assets/portal-runtime/client-market-intelligence-v1.js?qa=${GITHUB_SHA}" -o /tmp/rona-client-analytics.js
-          grep -q '20261009-client-analytics-current-source-safe-v3' /tmp/rona-client-analytics.js
+          grep -q '20261009-client-analytics-canonical-restored-v7' /tmp/rona-client-analytics.js
+          grep -q 'CANONICAL_VISUAL_OWNER' /tmp/rona-client-analytics.js
+          grep -q "root.querySelector(':scope > #rona-analytics-v2')" /tmp/rona-client-analytics.js
+          grep -q 'view.setPayload(payload)' /tmp/rona-client-analytics.js
           grep -q 'CLIENT_AUTHORIZED_PUBLISHED_CURRENT_ONLY' /tmp/rona-client-analytics.js
           grep -q 'ERROR_NO_ARCHIVE' /tmp/rona-client-analytics.js
+          if grep -Eq '(mi-grid|mi-card|owner\.replaceChildren\(|root\.prepend\(owner\))' /tmp/rona-client-analytics.js; then
+            echo 'Canonical Analytics substitution regression' >&2
+            exit 1
+          fi
           if grep -q 'setInterval(' /tmp/rona-client-analytics.js; then
             echo 'Client Analytics periodic polling violation' >&2
             exit 1
           fi
-          echo 'RONA_CLIENT_ANALYTICS_SOURCE_SAFE_V3_PRODUCTION=PASS'
+          echo 'RONA_CLIENT_ANALYTICS_CANONICAL_V7_PRODUCTION=PASS'
