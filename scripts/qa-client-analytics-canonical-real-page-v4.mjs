@@ -135,7 +135,22 @@ try{
     await page.waitForTimeout(700);
   };
   await nav('analytics');
-  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1',null,{timeout:6500});
+  try{
+    await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1',null,{timeout:6500});
+  }catch(error){
+    const diag=await page.evaluate(()=>({
+      root:document.querySelector('#rona-analytics-v2')?.outerHTML.slice(0,1300),
+      attrs:[...document.querySelector('#rona-analytics-v2')?.attributes||[]].map(x=>[x.name,x.value]),
+      runtime:window.__RONA_CLIENT_EXACT_ADMIN_ANALYTICS_RENDERER_V14__,
+      oldOwner:window.__RONA_ANALYTICS_APPROVED_SINGLE_OWNER__,
+      state:window.RONA_ANALYTICS_VIEW?.getState?.(),
+      activePage:document.querySelector('#page-analytics')?.className,
+      controls:[...document.querySelectorAll('#rona-analytics-v2 [data-product],#rona-analytics-v2 [data-an2-product]')].map(x=>x.outerHTML.slice(0,140)),
+      source:document.documentElement.dataset.ronaClientMarketIntelligence
+    }));
+    console.log('CLIENT_ADMIN_EXACT_MIRROR_BOOT_DIAGNOSTIC',JSON.stringify({diag,errors,requestFail}));
+    throw error;
+  }
   const initial=await snapshot();
   const mirror=await page.evaluate(()=>({
     marker:window.__RONA_CLIENT_EXACT_ADMIN_ANALYTICS_RENDERER_V14__,
