@@ -172,7 +172,7 @@ try{
     throw Error('CLIENT_CANONICAL_LIVE_PUBLICATION_FAILED: '+JSON.stringify(live));
   payload.data={...payload.data,analytics:[],generated_at:'2026-10-09T00:03:00Z'};
   await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
-  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 [data-chart-svg]')?.hidden===true,null,{timeout:6500});
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden',null,{timeout:6500});
   await nav('home');
   await nav('analytics');
   const back=await snapshot();
