@@ -406,6 +406,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         output.basis = text(daily.basis);
         output.dailyMonitor = {
           version: daily.version, granularity: daily.granularity,
+          sourceFamily: text(daily.sourceFamily), sourceStatus: text(daily.sourceStatus),
           instrument: text(daily.instrument), unit: text(daily.unit),
           observationCount: Number(daily.observationCount),
           availableTotal: Number(daily.availableTotal),
