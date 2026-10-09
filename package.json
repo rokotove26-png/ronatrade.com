@@ -4,6 +4,6 @@
   "version": "1.1.0",
   "type": "module",
   "scripts": {
-    "build": "node --test tests/analytics-admin-client-exact-ui-v14.test.mjs"
+    "build": "node --test tests/analytics-admin-client-exact-ui-v14.test.mjs && node scripts/build-pages-direct-canonical.mjs"
   }
 }
