@@ -1,0 +1,31 @@
+name: Client Admin Analytics exact parity v14 integration gate
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+  push:
+    branches:
+      - release/public-go-live-v1.1
+permissions:
+  contents: read
+jobs:
+  approved-renderer-exact-client:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test exact shared approved renderer and Client authorization
+        run: node --test tests/analytics-admin-client-exact-ui-v14.test.mjs
+      - name: Build both canonical portals with all prior freeze and safety gates
+        run: npm run build
+      - name: Install Playwright Chromium runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Browser UAT real Client LK Admin renderer mirror
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - name: Browser UAT Admin approved analytics controls
+        run: node scripts/qa-admin-analytics-real-shape-browser-r2.mjs
