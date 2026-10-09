@@ -56,6 +56,24 @@ try{
   page.on('requestfailed',r=>{if(requestFail.length<30)requestFail.push({url:r.url(),failure:r.failure()})});
   await page.goto(origin+'/portal/client?impSession=00000000-0000-4000-8000-000000000001',{waitUntil:'domcontentloaded',timeout:20000});
   await page.waitForTimeout(3000);
+  const canonicalProbe=await page.evaluate(()=>{
+    const root=document.querySelector('#rona-analytics-v2'),parent=document.querySelector('#page-analytics');
+    const inspect=n=>n?{tag:n.tagName,id:n.id,classes:String(n.className).slice(0,95),hidden:n.hidden,display:getComputedStyle(n).display,
+      children:n.childElementCount,rect:{w:Math.round(n.getBoundingClientRect().width),h:Math.round(n.getBoundingClientRect().height)},
+      attrs:[...n.attributes].filter(x=>/data-/.test(x.name)).map(x=>[x.name,x.value]).slice(0,7)}:null;
+    if(!root)return{missing:true};
+    const structure=[...root.querySelectorAll('section,div,canvas,svg,iframe,button,select,[role=tab],[data-chart-stage],[data-chart-title],h1,h2,h3,h4')].map(n=>({
+      depth:(()=>{let d=0,x=n;while(x&&x!==root&&d<11){d++;x=x.parentElement}return d})(),
+      tag:n.tagName,id:n.id,cls:String(n.className).slice(0,80),
+      dt:[...n.attributes].filter(a=>a.name.startsWith('data-')).map(a=>a.name).slice(0,5),
+      role:n.getAttribute('role'),text:/^H[1-4]$|^BUTTON$|^OPTION$/.test(n.tagName)?String(n.textContent||'').trim().slice(0,65):'',
+      shown:getComputedStyle(n).display!=='none'
+    }));
+    const blocks=[...root.children].map(n=>({node:inspect(n),descendants:n.querySelectorAll('*').length}));
+    const numerical=[...root.querySelectorAll('[class*="kpi"],[class*="chart"],[class*="forecast"],[class*="price"],canvas,iframe')].slice(0,55).map(inspect);
+    return{root:inspect(root),page:inspect(parent),htmlSize:root.outerHTML.length,blocks,structure:structure.slice(0,120),numeric:numerical};
+  });
+  console.log('CLIENT_CANONICAL_ORIGINAL_VISUAL_CONTRACT',JSON.stringify(canonicalProbe));
   const d=await page.evaluate(()=>({
     path:location.pathname,
     readyState:document.readyState,
