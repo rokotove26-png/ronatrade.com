@@ -141,6 +141,22 @@ try{
     owner.hidden=true;
     owner.style.setProperty('display','none','important');
   });
+  await page.waitForTimeout(1100);
+  const injectedState=await page.evaluate(()=>{
+    const root=document.querySelector('#page-analytics'),owner=root?.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
+    const nav=[...document.querySelectorAll('.sidebar [data-page="analytics"],#nav [data-page="analytics"]')].map(n=>({cls:n.className,aria:n.getAttribute('aria-current')}));
+    const elem=owner?.querySelector('h2'),heading=elem?.getBoundingClientRect();
+    const x=heading?Math.min(innerWidth-2,Math.max(2,heading.left+heading.width/2)):null;
+    const y=heading?Math.min(innerHeight-2,Math.max(2,heading.top+heading.height/2)):null;
+    const hit=(x!==null&&y!==null)?document.elementFromPoint(x,y):null;
+    return{nav,rootClass:root?.className,rootStyle:root?.getAttribute('style'),rootDataset:{...root?.dataset},
+      rootDisplay:root?getComputedStyle(root).display:null,rootVisible:root?getComputedStyle(root).visibility:null,rootHidden:root?.hidden,
+      ownerStyle:owner?.getAttribute('style'),ownerDisplay:owner?getComputedStyle(owner).display:null,
+      ownerVisible:owner?getComputedStyle(owner).visibility:null,ownerHidden:owner?.hidden,
+      ownerRect:owner?{x:owner.getBoundingClientRect().x,y:owner.getBoundingClientRect().y,width:owner.getBoundingClientRect().width,height:owner.getBoundingClientRect().height}:null,
+      hit:hit?{tag:hit.tagName,id:hit.id,cls:String(hit.className).slice(0,70),insideOwner:owner?.contains(hit)}:null};
+  });
+  console.log('CLIENT_ANALYTICS_V6_INJECTED_HIDE_DIAGNOSTIC',JSON.stringify(injectedState));
   await page.waitForFunction(()=>{
     const root=document.querySelector('#page-analytics'),owner=root?.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
     if(!root||!owner)return false;
