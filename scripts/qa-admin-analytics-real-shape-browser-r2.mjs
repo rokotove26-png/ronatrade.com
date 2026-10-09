@@ -97,7 +97,7 @@ try{
     const ctl=root?.querySelector('.an2-controls button[data-product="DT"]');
     const stage=root?.querySelector('[data-chart-stage]');
     return {state:window.RONA_ANALYTICS_VIEW?.getState?.(),documentVersion:window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__,
-      rootPresent:!!root,stagePresent:!!stage,stageHtml:stage?.outerHTML.slice(0,500),
+      rootPresent:!!root,stagePresent:!!stage,stageHtml:stage?.outerHTML.slice(0,4500),
       closestMatches:!!ctl?.closest('#rona-analytics-v2 .an2-controls button[data-product]'),
       dataset:document.documentElement.dataset.ronaAnalyticsData,priceMode:root?.querySelector('.an2-rona')?.dataset?.pricingMode};
   });
