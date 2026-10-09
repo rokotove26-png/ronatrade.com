@@ -19,6 +19,7 @@ const CLIENT_ANALYTICS_CURRENT_SOURCE_APPROVAL_PATH='governance/client-analytics
 const CLIENT_ANALYTICS_REENTRY_APPROVAL_PATH='governance/client-analytics-reentry-owner-approval-20261009.json';
 const CLIENT_ANALYTICS_VISIBILITY_APPROVAL_PATH='governance/client-analytics-visible-owner-approval-20261009.json';
 const CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_APPROVAL_PATH='governance/client-analytics-active-route-recovery-owner-approval-20261009.json';
+const CLIENT_ANALYTICS_CANONICAL_RESTORE_APPROVAL_PATH='governance/client-analytics-canonical-restore-owner-approval-20261009.json';
 const CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH='governance/client-contract-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH='governance/client-background-manifest-event-driven-owner-approval-20260921.json';
 const CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH='governance/client-sidebar-command-nav-owner-approval-20260921.json';
@@ -44,6 +45,7 @@ const clientAnalyticsCurrentSourceApproval=JSON.parse(await readFile(CLIENT_ANAL
 const clientAnalyticsReentryApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_REENTRY_APPROVAL_PATH,'utf8'));
 const clientAnalyticsVisibilityApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_VISIBILITY_APPROVAL_PATH,'utf8'));
 const clientAnalyticsActiveRouteRecoveryApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_APPROVAL_PATH,'utf8'));
+const clientAnalyticsCanonicalRestoreApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_CANONICAL_RESTORE_APPROVAL_PATH,'utf8'));
 const clientContractEventDrivenApproval=JSON.parse(await readFile(CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientBackgroundManifestEventDrivenApproval=JSON.parse(await readFile(CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientSidebarCommandNavApproval=JSON.parse(await readFile(CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH,'utf8'));
@@ -836,6 +838,37 @@ const clientAnalyticsActiveRouteRecoveryExceptionAuthorized=
   clientAnalyticsActiveRouteRecoveryApproval?.requirements?.script_cache_busted===true&&
   CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES.every(path=>Boolean(clientAnalyticsActiveRouteRecoveryApproval?.exact_post_blobs?.[path]));
 
+const CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES=[...CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES];
+const clientAnalyticsCanonicalRestoreExceptionAuthorized=
+  clientAnalyticsCanonicalRestoreApproval?.approval==='OWNER_IN_CHAT'&&
+  clientAnalyticsCanonicalRestoreApproval?.authorized_at==='2026-10-09'&&
+  clientAnalyticsCanonicalRestoreApproval?.scope==='CLIENT_ANALYTICS_CANONICAL_RESTORE_V7'&&
+  clientAnalyticsCanonicalRestoreApproval?.decision==='SCOPED_VISUAL_FREEZE_RESTORATION'&&
+  clientAnalyticsCanonicalRestoreApproval?.approval_marker==='OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_CANONICAL_RESTORE_V7'&&
+  clientAnalyticsCanonicalRestoreApproval?.supersedes_scope==='CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_V6'&&
+  clientAnalyticsActiveRouteRecoveryExceptionAuthorized&&
+  JSON.stringify(clientAnalyticsCanonicalRestoreApproval?.approved_protected_files)===JSON.stringify(CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES)&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.restore_existing_canonical_node_only===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.preserve_an2_hero_kpis_controls_chart_forecast_prices_commentary===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.no_substitute_owner_cards===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.no_static_history_exposed_as_current===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.current_only_client_published_feed===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.api_error_fail_closed===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.canonical_view_set_payload_only===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.market_publication_authority_unchanged===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.auth_and_impersonation_unchanged===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.no_business_data_mutation===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.original_client_canonical_source_unchanged===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.source_safe_prepaint_required===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.native_chart_no_fake_values===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.chromium_real_canonical_visual_parity_required===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.exact_file_enforcement_remains_active===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.visual_freeze_remains_enabled===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.exact_blob_enforcement===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.scoped_unfreeze_only===true&&
+  clientAnalyticsCanonicalRestoreApproval?.requirements?.wildcard_exception===false&&
+  CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.every(path=>Boolean(clientAnalyticsCanonicalRestoreApproval?.exact_post_blobs?.[path]));
+
 const CLIENT_CONTRACT_EVENT_DRIVEN_FILES=[
   'assets/portal-runtime/client-contract-download-v3.js'
 ];
@@ -1043,6 +1076,7 @@ let clientAnalyticsCurrentSourceAppliedFiles=0;
 let clientAnalyticsReentryAppliedFiles=0;
 let clientAnalyticsVisibilityAppliedFiles=0;
 let clientAnalyticsActiveRouteRecoveryAppliedFiles=0;
+let clientAnalyticsCanonicalRestoreAppliedFiles=0;
 let clientContractEventDrivenAppliedFiles=0;
 let clientBackgroundManifestEventDrivenAppliedFiles=0;
 let clientDealsVisualHierarchyAppliedFiles=0;
@@ -1262,6 +1296,17 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       clientAnalyticsActiveRouteRecoveryEntry.required_marker.length>0&&
       body.toString('utf8').includes(clientAnalyticsActiveRouteRecoveryEntry.required_marker)
     );
+    const clientAnalyticsCanonicalRestoreEntry=clientAnalyticsCanonicalRestoreExceptionAuthorized?clientAnalyticsCanonicalRestoreApproval.exact_post_blobs?.[path]:null;
+    const exactClientAnalyticsCanonicalRestore=Boolean(
+      CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.includes(path)&&
+      clientAnalyticsCanonicalRestoreEntry&&
+      clientAnalyticsCanonicalRestoreEntry.visual_freeze_baseline_blob_sha===expected&&
+      clientAnalyticsCanonicalRestoreEntry.supersedes_authorized_post_blob_sha===clientAnalyticsActiveRouteRecoveryApproval.exact_post_blobs?.[path]?.authorized_post_blob_sha&&
+      clientAnalyticsCanonicalRestoreEntry.authorized_post_blob_sha===actual&&
+      typeof clientAnalyticsCanonicalRestoreEntry.required_marker==='string'&&
+      clientAnalyticsCanonicalRestoreEntry.required_marker.length>0&&
+      body.toString('utf8').includes(clientAnalyticsCanonicalRestoreEntry.required_marker)
+    );
     const clientContractEventDrivenEntry=clientContractEventDrivenExceptionAuthorized?clientContractEventDrivenApproval?.exact_post_blobs?.[path]:null;
     const exactClientContractEventDriven=Boolean(
       clientContractEventDrivenEntry&&
@@ -1302,10 +1347,11 @@ for(const [path,expected] of Object.entries(protectedFiles)){
     if(exactClientAnalyticsReentry)clientAnalyticsReentryAppliedFiles+=1;
     if(exactClientAnalyticsVisibility)clientAnalyticsVisibilityAppliedFiles+=1;
     if(exactClientAnalyticsActiveRouteRecovery)clientAnalyticsActiveRouteRecoveryAppliedFiles+=1;
+    if(exactClientAnalyticsCanonicalRestore)clientAnalyticsCanonicalRestoreAppliedFiles+=1;
     if(exactClientContractEventDriven)clientContractEventDrivenAppliedFiles+=1;
     if(exactClientDealsVisualHierarchy)clientDealsVisualHierarchyAppliedFiles+=1;
     if(exactClientBackgroundManifestEventDriven)clientBackgroundManifestEventDrivenAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientAnalyticsCanonicalRestore&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
@@ -1326,10 +1372,15 @@ if(!clientAnalyticsCurrentSourceExceptionAuthorized)errors.push('CLIENT_ANALYTIC
 if(!clientAnalyticsReentryExceptionAuthorized)errors.push('CLIENT_ANALYTICS_REENTRY_GOVERNANCE_NOT_AUTHORIZED');
 if(!clientAnalyticsVisibilityExceptionAuthorized)errors.push('CLIENT_ANALYTICS_VISIBLE_OWNER_V5_GOVERNANCE_NOT_AUTHORIZED');
 if(!clientAnalyticsActiveRouteRecoveryExceptionAuthorized)errors.push('CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_V6_GOVERNANCE_NOT_AUTHORIZED');
-if(clientAnalyticsActiveRouteRecoveryExceptionAuthorized&&clientAnalyticsActiveRouteRecoveryAppliedFiles!==CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES.length)
-  errors.push(`CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_V6_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES.length} actual=${clientAnalyticsActiveRouteRecoveryAppliedFiles}`);
+if(!clientAnalyticsCanonicalRestoreExceptionAuthorized)errors.push('CLIENT_ANALYTICS_CANONICAL_RESTORE_V7_GOVERNANCE_NOT_AUTHORIZED');
+if(clientAnalyticsCanonicalRestoreExceptionAuthorized&&clientAnalyticsCanonicalRestoreAppliedFiles!==CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length)
+  errors.push(`CLIENT_ANALYTICS_CANONICAL_RESTORE_V7_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length} actual=${clientAnalyticsCanonicalRestoreAppliedFiles}`);
+const clientAnalyticsActiveRouteRecoveryEffectiveFiles=clientAnalyticsActiveRouteRecoveryAppliedFiles+
+  (clientAnalyticsCanonicalRestoreAppliedFiles===CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length?CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length:0);
+if(clientAnalyticsActiveRouteRecoveryExceptionAuthorized&&clientAnalyticsActiveRouteRecoveryEffectiveFiles!==CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES.length)
+  errors.push(`CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_V6_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES.length} actual=${clientAnalyticsActiveRouteRecoveryEffectiveFiles}`);
 const clientAnalyticsVisibilityEffectiveFiles=clientAnalyticsVisibilityAppliedFiles+
-  (clientAnalyticsActiveRouteRecoveryAppliedFiles===CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES.length?CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES.length:0);
+  (clientAnalyticsActiveRouteRecoveryEffectiveFiles===CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES.length?CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_FILES.length:0);
 if(clientAnalyticsVisibilityExceptionAuthorized&&clientAnalyticsVisibilityEffectiveFiles!==CLIENT_ANALYTICS_VISIBILITY_FILES.length)
   errors.push(`CLIENT_ANALYTICS_VISIBLE_OWNER_V5_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_VISIBILITY_FILES.length} actual=${clientAnalyticsVisibilityEffectiveFiles}`);
 const clientAnalyticsReentryEffectiveFiles=clientAnalyticsReentryAppliedFiles+(clientAnalyticsVisibilityEffectiveFiles===CLIENT_ANALYTICS_VISIBILITY_FILES.length?CLIENT_ANALYTICS_VISIBILITY_FILES.length:0);

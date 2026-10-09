@@ -7,8 +7,8 @@ const analyticsRuntimePath='dist/assets/portal-runtime/client-market-intelligenc
 const newsRuntimePath='dist/assets/portal-runtime/client-market-news-admin-parity-v1.js';
 const spacingRuntimePath='dist/assets/portal-runtime/client-analytics-forecast-spacing-v1.js';
 const analyticsId='rona-client-market-intelligence-v1';
-const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20261009-client-analytics-active-route-recovery-v6';
-const analyticsMarker='20261009-client-analytics-current-source-safe-v3';
+const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20261009-client-analytics-canonical-restored-v7';
+const analyticsMarker='20261009-client-analytics-canonical-restored-v7';
 const newsId='rona-client-market-news-admin-parity-v1';
 const newsSrc='/assets/portal-runtime/client-market-news-admin-parity-v1.js?v=20260902-news-dialog-single-owner-v5';
 const newsMarker='20260902-admin-news-canonical-exact-v1';
@@ -54,6 +54,11 @@ const spacingRuntime=await readFile(spacingRuntimePath,'utf8');
 for(const required of [spacingMarker,'.an2-market-forecast',"PADDING='16px 18px'",'contentDocument','ronaClientForecastSpacing'])if(!spacingRuntime.includes(required))throw new Error(`CLIENT_ANALYTICS_FORECAST_SPACING_MISSING: ${required}`);
 
 let html=await readFile(htmlPath,'utf8');
+// Keep the original Client Analytics structure but fail closed on embedded historical numbers
+// until the approved current-only feed has sanitized the canonical renderer.
+const CANONICAL_SOURCE_GATE='<style id="rona-client-analytics-canonical-prepaint-v7">#page-analytics #rona-analytics-v2:not([data-rona-client-source-safe="1"]) .an2-kpis,#page-analytics #rona-analytics-v2:not([data-rona-client-source-safe="1"]) .an2-main,#page-analytics #rona-analytics-v2:not([data-rona-client-source-safe="1"]) > .rona-owner-card{visibility:hidden!important}#page-analytics #rona-analytics-v2:not([data-rona-client-source-safe="1"])::after{content:"Проверяем текущие подтверждённые публикации…";display:block;padding:20px;color:rgba(224,236,250,.76);font:inherit}</style>';
+if(!html.includes('</head>')||html.includes('rona-client-analytics-canonical-prepaint-v7'))throw Error('CANONICAL_ANALYTICS_V7_PREPAINT_SOURCE_MISSING_OR_DUPLICATED');
+html=html.replace('</head>',CANONICAL_SOURCE_GATE+'</head>');
 html=html.replace(/<script\b[^>]*\bsrc=(['"])[^'"]*\/assets\/portal-market-news-current-v1\.js(?:\?[^'"]*)?\1[^>]*>\s*<\/script>/gi,'');
 if(html.includes('portal-market-news-current-v1.js'))throw new Error('CLIENT_COMPETING_MARKET_NEWS_RUNTIME_PRESENT');
 for(const token of [analyticsId,'client-market-intelligence-v1.js',newsId,'client-market-news-admin-parity-v1.js',spacingId,'client-analytics-forecast-spacing-v1.js'])if(html.includes(token))throw new Error(`CLIENT_MARKET_INTELLIGENCE_ALREADY_PRESENT: ${token}`);
@@ -71,5 +76,5 @@ integrity.client_runtime.market_intelligence={
   raw_internal_benchmarks_exposed:false,business_mutation:false,read_only:true
 };
 await writeFile(integrityPath,JSON.stringify(integrity),'utf8');
-for(const token of [`id="${analyticsId}"`,analyticsSrc,`id="${newsId}"`,newsSrc,`id="${spacingId}"`,spacingSrc])if(!html.includes(token))throw new Error(`CLIENT_MARKET_INTELLIGENCE_BRIDGE_MISSING_AFTER_WRITE: ${token}`);
+for(const token of [`id="${analyticsId}"`,analyticsSrc,`id="${newsId}"`,newsSrc,`id="${spacingId}"`,spacingSrc,'rona-client-analytics-canonical-prepaint-v7'])if(!html.includes(token))throw new Error(`CLIENT_MARKET_INTELLIGENCE_BRIDGE_MISSING_AFTER_WRITE: ${token}`);
 console.log('CLIENT_MARKET_INTELLIGENCE_ATTACH=PASS Analytics and Market News are event-driven: portal open + context change + explicit invalidation; no periodic polling; Client News has one renderer; article dialog is outside the replaceable render root');

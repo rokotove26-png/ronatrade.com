@@ -1,0 +1,53 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-09",
+  "owner_instruction": "Owner explicitly rejects replacement or removal of the canonical Client Analytics visualization and requires restoration of the original #rona-analytics-v2, while retaining current-only publication security and other sections unchanged.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261009:WHO_AUTHORIZED_REMOVAL_OF_CANONICAL_ANALYTICS_VISUAL; OWNER_SCREENSHOT:20261009-084413",
+  "scope": "CLIENT_ANALYTICS_CANONICAL_RESTORE_V7",
+  "decision": "SCOPED_VISUAL_FREEZE_RESTORATION",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_CANONICAL_RESTORE_V7",
+  "supersedes_scope": "CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_V6",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "25600324a2e9525d6d30f6c04b7c7f055ef20898",
+      "authorized_post_blob_sha": "4625e490e3a989926c056ce77c1b24fc5471a7b5",
+      "required_marker": "20261009-client-analytics-canonical-restored-v7"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "fd7a256e57d4979b921fcdbe643d058670b5e82d",
+      "authorized_post_blob_sha": "0eb069586e5d1f04ee775c64b2b48ecbc4110265",
+      "required_marker": "20261009-client-analytics-canonical-restored-v7"
+    }
+  },
+  "requirements": {
+    "restore_existing_canonical_node_only": true,
+    "preserve_an2_hero_kpis_controls_chart_forecast_prices_commentary": true,
+    "no_substitute_owner_cards": true,
+    "no_static_history_exposed_as_current": true,
+    "current_only_client_published_feed": true,
+    "api_error_fail_closed": true,
+    "canonical_view_set_payload_only": true,
+    "client_visual_frozen_other_sections": true,
+    "source_freshness_gate_preserved": true,
+    "market_publication_authority_unchanged": true,
+    "auth_and_impersonation_unchanged": true,
+    "no_business_data_mutation": true,
+    "original_client_canonical_source_unchanged": true,
+    "source_safe_prepaint_required": true,
+    "native_chart_no_fake_values": true,
+    "chromium_real_canonical_visual_parity_required": true,
+    "exact_file_enforcement_remains_active": true,
+    "visual_freeze_remains_enabled": true,
+    "exact_blob_enforcement": true,
+    "wildcard_exception": false,
+    "scoped_unfreeze_only": true,
+    "rollback_preserved": true
+  },
+  "rollback": "Restore exactly protected v6 Git blob 25600324a2e9525d6d30f6c04b7c7f055ef20898 and build injector fd7a256e57d4979b921fcdbe643d058670b5e82d; no database rollback or source authority change."
+}
