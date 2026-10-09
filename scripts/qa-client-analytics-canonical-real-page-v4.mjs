@@ -212,8 +212,14 @@ try{
   await page.evaluate(()=>document.querySelector('#rona-analytics-v2 button[data-product="LPG"]')?.click());
   await page.waitForTimeout(700);
   const lpg=await snapshot();
-  if(lpg.nativeProduct!=='LPG'||lpg.staleExposed||lpg.substituteCount)
-    throw Error('CANONICAL_PRODUCT_CONTROL_UNSAFE: '+JSON.stringify(lpg));
+  if(lpg.nativeProduct!=='LPG'||lpg.staleExposed||lpg.substituteCount){
+    const offenders=await page.evaluate(()=>
+      [...document.querySelectorAll('#rona-analytics-v2 *')]
+        .filter(n=>n.children.length===0&&/21\\.08\\.2026|09\\.2026|725\\s*[–-]\\s*780/.test(n.textContent||''))
+        .map(n=>({tag:n.tagName,cls:n.className?.baseVal||String(n.className||''),
+          text:String(n.textContent||'').trim().slice(0,180)})).slice(0,20));
+    throw Error('CANONICAL_PRODUCT_CONTROL_UNSAFE: '+JSON.stringify({lpg,offenders}));
+  }
   await page.evaluate(()=>document.querySelector('#rona-analytics-v2 button[data-product="AI92"]')?.click());
   const currentRow={publication_id:'PUB-TEST-1',publication_item_id:'PUB-TEST-AI92',
     published_at:'2026-10-09T00:01:00Z',product:'АИ-92',
