@@ -71,10 +71,17 @@ try{
     }));
     const blocks=[...root.children].map(n=>({node:inspect(n),descendants:n.querySelectorAll('*').length}));
     const numerical=[...root.querySelectorAll('[class*="kpi"],[class*="chart"],[class*="forecast"],[class*="price"],canvas,iframe')].slice(0,55).map(inspect);
-    const views={analyticsView:typeof window.RONA_ANALYTICS_VIEW,
-      api:Object.keys(window.RONA_ANALYTICS_VIEW||{}).slice(0,30),
+    const av=window.RONA_ANALYTICS_VIEW;
+    const source=k=>String(av?.[k]?.toString?.()||'').slice(0,2200);
+    let viewState=null;try{viewState=av?.getState?.()}catch(e){viewState={error:String(e)}}
+    const views={analyticsView:typeof av,
+      api:Object.keys(av||{}).slice(0,30),
       runtime:typeof window.RONA_ANALYTICS_RUNTIME,
-      controllers:[...Object.keys(window)].filter(s=>/analyti|chart/i.test(s)).slice(0,22)};
+      controllers:[...Object.keys(window)].filter(s=>/analyti|chart/i.test(s)).slice(0,22),
+      getState:viewState?JSON.stringify(viewState).slice(0,2600):null,
+      setPayloadCode:source('setPayload'),setProductCode:source('setProduct'),
+      updateProductCode:source('updateProduct'),setSourceCode:source('setSource'),
+      renderCode:source('render'),chartCode:String(window.renderClientMainChart||'').slice(0,1700)};
     const chartSvg=root.querySelector('[data-chart-svg]');
     const chartNodes=chartSvg?[...chartSvg.children].slice(0,35).map(n=>({tag:n.tagName,cls:n.getAttribute('class'),
       id:n.id?.baseVal||n.id||'',role:n.getAttribute('role'),
