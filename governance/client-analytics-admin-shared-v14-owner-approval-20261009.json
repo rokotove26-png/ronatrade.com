@@ -1,0 +1,74 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-09",
+  "owner_instruction": "Возьми такой же раздел в Админке, который готов и утвержден и визуально и функционально и просто скопируй его перенеся в клиентский контур. Они 1 в 1 идентичны должны быть.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261009:EXACT_ADMIN_ANALYTICS_UI_COPY_TO_CLIENT",
+  "scope": "CLIENT_ANALYTICS_ADMIN_CANONICAL_SHARED_V14",
+  "decision": "SINGLE_SOURCE_EXACT_ADMIN_VISUAL_AND_FUNCTIONAL_RENDERER_NO_NEW_LAYOUT",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_ADMIN_CANONICAL_SHARED_V14",
+  "supersedes_scope": "ANALYTICS_LPG_GAP_HISTORY_V13",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "bd15c42b22e1a65a420d507618cc1c4d08109861",
+      "authorized_post_blob_sha": "4fe454cf9846c3dfedfa0359049e1b4af8cd0fa4",
+      "required_marker": "20261009-admin-canonical-shared-presenter-v14"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "2c77459224d88580d58c1ab7dc42b69aa6dc2be4",
+      "authorized_post_blob_sha": "5c6fb05776c88ea23592cc1c6901a1796f63c6e3",
+      "required_marker": "20261009-admin-canonical-shared-presenter-v14"
+    }
+  },
+  "requirements": {
+    "no_owner_approved_html_layout_change": true,
+    "no_original_css_layout_change": true,
+    "existing_empty_overlay_removed_only_if_series": true,
+    "no_new_controls_or_cards": true,
+    "client_native_an2_graph_preserved": true,
+    "admin_client_single_daily_data_function": true,
+    "observation_dates_not_maturity_months": true,
+    "monthly_forecast_separate": true,
+    "dt_same_physical_component_basis": true,
+    "lpg_fixed_maturity_per_displayed_segment": true,
+    "source_gaps_not_interpolated": true,
+    "source_verified_platts_documents_only": true,
+    "client_published_product_permissions_retained": true,
+    "commercial_director_market_data_authority_preserved": true,
+    "stale_bnk_composite_not_claimed_current": true,
+    "stale_lpg_regional_not_claimed_current": true,
+    "no_admin_internal_margin_or_price_bridge_in_client": true,
+    "selected_contract_price_scope_preserved": true,
+    "context_switch_fail_closed": true,
+    "no_business_data_mutation": true,
+    "exact_blob_freeze_enabled": true,
+    "owner_approved_exact_two_protected_files": true,
+    "rollback_point_documented": true,
+    "real_browser_qas_required": true,
+    "wildcard_exception": false,
+    "lpg_full_verified_same_contract_history": true,
+    "lpg_gap_interpolation_forbidden": true,
+    "exact_admin_client_shared_presentation_engine": true,
+    "admin_canonical_html_structure_unchanged": true,
+    "client_canonical_html_structure_unchanged": true,
+    "client_authorized_source_scope_only": true,
+    "client_contract_price_scope_only": true,
+    "no_admin_private_margin_bridge": true,
+    "verified_daily_no_interpolation": true,
+    "real_authenticated_browser_visual_uat_required": true,
+    "external_sources_license_respected": true
+  },
+  "source_files": [
+    "functions/portal/analytics-v2-approved-base.js",
+    "functions/portal/analytics-v2-ui.js",
+    "functions/portal/analytics-canonical-presenter-v14.js",
+    "functions/portal/analytics-canonical-live-hydration.js"
+  ],
+  "notes": "Client retains already approved canonical DOM, shared visual/behavior formatter is the EXACT same source served by Admin runtime. Role-specific permissions only alter authorized values; not markup or CSS. No invented market data. No finished assertion until CI and Owner actual UAT pass.",
+  "rollback": "Restore v13 production commit 910eb89c4c6cf04b814b25c8ec689a4053a12d0b and previous exact client protected blobs. No DB migrations/data mutations in v14."
+}
