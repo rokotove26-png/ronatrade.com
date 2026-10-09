@@ -15,7 +15,7 @@
     "assets/portal-runtime/client-market-intelligence-v1.js": {
       "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
       "supersedes_authorized_post_blob_sha": "25600324a2e9525d6d30f6c04b7c7f055ef20898",
-      "authorized_post_blob_sha": "fe4358a97694bb1cc1565ad1bd4427ccac9b2c5c",
+      "authorized_post_blob_sha": "4625e490e3a989926c056ce77c1b24fc5471a7b5",
       "required_marker": "20261009-client-analytics-canonical-restored-v7"
     },
     "scripts/attach-client-market-intelligence-v1.mjs": {
