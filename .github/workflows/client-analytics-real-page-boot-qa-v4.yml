@@ -4,6 +4,7 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - scripts/qa-analytics-admin-client-source-parity-v14.mjs
       - .github/workflows/client-analytics-real-page-boot-qa-v4.yml
       - functions/portal/[[path]].js
       - assets/portal-runtime/client-market-intelligence-v1.js
@@ -12,6 +13,7 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - scripts/qa-analytics-admin-client-source-parity-v14.mjs
       - .github/workflows/client-analytics-real-page-boot-qa-v4.yml
       - functions/portal/[[path]].js
       - assets/portal-runtime/client-market-intelligence-v1.js
@@ -29,6 +31,8 @@ jobs:
           node-version: '24'
       - name: Build canonical Client LK, enforce visual freeze and all source gates
         run: npm run build
+      - name: Verify approved Admin/Client original canonical Analytics source
+        run: node scripts/qa-analytics-admin-client-source-parity-v14.mjs
       - name: Install Chromium QA runtime
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
