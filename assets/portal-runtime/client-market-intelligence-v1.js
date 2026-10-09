@@ -273,6 +273,20 @@ function ensureSafeCanonicalState(owner,payload,reason){
       empty.hidden=false;
     }
   }
+  if(!hasSeries){
+    // Native Admin controls repaint baked fallback labels on every product
+    // selection. Sanitize them on EVERY scheduled client refresh, not only on
+    // network failure; never expose prior client's rates/forecast.
+    const f=owner.querySelector('.an2-market-forecast');
+    if(f){
+      const title=f.querySelector('.an2-mf-title');
+      if(title)textIfDifferent(title,'Прогноз недоступен');
+      f.querySelectorAll('.an2-mf-row strong').forEach(n=>textIfDifferent(n,'—'));
+    }
+    owner.querySelectorAll('.an2-kpis .rona-owner-kpi').forEach(n=>textIfDifferent(n,'—'));
+    const comment=owner.querySelector('.an2-comment');
+    if(comment)textIfDifferent(comment,'Нет подтверждённого ежедневного ряда по выбранному продукту');
+  }
   if(hasSeries){
     if(hasDaily){
       textIfDifferent(owner.querySelector('[data-chart-title]'),
@@ -365,6 +379,14 @@ function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
   }
   ensureSafeCanonicalState(owner,payload,reason);
   if(!canDrawCurrent){
+    // Do not retain the previously authorized Client data in a public
+    // view.data projection after tenant/contract change or 503. The approved
+    // Admin renderer requires nonempty chart points, so clear the exposed
+    // projection without invoking its zero-point chart painter.
+    try {
+      if(view.data && typeof view.data==='object' && 'products' in view.data)
+        view.data=payload;
+    } catch(_){}
     const f=owner.querySelector('.an2-market-forecast');
     if(f){
       const title=f.querySelector('.an2-mf-title');
