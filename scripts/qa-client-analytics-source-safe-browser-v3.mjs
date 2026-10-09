@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 
 const must=(ok,msg)=>{if(!ok)throw Error(msg)};
 const runtime=await readFile('dist/assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-const mark='20261009-client-analytics-authorized-price-bridge-v8';
+const mark='20261009-client-analytics-published-price-visible-v9';
 const stamp='2026-10-09T00:01:00Z';
 const row=(product,source='CURRENT',values=[1081,1092,1103])=>({
   publication_id:'CLIENT-QA-20261009',publication_item_id:'SAFE-CHART-'+product,
@@ -94,22 +94,26 @@ try{
       prices:[{product:'АИ-92',basis:'CPT Озинки',price:1242.75,currency:'USD'}]};
     window.dispatchEvent(new Event('rona:client-prices-updated'));
   });
-  await page.waitForFunction(()=>document.querySelector('.an2-price-current')?.textContent?.includes('242,75'),null,{timeout:5500});
+  await page.waitForFunction(()=>document.querySelector('.an2-price-base')?.textContent?.includes('242,75'),null,{timeout:5500});
   const priced=await page.evaluate(()=>({text:document.querySelector('.an2-price-current')?.textContent||'',
     base:document.querySelector('.an2-price-base')?.textContent,
     range:document.querySelector('.an2-price-range')?.textContent,
     authority:document.querySelector('.an2-rona')?.dataset.ronaClientPriceAuthority,
-    source:document.querySelector('.an2-price-card')?.dataset.ronaClientPriceSource}));
-  must(priced.text.includes('1')&&priced.text.includes('242,75')&&priced.text.includes('USD/т')&&
+    source:document.querySelector('.an2-price-card')?.dataset.ronaClientPriceSource,
+    title:document.querySelector('.an2-rona-head h2')?.textContent,
+    visible:document.querySelector('.an2-rona')?.dataset.ronaClientPricePresentation}));
+  must(priced.base.includes('242,75')&&priced.base.includes('USD/т')&&
+    priced.text.includes('Опубликованная цена')&&priced.title.includes('Опубликованные цены RONA Trade')&&
+    priced.visible==='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9'&&
     priced.authority==='SERVER_AUTHORITATIVE_PRICE_PROJECTION'&&priced.source==='PUBLISHED_CURRENT_CONTRACT'&&
-    priced.base==='—'&&!priced.range.includes('1242'),
+    !priced.range.includes('1242'),
     'AUTHORIZED_CLIENT_PRICE_NOT_PAINTED '+JSON.stringify(priced));
   await page.evaluate(()=>{
     window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'B',contract_id:'C2'})};
     window.dispatchEvent(new Event('rona:client-prices-updated'));
   });
-  await page.waitForFunction(()=>document.querySelector('.an2-price-current')?.textContent==='—',null,{timeout:5500});
-  const foreign=await page.evaluate(()=>({text:document.querySelector('.an2-price-current')?.textContent,
+  await page.waitForFunction(()=>document.querySelector('.an2-price-base')?.textContent==='—',null,{timeout:5500});
+  const foreign=await page.evaluate(()=>({text:document.querySelector('.an2-price-base')?.textContent,
     source:document.querySelector('.an2-price-card')?.dataset.ronaClientPriceSource||null}));
   must(foreign.text==='—'&&foreign.source===null,'CROSS_TENANT_PRICE_LEAK '+JSON.stringify(foreign));
   await page.evaluate(()=>{
@@ -120,10 +124,10 @@ try{
         {product:'АИ-92',basis:'CPT Озинки',price:1202.22,currency:'USD'}]};
     window.dispatchEvent(new Event('rona:client-prices-updated'));
   });
-  await page.waitForFunction(()=>document.querySelector('.an2-price-current')?.textContent?.includes('Несколько'),null,{timeout:5500});
-  must(!(await page.locator('.an2-price-current').innerText()).includes('1201'),
+  await page.waitForFunction(()=>document.querySelector('.an2-price-current')?.textContent?.includes('Несколько')&&document.querySelector('.an2-price-base')?.textContent==='—',null,{timeout:5500});
+  must(!(await page.locator('.an2-price-base').innerText()).includes('1201'),
     'AMBIGUOUS_PRICE_AUTO_SELECTED');
-  console.log('CLIENT_CANONICAL_PUBLISHED_CONTRACT_PRICES_V8=PASS '+JSON.stringify({priced,foreign}));
+  console.log('CLIENT_CANONICAL_PUBLISHED_CONTRACT_PRICES_V9=PASS '+JSON.stringify({priced,foreign}));
   payload={...payload,generated_at:'2026-10-09T00:02:00Z',analytics:[row('АИ-92')]};
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1103,null,{timeout:10000});
