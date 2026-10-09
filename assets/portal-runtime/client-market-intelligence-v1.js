@@ -189,8 +189,12 @@ function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
   }
   const payload=canonicalPayload(data);
   // The original RONA renderer owns its controls, chart, forecast, pricing cards and commentary.
-  // All values are reset atomically before showing the original visual.
-  view.setPayload(payload);
+  // Do not retrigger native rendering on our own MutationObserver-driven updates.
+  const sig=reason==='PUBLISHED_CURRENT_ONLY'?state.fingerprint:reason;
+  if(owner.dataset.ronaClientPayloadFingerprint!==sig||owner.dataset.renderState!==reason){
+    view.setPayload(payload);
+    owner.dataset.ronaClientPayloadFingerprint=sig;
+  }
   ensureSafeCanonicalState(owner,payload,reason);
   root.dataset.ronaClientAnalyticsReady=reason==='PUBLISHED_CURRENT_ONLY'?'true':'false';
   root.dataset.ronaClientMarketIntelligenceFingerprint='analytics:'+state.fingerprint;
@@ -206,6 +210,7 @@ function apply(){
   ensureOwner(root);
   if(state.data){
     if(root.dataset.ronaClientMarketIntelligenceFingerprint!=='analytics:'+state.fingerprint)renderAnalytics(root,state.data);
+    else{const canonical=ensureOwner(root);if(canonical)ensureSafeCanonicalState(canonical,canonicalPayload(state.data),'PUBLISHED_CURRENT_ONLY')}
     document.documentElement.dataset.ronaClientMarketIntelligence='ready';
   }else if(state.loaded&&state.error){
     renderError(root,'Актуальная опубликованная аналитика временно недоступна. Архивные котировки и прогнозы скрыты.');
