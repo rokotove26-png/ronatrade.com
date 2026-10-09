@@ -24,7 +24,7 @@ const daily=(key)=>({
   noInterpolation:true,notMonthlyMaturityCurve:true,
   observedDates:key==='DT'?['2026-10-01','2026-10-06','2026-10-08']:['2026-07-25','2026-07-27','2026-08-29','2026-10-07'],
   observationCount:key==='DT'?3:4,availableTotal:key==='DT'?11:4,segmentIds:key==='DT'?[0,0,0]:[0,0,1,2],segmentCount:key==='DT'?1:3,historyIncludesAllGapSegments:true,
-  firstAsOf:key==='DT'?'01.10.2026':'07.10.2026',
+  firstAsOf:key==='DT'?'01.10.2026':'25.07.2026',
   lastAsOf:key==='DT'?'08.10.2026':'07.10.2026',
   status:key==='DT'?'VERIFIED_DAILY_OBSERVATIONS':'SINGLE_CONFIRMED_OBSERVATION',
   deliveryMonth:key==='DT'?null:'2026-10',sourceGap:key==='LPG',
