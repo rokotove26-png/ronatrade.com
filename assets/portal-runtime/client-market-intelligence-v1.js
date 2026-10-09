@@ -1,7 +1,8 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-client-analytics-authorized-price-bridge-v8';
+const MARK='20261009-client-analytics-published-price-visible-v9';
+const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
 const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
 const REENTRY_GUARD='20261009-client-analytics-reentry-guard-v4';
@@ -169,29 +170,43 @@ function paintAuthorizedPrices(owner,selectedProduct){
   let filled=0;
   for(const card of box.querySelectorAll('.an2-price-card')){
     const basis=basisCode(card.querySelector('h3')?.textContent);
+    // Exactly one authorized published price for selected product and destination
+    // is required; NEVER substitute a market benchmark or infer a forecast.
     const matches=source?.prices.filter(p=>productCode(p.product)===selectedProduct&&basisCode(p.basis)===basis&&
       Number.isFinite(Number(p.price))&&Number(p.price)>0&&norm(p.currency))||[];
-    const current=card.querySelector('.an2-price-current');
     const shown=matches.length===1?matches[0]:null;
+    const amount=card.querySelector('.an2-price-base');
+    const caption=card.querySelector('.an2-price-current');
+    const forecastRange=card.querySelector('.an2-price-range');
     if(shown){
-      const value=Number(shown.price).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
-      textIfDifferent(current,'Опубликовано: '+value+' '+String(shown.currency).trim()+'/т');
+      const display=Number(shown.price).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+      textIfDifferent(amount,display+' '+String(shown.currency).trim()+'/т');
+      textIfDifferent(caption,'Опубликованная цена · выбранный договор');
       card.dataset.ronaClientPriceSource='PUBLISHED_CURRENT_CONTRACT';
+      card.dataset.ronaClientPricePresentation='PROMINENT_PUBLISHED_PRICE_V9';
       filled++;
     }else{
-      textIfDifferent(current,matches.length>1?'Несколько опубликованных предложений — см. «Цены»':'—');
+      textIfDifferent(amount,'—');
+      textIfDifferent(caption,matches.length>1?'Несколько предложений — см. раздел «Цены»':'—');
       delete card.dataset.ronaClientPriceSource;
+      delete card.dataset.ronaClientPricePresentation;
     }
-    // Raw market forecast is not commercially approved for automatic price formulae.
-    textIfDifferent(card.querySelector('.an2-price-base'),'—');
-    textIfDifferent(card.querySelector('.an2-price-range'),'LOW — · HIGH —');
+    // LOW/HIGH projections remain empty until separately authorized current
+    // market forecasts. Published contract prices must not masquerade as forecasts.
+    textIfDifferent(forecastRange,'LOW — · HIGH —');
   }
+  // Change text ONLY inside existing frozen original headline, not its badge or DOM.
+  const headline=box.querySelector('.an2-rona-head h2');
+  textIfDifferent(headline,filled
+    ?'Опубликованные цены RONA Trade · выбранный договор'
+    :'Возможные цены RONA Trade · нет текущего расчёта');
   const note=box.querySelector('.an2-model-note');
   if(note)textIfDifferent(note,filled
-    ?'Показаны действующие опубликованные цены выбранного договора. Прогнозный расчет RONA Trade не выполняется без подтвержденной рыночной публикации. Не является новой офертой.'
+    ?'Показаны только опубликованные цены выбранного договора. LOW/HIGH и прогнозные цены отсутствуют без подтверждённой рыночной публикации. Это не новая оферта.'
     :'Опубликованные цены выбранного договора отсутствуют или не подтверждены. Прогнозные цены не рассчитываются.');
   box.dataset.ronaClientPriceBridge=filled?'published-current-contract':'no-authorized-matching-price';
   box.dataset.ronaClientPriceAuthority=source?'SERVER_AUTHORITATIVE_PRICE_PROJECTION':'SOURCE_UNAVAILABLE';
+  box.dataset.ronaClientPricePresentation=CLIENT_PRICE_PRESENTATION_V9;
 }
 function ensureSafeCanonicalState(owner,payload,reason){
   const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};

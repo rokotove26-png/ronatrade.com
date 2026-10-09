@@ -12,11 +12,11 @@ if(!portalServer.includes(".on('head',new HeadPrepend(bridge))")||
 const headers=await readFile(join(DIST,'_headers'),'utf8');
 if(!headers.includes('/assets/portal-runtime/client-market-intelligence-v1.js\n  Cache-Control: no-store, no-cache, must-revalidate, max-age=0'))
   throw Error('CLIENT_MARKET_RUNTIME_NO_STORE_MISSING');
-const marker='20261009-client-analytics-authorized-price-bridge-v8';
+const marker='20261009-client-analytics-published-price-visible-v9';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
   hasBridge:html.includes(bridge),
-  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-authorized-price-bridge-v8'),
+  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-published-price-visible-v9'),
   rootStatic:/id=["']page-analytics["']/.test(html),
   analyticsNodeMatch:html.match(/.{0,180}id=["']page-analytics["'].{0,280}/)?.[0]||'not found',
   possibleIds:([...html.matchAll(/id=["']([^"']*analytic[^"']*)["']/gi)]).map(x=>x[1]).slice(0,30),
@@ -149,6 +149,45 @@ try{
   console.log('CLIENT_CANONICAL_VISUAL_RESTORED_V7_SPLIT_VIEW',JSON.stringify(split));
   if(!split.headHit||split.owner?.width<700||split.owner?.height<450||split.staleExposed||split.substituteCount)
     throw Error('CLIENT_CANONICAL_SPLIT_VIEW_NOT_RESTORED: '+JSON.stringify(split));
+  // Actual full frozen canonical HTML: price values must occupy its existing primary
+  // display slot (not only a tiny caption) and vanish on a tenant/context switch.
+  await page.evaluate(()=>{
+    window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'QA-C1',contract_id:'QA-D1'})};
+    window.__RONA_CLIENT_PRICE_SYNC_STATE__={authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',
+      context:{client_id:'QA-C1',contract_id:'QA-D1'},loadedAt:new Date().toISOString(),
+      prices:[{product:'АИ-92 К5',basis:'CPT Озинки',price:1242.75,currency:'USD'},
+              {product:'АИ-92 К5',basis:'CPT Сарыагаш',price:1379.95,currency:'USD'}]};
+    window.dispatchEvent(new Event('rona:client-prices-updated'));
+  });
+  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 .an2-price-base')?.textContent?.includes('242,75'),null,{timeout:7000});
+  const published=await page.evaluate(()=>{
+    const owner=document.querySelector('#rona-analytics-v2');
+    const cards=[...owner.querySelectorAll('.an2-price-card')].map(card=>({
+      basis:card.querySelector('h3')?.textContent,
+      amount:card.querySelector('.an2-price-base')?.textContent,
+      caption:card.querySelector('.an2-price-current')?.textContent,
+      range:card.querySelector('.an2-price-range')?.textContent,
+      source:card.dataset.ronaClientPriceSource||null}));
+    return{title:owner.querySelector('.an2-rona-head h2')?.textContent,cards,
+      badge:owner.querySelector('.an2-rona-head .rona-fin-pill')?.textContent,
+      substituteCount:document.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length};
+  });
+  console.log('CLIENT_CANONICAL_PUBLISHED_PRICES_PROMINENT_V9',JSON.stringify(published));
+  if(!published.title?.includes('Опубликованные цены RONA Trade')||published.substituteCount||
+     !published.cards?.[0]?.amount?.includes('242,75')||
+     !published.cards?.[1]?.amount?.includes('379,95')||
+     published.cards?.[2]?.amount!=='—'||
+     !published.cards?.[0]?.caption?.includes('Опубликованная цена')||
+     published.cards.some(x=>x.range&&!x.range.includes('LOW —')))
+    throw Error('CLIENT_CANONICAL_PRICE_PROMINENCE_FAILED '+JSON.stringify(published));
+  await page.evaluate(()=>{
+    window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>({client_id:'QA-C2',contract_id:'QA-D2'})};
+    window.dispatchEvent(new Event('rona:client-prices-updated'));
+  });
+  await page.waitForFunction(()=>[...document.querySelectorAll('#rona-analytics-v2 .an2-price-base')]
+    .every(card=>card.textContent==='—'),null,{timeout:7000});
+  console.log('CLIENT_CANONICAL_PRICE_TENANT_SWITCH_V9=PASS');
+
   // Existing canonical controls must work with source-safe model, not a substitute card UI.
   await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="LPG"]')?.click());
   await page.waitForTimeout(700);

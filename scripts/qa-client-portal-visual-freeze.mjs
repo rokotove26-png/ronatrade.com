@@ -21,6 +21,7 @@ const CLIENT_ANALYTICS_VISIBILITY_APPROVAL_PATH='governance/client-analytics-vis
 const CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_APPROVAL_PATH='governance/client-analytics-active-route-recovery-owner-approval-20261009.json';
 const CLIENT_ANALYTICS_CANONICAL_RESTORE_APPROVAL_PATH='governance/client-analytics-canonical-restore-owner-approval-20261009.json';
 const CLIENT_ANALYTICS_AUTHORIZED_PRICE_APPROVAL_PATH='governance/client-analytics-authorized-price-bridge-20261009.json';
+const CLIENT_ANALYTICS_PUBLISHED_PRICE_APPROVAL_PATH='governance/client-analytics-published-price-visible-v9-owner-approval-20261009.json';
 const CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH='governance/client-contract-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH='governance/client-background-manifest-event-driven-owner-approval-20260921.json';
 const CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH='governance/client-sidebar-command-nav-owner-approval-20260921.json';
@@ -48,6 +49,7 @@ const clientAnalyticsVisibilityApproval=JSON.parse(await readFile(CLIENT_ANALYTI
 const clientAnalyticsActiveRouteRecoveryApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_APPROVAL_PATH,'utf8'));
 const clientAnalyticsCanonicalRestoreApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_CANONICAL_RESTORE_APPROVAL_PATH,'utf8'));
 const clientAnalyticsAuthorizedPriceApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_AUTHORIZED_PRICE_APPROVAL_PATH,'utf8'));
+const clientAnalyticsPublishedPriceApproval=JSON.parse(await readFile(CLIENT_ANALYTICS_PUBLISHED_PRICE_APPROVAL_PATH,'utf8'));
 const clientContractEventDrivenApproval=JSON.parse(await readFile(CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientBackgroundManifestEventDrivenApproval=JSON.parse(await readFile(CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientSidebarCommandNavApproval=JSON.parse(await readFile(CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH,'utf8'));
@@ -902,6 +904,37 @@ const clientAnalyticsAuthorizedPriceException=
   clientAnalyticsAuthorizedPriceApproval?.requirements?.no_wildcard_exception===true&&
   CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.every(path=>Boolean(clientAnalyticsAuthorizedPriceApproval?.exact_post_blobs?.[path]));
 
+const CLIENT_ANALYTICS_PUBLISHED_PRICE_FILES=[...CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES];
+const clientAnalyticsPublishedPriceException=
+  clientAnalyticsPublishedPriceApproval?.approval==='OWNER_IN_CHAT'&&
+  clientAnalyticsPublishedPriceApproval?.authorized_at==='2026-10-09'&&
+  clientAnalyticsPublishedPriceApproval?.scope==='CLIENT_ANALYTICS_PUBLISHED_PRICE_PRESENTATION_V9'&&
+  clientAnalyticsPublishedPriceApproval?.decision==='DATA_TEXT_ONLY_NO_VISUAL_STRUCTURE_CHANGE'&&
+  clientAnalyticsPublishedPriceApproval?.approval_marker==='OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_PUBLISHED_PRICE_PRESENTATION_V9'&&
+  clientAnalyticsPublishedPriceApproval?.supersedes_scope==='CLIENT_ANALYTICS_AUTHORIZED_CONTEXT_PRICE_BRIDGE_V8'&&
+  clientAnalyticsAuthorizedPriceException&&
+  JSON.stringify(clientAnalyticsPublishedPriceApproval?.approved_protected_files)===JSON.stringify(CLIENT_ANALYTICS_PUBLISHED_PRICE_FILES)&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.canonical_design_exactly_retained===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.no_html_css_dom_change===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.no_new_cards_or_controls===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.only_existing_slot_texts_changed===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.client_and_contract_authority_unchanged===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.source_scoped_to_published_contract_price===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.prominent_existing_price_base_slot===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.source_type_clearly_labeled===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.low_high_forecasts_not_fabricated===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.no_admin_quote_disclosure===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.no_raw_platts_source===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.existing_client_market_freshness_preserved===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.missing_ambiguous_price_fail_closed===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.context_switch_clears_prior_value===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.exact_sha_protection===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.no_wildcard_exception===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.rollback_to_v8_exact_blobs===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.no_business_data_mutation===true&&
+  clientAnalyticsPublishedPriceApproval?.requirements?.real_chromium_and_visual_freeze_required===true&&
+  CLIENT_ANALYTICS_PUBLISHED_PRICE_FILES.every(path=>Boolean(clientAnalyticsPublishedPriceApproval?.exact_post_blobs?.[path]));
+
 const CLIENT_CONTRACT_EVENT_DRIVEN_FILES=[
   'assets/portal-runtime/client-contract-download-v3.js'
 ];
@@ -1111,6 +1144,7 @@ let clientAnalyticsVisibilityAppliedFiles=0;
 let clientAnalyticsActiveRouteRecoveryAppliedFiles=0;
 let clientAnalyticsCanonicalRestoreAppliedFiles=0;
 let clientAnalyticsAuthorizedPriceAppliedFiles=0;
+let clientAnalyticsPublishedPriceAppliedFiles=0;
 let clientContractEventDrivenAppliedFiles=0;
 let clientBackgroundManifestEventDrivenAppliedFiles=0;
 let clientDealsVisualHierarchyAppliedFiles=0;
@@ -1352,6 +1386,17 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       clientAnalyticsAuthorizedPriceEntry.required_marker.length>0&&
       body.toString('utf8').includes(clientAnalyticsAuthorizedPriceEntry.required_marker)
     );
+    const clientAnalyticsPublishedPriceEntry=clientAnalyticsPublishedPriceException?clientAnalyticsPublishedPriceApproval.exact_post_blobs?.[path]:null;
+    const exactClientAnalyticsPublishedPrice=Boolean(
+      CLIENT_ANALYTICS_PUBLISHED_PRICE_FILES.includes(path)&&
+      clientAnalyticsPublishedPriceEntry&&
+      clientAnalyticsPublishedPriceEntry.visual_freeze_baseline_blob_sha===expected&&
+      clientAnalyticsPublishedPriceEntry.supersedes_authorized_post_blob_sha===clientAnalyticsAuthorizedPriceApproval.exact_post_blobs?.[path]?.authorized_post_blob_sha&&
+      clientAnalyticsPublishedPriceEntry.authorized_post_blob_sha===actual&&
+      typeof clientAnalyticsPublishedPriceEntry.required_marker==='string'&&
+      clientAnalyticsPublishedPriceEntry.required_marker.length>0&&
+      body.toString('utf8').includes(clientAnalyticsPublishedPriceEntry.required_marker)
+    );
     const clientContractEventDrivenEntry=clientContractEventDrivenExceptionAuthorized?clientContractEventDrivenApproval?.exact_post_blobs?.[path]:null;
     const exactClientContractEventDriven=Boolean(
       clientContractEventDrivenEntry&&
@@ -1394,10 +1439,11 @@ for(const [path,expected] of Object.entries(protectedFiles)){
     if(exactClientAnalyticsActiveRouteRecovery)clientAnalyticsActiveRouteRecoveryAppliedFiles+=1;
     if(exactClientAnalyticsCanonicalRestore)clientAnalyticsCanonicalRestoreAppliedFiles+=1;
     if(exactClientAnalyticsAuthorizedPrice)clientAnalyticsAuthorizedPriceAppliedFiles+=1;
+    if(exactClientAnalyticsPublishedPrice)clientAnalyticsPublishedPriceAppliedFiles+=1;
     if(exactClientContractEventDriven)clientContractEventDrivenAppliedFiles+=1;
     if(exactClientDealsVisualHierarchy)clientDealsVisualHierarchyAppliedFiles+=1;
     if(exactClientBackgroundManifestEventDriven)clientBackgroundManifestEventDrivenAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientAnalyticsCanonicalRestore&&!exactClientAnalyticsAuthorizedPrice&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientAnalyticsCanonicalRestore&&!exactClientAnalyticsAuthorizedPrice&&!exactClientAnalyticsPublishedPrice&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
@@ -1420,10 +1466,15 @@ if(!clientAnalyticsVisibilityExceptionAuthorized)errors.push('CLIENT_ANALYTICS_V
 if(!clientAnalyticsActiveRouteRecoveryExceptionAuthorized)errors.push('CLIENT_ANALYTICS_ACTIVE_ROUTE_RECOVERY_V6_GOVERNANCE_NOT_AUTHORIZED');
 if(!clientAnalyticsCanonicalRestoreExceptionAuthorized)errors.push('CLIENT_ANALYTICS_CANONICAL_RESTORE_V7_GOVERNANCE_NOT_AUTHORIZED');
 if(!clientAnalyticsAuthorizedPriceException)errors.push('CLIENT_ANALYTICS_AUTHORIZED_PRICE_V8_GOVERNANCE_NOT_AUTHORIZED');
-if(clientAnalyticsAuthorizedPriceException&&clientAnalyticsAuthorizedPriceAppliedFiles!==CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length)
-  errors.push(`CLIENT_ANALYTICS_AUTHORIZED_PRICE_V8_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length} actual=${clientAnalyticsAuthorizedPriceAppliedFiles}`);
+if(!clientAnalyticsPublishedPriceException)errors.push('CLIENT_ANALYTICS_PUBLISHED_PRICE_V9_GOVERNANCE_NOT_AUTHORIZED');
+if(clientAnalyticsPublishedPriceException&&clientAnalyticsPublishedPriceAppliedFiles!==CLIENT_ANALYTICS_PUBLISHED_PRICE_FILES.length)
+  errors.push(`CLIENT_ANALYTICS_PUBLISHED_PRICE_V9_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_PUBLISHED_PRICE_FILES.length} actual=${clientAnalyticsPublishedPriceAppliedFiles}`);
+const clientAnalyticsAuthorizedPriceEffectiveFiles=clientAnalyticsAuthorizedPriceAppliedFiles+
+  (clientAnalyticsPublishedPriceAppliedFiles===CLIENT_ANALYTICS_PUBLISHED_PRICE_FILES.length?CLIENT_ANALYTICS_PUBLISHED_PRICE_FILES.length:0);
+if(clientAnalyticsAuthorizedPriceException&&clientAnalyticsAuthorizedPriceEffectiveFiles!==CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length)
+  errors.push(`CLIENT_ANALYTICS_AUTHORIZED_PRICE_V8_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length} actual=${clientAnalyticsAuthorizedPriceEffectiveFiles}`);
 const clientAnalyticsCanonicalRestoreEffectiveFiles=clientAnalyticsCanonicalRestoreAppliedFiles+
-  (clientAnalyticsAuthorizedPriceAppliedFiles===CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length?CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length:0);
+  (clientAnalyticsAuthorizedPriceEffectiveFiles===CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length?CLIENT_ANALYTICS_AUTHORIZED_PRICE_FILES.length:0);
 if(clientAnalyticsCanonicalRestoreExceptionAuthorized&&clientAnalyticsCanonicalRestoreEffectiveFiles!==CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length)
   errors.push(`CLIENT_ANALYTICS_CANONICAL_RESTORE_V7_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_CANONICAL_RESTORE_FILES.length} actual=${clientAnalyticsCanonicalRestoreEffectiveFiles}`);
 const clientAnalyticsActiveRouteRecoveryEffectiveFiles=clientAnalyticsActiveRouteRecoveryAppliedFiles+
