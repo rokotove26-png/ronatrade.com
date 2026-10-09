@@ -21,7 +21,7 @@
     "scripts/attach-client-market-intelligence-v1.mjs": {
       "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
       "supersedes_authorized_post_blob_sha": "2c77459224d88580d58c1ab7dc42b69aa6dc2be4",
-      "authorized_post_blob_sha": "55d4e04b1163269c51623bb1dbb9a5e03d23b919",
+      "authorized_post_blob_sha": "70f9057faf8d81bdca633b97f2f5db42bcc8b62f",
       "required_marker": "20261010-approved-admin-exact-v14"
     }
   },
