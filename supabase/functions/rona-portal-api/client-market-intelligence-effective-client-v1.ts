@@ -414,6 +414,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           referenceDate: text(daily.referenceDate),
           status: text(daily.status), sourceGap: daily.sourceGap === true,
           deliveryMonth: daily.deliveryMonth || null, noInterpolation: true,
+          notMonthlyMaturityCurve: true,
           segmentIds: Array.isArray(daily.segmentIds) ? daily.segmentIds.map(Number) : [],
           gapBeforeDays: Array.isArray(daily.gapBeforeDays) ? daily.gapBeforeDays.map(Number) : [],
           observedDates: observedDates.map((d: unknown) => text(d)),
