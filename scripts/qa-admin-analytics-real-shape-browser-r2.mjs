@@ -22,7 +22,7 @@ const daily=(key)=>({
   version:'RONA_MARKET_OBSERVED_DAILY_V1',
   granularity:'OBSERVATION_DATE',sourceFamily:'PLATTS',sourceStatus:'CONFIRMED',
   noInterpolation:true,notMonthlyMaturityCurve:true,
-  observedDates:key==='DT'?['2026-10-01','2026-10-06','2026-10-08']:['2026-10-07'],
+  observedDates:key==='DT'?['2026-10-01','2026-10-06','2026-10-08']:['2026-07-25','2026-07-27','2026-08-29','2026-10-07'],
   observationCount:key==='DT'?3:1,availableTotal:key==='DT'?11:4,
   firstAsOf:key==='DT'?'01.10.2026':'07.10.2026',
   lastAsOf:key==='DT'?'08.10.2026':'07.10.2026',
