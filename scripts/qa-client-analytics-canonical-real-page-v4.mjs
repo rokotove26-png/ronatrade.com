@@ -138,7 +138,21 @@ try{
     await page.waitForTimeout(700);
   };
   await nav('analytics');
-  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1',null,{timeout:6500});
+  try{
+    await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1',null,{timeout:6500});
+  }catch(error){
+    const details=await page.evaluate(()=>{
+      const n=document.querySelector('#rona-analytics-v2');
+      const a=window.__RONA_CLIENT_MARKET_INTELLIGENCE_STATE__;
+      return{visual:n?.dataset,loading:a?.loading,loaded:a?.loaded,error:a?.error,
+        nativeState:window.RONA_ANALYTICS_VIEW?.getState?.(),nativeVersion:window.RONA_ANALYTICS_VIEW?.version,
+        pageVisible:getComputedStyle(document.querySelector('#page-analytics')).display,
+        metrics:[...n?.querySelectorAll('[data-metric]')||[]].map(x=>x.textContent).slice(0,6)
+      };
+    });
+    console.log('CLIENT_EXACT_ADMIN_NATIVE_V14_BOOT_DIAGNOSTIC',JSON.stringify({errors,details,message:String(error)}));
+    throw error;
+  }
   const initial=await snapshot();
   console.log('CLIENT_CANONICAL_VISUAL_RESTORED_V7_INITIAL',JSON.stringify(initial));
   if(initial.runtime!==marker||!initial.nativeView||initial.visualOwner!=='canonical-v7'||initial.substituteCount!==0||
