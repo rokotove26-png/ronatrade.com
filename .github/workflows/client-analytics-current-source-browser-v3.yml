@@ -3,6 +3,12 @@ on:
   pull_request:
     branches: [release/public-go-live-v1.1]
     paths:
+      - 'functions/portal/analytics-v2-client-canonical-ui.js'
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/analytics-canonical-live-hydration.js'
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'tests/client-analytics-single-admin-engine-v14.test.mjs'
+      - 'scripts/qa-client-analytics-exact-admin-browser-v14.mjs'
       - 'assets/portal-runtime/client-market-intelligence-v1.js'
       - 'scripts/attach-client-market-intelligence-v1.mjs'
       - 'scripts/qa-client-market-intelligence-v1.mjs'
@@ -12,6 +18,12 @@ on:
   push:
     branches: [release/public-go-live-v1.1]
     paths:
+      - 'functions/portal/analytics-v2-client-canonical-ui.js'
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/analytics-canonical-live-hydration.js'
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'tests/client-analytics-single-admin-engine-v14.test.mjs'
+      - 'scripts/qa-client-analytics-exact-admin-browser-v14.mjs'
       - 'assets/portal-runtime/client-market-intelligence-v1.js'
       - 'scripts/attach-client-market-intelligence-v1.mjs'
       - 'scripts/qa-client-market-intelligence-v1.mjs'
@@ -32,6 +44,8 @@ jobs:
           node-version: '24'
       - name: Syntax and client publication source scope preflight
         run: |
+          node --check functions/portal/analytics-v2-client-canonical-ui.js
+          node --check functions/portal/analytics-v2-ui.js
           node --check assets/portal-runtime/client-market-intelligence-v1.js
           node --check scripts/attach-client-market-intelligence-v1.mjs
           node --check scripts/qa-client-analytics-source-safe-browser-v3.mjs
@@ -44,6 +58,7 @@ jobs:
       - name: Client published-content isolation and market freshness contract
         run: |
           node scripts/qa-client-market-intelligence-v1.mjs
+          node --test tests/client-analytics-single-admin-engine-v14.test.mjs
           node --test tests/analytics-client-freshness-gate-v2.test.mjs
           node --check dist/assets/portal-runtime/client-market-intelligence-v1.js
           node --check scripts/qa-client-analytics-source-safe-browser-v3.mjs
@@ -53,6 +68,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Browser-prove Client published source & context isolation
         run: node scripts/qa-client-analytics-source-safe-browser-v3.mjs
+      - name: Browser-prove identical approved Admin and Client Analytics controls and charts
+        run: node scripts/qa-client-analytics-exact-admin-browser-v14.mjs
       - name: Browser-prove real canonical Client LK page with impersonation query
         run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
       - name: Wait exact production release Cloudflare SHA
@@ -65,9 +82,9 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL --retry 5 --retry-delay 5 "https://ronaoil.com/assets/portal-runtime/client-market-intelligence-v1.js?qa=${GITHUB_SHA}" -o /tmp/rona-client-analytics.js
-          grep -q '20261009-lpg-source-gap-history-v13' /tmp/rona-client-analytics.js
-          grep -q 'CLIENT_LPG_HISTORICAL_SEGMENTS_V13' /tmp/rona-client-analytics.js
-          grep -q 'CLIENT_LPG_HISTORICAL_SEGMENTS_V13' /tmp/rona-client-analytics.js
+          grep -q '20261010-client-approved-admin-single-engine-v14' /tmp/rona-client-analytics.js
+          grep -q 'CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14' /tmp/rona-client-analytics.js
+          grep -q 'CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14' /tmp/rona-client-analytics.js
           grep -q 'paintAuthorizedPrices' /tmp/rona-client-analytics.js
           grep -q 'CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9' /tmp/rona-client-analytics.js
           grep -q 'SERVER_AUTHORITATIVE_PRICE_PROJECTION' /tmp/rona-client-analytics.js
@@ -84,4 +101,4 @@ jobs:
             echo 'Client Analytics periodic polling violation' >&2
             exit 1
           fi
-          echo 'RONA_CLIENT_ANALYTICS_LPG_HISTORY_V13_PRODUCTION=PASS'
+          echo 'RONA_CLIENT_ANALYTICS_ADMIN_SINGLE_ENGINE_V14_PRODUCTION=PASS'

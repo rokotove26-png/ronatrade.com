@@ -237,6 +237,10 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
   });
   const sourceProducts: Record<string, any> = {};
   try {
+    // Both roles consume the same canonical market-data function. The owner
+    // bootstrap RPC itself is ADMIN-AUTHORIZED and must NEVER be called in
+    // a Client session (PORTAL_ACCESS_DENIED). DT/LPG daily projection below
+    // uses the same internal verified daily_monitor_v1 as the Admin wrapper.
     const sourceRows = await sql`select portal_private.market_intelligence_admin_canonical_payload_v1() as canonical`;
     const source = sourceRows.length === 1 ? sourceRows[0].canonical : null;
     if (source?.version !== "RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1" ||
@@ -330,6 +334,19 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         dates: safeSeries ? dates.map((date: unknown) => text(date)) : [],
         values: safeSeries ? values.map((value: unknown) => Number(value)) : []
       };
+      // Only already public route labels. Never project Admin destination rates,
+      // internal gross margins, rail costs or benchmark/reference values.
+      const visibleBasisNames = new Set([
+        "CPT Озинки","CPT Сарыагаш","CPT Турксиб","CPT Маргилан",
+        "CPT Уртааул","CPT Наушки"
+      ]);
+      output.priceBasisLabels = Array.isArray(raw.rona?.bases)
+        ? raw.rona.bases
+            .filter((item: unknown) => Array.isArray(item) && item.length === 2 &&
+              visibleBasisNames.has(text(item[0])))
+            .map((item: any[]) => text(item[0]))
+            .slice(0,12)
+        : [];
       const model: any = modelSources.get(key === "LPG" ? "СУГ" : productName);
       const target = text(model?.target_month).slice(0,7);
       const lastSourceDate = text(model?.snapshot_date);
@@ -414,6 +431,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           referenceDate: text(daily.referenceDate),
           status: text(daily.status), sourceGap: daily.sourceGap === true,
           deliveryMonth: daily.deliveryMonth || null, noInterpolation: true,
+          notMonthlyMaturityCurve: daily.notMonthlyMaturityCurve === true,
           segmentIds: Array.isArray(daily.segmentIds) ? daily.segmentIds.map(Number) : [],
           gapBeforeDays: Array.isArray(daily.gapBeforeDays) ? daily.gapBeforeDays.map(Number) : [],
           observedDates: observedDates.map((d: unknown) => text(d)),
@@ -445,7 +463,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
     // Same shape as Admin; only permitted client projection is serialized.
     payload.clientCanonicalAnalytics = {
       version: "RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1",
-      projection: "CLIENT_LPG_HISTORICAL_SEGMENTS_V13",
+      projection: "CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14",
       cutoff: source.cutoff, latestTradeDate: source.latestTradeDate,
       products: sourceProducts
     };

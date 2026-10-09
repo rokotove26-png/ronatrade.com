@@ -1,8 +1,8 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-lpg-source-gap-history-v13';
-const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13';
+const MARK='20261010-client-approved-admin-single-engine-v14';
+const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
 const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
@@ -194,6 +194,41 @@ function publishedPriceContext(){
 function paintAuthorizedPrices(owner,selectedProduct){
   const box=owner.querySelector('.an2-rona');
   if(!box)return;
+  // Admin's approved RONA destinations determine the NUMBER and order of
+  // price cards. Carry public destination labels only, never internal amounts.
+  // Preserve all native card markup/CSS; remove only routes the Admin does
+  // not show for this product.
+  const singleEngine=window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v5-client-admin-engine';
+  const basisNames=state.data?.clientCanonicalAnalytics?.products?.[selectedProduct]?.priceBasisLabels;
+  const grid=box.querySelector('.an2-rona-grid');
+  if(singleEngine&&grid&&Array.isArray(basisNames)&&basisNames.length&&basisNames.length<=12){
+    const current=[...grid.querySelectorAll(':scope > .an2-price-card')];
+    const intended=basisNames.map(basisCode);
+    const same=current.length===intended.length&&
+      current.every((card,i)=>basisCode(card.querySelector('h3')?.textContent)===intended[i]);
+    if(!same&&current.length){
+      const unused=[...current];
+      const output=[];
+      for(const name of basisNames){
+        const normName=basisCode(name);
+        let card=unused.find(c=>basisCode(c.querySelector('h3')?.textContent)===normName);
+        if(card)unused.splice(unused.indexOf(card),1);
+        else{
+          card=current[0].cloneNode(true);
+          for(const key of ['ronaClientPriceSource','ronaClientPricePresentation'])
+            delete card.dataset[key];
+        }
+        const title=card.querySelector('h3');
+        if(title)title.textContent=name;
+        for(const cls of ['.an2-price-base','.an2-price-range','.an2-price-current']){
+          const field=card.querySelector(cls);
+          if(field)field.textContent='—';
+        }
+        output.push(card);
+      }
+      grid.replaceChildren(...output);
+    }
+  }
   const source=publishedPriceContext();
   let filled=0;
   for(const card of box.querySelectorAll('.an2-price-card')){
@@ -223,6 +258,11 @@ function paintAuthorizedPrices(owner,selectedProduct){
     // market forecasts. Published contract prices must not masquerade as forecasts.
     textIfDifferent(forecastRange,'LOW — · HIGH —');
   }
+  // The Admin-approved native heading and model description are immutable
+  // in the unified engine. Client-only values appear in the existing price
+  // fields, with published-contract labels beside those values.
+  const sharedApproved=window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v5-client-admin-engine';
+  if(!sharedApproved){
   // Change text ONLY inside existing frozen original headline, not its badge or DOM.
   const headline=box.querySelector('.an2-rona-head h2');
   textIfDifferent(headline,filled
@@ -232,11 +272,22 @@ function paintAuthorizedPrices(owner,selectedProduct){
   if(note)textIfDifferent(note,filled
     ?'Показаны только опубликованные цены выбранного договора. LOW/HIGH и прогнозные цены отсутствуют без подтверждённой рыночной публикации. Это не новая оферта.'
     :'Опубликованные цены выбранного договора отсутствуют или не подтверждены. Прогнозные цены не рассчитываются.');
+  }
   box.dataset.ronaClientPriceBridge=filled?'published-current-contract':'no-authorized-matching-price';
   box.dataset.ronaClientPriceAuthority=source?'SERVER_AUTHORITATIVE_PRICE_PROJECTION':'SOURCE_UNAVAILABLE';
   box.dataset.ronaClientPricePresentation=CLIENT_PRICE_PRESENTATION_V9;
 }
 function ensureSafeCanonicalState(owner,payload,reason){
+  // One visual and functional owner: the approved Admin v4.3.2 native renderer.
+  // This CLIENT-only module may paint authorized contract prices, but may NOT
+  // replace chart axes, labels, period, forecast, KPIs or selected product.
+  if(window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v5-client-admin-engine'){
+    if(owner.dataset.ronaClientSourceSafe==='1'){
+      const product=window.RONA_ANALYTICS_VIEW?.getState?.()?.product||'AI92';
+      paintAuthorizedPrices(owner,product);
+    }
+    return;
+  }
   const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};
   const visualProduct=owner.querySelector('.an2-controls [data-an2-product][aria-pressed="true"]')?.getAttribute('data-an2-product');
   const chosen=(visualProduct&&payload.products[visualProduct]?visualProduct:null)||
@@ -334,6 +385,14 @@ function ensureSafeCanonicalState(owner,payload,reason){
 function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
   const owner=ensureOwner(root);
   if(!owner)return;
+  if(window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v5-client-admin-engine'){
+    // Shared Admin renderer/hydration is authoritative for data and DOM.
+    // Suppress the legacy second client setPayload and all chart rewrites.
+    ensureSafeCanonicalState(owner,null,reason);
+    root.dataset.ronaClientMarketIntelligenceFingerprint='analytics:'+state.fingerprint;
+    root.dataset.ronaClientAnalyticsReady=owner.dataset.ronaClientSourceSafe==='1'?'true':'false';
+    return;
+  }
   const view=window.RONA_ANALYTICS_VIEW;
   if(!view||typeof view.setPayload!=='function'){
     owner.dataset.ronaClientSourceSafe='0';
@@ -410,8 +469,9 @@ function start(){
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load('visible')});
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
   window.addEventListener('rona:client-prices-updated',schedule,{passive:true});
+  window.addEventListener('rona:analytics-live-applied',schedule,{passive:true});
   document.addEventListener('click',event=>{
-    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-an2-product]');
+    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-an2-product],#page-analytics #rona-analytics-v2 .an2-controls button[data-product]');
     if(productButton){
       // Native renderer changes the product synchronously after capture. Refresh
       // source/status labels in its final selection state, without new controls.
