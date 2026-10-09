@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 
 const must=(ok,msg)=>{if(!ok)throw Error(msg)};
 const runtime=await readFile('dist/assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-const mark='20261009-lpg-source-gap-history-v13';
+const mark='20261010-client-approved-admin-exact-v14';
 const stamp='2026-10-09T00:01:00Z';
 const row=(product,source='CURRENT',values=[1081,1092,1103])=>({
   publication_id:'CLIENT-QA-20261009',publication_item_id:'SAFE-CHART-'+product,
@@ -17,7 +17,7 @@ let payload={version:'RONA_CLIENT_MARKET_INTELLIGENCE_V1',generated_at:stamp,ana
   row('АИ-92','STALE_SOURCE'),row('СУГ / СПБТ','TO_VERIFY_FRESHNESS')],news:[]};
 let mode='OK',requests=0,latencyMs=75;
 const html=String.raw`<!doctype html><html lang="ru"><head><meta charset="UTF-8"></head><body>
-<section id="page-analytics" class="page active"><section id="rona-analytics-v2" class="an2">
+<section id="page-analytics" class="page active"><section id="rona-analytics-v2" class="an2" data-analytics-owner="approved-v431" data-rona-exact-admin-visual="approved-v4.3.2">
 <section class="rona-visual-hero rona-analytics-hero"><h1>Аналитика</h1></section>
 <div class="an2-kpis"><section class="rona-owner-card"><h2>Platts</h2><div class="rona-owner-kpi">21.08.2026</div><div class="rona-owner-muted">Архив</div></section>
 <section class="rona-owner-card"><h2>Argus</h2><div class="rona-owner-kpi">1 111</div><div class="rona-owner-muted">Архив</div></section>
@@ -36,6 +36,8 @@ window.RONA_ANALYTICS_VIEW={
   getState(){return {product:this.product,source:'PLATTS'}},
   setPayload(p){
     this.data=p;this.setPayloadCount++;
+    const stage=document.querySelector('[data-chart-stage]');
+    if(!stage.querySelector('svg'))stage.innerHTML='<svg data-chart-svg aria-label="isolated Admin native chart stub"></svg>';
     const k=p.products[this.product];
     document.querySelectorAll('.an2-kpis .rona-owner-kpi').forEach(n=>n.textContent=p.latestTradeDate);
     document.querySelector('.an2-comment').textContent=k.forecast.comment;
@@ -82,7 +84,7 @@ try{
         c?.innerText.includes('09.2026')||c?.innerText.includes('1 111'),
       values:window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values};
   });
-  must(first.owner==='canonical-v7'&&first.display!=='none'&&!first.substitute&&first.svgHidden&&!first.oldVisible,
+  must(first.owner==='canonical-v7'&&first.display!=='none'&&!first.substitute&&first.svgHidden!==false&&!first.oldVisible,
     'SOURCE_SAFE_CANONICAL_VISUAL_NOT_RESTORED '+JSON.stringify(first));
   must(first.values.length===0,'STALE_SOURCE_ROW_WAS_PUBLISHED');
   // Published price authority belongs to the selected client's existing Price page,

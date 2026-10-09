@@ -97,13 +97,13 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
   const runtime=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
   const edge=await readFile('supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts','utf8');
   const render=await readFile('scripts/attach-client-market-intelligence-v1.mjs','utf8');
-  const approval=JSON.parse(await readFile('governance/lpg-daily-history-v13-owner-approval-20261009.json','utf8'));
+  const approval=JSON.parse(await readFile('governance/client-analytics-exact-admin-native-v14-owner-approval-20261010.json','utf8'));
   assert.equal(approval.approval,'OWNER_IN_CHAT');
-  assert.equal(approval.scope,'ANALYTICS_LPG_GAP_HISTORY_V13');
+  assert.equal(approval.scope,'CLIENT_ANALYTICS_EXACT_ADMIN_NATIVE_V14');
   assert.equal(approval.requirements.wildcard_exception,false);
-  assert.equal(approval.requirements.client_native_an2_graph_preserved,true);
-  assert.equal(approval.requirements.context_switch_fail_closed,true);
-  assert.equal(approval.requirements.no_admin_internal_margin_or_price_bridge_in_client,true);
+  assert.equal(approval.requirements.exact_admin_native_v432_renderer,true);
+  assert.equal(approval.requirements.tenant_switch_clears_prices,true);
+  assert.equal(approval.requirements.private_pricing_bridge_not_in_client,true);
   assert.deepEqual(approval.approved_protected_files,[
     'assets/portal-runtime/client-market-intelligence-v1.js',
     'scripts/attach-client-market-intelligence-v1.mjs'
@@ -136,7 +136,7 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'Math.abs(Number(term.values[1])-Number(output.forecast.base))<0.001'
   ])assert.ok(edge.includes(token),'source-locked client canonical gate missing: '+token);
   for(const token of [
-    "const MARK='20261009-lpg-source-gap-history-v13'",
+    "const MARK='20261010-client-approved-admin-exact-v14'",
     "const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13'",
     'function canonicalPayload(data)',
     'data?.clientCanonicalAnalytics',
@@ -144,7 +144,11 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'publishedPriceContext()',
     'paintAuthorizedPrices(owner,chosen)'
   ])assert.ok(runtime.includes(token),'frozen client runtime missing: '+token);
-  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13'));
+  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261010-client-approved-admin-exact-v14'));
+  assert.ok(render.includes('approvedAdminNativeId'));
+  assert.ok(runtime.includes('APPROVED_ADMIN_NATIVE'));
+  assert.ok(runtime.includes('data-product'));
+  assert.ok(!runtime.includes("const MARK='20261009-lpg-source-gap-history-v13'"));
   assert.equal(runtime.includes("fetch('/portal/api/v1/admin/analytics'"),false,'client must not fetch Admin API');
   assert.equal(edge.includes('payload.clientCanonicalAnalytics = canonical'),false,'never expose unsanitized admin canonical payload');
   assert.equal(edge.includes('output.rona ='),false,'never expose internal RONA price bridge');
@@ -175,7 +179,7 @@ test('Admin and Client daily observation graph contract rejects monthly-maturity
   assert.ok(admin.includes("source-safe-v4-observation-daily"),'admin must share daily monitor');
   assert.ok(admin.includes('const term=null; // Maturity months cannot be charted as daily observations.'));
   assert.ok(!admin.includes("safe.dates=[...term.dates]"),'admin maturity labels must never replace observed dates');
-  assert.ok(client.includes("if(empty)empty.remove()"),'all four products must remove obsolete no-publication overlay when graph present');
+  assert.ok(client.includes("chartStage.querySelectorAll('[data-rona-client-canonical-empty=\"v7\"]').forEach(n=>n.remove())"),'all four products must remove obsolete client-only overlay; Admin native .an2-empty is authoritative');
   assert.ok(client.includes('CLIENT_LPG_HISTORICAL_SEGMENTS_V13'));
   assert.ok(!client.includes("hasTerm?product.termCurve.asOfDate"),'client must not use last delivery as trade date');
   assert.ok(client.includes("dates.every(d=>"),'monthly term labels rejected for main chart');
@@ -195,4 +199,25 @@ test('LPG v13 source-gap history retains verified same-contract dates but draws 
   assert.ok(page.includes('LPG_GAP_RUNTIME'),'Admin and Client should share gap-aware graph painter');
   for(const marker of ['new Set(ids.map(Number))','path.rmc-area','ids[i-1]','Date.parse','rmc-point'])
     assert.ok(renderer.includes(marker),'gap-free visualization marker missing '+marker);
+});
+
+
+test('Client Analytics uses the actual approved Admin native renderer, with no competing Client copy',async()=>{
+  const pkg=JSON.parse(await readFile('package.json','utf8'));
+  const build=pkg.scripts.build;
+  const helper=await readFile('scripts/attach-client-approved-admin-analytics-v14.mjs','utf8');
+  const admin=await readFile('functions/portal/analytics-v2-ui.js','utf8');
+  const base=await readFile('functions/portal/analytics-v2-approved-base.js','utf8');
+  const client=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
+  assert.ok(build.includes('materialize-admin-current-modules.mjs && node scripts/attach-client-approved-admin-analytics-v14.mjs && node scripts/attach-client-application-lifecycle.mjs'));
+  assert.ok(admin.includes('export function canonicalNativeAnalyticsV432(source)'));
+  assert.ok(base.includes("GZIP_B64="));
+  for(const token of ['canonicalNativeAnalyticsV432','materializedAdmin.startsWith(approved)',
+    "legacyChart.length!==1||legacyView.length!==1",
+    "original.remove();","CLIENT_EXACT_ADMIN_NATIVE_V432=PASS",
+    "admin_internal_prices_exposed:false"])
+    assert.ok(helper.includes(token),'approved Admin copy contract missing: '+token);
+  assert.ok(client.includes("original.dataset.analyticsOwner!=='approved-v431'"));
+  assert.ok(client.includes("original.dataset.ronaExactAdminVisual!==APPROVED_ADMIN_NATIVE"));
+  assert.ok(!client.includes("fetch('/portal/api/v1/admin/analytics'"));
 });

@@ -1,8 +1,9 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-lpg-source-gap-history-v13';
+const MARK='20261010-client-approved-admin-exact-v14';
 const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13';
+const APPROVED_ADMIN_NATIVE='approved-v4.3.2';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
 const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
@@ -59,7 +60,6 @@ function installStyle(){
   if(document.getElementById('rona-client-analytics-canonical-style-v7'))return;
   const s=el('style',{id:'rona-client-analytics-canonical-style-v7'});
   s.textContent=[
-    '#page-analytics > #rona-analytics-v2[data-rona-client-analytics-visual-owner="canonical-v7"]{display:block!important;visibility:visible!important}',
     '#page-analytics > [data-rona-client-market-intelligence-owner="analytics"]{display:none!important}',
     '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"]{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:28px 15px;text-align:center}',
     '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"] strong{font-weight:700}',
@@ -96,6 +96,11 @@ function ensureOwner(root){
   // The canonical design is the sole visual owner; never replace its subtree.
   const original=root.querySelector(':scope > #rona-analytics-v2');
   if(!original){root.dataset.ronaClientAnalyticsSource='CANONICAL_VISUAL_MISSING';return null}
+  if(original.dataset.analyticsOwner!=='approved-v431'||
+     original.dataset.ronaExactAdminVisual!==APPROVED_ADMIN_NATIVE){
+    root.dataset.ronaClientAnalyticsSource='APPROVED_ADMIN_NATIVE_MISSING';
+    return null;
+  }
   const substitute=root.querySelector(':scope > [data-rona-client-market-intelligence-owner="analytics"]');
   if(substitute)substitute.remove();
   if(original.hidden)original.hidden=false;
@@ -238,7 +243,8 @@ function paintAuthorizedPrices(owner,selectedProduct){
 }
 function ensureSafeCanonicalState(owner,payload,reason){
   const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};
-  const visualProduct=owner.querySelector('.an2-controls [data-an2-product][aria-pressed="true"]')?.getAttribute('data-an2-product');
+  const currentButton=owner.querySelector('.an2-controls [data-product][aria-pressed="true"],.an2-controls [data-an2-product][aria-pressed="true"]');
+  const visualProduct=currentButton?.getAttribute('data-product')||currentButton?.getAttribute('data-an2-product');
   const chosen=(visualProduct&&payload.products[visualProduct]?visualProduct:null)||
     (selected.product&&payload.products[selected.product]?selected.product:'AI92');
   const product=payload.products[chosen]||emptyProduct();
@@ -247,7 +253,7 @@ function ensureSafeCanonicalState(owner,payload,reason){
   const hasDaily=hasSeries&&daily?.version==='RONA_MARKET_OBSERVED_DAILY_V1'&&
     daily?.granularity==='OBSERVATION_DATE'&&daily?.sourceStatus==='CONFIRMED';
   const chartStage=owner.querySelector('[data-chart-stage]');
-  const svg=owner.querySelector('[data-chart-svg]');
+  const svg=owner.querySelector('.rona-market-chart-svg,[data-chart-svg]');
   if(svg){
     if(svg.hidden===hasSeries)svg.hidden=!hasSeries;
     const wanted=hasSeries?'':'hidden';
@@ -256,20 +262,26 @@ function ensureSafeCanonicalState(owner,payload,reason){
     }
   }
   if(chartStage){
-    let empty=chartStage.querySelector('[data-rona-client-canonical-empty="v7"]');
-    if(hasSeries){
-      // The old CSS forced display:flex over HTML [hidden], covering every
-      // populated graph. Remove the no-data element rather than merely hiding.
-      if(empty)empty.remove();
-    }else{
-      if(!empty){
-        empty=el('div',{class:'rona-market-chart-empty','data-rona-client-canonical-empty':'v7'});
-        empty.append(el('strong',{text:'Нет подтверждённого ежедневного ряда'}),
-          el('span',{text:'Появится после публикации проверенных наблюдений по датам. Прогноз отображается отдельно.'}));
-        chartStage.append(empty);
-      }
-      empty.hidden=false;
+    // Use EXACTLY the Admin-native .an2-empty state. Remove the previous
+    // client-only overlay; it must never cover an approved graph.
+    chartStage.querySelectorAll('[data-rona-client-canonical-empty="v7"]').forEach(n=>n.remove());
+    if(!hasSeries&& !chartStage.querySelector('.an2-empty')){
+      chartStage.innerHTML='<div class="an2-empty"><strong>Нет актуального подтверждённого ряда</strong><span>Наблюдения отсутствуют в разрешённой клиентской публикации.</span></div>';
     }
+  }
+  if(!hasSeries){
+    // Exact Admin-side NO_SOURCE decoration for Client effective permissions.
+    for(const node of owner.querySelectorAll('[data-metric],.an2-kpis .rona-owner-kpi'))
+      textIfDifferent(node,'—');
+    for(const card of owner.querySelectorAll('.an2-kpis .rona-owner-card'))
+      textIfDifferent(card.querySelector('.rona-owner-muted'),'Нет подтверждённого ряда');
+    if(!product.forecast||!/^\d{4}-\d{2}$/.test(String(product.forecast.month||''))){
+      const forecastTitle=owner.querySelector('.an2-market-forecast .an2-mf-title');
+      textIfDifferent(forecastTitle,'Прогноз недоступен');
+      for(const node of owner.querySelectorAll('.an2-market-forecast .an2-mf-sub,.an2-market-forecast .an2-mf-row'))
+        textIfDifferent(node,'Нет подтверждённого источника');
+    }
+    textIfDifferent(owner.querySelector('.an2-comment'),'Текущие подтверждённые рыночные данные отсутствуют.');
   }
   if(hasSeries){
     if(hasDaily){
@@ -345,9 +357,22 @@ function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
   // Do not retrigger native rendering on our own MutationObserver-driven updates.
   const sig=reason==='PUBLISHED_CURRENT_ONLY'?state.fingerprint:reason;
   if(owner.dataset.ronaClientPayloadFingerprint!==sig||owner.dataset.renderState!==reason){
-    view.setPayload(payload);
+    let applied=false;
+    try{applied=view.setPayload(payload)!==false}
+    catch(error){
+      owner.dataset.ronaApprovedNativeRenderError=String(error?.name||'NATIVE_RENDER_ERROR').slice(0,64);
+    }
+    const renderable=Object.values(payload.products).some(p=>Array.isArray(p.dates)&&p.dates.length>0);
+    if(!applied&&renderable){
+      owner.dataset.ronaClientSourceSafe='0';
+      root.dataset.ronaClientAnalyticsReady='false';
+      return;
+    }
     owner.dataset.ronaClientPayloadFingerprint=sig;
   }
+  // Admin renderer alone cannot represent an entirely empty historical sample
+  // until its Admin-side LIVE hydration decorator runs. The Client adapter
+  // performs the equivalent fail-closed empty-state decoration below.
   ensureSafeCanonicalState(owner,payload,reason);
   root.dataset.ronaClientAnalyticsReady=reason==='PUBLISHED_CURRENT_ONLY'?'true':'false';
   root.dataset.ronaClientMarketIntelligenceFingerprint='analytics:'+state.fingerprint;
@@ -411,7 +436,7 @@ function start(){
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
   window.addEventListener('rona:client-prices-updated',schedule,{passive:true});
   document.addEventListener('click',event=>{
-    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-an2-product]');
+    const productButton=event.target?.closest?.('#page-analytics #rona-analytics-v2 [data-product],#page-analytics #rona-analytics-v2 [data-an2-product]');
     if(productButton){
       // Native renderer changes the product synchronously after capture. Refresh
       // source/status labels in its final selection state, without new controls.

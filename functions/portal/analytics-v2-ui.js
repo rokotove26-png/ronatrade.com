@@ -146,11 +146,17 @@ const CANONICAL_PRICING_BRIDGE_RUNTIME=String.raw`
 })();
 `;
 
-function canonicalizeV432(source){
+// Exactly one approved native renderer is shared by Admin and Client.
+// Role-specific data hydration is attached separately after this byte-identical base.
+export function canonicalNativeAnalyticsV432(source){
   let out=source;
   out=out.replaceAll("document.documentElement.dataset.ronaAnalyticsLocal='v4.3.1'","document.documentElement.dataset.ronaAnalyticsLocal='v4.3.2'");
   out=out.replaceAll("version:'functional-v4.3.1'","version:'functional-v4.3.2'");
   out=out.replaceAll('approved-v4.3.1-single-owner',CANONICAL_ANALYTICS_MARKER);
+  return out;
+}
+function canonicalizeV432(source){
+  let out=canonicalNativeAnalyticsV432(source);
   out+=CANONICAL_PRICING_BRIDGE_RUNTIME+CANONICAL_LIVE_HYDRATION_RUNTIME+LPG_GAP_RUNTIME+APPROVED_DATA_VALIDATION;
   const required=['RONA TRADE · ANALYTICS','Внутренний аналитический контур','Базовая котировка','Возможные цены RONA Trade','Аналитический вывод','function pricingBridgeFor','function calculateRonaScenario',"version:'functional-v4.3.2'",'setPricingBridge','rona:analytics-price-model','RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1','canonical-daily-live','__RONA_LPG_OBSERVATION_GAPS_V13__','1075.25','1226.75'];
   for(const token of required)if(!out.includes(token))throw new Error(`CANONICAL_ANALYTICS_V432_MISSING:${token}`);
