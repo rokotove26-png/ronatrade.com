@@ -194,6 +194,19 @@ function publishedPriceContext(){
 function paintAuthorizedPrices(owner,selectedProduct){
   const box=owner.querySelector('.an2-rona');
   if(!box)return;
+  // Admin's approved RONA destinations determine the NUMBER and order of
+  // price cards. Carry public destination labels only, never internal amounts.
+  // Preserve all native card markup/CSS; remove only routes the Admin does
+  // not show for this product.
+  const singleEngine=window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__==='source-safe-v5-client-admin-engine';
+  const basisNames=state.data?.clientCanonicalAnalytics?.products?.[selectedProduct]?.priceBasisLabels;
+  if(singleEngine&&Array.isArray(basisNames)&&basisNames.length){
+    const permitted=new Set(basisNames.map(basisCode));
+    for(const card of box.querySelectorAll('.an2-rona-grid > .an2-price-card')){
+      const route=basisCode(card.querySelector('h3')?.textContent);
+      if(route&&!permitted.has(route))card.remove();
+    }
+  }
   const source=publishedPriceContext();
   let filled=0;
   for(const card of box.querySelectorAll('.an2-price-card')){
