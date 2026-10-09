@@ -17,7 +17,7 @@ const raw=await response.text();
 const approved=canonicalNativeAnalyticsV432(raw);
 const materializedAdmin=await readFile('dist/portal/analytics-v2-ui','utf8');
 if(!materializedAdmin.startsWith(approved)||
-   !approved.includes("version:'functional-v4.3.2'")||
+   !approved.includes("version:'approved-v4.3.2-pricing-bridge-single-owner'")||
    !approved.includes('RONA TRADE · ANALYTICS')||
    !approved.includes('window.RONA_ANALYTICS_VIEW='))throw Error('APPROVED_NATIVE_ADMIN_CLIENT_CODE_MISMATCH');
 let html=await readFile(ROOT,'utf8');
