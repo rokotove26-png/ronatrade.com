@@ -12,7 +12,7 @@ function changeOne(s,a,b,label){
   if(s.split(a).length!==2)throw Error('APPROVED_RENDERER_CONTRACT_MISMATCH:'+label);
   return s.replace(a,b);
 }
-function clientHydrationRuntime(){
+export function clientHydrationRuntime(){
   let code=CANONICAL_LIVE_HYDRATION_RUNTIME;
   if(code.split('source-safe-v4-observation-daily').length!==3)
     throw Error('CANONICAL_LIVE_GUARD_CHANGED');
@@ -27,11 +27,11 @@ function clientHydrationRuntime(){
     'CLIENT_PROJECTION');
   code=changeOne(code,
     "window.addEventListener('rona:admin-pagechange',hydrate);",
-    "document.addEventListener('rona:client:context-changed',()=>{lastApplied='';lastSource=null;hydrate()});",
+    "document.addEventListener('rona:client:context-changed',()=>{lastApplied='';lastSource=null;indicateUnavailable('CLIENT_CONTEXT_CHANGED');hydrate()});",
     'CONTEXT_BOUND_DATA');
   code=changeOne(code,
     'setInterval(hydrate,300000);',
-    "window.addEventListener('rona:client-market-intelligence-invalidated',hydrate,{passive:true});",
+    "window.addEventListener('rona:client-market-intelligence-invalidated',hydrate,{passive:true});\n  document.addEventListener('click',event=>{if(event.target?.closest?.('[data-page=\\\"analytics\\\"],[data-page-id=\\\"analytics\\\"],[data-page-panel=\\\"analytics\\\"]'))requestAnimationFrame(hydrate)},true);",
     'SOURCE_REFRESH');
   code=changeOne(code,
     'lastApplied=sig;lastSource=payload;',
