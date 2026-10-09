@@ -44,6 +44,7 @@ const html=String.raw`<!doctype html><html lang="ru"><head><meta charset="UTF-8"
 window.RONA_ANALYTICS_VIEW={
   product:'AI92',setPayloadCount:0,
   getState(){return {product:this.product,source:'PLATTS'}},
+  setProduct(key){this.product=key;this.setPayload(this.data);return true},
   setPayload(p){
     this.data=p;this.setPayloadCount++;
     const k=p.products[this.product];
@@ -56,8 +57,7 @@ window.RONA_ANALYTICS_VIEW={
 };
 document.querySelector('.an2-controls').addEventListener('click',e=>{
   const b=e.target.closest('[data-an2-product]');
-  if(b){RONA_ANALYTICS_VIEW.product=b.dataset.an2Product;
-    RONA_ANALYTICS_VIEW.setPayload(RONA_ANALYTICS_VIEW.data)}
+  if(b)RONA_ANALYTICS_VIEW.setProduct(b.dataset.an2Product)
 });
 </script><script src="/client-analytics.js" defer></script></body></html>`;
 const server=http.createServer((req,res)=>{
@@ -92,7 +92,7 @@ try{
       substitute:document.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length,
       svgHidden:c?.querySelector('[data-chart-svg]')?getComputedStyle(c.querySelector('[data-chart-svg]')).visibility==='hidden':null,oldVisible:c?.innerText.includes('21.08.2026')||
         c?.innerText.includes('09.2026')||c?.innerText.includes('1 111'),
-      values:window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values};
+      values:window.RONA_ANALYTICS_PRESENTER_V14?.getPayload?.()?.products?.AI92?.values};
   });
   must(first.owner==='canonical-v7'&&first.display!=='none'&&!first.substitute&&first.svgHidden&&!first.oldVisible,
     'SOURCE_SAFE_CANONICAL_VISUAL_NOT_RESTORED '+JSON.stringify(first));
@@ -102,12 +102,12 @@ try{
   payload={...payload,generated_at:'2026-10-09T00:02:00Z',analytics:[row('АИ-92')],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"rona":{"reference":1103,"bases":[["CPT Озинки",1223.17],["CPT Сарыагаш",1332.1],["CPT Наушки",1280.91]]},"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}}};
   payload.analyticsCanonicalParity='ADMIN_APPROVED_SHARED_V14';
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
-  await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1103,null,{timeout:10000});
+  await page.waitForFunction(()=>window.RONA_ANALYTICS_PRESENTER_V14?.getPayload?.()?.products?.AI92?.values?.at(-1)===1103,null,{timeout:10000});
   must(await page.locator(owner+' [data-chart-svg]').isVisible(),'CANONICAL_APPROVED_SERIES_CHART_NOT_SHOWN');
   must(await page.locator(owner).count()===1,'CANONICAL_VISUAL_OWNER_WAS_REPLACED');
   payload={...payload,generated_at:'2026-10-09T00:03:00Z',analytics:[row('АИ-92','CURRENT',[1081,1092,1145])],clientCanonicalAnalytics:{...payload.clientCanonicalAnalytics,products:{...payload.clientCanonicalAnalytics.products,AI92:{...payload.clientCanonicalAnalytics.products.AI92,values:[1081,1092,1145]}}}};
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
-  await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1145,null,{timeout:10000});
+  await page.waitForFunction(()=>window.RONA_ANALYTICS_PRESENTER_V14?.getPayload?.()?.products?.AI92?.values?.at(-1)===1145,null,{timeout:10000});
   // The main chart is a DATE-OF-OBSERVATION monitor, never a three-maturity curve.
   // Monthly LOW/BASE/HIGH remains separately sourced on the right-hand side.
   const dailyFixture=(name,days,values,forecastBase,forecastLow,forecastHigh,
@@ -166,7 +166,7 @@ try{
   };
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>
-    window.RONA_ANALYTICS_VIEW?.data?.products?.DT?.dailyMonitor?.sourceStatus==='CONFIRMED',
+    window.RONA_ANALYTICS_PRESENTER_V14?.getPayload?.()?.products?.DT?.dailyMonitor?.sourceStatus==='CONFIRMED',
     null,{timeout:10000});
   for(const [key,label,expectedLast,expectedSpot,count] of [
     ['DT','ДТ','08.10', 'STALE_SOURCE',3],
@@ -182,11 +182,11 @@ try{
       heading:document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent,
       source:document.querySelector('#rona-analytics-v2 [data-chart-source]')?.textContent,
       status:document.querySelector('#rona-analytics-v2')?.dataset.ronaPhysicalSpotFreshness,
-      dates:window.RONA_ANALYTICS_VIEW.data.products[
+      dates:window.RONA_ANALYTICS_PRESENTER_V14.getPayload().products[
         window.RONA_ANALYTICS_VIEW.getState().product]?.dates,
-      values:window.RONA_ANALYTICS_VIEW.data.products[
+      values:window.RONA_ANALYTICS_PRESENTER_V14.getPayload().products[
         window.RONA_ANALYTICS_VIEW.getState().product]?.values,
-      forecast:window.RONA_ANALYTICS_VIEW.data.products[
+      forecast:window.RONA_ANALYTICS_PRESENTER_V14.getPayload().products[
         window.RONA_ANALYTICS_VIEW.getState().product]?.forecast,
       kpi:document.querySelector('#rona-analytics-v2 .an2-kpis .rona-owner-kpi')?.textContent,
       overlays:document.querySelectorAll(
@@ -222,7 +222,7 @@ try{
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.renderState==='ERROR_NO_ARCHIVE',null,{timeout:10000});
   const failure=await page.evaluate(()=>({
     safe:document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe,
-    series:window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values,
+    series:window.RONA_ANALYTICS_PRESENTER_V14?.getPayload?.()?.products?.AI92?.values,
     title:document.querySelector('[data-chart-title]')?.textContent,
     ownerCount:document.querySelectorAll('#rona-analytics-v2').length,
     substitute:document.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length
