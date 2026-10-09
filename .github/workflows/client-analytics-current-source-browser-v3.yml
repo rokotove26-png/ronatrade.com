@@ -65,7 +65,8 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL --retry 5 --retry-delay 5 "https://ronaoil.com/assets/portal-runtime/client-market-intelligence-v1.js?qa=${GITHUB_SHA}" -o /tmp/rona-client-analytics.js
-          grep -q '20261009-client-analytics-admin-canonical-parity-v10' /tmp/rona-client-analytics.js
+          grep -q '20261009-client-analytics-dt-lpg-forecast-parity-v11' /tmp/rona-client-analytics.js
+          grep -q 'CLIENT_ADMIN_PARITY_FORECAST_SOURCE_SAFE_V11' /tmp/rona-client-analytics.js
           grep -q 'paintAuthorizedPrices' /tmp/rona-client-analytics.js
           grep -q 'CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9' /tmp/rona-client-analytics.js
           grep -q 'SERVER_AUTHORITATIVE_PRICE_PROJECTION' /tmp/rona-client-analytics.js
@@ -82,4 +83,4 @@ jobs:
             echo 'Client Analytics periodic polling violation' >&2
             exit 1
           fi
-          echo 'RONA_CLIENT_ANALYTICS_ADMIN_PARITY_V10_PRODUCTION=PASS'
+          echo 'RONA_CLIENT_ANALYTICS_DT_LPG_FORECAST_V11_PRODUCTION=PASS'
