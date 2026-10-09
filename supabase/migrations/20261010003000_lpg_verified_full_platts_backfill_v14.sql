@@ -6,9 +6,26 @@ SET search_path TO 'pg_catalog','public','portal_private'
 AS $$
 DECLARE n integer:=0;
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM portal_private.ai_coordination_records c
+    WHERE c.record_id='5697e762-4cdc-47a8-972c-eeb4a2a67c8f'::uuid
+      AND c.record_type='BUSINESS_CHANGE_PROPOSAL'
+      AND c.functional_role::text='COMMERCIAL_DIRECTOR'
+      AND c.status='PROPOSED'
+      AND c.payload->>'proposed_field'='analytics.full_platts_curve_forecast_v1'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM portal_private.ai_coordination_records c
+    WHERE c.record_id='b295fe31-92ca-4702-8e5c-4a199699fb30'::uuid
+      AND c.record_type='OPERATIONS_INTERNAL_DECISION'
+      AND c.functional_role::text='OPERATIONS_DIRECTOR'
+      AND c.status='APPROVE_FOR_NEXT_STAGE'
+      AND c.payload->>'record_id'='5697e762-4cdc-47a8-972c-eeb4a2a67c8f'
+  ) THEN
+    RAISE EXCEPTION 'LPG_V14_AUTHORITY_NOT_CONFIRMED';
+  END IF;
   WITH editions AS (
     SELECT DISTINCT ON (s.source_date)
-      s.source_date, s.source_doc_id, s.source_ref, d.extracted_text
+      s.source_date, s.source_doc_id, s.source_ref, d.sha256, d.extracted_text
     FROM portal_private.market_intelligence_source_documents s
     JOIN portal_private.telegram_market_documents d ON d.sha256=s.checksum_sha256
     WHERE s.source_family='PLATTS'
@@ -45,7 +62,10 @@ BEGIN
       'USD','USD/т','CONFIRMED','CONFIRMED',source_ref,
       'Verified full Platts financial issue; no interpolation',
       jsonb_build_object('curve_code',code,'raw_quotes_private',true,
-        'parser','FULL_PLATTS_CURVE_V1','materializer','LPG_V14')
+        'parser','FULL_PLATTS_CURVE_V1','materializer','LPG_V14',
+        'source_sha256',sha256,
+        'commercial_proposal_id','5697e762-4cdc-47a8-972c-eeb4a2a67c8f',
+        'operations_approval_id','b295fe31-92ca-4702-8e5c-4a199699fb30')
     FROM readings WHERE assessment>0 AND assessment<=100000
     ON CONFLICT (fact_id) DO NOTHING RETURNING fact_id
   ) SELECT count(*) INTO n FROM added;
