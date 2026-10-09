@@ -201,7 +201,9 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
     const modelRows = await sql`
       select distinct on (product)
         product, target_month::text as target_month,
-        snapshot_date::text as snapshot_date, source_ref
+        snapshot_date::text as snapshot_date, source_ref,
+        low_usd_t, base_usd_t, high_usd_t, forward_implied_usd_t,
+        direction, confidence, curve_type
       from portal_private.market_intelligence_forecast_snapshots
       where product in ('АИ-92','АИ-95','ДТ','СУГ')
         and model_version='RONA_FULL_PLATTS_CURVE_V1'
@@ -255,25 +257,29 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         dates: safeSeries ? dates.map((date: unknown) => text(date)) : [],
         values: safeSeries ? values.map((value: unknown) => Number(value)) : []
       };
-      const forecast = raw.forecast;
       const model: any = modelSources.get(key === "LPG" ? "СУГ" : productName);
       const target = text(model?.target_month).slice(0,7);
-      const month = text(forecast?.month);
-      const forecastMonth = /^\d{4}-\d{2}$/.test(month) ? month :
-        /^\d{2}\.\d{4}$/.test(month) ? month.slice(3) + "-" + month.slice(0,2) : "";
-      // The Admin model is the only computation authority. Missing or mismatched
-      // source means no client forecast; do not create another model.
-      if (forecast && forecastMonth && target === forecastMonth &&
-          text(model?.source_ref) && ["low","base","high","forward"].every(k => finite(forecast[k]))) {
+      const lastSourceDate = text(model?.snapshot_date);
+      // Exactly the Admin FULL PLATTS CURVE v1 snapshot, not the legacy LPG
+      // regional August scenario or an independent second forecast model.
+      const targetIsFuture = /^\d{4}-\d{2}$/.test(target) &&
+        target > text(source.latestTradeDate).slice(6) + "-" +
+                 text(source.latestTradeDate).slice(3,5);
+      if (targetIsFuture && /^\d{4}-\d{2}-\d{2}$/.test(lastSourceDate) &&
+          lastSourceDate <= text(source.latestTradeDate).slice(6) + "-" +
+                            text(source.latestTradeDate).slice(3,5) + "-" +
+                            text(source.latestTradeDate).slice(0,2) &&
+          text(model?.source_ref) &&
+          ["low_usd_t","base_usd_t","high_usd_t","forward_implied_usd_t"].every(k => finite(model[k]))) {
         output.forecast = {
-          month: forecastMonth,
-          low: Number(forecast.low), base: Number(forecast.base),
-          high: Number(forecast.high), forward: Number(forecast.forward),
-          reference: finite(forecast.reference) ? Number(forecast.reference) : null,
-          sourceRef: text(model.source_ref), sourceAsOf: text(model.snapshot_date),
-          direction: text(forecast.direction), confidence: text(forecast.confidence),
-          curveType: text(forecast.curveType || forecast.curve),
-          comment: "Индикативный прогноз Коммерческого директора на " + forecastMonth +
+          month: target,
+          low: Number(model.low_usd_t), base: Number(model.base_usd_t),
+          high: Number(model.high_usd_t), forward: Number(model.forward_implied_usd_t),
+          reference: safeSeries ? Number(values[values.length - 1]) : null,
+          sourceRef: text(model.source_ref), sourceAsOf: lastSourceDate,
+          direction: text(model.direction), confidence: text(model.confidence),
+          curveType: text(model.curve_type),
+          comment: "Индикативный прогноз Коммерческого директора на " + target +
                    "; источник: " + text(model.source_ref) + ". Не является офертой."
         };
       }
@@ -285,7 +291,8 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           text(term.sourceRef) === text(output.forecast.sourceRef) &&
           Array.isArray(term.dates) && Array.isArray(term.values) &&
           term.dates.length === 3 && term.values.length === 3 &&
-          term.values.every((value: unknown) => finite(value))) {
+          term.values.every((value: unknown) => finite(value)) &&
+          Math.abs(Number(term.values[1])-Number(output.forecast.base))<0.001) {
         output.termCurve = term;
         output.dates = [...term.dates];
         output.values = term.values.map(Number);
