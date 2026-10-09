@@ -84,7 +84,7 @@ BEGIN
   END LOOP;
   RETURN v->'canonicalAnalytics';
 END
-$function$
+$function$;
 
 REVOKE ALL ON FUNCTION portal_private.market_intelligence_admin_client_shared_payload_v14() FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION portal_private.market_intelligence_admin_client_shared_payload_v14() TO service_role,postgres;
