@@ -128,6 +128,27 @@ try{
       await page.waitForTimeout(500);
     }
   }
+  // Owner screenshot shows a split desktop viewport of approximately 1170x657,
+  // not the 1400x850 canvas used by the previous (false-green) canonical QA.
+  await page.setViewportSize({width:1170,height:657});
+  await page.waitForTimeout(850);
+  const splitViewport=await page.evaluate(()=>{
+    const root=document.querySelector('#page-analytics'),owner=root?.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
+    const heading=owner?.querySelector('h2');
+    const xy=n=>{if(!n)return null;const r=n.getBoundingClientRect(),s=getComputedStyle(n);return {x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height),display:s.display,visibility:s.visibility,opacity:s.opacity}};
+    const h=heading?.getBoundingClientRect();
+    const px=h?Math.min(innerWidth-2,Math.max(2,h.left+h.width/2)):null;
+    const py=h?Math.min(innerHeight-2,Math.max(2,h.top+h.height/2)):null;
+    const hit=px!==null&&py!==null?document.elementFromPoint(px,py):null;
+    return{viewport:{width:innerWidth,height:innerHeight},root:xy(root),owner:xy(owner),heading:xy(heading),
+      headingHitSafe:!!owner&&(hit===owner||owner.contains(hit)),hitTag:hit?.tagName||null,
+      navActive:!!document.querySelector('.sidebar [data-page="analytics"].active,#nav [data-page="analytics"].active')};
+  });
+  console.log('CLIENT_ANALYTICS_SPLIT_VIEWPORT_1170x657',JSON.stringify(splitViewport));
+  if(!splitViewport.navActive||!splitViewport.owner||splitViewport.owner.display==='none'||splitViewport.owner.opacity==='0'||
+     !splitViewport.heading||splitViewport.heading.y<0||splitViewport.heading.y>=657||
+     splitViewport.heading.width<50||splitViewport.heading.height<14||!splitViewport.headingHitSafe)
+    throw Error('CLIENT_ANALYTICS_SPLIT_VIEWPORT_BLANK: '+JSON.stringify(splitViewport));
   // Reproduce the Owner's post-navigation empty panel: a late SPA runtime
   // can apply inline !important on both the active page and the safe owner.
   await page.evaluate(()=>{
