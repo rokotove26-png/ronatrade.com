@@ -1,7 +1,9 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-lpg-source-gap-history-v13';
+const MARK='20261009-admin-canonical-shared-presenter-v14';
+const ADMIN_SHARED_PRESENTER='ADMIN_APPROVED_SHARED_V14';
+const ADMIN_SHARED_PRESENTER_SRC='/portal/analytics-canonical-presenter-v14';
 const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
@@ -236,6 +238,34 @@ function paintAuthorizedPrices(owner,selectedProduct){
   box.dataset.ronaClientPriceAuthority=source?'SERVER_AUTHORITATIVE_PRICE_PROJECTION':'SOURCE_UNAVAILABLE';
   box.dataset.ronaClientPricePresentation=CLIENT_PRICE_PRESENTATION_V9;
 }
+let sharedPresenterPending=false;
+function ensureSharedPresenter(){
+  if(window.RONA_ANALYTICS_PRESENTER_V14?.version===ADMIN_SHARED_PRESENTER)return true;
+  if(sharedPresenterPending)return false;
+  sharedPresenterPending=true;
+  const script=document.createElement('script');
+  script.id='rona-client-admin-approved-analytics-v14';
+  script.src=ADMIN_SHARED_PRESENTER_SRC;
+  script.async=false;
+  script.onload=()=>{
+    sharedPresenterPending=false;
+    if(window.RONA_ANALYTICS_PRESENTER_V14?.version===ADMIN_SHARED_PRESENTER){
+      document.documentElement.dataset.ronaAnalyticsSharedRuntime=ADMIN_SHARED_PRESENTER;
+      schedule();
+    }else{
+      state.error='CANONICAL_ADMIN_SHARED_PRESENTER_INVALID';
+      state.data=null;state.fingerprint='';schedule();
+    }
+  };
+  script.onerror=()=>{
+    sharedPresenterPending=false;
+    state.error='CANONICAL_ADMIN_SHARED_PRESENTER_UNAVAILABLE';
+    state.data=null;state.fingerprint='';schedule();
+  };
+  document.head.append(script);
+  return false;
+}
+
 function ensureSafeCanonicalState(owner,payload,reason){
   const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};
   const visualProduct=owner.querySelector('.an2-controls [data-an2-product][aria-pressed="true"]')?.getAttribute('data-an2-product');
@@ -326,7 +356,9 @@ function ensureSafeCanonicalState(owner,payload,reason){
   }else delete owner.dataset.ronaLpgHistorySegments;
   owner.dataset.ronaSelectedProduct=chosen;
   owner.dataset.ronaPhysicalSpotFreshness=product.spotFreshness||'UNAVAILABLE';
-  // Selected contract prices remain the only externally authorized RONA prices.
+  // Same Admin-approved presentation function for both role contexts.
+  window.RONA_ANALYTICS_PRESENTER_V14?.apply(owner,payload,{mode:'client'});
+  // Client-specific prices are the only permitted difference in values.
   paintAuthorizedPrices(owner,chosen);
   if(owner.dataset.ronaClientSourceSafe!=='1')owner.dataset.ronaClientSourceSafe='1';
   if(owner.dataset.renderState!==reason)owner.dataset.renderState=reason;
@@ -335,6 +367,12 @@ function renderCanonical(root,data,reason='PUBLISHED_CURRENT_ONLY'){
   const owner=ensureOwner(root);
   if(!owner)return;
   const view=window.RONA_ANALYTICS_VIEW;
+  if(window.RONA_ANALYTICS_PRESENTER_V14?.version!==ADMIN_SHARED_PRESENTER){
+    owner.dataset.ronaClientSourceSafe='0';
+    root.dataset.ronaClientAnalyticsReady='false';
+    ensureSharedPresenter();
+    return;
+  }
   if(!view||typeof view.setPayload!=='function'){
     owner.dataset.ronaClientSourceSafe='0';
     root.dataset.ronaClientAnalyticsReady='false';
@@ -401,6 +439,7 @@ async function load(reason='open'){
   }
 }
 function start(){
+  ensureSharedPresenter();
   const cached=cacheData();if(cached)accept(cached,'initial-cache');
   load('open');
   state.timer=setInterval(()=>load('interval'),REFRESH_MS);
