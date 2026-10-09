@@ -180,3 +180,19 @@ test('Admin and Client daily observation graph contract rejects monthly-maturity
   assert.ok(!client.includes("hasTerm?product.termCurve.asOfDate"),'client must not use last delivery as trade date');
   assert.ok(client.includes("dates.every(d=>"),'monthly term labels rejected for main chart');
 });
+
+test('LPG v13 source-gap history retains verified same-contract dates but draws no cross-gap line',async()=>{
+  const db=await readFile('supabase/migrations/20261009221000_lpg_verified_observation_segments_v13.sql','utf8');
+  const api=await readFile('supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts','utf8');
+  const client=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
+  const renderer=await readFile('functions/portal/lpg-observation-gap-runtime-v13.js','utf8');
+  const page=await readFile('functions/portal/analytics-v2-ui.js','utf8');
+  for(const marker of ['historyIncludesAllGapSegments','segmentIds','gapBeforeDays','segmentCount','WHERE true'])
+    assert.ok(db.includes(marker),'LPG gap-aware DB proof missing '+marker);
+  for(const marker of ['segmentIds','observedDates','historyIncludesAllGapSegments','CLIENT_LPG_HISTORICAL_SEGMENTS_V13'])
+    assert.ok(api.includes(marker),'safe client projection absent '+marker);
+  assert.ok(client.includes('ronaLpgHistorySegments'),'client must expose source-provenanced gaps');
+  assert.ok(page.includes('LPG_GAP_RUNTIME'),'Admin and Client should share gap-aware graph painter');
+  for(const marker of ['new Set(ids.map(Number))','path.rmc-area','ids[i-1]','Date.parse','rmc-point'])
+    assert.ok(renderer.includes(marker),'gap-free visualization marker missing '+marker);
+});
