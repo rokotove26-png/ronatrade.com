@@ -141,9 +141,10 @@ function textIfDifferent(node,value){
   if(node&&node.textContent!==value)node.textContent=value;
 }
 function ensureSafeCanonicalState(owner,payload,reason){
-  const chosen=window.RONA_ANALYTICS_VIEW?.getState?.()?.product||'AI92';
+  const selected=window.RONA_ANALYTICS_VIEW?.getState?.()||{};
+  const chosen=selected.product||'AI92';
   const product=payload.products[chosen]||emptyProduct();
-  const hasSeries=product.dates.length>=2&&product.values.length===product.dates.length;
+  const hasSeries=selected.source!=='ARGUS'&&product.dates.length>=2&&product.values.length===product.dates.length;
   const chartStage=owner.querySelector('[data-chart-stage]');
   const svg=owner.querySelector('[data-chart-svg]');
   if(svg){
