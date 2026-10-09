@@ -25,6 +25,10 @@ function clientPresenterFromApprovedAdmin(){
   const presenter=String.raw`
   let lastClientPayload=null;
   function applyClient(payload,redraw=true){
+    if(window.__RONA_ANALYTICS_APPROVED_SINGLE_OWNER__!=='20260827-approved-v431-single-owner'||
+       !document.querySelector('#page-analytics #rona-analytics-v2[data-analytics-owner="approved-v431"]')){
+      indicateUnavailable('APPROVED_ADMIN_VISUAL_SOURCE_MISMATCH');return false;
+    }
     if(!valid(payload)){indicateUnavailable('CLIENT_INVALID_PUBLISHED_CANONICAL');return false;}
     const clientSeries=availablePayload(payload);
     if(!clientSeries){indicateUnavailable('CLIENT_NO_VERIFIED_PUBLISHED_SERIES');return false;}
@@ -68,7 +72,10 @@ export async function onRequest(context){
   for(const token of ['RONA TRADE · ANALYTICS','RONA_ANALYTICS_VIEW','approved-v431','an2-controls']){
     if(!frozenAdminCore.includes(token))throw new Error('APPROVED_ADMIN_SOURCE_CHANGED:'+token);
   }
-  const script=frozenAdminCore+'\n'+clientPresenterFromApprovedAdmin()+'\n/* '+SHARED_MARK+' */\n';
+  // The approved Admin visual is already present in the frozen Client HTML.
+  // Do NOT send the Admin's historical seed DATA (including internal RONA bases)
+  // again to clients. Reuse its source-identical decorator only.
+  const script=clientPresenterFromApprovedAdmin()+'\n/* '+SHARED_MARK+' */\n';
   return new Response(script,{status:200,headers:{
     'content-type':'application/javascript; charset=utf-8',
     'cache-control':'no-store, no-cache, must-revalidate',
