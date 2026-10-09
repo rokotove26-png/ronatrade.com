@@ -4,7 +4,12 @@ import {chromium} from 'playwright';
 
 const must=(ok,msg)=>{if(!ok)throw Error(msg)};
 const runtime=await readFile('dist/assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-const mark='20261009-lpg-source-gap-history-v13';
+const mark='20261009-admin-canonical-shared-presenter-v14';
+const sharedFile=await readFile('functions/portal/analytics-canonical-presenter-v14.js','utf8');
+const sharedMatch=sharedFile.match(/export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`([\s\S]*?)`;/);
+if(!sharedMatch||!sharedMatch[1].includes('ADMIN_APPROVED_SHARED_V14'))throw Error('SHARED_ADMIN_PRESENTER_NOT_FOUND');
+const sharedRuntime=sharedMatch[1];
+
 const stamp='2026-10-09T00:01:00Z';
 const row=(product,source='CURRENT',values=[1081,1092,1103])=>({
   publication_id:'CLIENT-QA-20261009',publication_item_id:'SAFE-CHART-'+product,
@@ -55,6 +60,7 @@ const server=http.createServer((req,res)=>{
   res.setHeader('cache-control','no-store');
   if(pathname==='/portal/client'){res.setHeader('content-type','text/html');res.end(html);return}
   if(pathname==='/client-analytics.js'){res.setHeader('content-type','application/javascript');res.end(runtime);return}
+  if(pathname==='/portal/analytics-canonical-presenter-v14'){res.setHeader('content-type','application/javascript; charset=utf-8');res.end(sharedRuntime);return}
   if(pathname==='/portal/api/v1/client/market-intelligence'){
     requests++;
     const status=mode,b=structuredClone(payload);
@@ -74,6 +80,7 @@ try{
   await page.goto('http://127.0.0.1:'+server.address().port+'/portal/client',{waitUntil:'domcontentloaded'});
   const owner='#page-analytics > #rona-analytics-v2';
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.renderState==='PUBLISHED_CURRENT_ONLY',null,{timeout:10000});
+  await page.waitForFunction(()=>window.RONA_ANALYTICS_PRESENTER_V14?.version==='ADMIN_APPROVED_SHARED_V14',null,{timeout:9000});
   const first=await page.evaluate(()=>{
     const c=document.querySelector('#rona-analytics-v2');
     return{owner:c?.dataset.ronaClientAnalyticsVisualOwner,display:c?getComputedStyle(c).display:null,
