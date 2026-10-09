@@ -1,0 +1,50 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-10",
+  "owner_instruction": "Copy the approved, functioning Analytics section from Admin into Client 1:1 visually and functionally, not a separate imitation; finish the task completely.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261010:EXACT_APPROVED_ADMIN_ANALYTICS_RENDERER_IN_CLIENT_FINISH_FULLY",
+  "scope": "CLIENT_ANALYTICS_APPROVED_ADMIN_RENDERER_EXACT_V14",
+  "decision": "EXACT_ADMIN_VISUAL_SOURCE_ROLE_SCOPED_DATA_NO_CLIENT_CUSTOM_UI",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_APPROVED_ADMIN_RENDERER_EXACT_V14",
+  "supersedes_scope": "ANALYTICS_LPG_GAP_HISTORY_V13",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "bd15c42b22e1a65a420d507618cc1c4d08109861",
+      "authorized_post_blob_sha": "429f8030fe03c2fe049732b8b71d299d70f83322",
+      "required_marker": "20261010-client-approved-admin-exact-mirror-v14"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "2c77459224d88580d58c1ab7dc42b69aa6dc2be4",
+      "authorized_post_blob_sha": "2f923269842a642611858ce529c9839c6ecf62f9",
+      "required_marker": "20261010-client-approved-admin-exact-mirror-v14"
+    }
+  },
+  "requirements": {
+    "canonical_admin_v432_same_renderer_source": true,
+    "exact_approved_admin_dom_css_markup": true,
+    "replace_separate_client_visual_engine": true,
+    "no_new_custom_client_design": true,
+    "source_script_exact_v432_parity_test": true,
+    "published_verified_effective_client_data_scope": true,
+    "selected_contract_only_published_prices": true,
+    "no_admin_api_or_private_pricing_bridge": true,
+    "no_unpublished_prices_or_margins": true,
+    "all_four_products_and_switches": true,
+    "client_native_an2_graph_preserved": true,
+    "context_switch_fail_closed": true,
+    "forecast_separate_from_observation_series": true,
+    "source_gaps_not_interpolated": true,
+    "real_client_and_admin_chromium_uat_required": true,
+    "visual_freeze_enforced": true,
+    "exact_blob_hash_enforced": true,
+    "production_rollback_required": true,
+    "wildcard_exception": false
+  },
+  "rollback": "Revert PR v14 only and restore production SHA 910eb89c4c6cf04b814b25c8ec689a4053a12d0b, Client asset bd15c42b22e1a65a420d507618cc1c4d08109861, attach 2c77459224d88580d58c1ab7dc42b69aa6dc2be4. No DB migration or new business facts."
+}
