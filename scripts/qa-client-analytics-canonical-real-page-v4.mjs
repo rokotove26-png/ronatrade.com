@@ -12,11 +12,11 @@ if(!portalServer.includes(".on('head',new HeadPrepend(bridge))")||
 const headers=await readFile(join(DIST,'_headers'),'utf8');
 if(!headers.includes('/assets/portal-runtime/client-market-intelligence-v1.js\n  Cache-Control: no-store, no-cache, must-revalidate, max-age=0'))
   throw Error('CLIENT_MARKET_RUNTIME_NO_STORE_MISSING');
-const marker='20261009-lpg-source-gap-history-v13';
+const marker='20261010-client-approved-admin-single-engine-v14';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
   hasBridge:html.includes(bridge),
-  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13'),
+  markerRef:html.includes('client-market-intelligence-v1.js?v=20261010-client-approved-admin-single-engine-v14'),
   rootStatic:/id=["']page-analytics["']/.test(html),
   analyticsNodeMatch:html.match(/.{0,180}id=["']page-analytics["'].{0,280}/)?.[0]||'not found',
   possibleIds:([...html.matchAll(/id=["']([^"']*analytic[^"']*)["']/gi)]).map(x=>x[1]).slice(0,30),
@@ -201,7 +201,7 @@ try{
     content_text:'Опубликованный текущий ряд только для теста',
     public_chart:{type:'DAILY_SERIES',unit:'USD/т',source_freshness_state:'CURRENT',
       labels:['2026-10-07','2026-10-08','2026-10-09'],values:[1100,1110,1120]}};
-  payload.data={...payload.data,analytics:[currentRow],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","projection":"CLIENT_LPG_HISTORICAL_SEGMENTS_V13","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}},generated_at:'2026-10-09T00:02:00Z'};
+  payload.data={...payload.data,analytics:[currentRow],clientCanonicalAnalytics:{"version":"RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1","projection":"CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14","cutoff":"09.10.2026","latestTradeDate":"09.10.2026","products":{"AI92":{"name":"АИ-92","basis":"Platts Source Confirmed","dates":["07.10","08.10","09.10"],"values":[1081,1092,1103],"forecast":{"month":"2026-11","low":1027,"base":1097.75,"high":1195,"forward":1097.75,"sourceRef":"QA-SOURCE-20261009"}},"AI95":{"name":"АИ-95","dates":[],"values":[]},"DT":{"name":"ДТ","dates":[],"values":[]},"LPG":{"name":"СУГ","dates":[],"values":[]}}},generated_at:'2026-10-09T00:02:00Z'};
   await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.renderState==='PUBLISHED_CURRENT_ONLY'&&
     getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility!=='hidden',null,{timeout:6500});
