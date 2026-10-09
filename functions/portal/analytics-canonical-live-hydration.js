@@ -176,7 +176,13 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       root.dataset.ronaChartKind='OBSERVATION_DAILY';
       root.dataset.ronaChartAsOf=String(daily.lastAsOf||'');
       root.dataset.ronaChartInstrument=String(daily.instrument||'');
-      if(key==='LPG')markLpgObservationGaps(root,product);
+      if(key==='LPG'&&daily?.historyIncludesAllGapSegments===true&&
+         Array.isArray(daily.segmentIds)&&Array.isArray(daily.observedDates)){
+        root.dataset.ronaLpgHistorySegments=JSON.stringify({
+          dates:daily.observedDates,ids:daily.segmentIds,gaps:daily.gapBeforeDays||[]
+        });
+        markLpgObservationGaps(root,product);
+      }else delete root.dataset.ronaLpgHistorySegments;
     }else if(root.dataset.ronaChartKind==='OBSERVATION_DAILY'){
       delete root.dataset.ronaChartKind;delete root.dataset.ronaChartAsOf;delete root.dataset.ronaChartInstrument;
     }
