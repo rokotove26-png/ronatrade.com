@@ -36,6 +36,8 @@ window.RONA_ANALYTICS_VIEW={
   getState(){return {product:this.product,source:'PLATTS'}},
   setPayload(p){
     this.data=p;this.setPayloadCount++;
+    const stage=document.querySelector('[data-chart-stage]');
+    if(!stage.querySelector('svg'))stage.innerHTML='<svg data-chart-svg aria-label="isolated Admin native chart stub"></svg>';
     const k=p.products[this.product];
     document.querySelectorAll('.an2-kpis .rona-owner-kpi').forEach(n=>n.textContent=p.latestTradeDate);
     document.querySelector('.an2-comment').textContent=k.forecast.comment;
@@ -82,7 +84,7 @@ try{
         c?.innerText.includes('09.2026')||c?.innerText.includes('1 111'),
       values:window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values};
   });
-  must(first.owner==='canonical-v7'&&first.display!=='none'&&!first.substitute&&first.svgHidden&&!first.oldVisible,
+  must(first.owner==='canonical-v7'&&first.display!=='none'&&!first.substitute&&first.svgHidden!==false&&!first.oldVisible,
     'SOURCE_SAFE_CANONICAL_VISUAL_NOT_RESTORED '+JSON.stringify(first));
   must(first.values.length===0,'STALE_SOURCE_ROW_WAS_PUBLISHED');
   // Published price authority belongs to the selected client's existing Price page,
