@@ -1,0 +1,45 @@
+name: LPG V14 Full Platts Source Contract
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261010003000_lpg_verified_full_platts_backfill_v14.sql'
+      - 'supabase/migrations/20261010003100_lpg_full_source_cron_v14.sql'
+      - 'supabase/rollbacks/20261010003000_lpg_verified_full_platts_backfill_v14_rollback.sql'
+      - 'tests/market-intelligence/lpg-*'
+      - '.github/workflows/lpg-v14-source-contract-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ci-only-local
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Static contract
+        run: node --test tests/market-intelligence/lpg-verified-full-platts-backfill-v14.test.mjs
+      - name: Prepare isolated Postgres fixtures
+        run: docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d postgres -v ON_ERROR_STOP=1 < tests/market-intelligence/lpg-v14-integration-fixture.sql
+      - name: Validate and apply both SQL migrations in isolated Postgres
+        run: |
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/migrations/20261010003000_lpg_verified_full_platts_backfill_v14.sql
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/migrations/20261010003100_lpg_full_source_cron_v14.sql
+      - name: Actual SQL integration and idempotence
+        run: docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d postgres -v ON_ERROR_STOP=1 < tests/market-intelligence/lpg-v14-integration-assert.sql
+      - name: Reversible hook smoke
+        run: |
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/rollbacks/20261010003000_lpg_verified_full_platts_backfill_v14_rollback.sql
+          docker exec ${{ job.services.postgres.id }} psql -U postgres -d postgres -v ON_ERROR_STOP=1 -tAc "SELECT CASE WHEN to_regprocedure('portal_private.mi_backfill_lpg_observations_v14()') IS NULL AND position('lpg_history' in pg_get_functiondef('portal_private.market_intelligence_source_processor_cron_tick_v5()'::regprocedure))=0 THEN 'LPG_V14_ROLLBACK_PASS' ELSE (1/0)::text END"
