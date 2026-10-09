@@ -3,6 +3,11 @@ on:
   pull_request:
     branches: [release/public-go-live-v1.1]
     paths:
+      - 'functions/portal/analytics-v2-client-canonical-ui.js'
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/analytics-canonical-live-hydration.js'
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'tests/client-analytics-single-admin-engine-v14.test.mjs'
       - 'assets/portal-runtime/client-market-intelligence-v1.js'
       - 'scripts/attach-client-market-intelligence-v1.mjs'
       - 'scripts/qa-client-market-intelligence-v1.mjs'
@@ -12,6 +17,11 @@ on:
   push:
     branches: [release/public-go-live-v1.1]
     paths:
+      - 'functions/portal/analytics-v2-client-canonical-ui.js'
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/analytics-canonical-live-hydration.js'
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'tests/client-analytics-single-admin-engine-v14.test.mjs'
       - 'assets/portal-runtime/client-market-intelligence-v1.js'
       - 'scripts/attach-client-market-intelligence-v1.mjs'
       - 'scripts/qa-client-market-intelligence-v1.mjs'
@@ -32,6 +42,8 @@ jobs:
           node-version: '24'
       - name: Syntax and client publication source scope preflight
         run: |
+          node --check functions/portal/analytics-v2-client-canonical-ui.js
+          node --check functions/portal/analytics-v2-ui.js
           node --check assets/portal-runtime/client-market-intelligence-v1.js
           node --check scripts/attach-client-market-intelligence-v1.mjs
           node --check scripts/qa-client-analytics-source-safe-browser-v3.mjs
@@ -44,6 +56,7 @@ jobs:
       - name: Client published-content isolation and market freshness contract
         run: |
           node scripts/qa-client-market-intelligence-v1.mjs
+          node --test tests/client-analytics-single-admin-engine-v14.test.mjs
           node --test tests/analytics-client-freshness-gate-v2.test.mjs
           node --check dist/assets/portal-runtime/client-market-intelligence-v1.js
           node --check scripts/qa-client-analytics-source-safe-browser-v3.mjs
