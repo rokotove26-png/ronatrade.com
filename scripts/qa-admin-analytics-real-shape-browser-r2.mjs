@@ -42,7 +42,7 @@ const canon={
       dailyMonitor:daily('DT'),termCurve:term('DT'),
       forecast:forecast('2026-11',1370,1328,1403.125),
       rona:{reference:1270.0833333,bases:[['CPT Озинки',1280],['CPT Сарыагаш',1385]]}},
-    LPG:{name:'LPG / СУГ',dates:['07.10'],values:[775],
+    LPG:{name:'LPG / СУГ',dates:['25.07','27.07','29.08','07.10'],values:[680,692,715,775],
       basis:'Platts Propane CIF NWE Large Cargo Financial · поставка 10.2026',
       dailyMonitor:daily('LPG'),termCurve:term('LPG'),
       forecast:forecast('2026-11',725,698.5,775),
