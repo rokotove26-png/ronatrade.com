@@ -1,8 +1,8 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-client-analytics-observed-daily-v12';
-const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12';
+const MARK='20261009-lpg-source-gap-history-v13';
+const CLIENT_CANONICAL_PARITY='CLIENT_LPG_HISTORICAL_SEGMENTS_V13';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
 const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
