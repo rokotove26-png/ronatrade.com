@@ -8,7 +8,12 @@ const mark='20261009-admin-canonical-shared-presenter-v14';
 const sharedFile=await readFile('functions/portal/analytics-canonical-presenter-v14.js','utf8');
 const sharedMatch=sharedFile.match(/export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`([\s\S]*?)`;/);
 if(!sharedMatch||!sharedMatch[1].includes('ADMIN_APPROVED_SHARED_V14'))throw Error('SHARED_ADMIN_PRESENTER_NOT_FOUND');
-const sharedRuntime=sharedMatch[1];
+const adminModule=await readFile('functions/portal/analytics-v2-ui.js','utf8');
+const bridgeMatch=adminModule.match(/export const CANONICAL_PRICING_BRIDGE_RUNTIME=String.raw`([\s\S]*?)`;/);
+const gapModule=await readFile('functions/portal/lpg-observation-gap-runtime-v13.js','utf8');
+const gapMatch=gapModule.match(/export const LPG_GAP_RUNTIME=String.raw`([\s\S]*?)`;/);
+if(!bridgeMatch||!gapMatch)throw Error('EXACT_ADMIN_RUNTIME_CONTRACT_BROKEN');
+const sharedRuntime=bridgeMatch[1]+sharedMatch[1]+gapMatch[1];
 
 const stamp='2026-10-09T00:01:00Z';
 const row=(product,source='CURRENT',values=[1081,1092,1103])=>({
@@ -60,7 +65,7 @@ const server=http.createServer((req,res)=>{
   res.setHeader('cache-control','no-store');
   if(pathname==='/portal/client'){res.setHeader('content-type','text/html');res.end(html);return}
   if(pathname==='/client-analytics.js'){res.setHeader('content-type','application/javascript');res.end(runtime);return}
-  if(pathname==='/portal/analytics-canonical-presenter-v14'){res.setHeader('content-type','application/javascript; charset=utf-8');res.end(sharedRuntime);return}
+  if(pathname==='/portal/analytics-client-approved-runtime-v14'){res.setHeader('content-type','application/javascript; charset=utf-8');res.end(sharedRuntime);return}
   if(pathname==='/portal/api/v1/client/market-intelligence'){
     requests++;
     const status=mode,b=structuredClone(payload);
