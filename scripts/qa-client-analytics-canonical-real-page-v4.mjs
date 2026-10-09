@@ -219,6 +219,16 @@ try{
   await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="LPG"],#rona-analytics-v2 .an2-controls [data-product="LPG"]')?.click());
   await page.waitForTimeout(700);
   const lpg=await snapshot();
+  if(lpg.staleExposed){
+    const stale=await page.evaluate(()=>{
+      const root=document.getElementById('rona-analytics-v2');
+      return [...root.querySelectorAll('*')].filter(n=>n.childElementCount===0 &&
+        /21\\.08\\.2026|09\\.2026|725\\s*[–-]\\s*780/.test(n.textContent||''))
+        .slice(0,35).map(n=>({tag:n.tagName,cls:n.className?.baseVal||n.className||'',txt:(n.textContent||'').slice(0,180),
+          vis:getComputedStyle(n).visibility,display:getComputedStyle(n).display}));
+    });
+    console.log('CLIENT_LPG_LEGACY_STALE_NODES',JSON.stringify(stale));
+  }
   if(lpg.nativeProduct!=='LPG'||lpg.staleExposed||lpg.substituteCount)
     throw Error('CANONICAL_PRODUCT_CONTROL_UNSAFE: '+JSON.stringify(lpg));
   await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="AI92"],#rona-analytics-v2 .an2-controls [data-product="AI92"]')?.click());
