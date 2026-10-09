@@ -27,7 +27,7 @@ const html=String.raw`<!doctype html><html lang="ru"><head><meta charset="UTF-8"
 <div data-chart-source>Platts · архив</div><div class="rona-market-chart-metric">1111</div>
 <div class="rona-market-chart-stage" data-chart-stage><svg data-chart-svg><text>21.08.2026</text></svg></div>
 <aside class="an2-market-forecast"><div class="an2-mf-title">Прогноз на 09.2026</div></aside></section></div>
-<section class="rona-owner-card an2-rona"><div class="an2-rona-grid"><section class="rona-owner-card an2-price-card"><h3>CPT Озинки</h3><div class="an2-price-base">—</div><div class="an2-price-range">LOW — · HIGH —</div><div class="an2-price-current">—</div></section></div><div class="an2-model-note">Нет текущих данных</div></section>
+<section class="rona-owner-card an2-rona"><div class="an2-rona-head"><h2>Возможные цены RONA Trade на нет текущих данных</h2><span class="rona-fin-pill">INDICATIVE</span></div><div class="an2-rona-grid"><section class="rona-owner-card an2-price-card"><h3>CPT Озинки</h3><div class="an2-price-base">—</div><div class="an2-price-range">LOW — · HIGH —</div><div class="an2-price-current">—</div></section></div><div class="an2-model-note">Нет текущих данных</div></section>
 <section class="rona-owner-card"><div class="an2-comment">Архивная котировка</div></section>
 </section></section>
 <script>
