@@ -120,7 +120,7 @@ try{
       renderState:owner?.dataset.renderState||null,
       substituteCount:pageRoot?.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length||0,
       controlProducts:[...owner?.querySelectorAll('[data-an2-product]')||[]].map(n=>n.getAttribute('data-an2-product')),
-      structure,svgHidden:safeSvg?.hidden,emptyVisible:!!empty&&!empty.hidden,
+      structure,svgHidden:safeSvg?getComputedStyle(safeSvg).visibility==='hidden':null,emptyVisible:!!empty&&!empty.hidden,
       staleExposed:text.includes('21.08.2026')||text.includes('09.2026')||text.includes('725–780'),
       headHit:!!owner&&!!hit&&(owner===hit||owner.contains(hit)),
       prepaintStyle:!!document.getElementById('rona-client-analytics-canonical-prepaint-v7')
