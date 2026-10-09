@@ -102,6 +102,14 @@ try{
         rootRect:root?{width:root.getBoundingClientRect().width,height:root.getBoundingClientRect().height}:null,
         ownerDisplay:owner?getComputedStyle(owner).display:null,
         ownerRect:owner?{width:owner.getBoundingClientRect().width,height:owner.getBoundingClientRect().height}:null,
+        ownerHidden:owner?.hidden??null,
+        ownerAttributes:owner?[...owner.attributes].map(a=>[a.name,a.value]).slice(0,16):[],
+        rootChildren:root?[...root.children].slice(0,5).map(n=>({tag:n.tagName,id:n.id,attr:[...n.attributes].map(a=>[a.name,a.value]).slice(0,10),display:getComputedStyle(n).display})):[],
+        ownerMatchingDisplayRules:(()=>{
+          if(!owner)return [];const matches=[];
+          function visit(rules){for(const rule of rules||[]){if(rule.cssRules)visit(rule.cssRules);if(rule.type!==1||!rule.selectorText)continue;const display=rule.style?.getPropertyValue('display');if(!display&&!rule.style?.getPropertyValue('visibility'))continue;try{if(owner.matches(rule.selectorText))matches.push({selector:rule.selectorText.slice(0,190),display,important:rule.style.getPropertyPriority('display')})}catch{}}}
+          for(const sheet of document.styleSheets){try{visit(sheet.cssRules)}catch{}}return matches.slice(-18);
+        })(),
         selectedNav:[...document.querySelectorAll('[data-page="analytics"]')].map(n=>({tag:n.tagName,className:n.className,ariaCurrent:n.getAttribute('aria-current')})).slice(0,3),
         ancestorTrail:(()=>{const nodes=[];let n=root;for(let i=0;i<6&&n;i++,n=n.parentElement){const css=getComputedStyle(n);nodes.push({tag:n.tagName,id:n.id,className:String(n.className).slice(0,100),display:css.display,visibility:css.visibility,opacity:css.opacity,rectHeight:n.getBoundingClientRect().height})}return nodes})()
       };
