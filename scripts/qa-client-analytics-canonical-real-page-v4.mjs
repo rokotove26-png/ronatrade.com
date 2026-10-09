@@ -15,8 +15,8 @@ const requiredServerSource=[
   "SERVER_HEAD_V4_AUTHORIZED_CLIENT"
 ];
 for(const token of requiredServerSource)if(!worker.includes(token))throw Error('SERVER_CLIENT_ANALYTICS_BOOT_CONTRACT_MISSING: '+token);
-if(!/<head(?:\\s|>)/i.test(canonicalHtml))throw Error('CANONICAL_CLIENT_HEAD_NOT_FOUND');
-const html=canonicalHtml.replace(/<head(?:\\s[^>]*)?>/i,m=>m+marketHeadBoot);
+if(!/<head(?:\s|>)/i.test(canonicalHtml))throw Error('CANONICAL_CLIENT_HEAD_NOT_FOUND');
+const html=canonicalHtml.replace(/<head(?:\s[^>]*)?>/i,m=>m+marketHeadBoot);
 const marker='20261009-client-analytics-current-source-safe-v3';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
