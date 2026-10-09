@@ -413,7 +413,12 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           firstAsOf: text(daily.firstAsOf), lastAsOf: text(daily.lastAsOf),
           referenceDate: text(daily.referenceDate),
           status: text(daily.status), sourceGap: daily.sourceGap === true,
-          deliveryMonth: daily.deliveryMonth || null, noInterpolation: true
+          deliveryMonth: daily.deliveryMonth || null, noInterpolation: true,
+          segmentIds: Array.isArray(daily.segmentIds) ? daily.segmentIds.map(Number) : [],
+          gapBeforeDays: Array.isArray(daily.gapBeforeDays) ? daily.gapBeforeDays.map(Number) : [],
+          observedDates: observedDates.map((d: unknown) => text(d)),
+          segmentCount: Number(daily.segmentCount || 1),
+          historyIncludesAllGapSegments: daily.historyIncludesAllGapSegments === true
         };
       }
       const term = termByKey[key];
@@ -440,7 +445,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
     // Same shape as Admin; only permitted client projection is serialized.
     payload.clientCanonicalAnalytics = {
       version: "RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1",
-      projection: "CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12",
+      projection: "CLIENT_LPG_HISTORICAL_SEGMENTS_V13",
       cutoff: source.cutoff, latestTradeDate: source.latestTradeDate,
       products: sourceProducts
     };
