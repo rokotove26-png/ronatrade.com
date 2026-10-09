@@ -2,6 +2,7 @@ import http from 'node:http';
 import {readFile,stat} from 'node:fs/promises';
 import {join,normalize,extname} from 'node:path';
 import {chromium} from 'playwright';
+import {onRequest as approvedClientUI} from '../functions/portal/analytics-client-approved-ui.js';
 
 const ROOT=process.cwd(),DIST=join(ROOT,'dist');
 const html=await readFile(join(DIST,'portal/client.html'),'utf8');
@@ -12,11 +13,11 @@ if(!portalServer.includes(".on('head',new HeadPrepend(bridge))")||
 const headers=await readFile(join(DIST,'_headers'),'utf8');
 if(!headers.includes('/assets/portal-runtime/client-market-intelligence-v1.js\n  Cache-Control: no-store, no-cache, must-revalidate, max-age=0'))
   throw Error('CLIENT_MARKET_RUNTIME_NO_STORE_MISSING');
-const marker='20261009-lpg-source-gap-history-v13';
+const marker='20261010-approved-admin-renderer-client-adapter-v14';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
   hasBridge:html.includes(bridge),
-  markerRef:html.includes('client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13'),
+  markerRef:html.includes('client-market-intelligence-v1.js?v=20261010-approved-admin-renderer-client-adapter-v14'),
   rootStatic:/id=["']page-analytics["']/.test(html),
   analyticsNodeMatch:html.match(/.{0,180}id=["']page-analytics["'].{0,280}/)?.[0]||'not found',
   possibleIds:([...html.matchAll(/id=["']([^"']*analytic[^"']*)["']/gi)]).map(x=>x[1]).slice(0,30),
@@ -36,6 +37,11 @@ const srv=http.createServer(async(req,res)=>{
     res.setHeader('cache-control','no-store');
     if(u.pathname==='/portal/client'){
       res.setHeader('content-type','text/html; charset=utf-8');res.end(html);return;
+    }
+    if(u.pathname==='/portal/analytics-client-approved-ui'){
+      const shared=await approvedClientUI({request:new Request('https://ronaoil.com'+u.pathname)});
+      res.statusCode=shared.status;res.setHeader('content-type',shared.headers.get('content-type')||'application/javascript');
+      res.end(await shared.text());return;
     }
     if(u.pathname==='/portal/api/v1/client/market-intelligence'){
       res.setHeader('content-type','application/json; charset=utf-8');res.end(JSON.stringify(payload));return;
