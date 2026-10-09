@@ -237,7 +237,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
   });
   const sourceProducts: Record<string, any> = {};
   try {
-    const sourceRows = await sql`select portal_private.market_intelligence_admin_canonical_payload_v1() as canonical`;
+    const sourceRows = await sql`select public.owner_analytics_admin_bootstrap()->'canonicalAnalytics' as canonical`;
     const source = sourceRows.length === 1 ? sourceRows[0].canonical : null;
     if (source?.version !== "RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1" ||
         !source.products || !/^\d{2}\.\d{2}\.\d{4}$/.test(text(source.latestTradeDate))) {
@@ -414,6 +414,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           referenceDate: text(daily.referenceDate),
           status: text(daily.status), sourceGap: daily.sourceGap === true,
           deliveryMonth: daily.deliveryMonth || null, noInterpolation: true,
+          notMonthlyMaturityCurve: daily.notMonthlyMaturityCurve === true,
           segmentIds: Array.isArray(daily.segmentIds) ? daily.segmentIds.map(Number) : [],
           gapBeforeDays: Array.isArray(daily.gapBeforeDays) ? daily.gapBeforeDays.map(Number) : [],
           observedDates: observedDates.map((d: unknown) => text(d)),
@@ -445,7 +446,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
     // Same shape as Admin; only permitted client projection is serialized.
     payload.clientCanonicalAnalytics = {
       version: "RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1",
-      projection: "CLIENT_LPG_HISTORICAL_SEGMENTS_V13",
+      projection: "CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14",
       cutoff: source.cutoff, latestTradeDate: source.latestTradeDate,
       products: sourceProducts
     };
