@@ -93,13 +93,13 @@ test('client Analytics stays on safe published feed contract',async()=>{
   ])assert.ok(edgeFeed.includes(token),`missing client safe-feed gate: ${token}`);
 });
 
-test('client canonical Admin parity v11 uses the SAME source model with strict published client gates',async()=>{
+test('client canonical Admin daily observation parity v12 uses the SAME source model with strict published client gates',async()=>{
   const runtime=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
   const edge=await readFile('supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts','utf8');
   const render=await readFile('scripts/attach-client-market-intelligence-v1.mjs','utf8');
-  const approval=JSON.parse(await readFile('governance/client-analytics-dt-lpg-forecast-source-safe-v11-owner-approval-20261009.json','utf8'));
+  const approval=JSON.parse(await readFile('governance/analytics-daily-observed-no-empty-overlay-v12-owner-approval-20261009.json','utf8'));
   assert.equal(approval.approval,'OWNER_IN_CHAT');
-  assert.equal(approval.scope,'CLIENT_ANALYTICS_DT_LPG_FORECAST_SOURCE_SAFE_V11');
+  assert.equal(approval.scope,'ANALYTICS_DAILY_OBSERVATIONS_NO_EMPTY_OVERLAY_V12');
   assert.equal(approval.requirements.wildcard_exception,false);
   assert.equal(approval.requirements.canonical_an2_design_exactly_retained,true);
   assert.equal(approval.requirements.client_context_and_contract_scope_preserved,true);
@@ -111,6 +111,13 @@ test('client canonical Admin parity v11 uses the SAME source model with strict p
   for(const [path,entry] of Object.entries(approval.exact_post_blobs))
     assert.equal(entry.authorized_post_blob_sha,gitBlobSha(await readFile(path,'utf8')),path+' exact blob');
   for(const token of [
+    'market_intelligence_daily_monitor_v1',
+    'RONA_MARKET_OBSERVED_DAILY_V1',
+    'dailyApproved',
+    'daily?.granularity === "OBSERVATION_DATE"',
+    'daily?.noInterpolation === true',
+    'observedDates.length === dailyDates.length',
+    'CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12',
     'forecastGrantRows',
     'forecastPermissions',
     'spotFreshness',
@@ -124,22 +131,52 @@ test('client canonical Admin parity v11 uses the SAME source model with strict p
     "p.status::text='PUBLISHED'",")='CURRENT'",
     'market_intelligence_admin_canonical_payload_v1()',
     'model_version',"'RONA_FULL_PLATTS_CURVE_V1'",
-    'CLIENT_ADMIN_PARITY_FORECAST_SOURCE_SAFE_V11',
+    'CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12',
     'targetIsFuture',
     'Math.abs(Number(term.values[1])-Number(output.forecast.base))<0.001'
   ])assert.ok(edge.includes(token),'source-locked client canonical gate missing: '+token);
   for(const token of [
-    "const MARK='20261009-client-analytics-dt-lpg-forecast-parity-v11'",
-    "const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_PARITY_FORECAST_SOURCE_SAFE_V11'",
+    "const MARK='20261009-client-analytics-observed-daily-v12'",
+    "const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12'",
     'function canonicalPayload(data)',
     'data?.clientCanonicalAnalytics',
     'view.setPayload(payload)',
     'publishedPriceContext()',
     'paintAuthorizedPrices(owner,chosen)'
   ])assert.ok(runtime.includes(token),'frozen client runtime missing: '+token);
-  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-dt-lpg-forecast-parity-v11'));
+  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-observed-daily-v12'));
   assert.equal(runtime.includes("fetch('/portal/api/v1/admin/analytics'"),false,'client must not fetch Admin API');
   assert.equal(edge.includes('payload.clientCanonicalAnalytics = canonical'),false,'never expose unsanitized admin canonical payload');
   assert.equal(edge.includes('output.rona ='),false,'never expose internal RONA price bridge');
   assert.equal(edge.includes("update portal_private."),false,'client projection must be read only');
+});
+
+
+test('Admin and Client daily observation graph contract rejects monthly-maturity interpolation',async()=>{
+  const migration=await readFile(
+    'supabase/migrations/20261009180500_analytics_daily_observed_dt_lpg_v12.sql','utf8');
+  const admin=await readFile('functions/portal/analytics-canonical-live-hydration.js','utf8');
+  const client=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
+  for(const token of [
+    'CREATE OR REPLACE FUNCTION portal_private.market_intelligence_daily_monitor_v1',
+    "s.source_family='PLATTS'",
+    "s.processing_state='INGESTED'",
+    "s.data_status='CONFIRMED'",
+    "f.basis='Cargoes CIF NWE/Basis ARA'",
+    "f.basis='CIF NWE Large Cargo Financial'",
+    "f.delivery_month=date_trunc('month',p_reference_date)::date",
+    "WHEN prev_date IS NOT NULL AND as_of_date-prev_date>10",
+    "'granularity','OBSERVATION_DATE'",
+    "'noInterpolation',true",
+    "'notMonthlyMaturityCurve',true",
+    "REVOKE ALL ON FUNCTION portal_private.market_intelligence_daily_monitor_v1",
+    "v:=jsonb_set(v,ARRAY['canonicalAnalytics','products',r.k,'dailyMonitor']"
+  ])assert.ok(migration.includes(token),'missing audited daily series source rule '+token);
+  assert.ok(admin.includes("source-safe-v4-observation-daily"),'admin must share daily monitor');
+  assert.ok(admin.includes('const term=null; // Maturity months cannot be charted as daily observations.'));
+  assert.ok(!admin.includes("safe.dates=[...term.dates]"),'admin maturity labels must never replace observed dates');
+  assert.ok(client.includes("if(empty)empty.remove()"),'all four products must remove obsolete no-publication overlay when graph present');
+  assert.ok(client.includes('CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12'));
+  assert.ok(!client.includes("hasTerm?product.termCurve.asOfDate"),'client must not use last delivery as trade date');
+  assert.ok(client.includes("dates.every(d=>"),'monthly term labels rejected for main chart');
 });
