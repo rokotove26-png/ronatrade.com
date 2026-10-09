@@ -119,7 +119,7 @@ try{
       sourceSafe:owner?.dataset.ronaClientSourceSafe||null,
       renderState:owner?.dataset.renderState||null,
       substituteCount:pageRoot?.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length||0,
-      controlProducts:[...owner?.querySelectorAll('[data-an2-product]')||[]].map(n=>n.getAttribute('data-an2-product')),
+      controlProducts:[...owner?.querySelectorAll('.an2-controls [data-an2-product],.an2-controls [data-product]')||[]].map(n=>n.getAttribute('data-an2-product')||n.getAttribute('data-product')),
       structure,svgHidden:safeSvg?getComputedStyle(safeSvg).visibility==='hidden':null,emptyVisible:!!empty&&!empty.hidden,
       staleExposed:text.includes('21.08.2026')||text.includes('09.2026')||text.includes('725–780'),
       headHit:!!owner&&!!hit&&(owner===hit||owner.contains(hit)),
@@ -137,6 +137,18 @@ try{
   await nav('analytics');
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1',null,{timeout:6500});
   const initial=await snapshot();
+  const mirror=await page.evaluate(()=>({
+    marker:window.__RONA_CLIENT_EXACT_ADMIN_ANALYTICS_RENDERER_V14__,
+    roots:document.querySelectorAll('#rona-analytics-v2').length,
+    approved:document.querySelector('#rona-analytics-v2')?.dataset?.ronaClientAnalyticsVisualOwner,
+    script:!!document.getElementById('rona-client-analytics-approved-admin-mirror-v14'),
+    sharedView:typeof window.RONA_ANALYTICS_VIEW?.setPayload==='function',
+    adminHydrator:window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__||null
+  }));
+  console.log('CLIENT_ADMIN_EXACT_RENDERER_V14',JSON.stringify(mirror));
+  if(mirror.marker!=='approved-admin-v4.3.2-base'||!mirror.script||mirror.roots!==1||
+    !mirror.sharedView||mirror.adminHydrator)
+    throw Error('CLIENT_NOT_USING_APPROVED_ADMIN_RENDERER_V14 '+JSON.stringify(mirror));
   console.log('CLIENT_CANONICAL_VISUAL_RESTORED_V7_INITIAL',JSON.stringify(initial));
   if(initial.runtime!==marker||!initial.nativeView||initial.visualOwner!=='canonical-v7'||initial.substituteCount!==0||
      initial.ownerHidden||initial.owner?.display==='none'||initial.owner?.height<450||
@@ -189,12 +201,12 @@ try{
   console.log('CLIENT_CANONICAL_PRICE_TENANT_SWITCH_V9=PASS');
 
   // Existing canonical controls must work with source-safe model, not a substitute card UI.
-  await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="LPG"]')?.click());
+  await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="LPG"],#rona-analytics-v2 .an2-controls [data-product="LPG"]')?.click());
   await page.waitForTimeout(700);
   const lpg=await snapshot();
   if(lpg.nativeProduct!=='LPG'||lpg.staleExposed||lpg.substituteCount)
     throw Error('CANONICAL_PRODUCT_CONTROL_UNSAFE: '+JSON.stringify(lpg));
-  await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="AI92"]')?.click());
+  await page.evaluate(()=>document.querySelector('#rona-analytics-v2 [data-an2-product="AI92"],#rona-analytics-v2 .an2-controls [data-product="AI92"]')?.click());
   const currentRow={publication_id:'PUB-TEST-1',publication_item_id:'PUB-TEST-AI92',
     published_at:'2026-10-09T00:01:00Z',product:'АИ-92',
     headline:'Проверенный опубликованный ряд',analytics_as_of:'2026-10-09T00:01:00Z',
