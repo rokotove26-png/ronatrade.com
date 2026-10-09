@@ -92,3 +92,45 @@ test('client Analytics stays on safe published feed contract',async()=>{
     "lower(coalesce(pi.metadata->>'public_chart_ready','false'))='true'"
   ])assert.ok(edgeFeed.includes(token),`missing client safe-feed gate: ${token}`);
 });
+
+test('client canonical Admin parity v10 uses the SAME source model with strict published client gates',async()=>{
+  const runtime=await readFile('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
+  const edge=await readFile('supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts','utf8');
+  const render=await readFile('scripts/attach-client-market-intelligence-v1.mjs','utf8');
+  const approval=JSON.parse(await readFile('governance/client-analytics-admin-parity-v10-owner-approval-20261009.json','utf8'));
+  assert.equal(approval.approval,'OWNER_IN_CHAT');
+  assert.equal(approval.scope,'CLIENT_ANALYTICS_ADMIN_PARITY_V10');
+  assert.equal(approval.requirements.wildcard_exception,false);
+  assert.equal(approval.requirements.canonical_design_exactly_retained,true);
+  assert.equal(approval.requirements.client_role_scope_mandatory,true);
+  assert.equal(approval.requirements.no_admin_internal_pricing_bridge_exposed,true);
+  assert.deepEqual(approval.approved_protected_files,[
+    'assets/portal-runtime/client-market-intelligence-v1.js',
+    'scripts/attach-client-market-intelligence-v1.mjs'
+  ]);
+  for(const [path,entry] of Object.entries(approval.exact_post_blobs))
+    assert.equal(entry.authorized_post_blob_sha,gitBlobSha(await readFile(path,'utf8')),path+' exact blob');
+  for(const token of [
+    'authorizedClientKeys(c)',"pi.distribution_allowed=true",
+    "p.status::text='PUBLISHED'",")='CURRENT'",
+    'market_intelligence_admin_canonical_payload_v1()',
+    'model_version',"'RONA_FULL_PLATTS_CURVE_V1'",
+    'CLIENT_ADMIN_PARITY_SOURCE_LOCKED_V10',
+    'targetIsFuture',
+    'Math.abs(Number(term.values[1])-Number(output.forecast.base))<0.001'
+  ])assert.ok(edge.includes(token),'source-locked client canonical gate missing: '+token);
+  for(const token of [
+    "const MARK='20261009-client-analytics-admin-canonical-parity-v10'",
+    "const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_PARITY_SOURCE_LOCKED_V10'",
+    'function canonicalPayload(data)',
+    'data?.clientCanonicalAnalytics',
+    'view.setPayload(payload)',
+    'publishedPriceContext()',
+    'paintAuthorizedPrices(owner,chosen)'
+  ])assert.ok(runtime.includes(token),'frozen client runtime missing: '+token);
+  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-client-analytics-admin-canonical-parity-v10'));
+  assert.equal(runtime.includes("fetch('/portal/api/v1/admin/analytics'"),false,'client must not fetch Admin API');
+  assert.equal(edge.includes('payload.clientCanonicalAnalytics = canonical'),false,'never expose unsanitized admin canonical payload');
+  assert.equal(edge.includes('output.rona ='),false,'never expose internal RONA price bridge');
+  assert.equal(edge.includes("update portal_private."),false,'client projection must be read only');
+});
