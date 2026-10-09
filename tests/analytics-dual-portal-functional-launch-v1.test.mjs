@@ -221,6 +221,6 @@ test('Client visual and product/forecast behavior come from exactly ONE approved
   assert.ok(client.includes("shared.decorate()"));
   assert.equal(client.split('ensureSafeCanonicalState(').length,2,'retired client-specific painter must not be invoked');
   assert.ok(client.includes("paintAuthorizedPrices(owner,selection)"),'selected client contract price must be separate');
-  assert.ok(inject.includes('<script id="\${adminRendererId}" src="\${adminRendererSrc}" defer></script><script id="\${analyticsId}"'),'approved Admin source must load BEFORE Client data');
+  assert.ok(inject.includes('<script id="${adminRendererId}" src="${adminRendererSrc}" defer></script><script id="${analyticsId}"'),'approved Admin source must load BEFORE Client data');
   assert.ok(!route.includes('CANONICAL_PRICING_BRIDGE_RUNTIME'),'internal Admin price bridge must not be mounted in Client');
 });
