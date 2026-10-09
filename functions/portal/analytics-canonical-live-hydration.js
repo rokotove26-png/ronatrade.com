@@ -167,7 +167,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       const note=root.querySelector('.an2-model-note');
       if(note)note.textContent='Нет полного актуального базиса для расчёта индикативной цены. Исторические цены скрыты.';
     }
-    if(key==='LPG'&&cards[0]&&series&&!term){
+    if(key==='LPG'&&cards[0]&&series&&!term&&!confirmedDaily){
       const date=String(product.dates[product.dates.length-1]);
       const note=cards[0].querySelector('.rona-owner-muted');
       if(note)note.textContent='Platts propane · последняя точка ряда: '+date;
