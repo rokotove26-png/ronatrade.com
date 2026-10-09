@@ -57,8 +57,8 @@ test('admin live hydration accepts sourced forecast-only data but never treats e
     'function availablePayload(payload)',
     'dates.length!==values.length',
     'function hasSeries(',
-    'const series=hasSeries(product),forecast=backedForecast(product,payload,key)',
-    'const term=backedTermCurve(product,payload,key,forecast);',
+    'const series=hasSeries(product,key),forecast=backedForecast(product,payload,key)',
+    'const term=null; // Maturity months cannot be charted as daily observations.',
     'if(!series&&!forecast&&!term)continue;',
     'const livePayload=availablePayload(payload)',
     'availableProducts:Object.keys(livePayload.products)'
@@ -101,9 +101,9 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
   assert.equal(approval.approval,'OWNER_IN_CHAT');
   assert.equal(approval.scope,'ANALYTICS_DAILY_OBSERVATIONS_NO_EMPTY_OVERLAY_V12');
   assert.equal(approval.requirements.wildcard_exception,false);
-  assert.equal(approval.requirements.canonical_an2_design_exactly_retained,true);
-  assert.equal(approval.requirements.client_context_and_contract_scope_preserved,true);
-  assert.equal(approval.requirements.admin_internal_rona_prices_not_exposed,true);
+  assert.equal(approval.requirements.client_native_an2_graph_preserved,true);
+  assert.equal(approval.requirements.context_switch_fail_closed,true);
+  assert.equal(approval.requirements.no_admin_internal_margin_or_price_bridge_in_client,true);
   assert.deepEqual(approval.approved_protected_files,[
     'assets/portal-runtime/client-market-intelligence-v1.js',
     'scripts/attach-client-market-intelligence-v1.mjs'
