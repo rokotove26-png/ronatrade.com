@@ -129,7 +129,7 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'term.asOfDate === lastSourceDate.slice(8,10)',
     'authorizedClientKeys(c)',"pi.distribution_allowed=true",
     "p.status::text='PUBLISHED'",")='CURRENT'",
-    "public.owner_analytics_admin_bootstrap()->'canonicalAnalytics'",
+    "portal_private.market_intelligence_admin_canonical_payload_v1()",
     'model_version',"'RONA_FULL_PLATTS_CURVE_V1'",
     'CLIENT_ADMIN_SINGLE_ENGINE_CANONICAL_V14',
     'targetIsFuture',
