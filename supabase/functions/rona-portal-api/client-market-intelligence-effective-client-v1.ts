@@ -178,5 +178,138 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
     cross join news n
   `;
 
-  return rows.length === 1 ? rows[0].payload : null;
+  // ADMIN ANALYTICS PARITY: consume the existing canonical Admin model, but
+  // project ONLY products already verified, distributed and CURRENT for client.
+  // Do not forward Admin pricing, margin, rail bridges or internal source records.
+  const payload = rows.length === 1 ? rows[0].payload : null;
+  if (!payload || !Array.isArray(payload.analytics)) return payload;
+  const publicNames = new Set(payload.analytics.map((row: any) => text(row.product)));
+  const sourceNames: Record<string, string> = {
+    AI92: "АИ-92", AI95: "АИ-95", DT: "ДТ", LPG: "СУГ / СПБТ"
+  };
+  const empty = (key: string) => ({
+    name: sourceNames[key], dates: [], values: [], basis: "Нет разрешённого текущего ряда"
+  });
+  const sourceProducts: Record<string, any> = {};
+  try {
+    const sourceRows = await sql`select portal_private.market_intelligence_admin_canonical_payload_v1() as canonical`;
+    const source = sourceRows.length === 1 ? sourceRows[0].canonical : null;
+    if (source?.version !== "RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1" ||
+        !source.products || !/^\d{2}\.\d{2}\.\d{4}$/.test(text(source.latestTradeDate))) {
+      throw new Error("CLIENT_ANALYTICS_ADMIN_CANONICAL_UNAVAILABLE");
+    }
+    const modelRows = await sql`
+      select distinct on (product)
+        product, target_month::text as target_month,
+        snapshot_date::text as snapshot_date, source_ref,
+        low_usd_t, base_usd_t, high_usd_t, forward_implied_usd_t,
+        direction, confidence, curve_type
+      from portal_private.market_intelligence_forecast_snapshots
+      where product in ('АИ-92','АИ-95','ДТ','СУГ')
+        and model_version='RONA_FULL_PLATTS_CURVE_V1'
+      order by product,target_month desc,created_at desc
+    `;
+    const modelSources = new Map(modelRows.map((row: any) => [text(row.product), row]));
+    const termRows = (publicNames.has("ДТ") || publicNames.has("СУГ / СПБТ"))
+      ? await sql`
+          select
+            portal_private.market_intelligence_admin_forward_term_structure_v1(
+              'ДТ',to_date(
+                ${text(source.latestTradeDate)}::text,
+                'DD.MM.YYYY'
+              )
+            ) as dt_curve,
+            portal_private.market_intelligence_admin_forward_term_structure_v1(
+              'СУГ',to_date(
+                ${text(source.latestTradeDate)}::text,
+                'DD.MM.YYYY'
+              )
+            ) as lpg_curve
+        `
+      : [];
+    const termByKey: Record<string, any> = {
+      DT: termRows[0]?.dt_curve || null,
+      LPG: termRows[0]?.lpg_curve || null
+    };
+    const finite = (value: unknown): boolean =>
+      value !== null && value !== undefined && value !== "" &&
+      Number.isFinite(Number(value));
+
+    for (const key of ["AI92", "AI95", "DT", "LPG"]) {
+      const productName = sourceNames[key];
+      if (!publicNames.has(productName)) {
+        sourceProducts[key] = empty(key);
+        continue;
+      }
+      const raw = source.products[key];
+      if (!raw || typeof raw !== "object") {
+        sourceProducts[key] = empty(key);
+        continue;
+      }
+      const dates: unknown[] = Array.isArray(raw.dates) ? raw.dates : [];
+      const values: unknown[] = Array.isArray(raw.values) ? raw.values : [];
+      const safeSeries = dates.length > 0 && dates.length === values.length &&
+        dates.every((date: unknown) => /^\d{2}\.\d{2}$/.test(text(date))) &&
+        values.every((value: unknown) => finite(value));
+      const output: Record<string, any> = {
+        name: productName,
+        basis: text(raw.basis),
+        dates: safeSeries ? dates.map((date: unknown) => text(date)) : [],
+        values: safeSeries ? values.map((value: unknown) => Number(value)) : []
+      };
+      const model: any = modelSources.get(key === "LPG" ? "СУГ" : productName);
+      const target = text(model?.target_month).slice(0,7);
+      const lastSourceDate = text(model?.snapshot_date);
+      // Exactly the Admin FULL PLATTS CURVE v1 snapshot, not the legacy LPG
+      // regional August scenario or an independent second forecast model.
+      const targetIsFuture = /^\d{4}-\d{2}$/.test(target) &&
+        target > text(source.latestTradeDate).slice(6) + "-" +
+                 text(source.latestTradeDate).slice(3,5);
+      if (targetIsFuture && /^\d{4}-\d{2}-\d{2}$/.test(lastSourceDate) &&
+          lastSourceDate <= text(source.latestTradeDate).slice(6) + "-" +
+                            text(source.latestTradeDate).slice(3,5) + "-" +
+                            text(source.latestTradeDate).slice(0,2) &&
+          text(model?.source_ref) &&
+          ["low_usd_t","base_usd_t","high_usd_t","forward_implied_usd_t"].every(k => finite(model[k]))) {
+        output.forecast = {
+          month: target,
+          low: Number(model.low_usd_t), base: Number(model.base_usd_t),
+          high: Number(model.high_usd_t), forward: Number(model.forward_implied_usd_t),
+          reference: safeSeries ? Number(values[values.length - 1]) : null,
+          sourceRef: text(model.source_ref), sourceAsOf: lastSourceDate,
+          direction: text(model.direction), confidence: text(model.confidence),
+          curveType: text(model.curve_type),
+          comment: "Индикативный прогноз Коммерческого директора на " + target +
+                   "; источник: " + text(model.source_ref) + ". Не является офертой."
+        };
+      }
+      const term = termByKey[key];
+      if ((key === "DT" || key === "LPG") && output.forecast && term &&
+          term.kind === "FORWARD_TERM_STRUCTURE" &&
+          term.sourceFamily === "PLATTS" && term.sourceStatus === "CONFIRMED" &&
+          term.asOfDate === source.latestTradeDate &&
+          text(term.sourceRef) === text(output.forecast.sourceRef) &&
+          Array.isArray(term.dates) && Array.isArray(term.values) &&
+          term.dates.length === 3 && term.values.length === 3 &&
+          term.values.every((value: unknown) => finite(value)) &&
+          Math.abs(Number(term.values[1])-Number(output.forecast.base))<0.001) {
+        output.termCurve = term;
+        output.dates = [...term.dates];
+        output.values = term.values.map(Number);
+        output.basis = text(term.indexName) + " · " + text(term.basis);
+      }
+      sourceProducts[key] = output;
+    }
+    // Same shape as Admin; only permitted client projection is serialized.
+    payload.clientCanonicalAnalytics = {
+      version: "RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1",
+      projection: "CLIENT_ADMIN_PARITY_SOURCE_LOCKED_V10",
+      cutoff: source.cutoff, latestTradeDate: source.latestTradeDate,
+      products: sourceProducts
+    };
+  } catch (_error) {
+    // Preserve existing client-safe feed and fail closed on projection failure.
+    payload.clientCanonicalAnalytics = null;
+  }
+  return payload;
 }

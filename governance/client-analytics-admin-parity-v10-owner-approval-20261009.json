@@ -1,0 +1,51 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-09",
+  "owner_instruction": "Client Analytics must be a one-to-one visual, functional, and technical parity of the successfully released canonical Admin Analytics; Commercial Director owns the source data. Finish implementation and release, then notify Owner for personal visual UAT.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261009:ADMIN_ANALYTICS_PARITY_1_TO_1; OWNER_IN_CHAT:20261009:EXECUTE_TO_COMPLETION_AND_NOTIFY_VISUAL_UAT",
+  "scope": "CLIENT_ANALYTICS_ADMIN_PARITY_V10",
+  "decision": "DATA_BINDING_ONLY_FROZEN_VISUAL_UNCHANGED",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_ADMIN_PARITY_V10",
+  "supersedes_scope": "CLIENT_ANALYTICS_PUBLISHED_PRICE_PRESENTATION_V9",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "61504a59dfead320b3515e7fa4175f79ba6a8133",
+      "authorized_post_blob_sha": "1f102342827346c43d2f3d2390dafc1f34a90b9c",
+      "required_marker": "20261009-client-analytics-admin-canonical-parity-v10"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "879ceab85b4caf20c36403d10f29922d1eeba24f",
+      "authorized_post_blob_sha": "1982f76357fe60b2fc9f33765333075dae10036b",
+      "required_marker": "20261009-client-analytics-admin-canonical-parity-v10"
+    }
+  },
+  "requirements": {
+    "canonical_design_exactly_retained": true,
+    "no_html_css_dom_change": true,
+    "no_new_cards_or_controls": true,
+    "only_existing_slots_and_native_charts": true,
+    "admin_canonical_source_model_reused": true,
+    "commercial_director_market_authority_preserved": true,
+    "client_role_scope_mandatory": true,
+    "no_admin_internal_pricing_bridge_exposed": true,
+    "published_current_product_gate_preserved": true,
+    "forecasts_source_locked": true,
+    "client_published_contract_prices_preserved": true,
+    "context_switch_clears_prior_price": true,
+    "api_error_fail_closed": true,
+    "no_business_data_mutation": true,
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "exact_blob_enforcement": true,
+    "scoped_unfreeze_only": true,
+    "wildcard_exception": false,
+    "real_chromium_and_visual_freeze_required": true
+  },
+  "rollback": "Restore exact previous v9 protected files: client-market-intelligence-v1.js=61504a59dfead320b3515e7fa4175f79ba6a8133 and attach-client-market-intelligence-v1.mjs=879ceab85b4caf20c36403d10f29922d1eeba24f. Supabase Edge file may be reverted to release commit 798e020196e4ca8d80b78912f77583458d98b97f."
+}
