@@ -1,8 +1,8 @@
 (()=>{
 'use strict';
 if(location.pathname!=='/portal/client')return;
-const MARK='20261009-client-analytics-dt-lpg-forecast-parity-v11';
-const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_PARITY_FORECAST_SOURCE_SAFE_V11';
+const MARK='20261009-client-analytics-observed-daily-v12';
+const CLIENT_CANONICAL_PARITY='CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12';
 const CLIENT_PRICE_PRESENTATION_V9='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9';
 const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8';
 const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
@@ -63,7 +63,8 @@ function installStyle(){
     '#page-analytics > [data-rona-client-market-intelligence-owner="analytics"]{display:none!important}',
     '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"]{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:28px 15px;text-align:center}',
     '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"] strong{font-weight:700}',
-    '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"] span{font-size:12px;opacity:.72}'
+    '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"] span{font-size:12px;opacity:.72}',
+    '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"][hidden]{display:none!important}'
   ].join('\n');
   document.head.appendChild(s);
 }
@@ -124,11 +125,23 @@ function canonicalPayload(data){
       if(!input||typeof input!=='object')continue;
       const dates=Array.isArray(input.dates)?input.dates:[];
       const values=Array.isArray(input.values)?input.values:[];
-      const valid=dates.length===values.length&&values.every(v=>v!==null&&v!==''&&Number.isFinite(Number(v)));
+      // The chart axis ALWAYS means observation dates; reject 10.2026-style
+      // maturity labels from the previous version even when the source is valid.
+      const valid=dates.length===values.length&&
+        dates.every(d=>/^\d{2}\.\d{2}$/.test(String(d)))&&
+        values.every(v=>v!==null&&v!==''&&Number.isFinite(Number(v)));
       const forecast=input.forecast;
       const forecastOk=forecast&&/^\d{4}-\d{2}$/.test(String(forecast.month||''))&&
         ['low','base','high','forward'].every(k=>forecast[k]!==null&&forecast[k]!==''&&Number.isFinite(Number(forecast[k])))&&
         norm(forecast.sourceRef);
+      const monitor=input.dailyMonitor;
+      const dailyOk=monitor?.version==='RONA_MARKET_OBSERVED_DAILY_V1'&&
+        monitor?.granularity==='OBSERVATION_DATE'&&
+        monitor?.sourceFamily==='PLATTS'&&monitor?.sourceStatus==='CONFIRMED'&&
+        monitor?.noInterpolation===true&&
+        (key==='DT'||key==='LPG')&&valid&&dates.length>0&&
+        Number(monitor.observationCount)===dates.length&&
+        /^\d{2}\.\d{2}\.\d{4}$/.test(String(monitor.lastAsOf||''));
       const term=input.termCurve;
       const termOk=term?.kind==='FORWARD_TERM_STRUCTURE'&&term?.sourceStatus==='CONFIRMED'&&
         term?.sourceFamily==='PLATTS'&&Array.isArray(term.dates)&&Array.isArray(term.values)&&
@@ -143,6 +156,7 @@ function canonicalPayload(data){
         basis:norm(input.basis)||EMPTY_SOURCE,
         forecast:forecastOk?forecast:emptyForecast(),
         termCurve:termOk?term:null,
+        dailyMonitor:dailyOk?monitor:null,
         rona:{reference:NaN,bases:CANONICAL_PRICE_BASES.map(k=>[k,NaN])}
       };
     }
@@ -229,7 +243,9 @@ function ensureSafeCanonicalState(owner,payload,reason){
     (selected.product&&payload.products[selected.product]?selected.product:'AI92');
   const product=payload.products[chosen]||emptyProduct();
   const hasSeries=selected.source!=='ARGUS'&&product.dates.length>0&&product.values.length===product.dates.length;
-  const hasTerm=hasSeries&&product.termCurve?.kind==='FORWARD_TERM_STRUCTURE';
+  const daily=product.dailyMonitor;
+  const hasDaily=hasSeries&&daily?.version==='RONA_MARKET_OBSERVED_DAILY_V1'&&
+    daily?.granularity==='OBSERVATION_DATE'&&daily?.sourceStatus==='CONFIRMED';
   const chartStage=owner.querySelector('[data-chart-stage]');
   const svg=owner.querySelector('[data-chart-svg]');
   if(svg){
@@ -241,33 +257,45 @@ function ensureSafeCanonicalState(owner,payload,reason){
   }
   if(chartStage){
     let empty=chartStage.querySelector('[data-rona-client-canonical-empty="v7"]');
-    if(!empty){
-      empty=el('div',{class:'rona-market-chart-empty','data-rona-client-canonical-empty':'v7'});
-      empty.append(el('strong',{text:EMPTY_SOURCE}),el('span',{text:'График будет построен штатным модулем после публикации проверенного ряда.'}));
-      chartStage.append(empty);
+    if(hasSeries){
+      // The old CSS forced display:flex over HTML [hidden], covering every
+      // populated graph. Remove the no-data element rather than merely hiding.
+      if(empty)empty.remove();
+    }else{
+      if(!empty){
+        empty=el('div',{class:'rona-market-chart-empty','data-rona-client-canonical-empty':'v7'});
+        empty.append(el('strong',{text:'Нет подтверждённого ежедневного ряда'}),
+          el('span',{text:'Появится после публикации проверенных наблюдений по датам. Прогноз отображается отдельно.'}));
+        chartStage.append(empty);
+      }
+      empty.hidden=false;
     }
-    if(empty.hidden!==hasSeries)empty.hidden=hasSeries;
   }
   if(hasSeries){
-    textIfDifferent(owner.querySelector('[data-chart-source]'),product.basis+' · разрешённая клиентская публикация');
-    if(hasTerm){
-      textIfDifferent(owner.querySelector('[data-chart-title]'),'Форвардная кривая '+(chosen==='DT'?'ДТ':'СУГ')+
-        ' · '+product.termCurve.dates.join('–'));
-      textIfDifferent(owner.querySelector('[data-chart-source]'),
-        'Platts · '+product.termCurve.asOfDate+
-        ' · индикативный финансовый форвард, не физическая котировка');
-      owner.dataset.ronaChartKind='FORWARD_TERM_STRUCTURE';
+    if(hasDaily){
+      textIfDifferent(owner.querySelector('[data-chart-title]'),
+        'Динамика '+(chosen==='DT'?'ДТ':'СУГ / СПБТ')+' · USD/т');
+      const sourceText=product.basis+
+        ' · наблюдения '+daily.firstAsOf+'–'+daily.lastAsOf+
+        (daily.sourceGap?' · пропуски в публикациях; без интерполяции':'')+
+        (daily.observationCount===1?' · одна подтверждённая точка':'');
+      textIfDifferent(owner.querySelector('[data-chart-source]'),sourceText);
+      owner.dataset.ronaChartKind='OBSERVATION_DAILY';
     }else{
       textIfDifferent(owner.querySelector('[data-chart-title]'),
-        'Динамика '+(chosen==='AI92'?'АИ-92':chosen==='AI95'?'АИ-95':chosen==='DT'?'ДТ':'СУГ')+' · USD/т');
-      delete owner.dataset.ronaChartKind;
+        'Динамика '+(chosen==='AI92'?'АИ-92':chosen==='AI95'?'АИ-95':
+          chosen==='DT'?'ДТ':'СУГ / СПБТ')+' · USD/т');
+      textIfDifferent(owner.querySelector('[data-chart-source]'),
+        product.basis+' · даты фактических наблюдений');
+      owner.dataset.ronaChartKind='OBSERVATION_DAILY';
     }
-  }
-  if(!hasSeries){
-    textIfDifferent(owner.querySelector('[data-chart-source]'),EMPTY_SOURCE);
+  }else{
+    textIfDifferent(owner.querySelector('[data-chart-source]'),
+      'Ежедневные наблюдения не подтверждены для выбранного продукта');
     textIfDifferent(owner.querySelector('[data-chart-title]'),
-      (chosen==='DT'?'ДТ':chosen==='LPG'?'СУГ':chosen==='AI95'?'АИ-95':'АИ-92')+
-      ' · нет подтверждённого актуального ряда');
+      (chosen==='DT'?'ДТ':chosen==='LPG'?'СУГ / СПБТ':chosen==='AI95'?'АИ-95':'АИ-92')+
+      ' · ежедневный ряд пока недоступен');
+    delete owner.dataset.ronaChartKind;
     for(const n of owner.querySelectorAll('.rona-market-chart-metric'))textIfDifferent(n,'—');
   }
   // Canonical legacy engine contains a baked historical LPG/Saryagash number
@@ -277,9 +305,11 @@ function ensureSafeCanonicalState(owner,payload,reason){
     // Native LPG KPI assumes the last data point is a current physical price.
     // On a financial term structure this would mislabel December as spot.
     textIfDifferent(cards[0]?.querySelector('.rona-owner-kpi'),
-      hasTerm?product.termCurve.asOfDate:'—');
+      hasDaily?daily.lastAsOf:'—');
     textIfDifferent(cards[0]?.querySelector('.rona-owner-muted'),
-      hasTerm?'Финансовый форвард Platts; физическая цена не подтверждена':EMPTY_SOURCE);
+      hasDaily?(chosen==='DT'
+        ?'Platts ULSD CIF NWE: физический компонент; не композит БНК'
+        :'Platts propane: финансовый контракт '+daily.deliveryMonth+'; не региональный спот'):EMPTY_SOURCE);
     if(chosen==='LPG'){
       const second=cards[1];
       textIfDifferent(second?.querySelector('.rona-owner-kpi'),'—');
