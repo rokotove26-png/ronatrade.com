@@ -94,7 +94,7 @@ try{
       prices:[{product:'АИ-92',basis:'CPT Озинки',price:1242.75,currency:'USD'}]};
     window.dispatchEvent(new Event('rona:client-prices-updated'));
   });
-  await page.waitForFunction(()=>document.querySelector('.an2-price-current')?.textContent?.includes('1242'),null,{timeout:5000}).catch(()=>{});
+  await page.waitForFunction(()=>document.querySelector('.an2-price-current')?.textContent?.includes('242,75'),null,{timeout:5500});
   const priced=await page.evaluate(()=>({text:document.querySelector('.an2-price-current')?.textContent||'',
     base:document.querySelector('.an2-price-base')?.textContent,
     range:document.querySelector('.an2-price-range')?.textContent,
