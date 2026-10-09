@@ -743,7 +743,10 @@ const clientAnalyticsCurrentSourceExceptionAuthorized=
   clientAnalyticsCurrentSourceApproval?.requirements?.scoped_unfreeze_only===true&&
   CLIENT_ANALYTICS_CURRENT_SOURCE_FILES.every(path=>Boolean(clientAnalyticsCurrentSourceApproval?.exact_post_blobs?.[path]));
 
-const CLIENT_ANALYTICS_REENTRY_FILES=['assets/portal-runtime/client-market-intelligence-v1.js'];
+const CLIENT_ANALYTICS_REENTRY_FILES=[
+  'assets/portal-runtime/client-market-intelligence-v1.js',
+  'scripts/attach-client-market-intelligence-v1.mjs'
+];
 const clientAnalyticsReentryExceptionAuthorized=
   clientAnalyticsReentryApproval?.approval==='OWNER_IN_CHAT'&&
   clientAnalyticsReentryApproval?.authorized_at==='2026-10-09'&&
@@ -754,6 +757,7 @@ const clientAnalyticsReentryExceptionAuthorized=
   JSON.stringify(clientAnalyticsReentryApproval?.approved_protected_files)===JSON.stringify(CLIENT_ANALYTICS_REENTRY_FILES)&&
   clientAnalyticsReentryApproval?.requirements?.analytics_section_only===true&&
   clientAnalyticsReentryApproval?.requirements?.only_legacy_visibility_reentry_fix===true&&
+  clientAnalyticsReentryApproval?.requirements?.analytics_runtime_cache_busted===true&&
   clientAnalyticsReentryApproval?.requirements?.previous_analytics_source_safe_policies_preserved===true&&
   clientAnalyticsReentryApproval?.requirements?.approved_current_client_safe_publication_only===true&&
   clientAnalyticsReentryApproval?.requirements?.source_freshness_gate_preserved===true&&
@@ -1234,7 +1238,7 @@ if(!clientAnalyticsCurrentSourceExceptionAuthorized)errors.push('CLIENT_ANALYTIC
 if(!clientAnalyticsReentryExceptionAuthorized)errors.push('CLIENT_ANALYTICS_REENTRY_GOVERNANCE_NOT_AUTHORIZED');
 if(clientAnalyticsReentryExceptionAuthorized&&clientAnalyticsReentryAppliedFiles!==CLIENT_ANALYTICS_REENTRY_FILES.length)
   errors.push(`CLIENT_ANALYTICS_REENTRY_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_REENTRY_FILES.length} actual=${clientAnalyticsReentryAppliedFiles}`);
-const clientAnalyticsCurrentSourceEffectiveFiles=clientAnalyticsCurrentSourceAppliedFiles+(clientAnalyticsReentryAppliedFiles===CLIENT_ANALYTICS_REENTRY_FILES.length?1:0);
+const clientAnalyticsCurrentSourceEffectiveFiles=clientAnalyticsCurrentSourceAppliedFiles+(clientAnalyticsReentryAppliedFiles===CLIENT_ANALYTICS_REENTRY_FILES.length?CLIENT_ANALYTICS_REENTRY_FILES.length:0);
 if(clientAnalyticsCurrentSourceExceptionAuthorized&&clientAnalyticsCurrentSourceEffectiveFiles!==CLIENT_ANALYTICS_CURRENT_SOURCE_FILES.length)
   errors.push(`CLIENT_ANALYTICS_CURRENT_SOURCE_EXACT_BLOB_COUNT expected=${CLIENT_ANALYTICS_CURRENT_SOURCE_FILES.length} actual=${clientAnalyticsCurrentSourceEffectiveFiles}`);
 const clientMarketEventDrivenEffectiveFiles=Math.max(clientMarketEventDrivenAppliedFiles,clientAnalyticsCurrentSourceEffectiveFiles===CLIENT_ANALYTICS_CURRENT_SOURCE_FILES.length?1:0);
