@@ -66,8 +66,8 @@ jobs:
           set -euo pipefail
           curl -fsSL --retry 5 --retry-delay 5 "https://ronaoil.com/assets/portal-runtime/client-market-intelligence-v1.js?qa=${GITHUB_SHA}" -o /tmp/rona-client-analytics.js
           grep -q '20261009-lpg-source-gap-history-v13' /tmp/rona-client-analytics.js
-          grep -q 'CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12' /tmp/rona-client-analytics.js
-          grep -q 'CLIENT_ADMIN_DAILY_OBSERVATION_SOURCE_SAFE_V12' /tmp/rona-client-analytics.js
+          grep -q 'CLIENT_LPG_HISTORICAL_SEGMENTS_V13' /tmp/rona-client-analytics.js
+          grep -q 'CLIENT_LPG_HISTORICAL_SEGMENTS_V13' /tmp/rona-client-analytics.js
           grep -q 'paintAuthorizedPrices' /tmp/rona-client-analytics.js
           grep -q 'CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9' /tmp/rona-client-analytics.js
           grep -q 'SERVER_AUTHORITATIVE_PRICE_PROJECTION' /tmp/rona-client-analytics.js
