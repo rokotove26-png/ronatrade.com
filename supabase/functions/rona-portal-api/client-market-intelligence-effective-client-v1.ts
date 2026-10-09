@@ -330,6 +330,16 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         dates: safeSeries ? dates.map((date: unknown) => text(date)) : [],
         values: safeSeries ? values.map((value: unknown) => Number(value)) : []
       };
+      // Only already public route labels. Never project Admin destination rates,
+      // internal gross margins, rail costs or benchmark/reference values.
+      const visibleBasisNames = new Set(["CPT Озинки","CPT Сарыагаш","CPT Наушки"]);
+      output.priceBasisLabels = Array.isArray(raw.rona?.bases)
+        ? raw.rona.bases
+            .filter((item: unknown) => Array.isArray(item) && item.length === 2 &&
+              visibleBasisNames.has(text(item[0])))
+            .map((item: any[]) => text(item[0]))
+            .slice(0,3)
+        : [];
       const model: any = modelSources.get(key === "LPG" ? "СУГ" : productName);
       const target = text(model?.target_month).slice(0,7);
       const lastSourceDate = text(model?.snapshot_date);
