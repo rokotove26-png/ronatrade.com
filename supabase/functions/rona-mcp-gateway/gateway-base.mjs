@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.109.0";
 const DB=Deno.env.get('SUPABASE_DB_URL');
 const SUPA_URL=Deno.env.get('SUPABASE_URL');
 if(!DB||!SUPA_URL)throw new Error('MCP_RUNTIME_VARS_MISSING');
-const sql=postgres(DB,{prepare:false,max:3});
+const sql=postgres(DB,{prepare:false,max:2,idle_timeout:2,connect_timeout:5,max_lifetime:60});
 const PUBLIC_ORIGIN='https://ronaoil.com';
 const encoder=new TextEncoder();
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

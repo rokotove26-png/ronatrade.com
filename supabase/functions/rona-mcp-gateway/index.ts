@@ -9,7 +9,7 @@ import { ASSISTANT_ADMIN_TOOLS, createAssistantAdminRuntime } from "./assistant-
 
 const DB = Deno.env.get("SUPABASE_DB_URL");
 if (!DB) throw new Error("MCP_RUNTIME_VARS_MISSING");
-const sql = postgres(DB, { prepare: false, max: 3 });
+const sql = postgres(DB, { prepare: false, max: 2, idle_timeout: 2, connect_timeout: 5, max_lifetime: 60 });
 const financeHooks = createFinancePaymentsV7NativeHooks({ sql });
 const originalServe = Deno.serve.bind(Deno);
 const encoder = new TextEncoder();

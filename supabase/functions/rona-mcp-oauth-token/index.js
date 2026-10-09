@@ -3,7 +3,7 @@ import postgres from "npm:postgres@3.4.7";
 const DB=Deno.env.get('SUPABASE_DB_URL');
 const SUPA_URL=Deno.env.get('SUPABASE_URL');
 if(!DB||!SUPA_URL)throw new Error('MCP_RUNTIME_VARS_MISSING');
-const sql=postgres(DB,{prepare:false,max:3});
+const sql=postgres(DB,{prepare:false,max:2,idle_timeout:2,connect_timeout:5,max_lifetime:60});
 const PUBLIC_ORIGIN='https://ronaoil.com';
 const FUNCTION_SLUG='rona-mcp-oauth-token';
 const encoder=new TextEncoder();
