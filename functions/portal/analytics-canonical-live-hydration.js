@@ -25,10 +25,24 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     if(/^\d{4}-\d{2}/.test(date))return date.slice(0,7);
     return '';
   }
-  function hasSeries(p){
-    return Array.isArray(p?.dates)&&Array.isArray(p?.values)
-      &&p.dates.length>0&&p.dates.length===p.values.length
-      &&p.values.every(v=>v!==null&&v!==''&&Number.isFinite(Number(v)));
+  function hasSeries(p,key){
+    const base=Array.isArray(p?.dates)&&Array.isArray(p?.values)&&
+      p.dates.length>0&&p.dates.length===p.values.length&&
+      p.values.every(v=>v!==null&&v!==''&&Number.isFinite(Number(v)))&&
+      p.dates.every(d=>/^\d{2}\.\d{2}$/.test(String(d)));
+    if(!base)return false;
+    if(key!=='DT'&&key!=='LPG')return true;
+    const d=p.dailyMonitor;
+    return d?.version==='RONA_MARKET_OBSERVED_DAILY_V1'&&
+      d?.granularity==='OBSERVATION_DATE'&&
+      d?.sourceFamily==='PLATTS'&&d?.sourceStatus==='CONFIRMED'&&
+      d?.noInterpolation===true&&d?.notMonthlyMaturityCurve===true&&
+      Number(d.observationCount)===p.dates.length&&
+      Array.isArray(d.observedDates)&&d.observedDates.length===p.dates.length&&
+      d.observedDates.every((day,i)=>
+        /^\d{4}-\d{2}-\d{2}$/.test(day)&&
+        day.slice(8,10)+'.'+day.slice(5,7)===p.dates[i]&&
+        (i===0||day>d.observedDates[i-1]));
   }
   function backedForecast(product,payload,key){
     const f=product?.forecast;
@@ -77,7 +91,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       const dates=Array.isArray(product.dates)?product.dates:[];
       const values=Array.isArray(product.values)?product.values:[];
       if(dates.length!==values.length)continue;
-      const series=hasSeries(product),forecast=backedForecast(product,payload,key);
+      const series=hasSeries(product,key),forecast=backedForecast(product,payload,key);
       const term=null; // Maturity months cannot be charted as daily observations.
       if(!series&&!forecast&&!term)continue;
       const safe=series?{...product}:{};
@@ -97,7 +111,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     const view=window.RONA_ANALYTICS_VIEW;
     if(!root||!view)return;
     const key=String(view.getState?.()?.product||'AI92');
-    const product=payload.products?.[key],series=hasSeries(product),forecast=backedForecast(product,payload,key);
+    const product=payload.products?.[key],series=hasSeries(product,key),forecast=backedForecast(product,payload,key);
     const term=null; // Maturity months cannot be charted as daily observations.
     const cards=Array.from(root.querySelectorAll('.an2-kpis .rona-owner-card'));
     if(!series&&!term){
