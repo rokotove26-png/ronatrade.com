@@ -26,7 +26,7 @@ const daily=(key)=>({
   observationCount:key==='DT'?3:4,availableTotal:key==='DT'?11:4,segmentIds:key==='DT'?[0,0,0]:[0,0,1,2],segmentCount:key==='DT'?1:3,historyIncludesAllGapSegments:true,
   firstAsOf:key==='DT'?'01.10.2026':'25.07.2026',
   lastAsOf:key==='DT'?'08.10.2026':'07.10.2026',
-  status:key==='DT'?'VERIFIED_DAILY_OBSERVATIONS':'SINGLE_CONFIRMED_OBSERVATION',
+  status:'VERIFIED_DAILY_OBSERVATIONS',
   deliveryMonth:key==='DT'?null:'2026-10',sourceGap:key==='LPG',
   instrument:key==='DT'?'DIESEL_PLATTS_ULSD_CIF_NWE_PHYSICAL_COMPONENT'
                        :'LPG_PLATTS_PROPANE_CIF_NWE_FINANCIAL_FIXED_DELIVERY'
