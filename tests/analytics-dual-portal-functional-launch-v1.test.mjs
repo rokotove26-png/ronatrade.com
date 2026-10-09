@@ -179,7 +179,7 @@ test('Admin and Client daily observation graph contract rejects monthly-maturity
   assert.ok(admin.includes("source-safe-v4-observation-daily"),'admin must share daily monitor');
   assert.ok(admin.includes('const term=null; // Maturity months cannot be charted as daily observations.'));
   assert.ok(!admin.includes("safe.dates=[...term.dates]"),'admin maturity labels must never replace observed dates');
-  assert.ok(client.includes("if(empty)empty.remove()"),'all four products must remove obsolete no-publication overlay when graph present');
+  assert.ok(client.includes("chartStage.querySelectorAll('[data-rona-client-canonical-empty=\"v7\"]').forEach(n=>n.remove())"),'all four products must remove obsolete client-only overlay; Admin native .an2-empty is authoritative');
   assert.ok(client.includes('CLIENT_LPG_HISTORICAL_SEGMENTS_V13'));
   assert.ok(!client.includes("hasTerm?product.termCurve.asOfDate"),'client must not use last delivery as trade date');
   assert.ok(client.includes("dates.every(d=>"),'monthly term labels rejected for main chart');
