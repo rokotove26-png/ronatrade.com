@@ -2,6 +2,7 @@ export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`
 ;(()=>{
   'use strict';
   if(window.RONA_ANALYTICS_PRESENTER_V14?.version==='ADMIN_APPROVED_SHARED_V14')return;
+  let lastCanonicalPayload=null;
   const keys=['AI92','AI95','DT','LPG'];
   const labels={AI92:'АИ-92',AI95:'АИ-95',DT:'ДТ',LPG:'СУГ / СПБТ'};
   const text=(node,value)=>{if(node&&node.textContent!==value)node.textContent=value};
@@ -24,6 +25,7 @@ export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`
     item.dates.every(d=>/^\d{2}\.\d{2}$/.test(String(d)))&&item.values.every(goodNumber)&&validDaily(item,key);
   function apply(root,payload,{mode='admin'}={}){
     if(!root||!payload?.products||!window.RONA_ANALYTICS_VIEW)return false;
+    lastCanonicalPayload=payload;
     const state=window.RONA_ANALYTICS_VIEW.getState?.()||{};
     const pressed=root.querySelector('.an2-controls [data-an2-product][aria-pressed="true"]')?.getAttribute('data-an2-product');
     const key=keys.includes(pressed)?pressed:keys.includes(state.product)?state.product:'AI92';
@@ -102,7 +104,7 @@ export const SHARED_ANALYTICS_PRESENTER_V14=String.raw`
     root.dataset.ronaAnalyticsPresentationScope=mode==='client'?'CLIENT_AUTHORIZED':'ADMIN';
     return true;
   }
-  window.RONA_ANALYTICS_PRESENTER_V14=Object.freeze({version:'ADMIN_APPROVED_SHARED_V14',apply});
+  window.RONA_ANALYTICS_PRESENTER_V14=Object.freeze({version:'ADMIN_APPROVED_SHARED_V14',apply,getPayload:()=>lastCanonicalPayload});
 })();
 `;
 export async function onRequest(){
