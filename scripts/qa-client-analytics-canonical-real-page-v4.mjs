@@ -135,7 +135,8 @@ try{
     const owner=root?.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
     const nav=document.querySelector('.sidebar [data-page="analytics"].active,#nav [data-page="analytics"].active');
     if(!root||!owner||!nav)throw Error('NO_AUTHENTICATED_ANALYTICS_RECOVERY_FIXTURE');
-    root.classList.remove('active');
+    // The real failure reports an active Analytics nav while the panel is hidden.
+    // Keep the canonical selected route intact while reproducing late inline hides.
     root.hidden=true;
     root.style.setProperty('display','none','important');
     owner.hidden=true;
