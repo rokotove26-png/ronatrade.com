@@ -78,7 +78,7 @@ try{
     const c=document.querySelector('#rona-analytics-v2');
     return{owner:c?.dataset.ronaClientAnalyticsVisualOwner,display:c?getComputedStyle(c).display:null,
       substitute:document.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length,
-      svgHidden:c?.querySelector('[data-chart-svg]')?.hidden,oldVisible:c?.innerText.includes('21.08.2026')||
+      svgHidden:c?.querySelector('[data-chart-svg]')?getComputedStyle(c.querySelector('[data-chart-svg]')).visibility==='hidden':null,oldVisible:c?.innerText.includes('21.08.2026')||
         c?.innerText.includes('09.2026')||c?.innerText.includes('1 111'),
       values:window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values};
   });
