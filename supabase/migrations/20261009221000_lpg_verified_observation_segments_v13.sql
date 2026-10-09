@@ -29,5 +29,10 @@ BEGIN
   definition:=replace(definition,
     '''notMonthlyMaturityCurve'',true',
     '''notMonthlyMaturityCurve'',true,''historyIncludesAllGapSegments'',true');
+  IF position('segment_ids' in definition)=0 OR
+     position('gapBeforeDays' in definition)=0 OR
+     position('historyIncludesAllGapSegments' in definition)=0 THEN
+    RAISE EXCEPTION 'V13_OBSERVATION_SEGMENTS_UNVERIFIED';
+  END IF;
   EXECUTE definition;
 END $upgrade$;
