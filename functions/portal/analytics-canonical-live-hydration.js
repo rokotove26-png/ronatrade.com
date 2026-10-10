@@ -419,7 +419,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
   window.addEventListener('rona:admin-pagechange',hydrate);
   // Capture before controls() replaces the clicked button during its bubble-phase render.
   document.addEventListener('click',event=>{
-    if(event.target?.closest?.('#rona-analytics-v2 .an2-controls button[data-product]'))setTimeout(()=>{if(document.documentElement.dataset.ronaAnalyticsData!=='SOURCE_UNAVAILABLE')decorate(lastSource)},0);
+    if(event.target?.closest?.('#rona-analytics-v2 .an2-controls button[data-product],#rona-analytics-v2 .an2-controls button[data-source]'))setTimeout(()=>{if(document.documentElement.dataset.ronaAnalyticsData!=='SOURCE_UNAVAILABLE')decorate(lastSource)},0);
   },true);
   setInterval(hydrate,300000);
 })();
