@@ -329,9 +329,13 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       DT: dailyRows[0]?.dt || null,
       LPG: dailyRows[0]?.lpg || null
     };
+    // Historical MARKET rows and monthly FORECAST permissions are distinct:
+    // the eligible CURRENT feed may be empty even while separately authorized,
+    // source-confirmed and age-gated forward forecasts exist for ANY product.
+    // This permission does not grant a CURRENT physical spot quotation.
     const permissionToForecast = (key: string): boolean =>
       publicNames.has(sourceNames[key]) ||
-      ((key === "DT" || key === "LPG") && forecastPermissions.has(sourceNames[key]));
+      forecastPermissions.has(sourceNames[key]);
     const sourceDate = (key: string): string => {
       const raw = modelSources.get(key === "LPG" ? "СУГ" : sourceNames[key]);
       return text(raw?.snapshot_date);
@@ -424,7 +428,9 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           direction: text(model.direction), confidence: text(model.confidence),
           curveType: text(model.curve_type),
           comment: "Индикативный прогноз Коммерческого директора на " + target +
-                   "; источник: " + text(model.source_ref) + ". Не является офертой."
+                   "; оценка Platts от " + lastSourceDate +
+                   "; отдельный прогноз, не текущая котировка. Источник: " +
+                   text(model.source_ref) + ". Не является офертой."
         };
       }
       // The main chart ALWAYS means observed AS-OF DATES, never the three
