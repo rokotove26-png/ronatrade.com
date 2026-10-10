@@ -146,6 +146,7 @@ try{
   assert(dt.prices.length>0&&dt.prices.every(x=>x!=='—'&&x.trim()),'DT owner-authoritative scenario prices suppressed despite source model');
   await page.locator('#rona-analytics-v2 [data-product="LPG"]').click();
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset?.ronaChartKind==='OBSERVATION_DAILY'&&document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent?.includes('СУГ')&&document.querySelector('#rona-analytics-v2 .an2-kpis .rona-owner-card:nth-child(2) .rona-owner-kpi')?.textContent?.includes('Нет актуальных данных'),{timeout:8000});
+  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 .rona-market-chart-svg')?.dataset.ronaGapProjection==='20261010-admin-lpg-single-chart-owner-v1',{timeout:8000});
   const lpg=await page.evaluate(()=>{
     const root=document.querySelector('#rona-analytics-v2');
     return {forecast:root.querySelector('.an2-market-forecast')?.innerText||'',
@@ -164,7 +165,6 @@ try{
   assert(lpg.title.includes('Динамика СУГ'),'LPG main chart must use day of observation: '+lpg.title);
   assert(lpg.chartKind==='OBSERVATION_DAILY','LPG observed-day point not rendered');
   assert(lpg.gapCount==='3'&&lpg.points===4&&lpg.lines===1,'LPG dates/gap rendering mismatch '+JSON.stringify(lpg));
-  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 .rona-market-chart-svg')?.dataset.ronaGapProjection==='20261010-admin-lpg-single-chart-owner-v1',{timeout:8000});
   const validLpgChart=()=>page.evaluate(()=>{
     const svg=document.querySelector('#rona-analytics-v2 .rona-market-chart-svg');
     const points=[...svg.querySelectorAll('circle.rmc-point')],labels=[...svg.querySelectorAll('text.rmc-point-label')];
