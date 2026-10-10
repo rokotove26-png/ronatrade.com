@@ -289,18 +289,21 @@ function bindActions(owner){
 }
 function clearForContext(ctx){state.activeKey=ctx?contextKey(ctx):'';state.detail=null;state.ctx=ctx||null;state.lastLoad=0}
 async function load(forceFresh=false){
-  if(state.loading)return;
+  // Acquire the single-request lock before awaiting context selection.
+  // Otherwise two concurrent loads can both see loading=false, and a stale
+  // cached result may repaint "ready" after another request failed closed.
+  if(state.loading){if(forceFresh)state.refreshPending=true;return}
   const root=homeRoot();if(!root)return;
-  let ctx=null;
-  try{ctx=await currentContext()}catch(error){console.error('RONA client home context authority',error);state.detail=null;setHomeState('error');return}
-  if(!ctx){clearForContext(null);renderContextRequired();setHomeState('ready');return}
-  const key=contextKey(ctx);if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
   state.loading=true;
+  let key='';
   try{
+    const ctx=await currentContext();
+    if(!ctx){clearForContext(null);renderContextRequired();setHomeState('ready');return}
+    key=contextKey(ctx);
+    if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
     const authority=contextAuthority();
-    // A same-context projection is cached indefinitely by the central authority.
-    // Refresh it explicitly only from the visible Home: this preserves a single
-    // authoritative network owner and reuses the existing tenant/session gate.
+    // All displayed facts originate from the one authenticated current
+    // context. A forced Home refresh invalidates its cached projection.
     if(forceFresh&&typeof authority.invalidateCurrentProjection==='function'&&authority.getCurrentProjection?.())
       authority.invalidateCurrentProjection();
     if(!state.detail||state.activeKey!==key)setHomeState('loading');
@@ -316,7 +319,8 @@ async function load(forceFresh=false){
     window.__RONA_CLIENT_HOME_STATE__.refresh_ms=SOURCE_REFRESH_MS;
     setHomeState('ready');
   }catch(error){
-    if(contextKey(contextAuthority()?.getCurrentContext?.())===key){
+    // An older tenant's late failure must not erase a newly selected tenant.
+    if(!key||contextKey(contextAuthority()?.getCurrentContext?.())===key){
       console.error('RONA client home command center projection',error);
       state.detail=null;window.__RONA_CLIENT_HOME_STATE__=null;setHomeState('error');
     }
@@ -324,10 +328,10 @@ async function load(forceFresh=false){
     state.loading=false;
     const pending=state.refreshPending;
     state.refreshPending=false;
-    // Explicit invalidations received in flight MUST be replayed once after
-    // this request finishes; otherwise Home can appear ready with stale data.
+    // Replay explicit invalidations after the lock is released, never show a
+    // stale ready state from a parallel load or a previous tenant's source.
     if(pending&&visibleHome())queueMicrotask(()=>refreshVisible('pending'));
-    else if(contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule);
+    else if(key&&contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule);
   }
 }
 function schedule(){if(state.scheduled)return;state.scheduled=true;requestAnimationFrame(()=>{state.scheduled=false;if(homeRoot())load()})}
