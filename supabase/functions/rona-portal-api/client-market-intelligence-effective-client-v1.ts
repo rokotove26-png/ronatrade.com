@@ -105,10 +105,27 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
              pi.metadata->>'source_url' as source_url,
              pi.metadata->>'country_region' as region,
              pi.metadata->>'category' as category,
+             cd.analyst_commentary as commercial_commentary,
+             cd.related_products as commercial_related_products,
              portal_private.try_timestamptz_v1(pi.metadata->>'source_published_at') as source_published_at
       from portal_private.publications p
       join portal_private.publication_items pi on pi.publication_key=p.id
       cross join params x
+      -- Fail closed unless an independent CD-approved canonical news row
+      -- matches the already client-authorized published NEWS item exactly.
+      left join public.rona_market_news cd
+        on cd.news_id=pi.metadata->>'news_id'
+       and cd.verified is true
+       and cd.publication_status='ОПУБЛИКОВАНО'
+       and cd.approved_by='AI-COMMERCIAL-DIRECTOR'
+       and cd.approved_at is not null and cd.approved_at<=x.server_now
+       and nullif(btrim(cd.analyst_commentary),'') is not null
+       and cd.source_url=pi.metadata->>'source_url'
+       and cd.product=pi.product
+       and cd.analyst_commentary=pi.metadata->>'analyst_commentary'
+       and pi.metadata->>'client_visible'='true'
+       and coalesce(pi.metadata->>'manual_release_required','false')='false'
+       and cd.source_published_at=portal_private.try_timestamptz_v1(pi.metadata->>'source_published_at')
       where p.publication_type::text='NEWS'
         and p.status::text='PUBLISHED'
         and p.lifecycle_state::text='ACTIVE'
@@ -159,7 +176,9 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         'category',d.category,
         'source_name',d.source_name,
         'source_url',d.source_url,
-        'source_published_at',d.source_published_at
+        'source_published_at',d.source_published_at,
+        'commercial_commentary',d.commercial_commentary,
+        'commercial_related_products',d.commercial_related_products
       ) order by d.source_published_at desc,d.published_at desc),'[]'::jsonb) as value
       from deduped_news d
     )
@@ -184,6 +203,54 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
   const payload = rows.length === 1 ? rows[0].payload : null;
   if (!payload || !Array.isArray(payload.analytics)) return payload;
   const publicNames = new Set(payload.analytics.map((row: any) => text(row.product)));
+  // Temporary source-locked commentary: only publication-visible news, cross-
+  // checked against VERIFIED + AI-COMMERCIAL-DIRECTOR approval by SQL above.
+  // Strip extra internal approval fields from the ordinary Client News response.
+  const approvedCommercialNews = (Array.isArray(payload.news) ? payload.news : [])
+    .filter((row: any) => text(row.commercial_commentary) &&
+      text(row.news_id) && text(row.source_name) && text(row.source_published_at))
+    .map((row: any) => ({
+      newsId: text(row.news_id),
+      product: text(row.product),
+      relatedProducts: text(row.commercial_related_products),
+      source: text(row.source_name),
+      published: text(row.source_published_at),
+      commentary: text(row.commercial_commentary).replace(/\s+/g," ").slice(0,650)
+    }));
+  if (Array.isArray(payload.news)) {
+    payload.news = payload.news.map((row: any) => {
+      const { commercial_commentary: _hidden, commercial_related_products: _tags, ...safe } = row;
+      return safe;
+    });
+  }
+  const relatedProductTags = (value: string): string[] =>
+    value.split(/[,;]/g).map(tag => tag.trim().toUpperCase()).filter(Boolean);
+  const commercialFactorFor = (key: string, lastObservedAsOf: string): string => {
+    const labels = key === "AI92" ? ["БЕНЗИН","АИ-92"] :
+      key === "AI95" ? ["БЕНЗИН","АИ-95"] :
+      key === "DT" ? ["ДИЗЕЛЬ","ДТ"] : ["СУГ"];
+    const candidate = approvedCommercialNews
+      .map((news: any) => ({
+        ...news,
+        direct: relatedProductTags(news.product).some(t => labels.includes(t)),
+        related: relatedProductTags(news.relatedProducts).some(t => labels.includes(t))
+      }))
+      .filter((news: any) => news.direct || news.related)
+      .sort((a: any,b: any) =>
+        Number(b.direct)-Number(a.direct) ||
+        Date.parse(b.published)-Date.parse(a.published))[0];
+    if (!candidate) return " Коммерческий директор: подтверждённое объяснение причин изменения именно этого индекса пока не опубликовано.";
+    const date = candidate.published.slice(0,10);
+    const observation = lastObservedAsOf.replace(
+      /^(\d{2})\.(\d{2})\.(\d{4})$/, "$3-$2-$1");
+    const timing = date>observation
+      ? " Событие опубликовано ПОСЛЕ последнего наблюдения, поэтому не может подтверждать причину уже произошедшего изменения."
+      : " Влияние события на именно этот индекс Platts отдельно не доказано.";
+    return " Коммерческий директор — возможный рыночный фактор (" +
+      (candidate.direct ? "прямой продукт" : "смежный продукт") +
+      ", новость от " + date + ", " + candidate.source + ", " +
+      candidate.newsId + "): " + candidate.commentary + "." + timing;
+  };
   // A published forecast permission is INDEPENDENT of a CURRENT physical-spot
   // quotation. This query mirrors the existing client audience/tenant authority
   // gate, including selected-client targets. It never grants a spot quote.
@@ -506,7 +573,8 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       }
       // The approved "Аналитический вывод" uses ONLY client-authorized
       // dated observations and the already source-verified indicative model.
-      // No AI-authored causes, manufactured market events or financial pricing.
+      // Only approved CD news commentary may describe possible drivers;
+      // never assert a direct causal link to the Platts assessment.
       if (output.forecast && Array.isArray(output.values) &&
           Array.isArray(output.dates) && output.values.length > 0 &&
           output.values.length === output.dates.length &&
@@ -554,7 +622,8 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           formatAmount(Number(output.forecast.base)) + ", HIGH " +
           formatAmount(Number(output.forecast.high)) +
           " USD/т. Оценка Platts от " + fmtDate(lastSourceDate) +
-          "." + benchmark + " Данные не являются коммерческой офертой.";
+          "." + benchmark + " Данные не являются коммерческой офертой." +
+          commercialFactorFor(key,lastAsOf);
       }
       sourceProducts[key] = output;
     }

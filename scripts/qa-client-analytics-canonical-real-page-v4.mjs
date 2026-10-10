@@ -240,7 +240,9 @@ try{
       dates:['07.10','08.10','09.10'],values:base,
       forecast:{month:'2026-11',low:base[0]-10,base:base[1],
         high:base[2],forward:base[1],sourceRef:'QA-VERIFIED-SOURCE',
-        comment:'Вывод по '+entry.label+': '+entry.delta+' USD/т; индикативно, не оферта.'}
+        comment:'Вывод по '+entry.label+': '+entry.delta+' USD/т; индикативно, не оферта. '+
+          'Коммерческий директор — возможный рыночный фактор (новость от 2026-10-09, QA-ONLY, QA-NEWS): '+
+          'Тестовый фактор предложения, не доказанная причина изменения индекса Platts.'}
     };
   }
   // Exercise the actual source-gated client projection, not merely the
@@ -267,7 +269,9 @@ try{
       proof.metrics[1]!=='+'+entry.delta+',00'||
       proof.metrics[2]!==entry.low+'–'+entry.high||
       proof.title!=='Возможные цены RONA Trade'||
-      !proof.conclusion?.includes('Вывод по '+entry.label))
+      !proof.conclusion?.includes('Вывод по '+entry.label)||
+      !proof.conclusion?.includes('Коммерческий директор — возможный рыночный фактор')||
+      !proof.conclusion?.includes('не доказанная причина изменения индекса Platts'))
       throw Error('FOUR_PRODUCT_ORIGINAL_FUNCTIONALITY_V17 '+JSON.stringify({product:entry.key,proof}));
     console.log('NATIVE_ANALYTICS_V17_'+entry.key+'=PASS',JSON.stringify(proof));
   }

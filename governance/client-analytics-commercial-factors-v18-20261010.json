@@ -1,0 +1,28 @@
+{
+  "scope": "CLIENT_ANALYTICS_COMMERCIAL_FACTORS_V18",
+  "owner_requirement": "Analytical conclusion must describe real market drivers in Commercial Director's analysis, not just numerical changes.",
+  "technical_role": "SYSTEM_ADMIN",
+  "business_role": "COMMERCIAL_DIRECTOR",
+  "source_approval_identity": "AI-COMMERCIAL-DIRECTOR",
+  "source_table": "public.rona_market_news",
+  "client_distribution_source": "portal_private.publications+publication_items+publication_client_targets",
+  "source_contract": "commercial role approved_by/verified/published and exact news ID, commentary, source URL, date and product match under existing tenant-scoped active VERIFIED NEWS distribution",
+  "publication_intent": "append published CD news commentary as possible factor to existing native Analytics conclusion",
+  "prove_historical_causality": false,
+  "noncausal_rule": "If source event is later than last chart observation, explicitly state it cannot explain the earlier movement; otherwise state causal effect on that exact Platts benchmark remains unproven.",
+  "product_matching": "AI92/AI95 gasoline, DT diesel, LPG СУГ; direct product preferred, latest evidence only; fallback no confirmed explanation.",
+  "source_date_rule": "Existing Client NEWS current seven-calendar-date source window; do not extend freshness.",
+  "safety_guards": [
+    "No raw financial/Platts redistribution",
+    "No pricing or business fact writes",
+    "No fabricated causes or invented news",
+    "No chart, forecasts, price card or HTML/CSS changes",
+    "No changes to Client NEWS public response fields",
+    "Client audience and selected tenant publication targets enforced",
+    "No impersonation changes or disabling JWT",
+    "Owner authenticated browser acceptance still required"
+  ],
+  "technical_baseline_edge_version": 102,
+  "technical_baseline_pin": "38db6c5dd7aecfa41d33f083caf7d44e4b744d90",
+  "rollback": "Redeploy exact Edge v102 wrapper pinned SHA 38db6c5dd7aecfa41d33f083caf7d44e4b744d90; no DB rollback necessary."
+}
