@@ -7,6 +7,9 @@ const home=readFileSync('assets/portal-runtime/client-home-command-center-v2.js'
 const freeze=JSON.parse(readFileSync('governance/client-home-live-source-refresh-v1-20261010.json','utf8'));
 for(const token of [
   "HOME_LIVE_FRESHNESS_V1='20261010-client-home-live-freshness-v1'",
+  "HOME_PENDING_REFRESH_V2='20261010-client-home-pending-refresh-v2'",
+  "if(state.loading){if(reason!=='timer')state.refreshPending=true;return;}",
+  "if(pending&&visibleHome())queueMicrotask(()=>refreshVisible('pending'))", 
   'SOURCE_REFRESH_MS=30000',
   "authority.invalidateCurrentProjection()",
   "authority.whenCurrentProjection(forceFresh",
@@ -30,7 +33,7 @@ await page.addInitScript(()=>{
   const listeners=new Set();
   const contextA={client_id:'QA-CLIENT-A',contract_id:'QA-CONTRACT-A'};
   const contextB={client_id:'QA-CLIENT-B',contract_id:'QA-CONTRACT-B'};
-  let selected=contextA,cache=null,failNext=false,networkCalls=0,invalidations=0;
+  let selected=contextA,cache=null,failNext=false,networkCalls=0,invalidations=0,holdNext=false,releaseHeld=null;
   const generate=(ctx,value)=>({
     contract:{client_id:ctx.client_id,contract_id:ctx.contract_id,legal_name:ctx.client_id},
     deals:[{deal_id:ctx.client_id==='QA-CLIENT-A'?'QA-DEAL-A':'QA-DEAL-B',
@@ -57,6 +60,7 @@ await page.addInitScript(()=>{
       networkCalls++;
       if(failNext){failNext=false;throw new Error('QA_AUTHORITATIVE_SOURCE_UNAVAILABLE')}
       const ctx=copy(selected),v=values[key()];
+      if(holdNext){holdNext=false;await new Promise(resolve=>{releaseHeld=resolve});}
       await Promise.resolve();
       if(selected.contract_id!==ctx.contract_id)throw new Error('QA_CONTEXT_CHANGED');
       cache=generate(ctx,v);
@@ -70,7 +74,9 @@ await page.addInitScript(()=>{
     setReceived:value=>{values[key()]=value},
     switchContext:()=>{selected=selected.client_id==='QA-CLIENT-A'?contextB:contextA;cache=null;for(const fn of listeners)fn(copy(selected))},
     errorNext:()=>{failNext=true},
-    counters:()=>({networkCalls,invalidations,selected:selected.client_id}),
+    holdNext:()=>{holdNext=true},
+    releaseHeld:()=>{const release=releaseHeld;releaseHeld=null;release?.()},
+    counters:()=>({networkCalls,invalidations,selected:selected.client_id,holding:!!releaseHeld}),
     getCache:()=>cache?copy(cache):null
   };
   window.addEventListener('DOMContentLoaded',()=>{
@@ -144,16 +150,34 @@ assert.ok(!JSON.stringify(switched.labels).includes('420'),'old tenant value lea
 assert.equal(switched.markers.client_id,'QA-CLIENT-B');
 console.log('HOME_V1_TENANT_SWITCH_FAIL_CLOSED=PASS');
 
+// Deterministically hold the authoritative first refresh while the second
+// same-context invalidation arrives. The second request must be replayed,
+// not silently discarded because the Home still has an in-flight fetch.
+await page.evaluate(()=>{
+  window.__QA_HOME.holdNext();
+  window.dispatchEvent(new Event('rona:client-home-invalidated'));
+});
+await page.waitForFunction(()=>window.__QA_HOME.counters().holding,{timeout:6000});
+const beforeRace=(await snapshot()).counters.networkCalls;
 await page.evaluate(()=>{
   window.__QA_HOME.errorNext();
   window.dispatchEvent(new Event('rona:client-home-invalidated'));
+  window.__QA_HOME.releaseHeld();
 });
-await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-home-state')==='error',null,{timeout:5000});
+await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-home-state')==='error',null,{timeout:6000});
+const afterRace=(await snapshot()).counters;
+assert.equal(afterRace.networkCalls,beforeRace+1,'pending invalidation was lost or issued duplicates');
+console.log('HOME_V2_INFLIGHT_INVALIDATION_REPLAY=PASS');
 await page.waitForFunction(()=>document.querySelector('[data-rona-client-home-owner]')?.textContent.includes('не удалось'),null,{timeout:5000}).catch(()=>{});
 const failed=await snapshot();
 assert.equal(failed.status,'error');
 assert.ok(!failed.labels.some(x=>x.includes('420')||x.includes('80')),'old numbers survived source failure: '+JSON.stringify(failed));
 console.log('HOME_V1_ERROR_FAIL_CLOSED=PASS');
+await page.evaluate(()=>window.__QA_HOME.setReceived(110));
+await page.clock.fastForward(31000);
+await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-home-state')==='ready',null,{timeout:6000});
+console.log('HOME_V2_SOURCE_RECOVERY_ON_TIMER=PASS');
 assert.deepEqual(errors,[],'Browser script errors');
 await browser.close();
 console.log('CLIENT_HOME_LIVE_REFRESH_V1_QA=PASS');
+console.log('CLIENT_HOME_PENDING_REFRESH_V2_QA=PASS');
