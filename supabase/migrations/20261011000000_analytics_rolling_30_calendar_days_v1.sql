@@ -32,14 +32,6 @@ BEGIN
     'where target_month=(select target_month from target)'||chr(10)||
     '    and snapshot_date between (now() at time zone ''Europe/Moscow'')::date - 29'||chr(10)||
     '      and (now() at time zone ''Europe/Moscow'')::date');
-  canonical := replace(canonical,
-    'and upper(coalesce(basis,'''') ) like ''%САРЫАГАШ%''',
-    'and upper(coalesce(basis,'''') ) like ''%САРЫАГАШ%''');
-  -- The regional LPG assessment is separately dated and must not leak an
-  -- archived August value into a current 30-day forecast/benchmark.
-  canonical := replace(canonical,
-    'and upper(coalesce(basis,'''') ) like ''%САРЫАГАШ%''',
-    'and upper(coalesce(basis,'''') ) like ''%САРЫАГАШ%''');
   -- Actual live function uses no whitespace after coalesce(basis,'').
   canonical := replace(canonical,
     'and upper(coalesce(basis,'''')) like ''%САРЫАГАШ%''',
