@@ -1,0 +1,44 @@
+name: Client Analytics native functionality v17
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'assets/portal-runtime/client-market-intelligence-v1.js'
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'scripts/qa-client-analytics-canonical-real-page-v4.mjs'
+      - 'scripts/qa-client-analytics-source-safe-browser-v3.mjs'
+      - 'tests/client-analytics-native-functional-v17.test.mjs'
+      - '.github/workflows/client-analytics-native-functional-v17.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'assets/portal-runtime/client-market-intelligence-v1.js'
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'scripts/qa-client-analytics-canonical-real-page-v4.mjs'
+      - 'scripts/qa-client-analytics-source-safe-browser-v3.mjs'
+      - 'tests/client-analytics-native-functional-v17.test.mjs'
+      - '.github/workflows/client-analytics-native-functional-v17.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  canonical-functionality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check source, authority, title and analytical conclusion
+        run: node --test tests/client-analytics-native-functional-v17.test.mjs tests/client-analytics-forecast-grants-v16.test.mjs tests/client-gasoline-dated-observations-v15.test.mjs
+      - name: Build exact frozen Client Analytics
+        run: npm run build
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Real canonical Client page and four native metric badges
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - name: Client scope and price-authority interaction
+        run: node scripts/qa-client-analytics-source-safe-browser-v3.mjs

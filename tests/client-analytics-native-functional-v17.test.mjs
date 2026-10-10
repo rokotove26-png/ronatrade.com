@@ -1,0 +1,61 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+
+const client=readFileSync('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
+const edge=readFileSync('supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts','utf8');
+const qa=readFileSync('scripts/qa-client-analytics-canonical-real-page-v4.mjs','utf8');
+
+test('never delete the native metric leafs and labels when a source is unavailable',()=>{
+  assert.ok(client.includes("owner.querySelectorAll('.rona-market-chart-metric [data-chart-metric]')"));
+  assert.ok(!client.includes("owner.querySelectorAll('.rona-market-chart-metric'))textIfDifferent(n,'—')"));
+  assert.ok(qa.includes('NATIVE_CHART_METRICS_DESTROYED_ON_EMPTY') ||
+    qa.includes('NATIVE_CHART_METRICS_NOT_REPAINTED') ||
+    qa.includes('NATIVE_METRICS_NOT_REPAINTED_AFTER_SOURCE'));
+  assert.ok(qa.includes('FOUR_PRODUCT_ORIGINAL_FUNCTIONALITY_V17'));
+});
+
+test('all fuels retain canonical price heading and source-authorized contract prices',()=>{
+  assert.ok(client.includes("textIfDifferent(headline,'Возможные цены RONA Trade')"));
+  assert.ok(!client.includes("'Опубликованные цены RONA Trade · выбранный договор'"));
+  for(const text of [
+    'SERVER_AUTHORITATIVE_PRICE_PROJECTION','PUBLISHED_CURRENT_CONTRACT',
+    'source?.prices.filter','matches.length===1',
+    "textIfDifferent(forecastRange,'LOW — · HIGH —')",
+    "selectedProduct"
+  ])assert.ok(client.includes(text),text);
+  assert.ok(client.includes('опубликованные цены выбранного договора, а не рассчитанные возможные цены'));
+});
+
+test('analytical conclusion derives only observed series and source-confirmed November forecast',()=>{
+  for(const phrase of [
+    'output.forecast.comment = measurement',
+    'output.dailyMonitor?.firstAsOf',
+    'output.dailyMonitor?.lastAsOf',
+    'output.dailyMonitor?.sourceGap === true',
+    'relativeChange = first > 0',
+    'formatSigned(absoluteChange)',
+    'Number(output.forecast.low)',
+    'Number(output.forecast.base)',
+    'Number(output.forecast.high)',
+    'fmtDate(lastSourceDate)',
+    'АИ-92 + 40 USD/т',
+    'Данные не являются коммерческой офертой.'
+  ])assert.ok(edge.includes(phrase),phrase);
+  for(const phrase of [
+    "sd.source_family='PLATTS'","sd.data_status='CONFIRMED'",
+    "sd.processing_state='INGESTED'",
+    "fs.model_version='RONA_FULL_PLATTS_CURVE_V1'",
+    'forecastSourceCurrent','permissionToForecast(key)',
+    'client_user_has_contract_access'
+  ])assert.ok(edge.includes(phrase),phrase);
+});
+
+test('canonical DOM not replaced or rearranged',()=>{
+  for(const token of [
+    "const original=root.querySelector(':scope > #rona-analytics-v2')",
+    'view.setPayload(payload)','[data-chart-title]',
+    ".an2-rona-head h2",".an2-price-current"
+  ])assert.ok(client.includes(token),token);
+  assert.ok(!client.includes('document.createElement(\'section\')'));
+});

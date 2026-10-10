@@ -26,6 +26,7 @@ const CLIENT_ANALYTICS_ADMIN_PARITY_APPROVAL_PATH='governance/client-analytics-a
 const CLIENT_ANALYTICS_DT_LPG_V11_APPROVAL_PATH='governance/client-analytics-dt-lpg-forecast-source-safe-v11-owner-approval-20261009.json';
 const ANALYTICS_DAILY_V12_APPROVAL_PATH='governance/analytics-daily-observed-no-empty-overlay-v12-owner-approval-20261009.json';
 const ANALYTICS_LPG_V13_APPROVAL_PATH='governance/lpg-daily-history-v13-owner-approval-20261009.json';
+const CLIENT_ANALYTICS_NATIVE_V17_APPROVAL_PATH='governance/client-analytics-native-functionality-v17-20261010.json';
 const CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH='governance/client-contract-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH='governance/client-background-manifest-event-driven-owner-approval-20260921.json';
 const CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH='governance/client-sidebar-command-nav-owner-approval-20260921.json';
@@ -58,6 +59,7 @@ const clientAnalyticsAdminParityApproval=JSON.parse(await readFile(CLIENT_ANALYT
 const clientAnalyticsDtLpgV11Approval=JSON.parse(await readFile(CLIENT_ANALYTICS_DT_LPG_V11_APPROVAL_PATH,'utf8'));
 const analyticsDailyV12Approval=JSON.parse(await readFile(ANALYTICS_DAILY_V12_APPROVAL_PATH,'utf8'));
 const analyticsLpgV13Approval=JSON.parse(await readFile(ANALYTICS_LPG_V13_APPROVAL_PATH,'utf8'));
+const clientAnalyticsNativeV17Approval=JSON.parse(await readFile(CLIENT_ANALYTICS_NATIVE_V17_APPROVAL_PATH,'utf8'));
 const clientContractEventDrivenApproval=JSON.parse(await readFile(CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientBackgroundManifestEventDrivenApproval=JSON.parse(await readFile(CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientSidebarCommandNavApproval=JSON.parse(await readFile(CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH,'utf8'));
@@ -1035,6 +1037,25 @@ const analyticsLpgV13Exception=
 
 
 
+// Exact Owner V17 supersession applies to ONE protected Analytics runtime only.
+const CLIENT_ANALYTICS_NATIVE_V17_RUNTIME='assets/portal-runtime/client-market-intelligence-v1.js';
+const clientAnalyticsNativeV17ExceptionAuthorized=
+  clientAnalyticsNativeV17Approval?.approval==='OWNER_IN_CHAT'&&
+  clientAnalyticsNativeV17Approval?.authorized_at==='2026-10-10'&&
+  clientAnalyticsNativeV17Approval?.scope==='CLIENT_ANALYTICS_NATIVE_FUNCTIONALITY_V17'&&
+  clientAnalyticsNativeV17Approval?.decision==='OWNER_EXPLICIT_TEXT_AND_DATA_FUNCTIONAL_DELTA_ONLY'&&
+  analyticsLpgV13Exception&&
+  clientAnalyticsNativeV17Approval?.source_lock?.previous_client_runtime_blob===
+    analyticsLpgV13Approval?.exact_post_blobs?.[CLIENT_ANALYTICS_NATIVE_V17_RUNTIME]?.authorized_post_blob_sha&&
+  clientAnalyticsNativeV17Approval?.source_lock?.new_client_runtime_blob==='122d07c847bf5522a095f524c91d410f6633d6d9'&&
+  clientAnalyticsNativeV17Approval?.requirements?.visual_freeze_remains_enabled===true&&
+  clientAnalyticsNativeV17Approval?.requirements?.exact_blob_enforcement===true&&
+  clientAnalyticsNativeV17Approval?.requirements?.exact_file_enforcement===true&&
+  clientAnalyticsNativeV17Approval?.requirements?.wildcard_exception===false&&
+  clientAnalyticsNativeV17Approval?.requirements?.no_css_or_html_change===true&&
+  clientAnalyticsNativeV17Approval?.requirements?.other_sections_unchanged===true&&
+  clientAnalyticsNativeV17Approval?.approved_protected_files?.includes(CLIENT_ANALYTICS_NATIVE_V17_RUNTIME);
+  
 const CLIENT_CONTRACT_EVENT_DRIVEN_FILES=[
   'assets/portal-runtime/client-contract-download-v3.js'
 ];
@@ -1249,6 +1270,7 @@ let clientAnalyticsAdminParityAppliedFiles=0;
 let clientAnalyticsDtLpgV11AppliedFiles=0;
 let analyticsDailyV12AppliedFiles=0;
 let analyticsLpgV13AppliedFiles=0;
+let clientAnalyticsNativeV17AppliedFiles=0;
 let clientContractEventDrivenAppliedFiles=0;
 let clientBackgroundManifestEventDrivenAppliedFiles=0;
 let clientDealsVisualHierarchyAppliedFiles=0;
@@ -1545,6 +1567,15 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       analyticsLpgV13Entry.required_marker==='20261009-lpg-source-gap-history-v13'&&
       body.toString('utf8').includes(analyticsLpgV13Entry.required_marker)
     );
+    const exactClientAnalyticsNativeV17=Boolean(
+      clientAnalyticsNativeV17ExceptionAuthorized&&
+      path===CLIENT_ANALYTICS_NATIVE_V17_RUNTIME&&
+      analyticsLpgV13Entry?.visual_freeze_baseline_blob_sha===expected&&
+      analyticsLpgV13Entry?.authorized_post_blob_sha===clientAnalyticsNativeV17Approval.source_lock.previous_client_runtime_blob&&
+      actual===clientAnalyticsNativeV17Approval.source_lock.new_client_runtime_blob&&
+      body.toString('utf8').includes("owner.querySelectorAll('.rona-market-chart-metric [data-chart-metric]')")&&
+      body.toString('utf8').includes("textIfDifferent(headline,'Возможные цены RONA Trade')")
+    );
     const clientContractEventDrivenEntry=clientContractEventDrivenExceptionAuthorized?clientContractEventDrivenApproval?.exact_post_blobs?.[path]:null;
     const exactClientContractEventDriven=Boolean(
       clientContractEventDrivenEntry&&
@@ -1591,11 +1622,12 @@ for(const [path,expected] of Object.entries(protectedFiles)){
     if(exactClientAnalyticsAdminParity)clientAnalyticsAdminParityAppliedFiles+=1;
     if(exactClientAnalyticsDtLpgV11)clientAnalyticsDtLpgV11AppliedFiles+=1;
     if(exactAnalyticsDailyV12)analyticsDailyV12AppliedFiles+=1;
-    if(exactAnalyticsLpgV13)analyticsLpgV13AppliedFiles+=1;
+    if(exactAnalyticsLpgV13||exactClientAnalyticsNativeV17)analyticsLpgV13AppliedFiles+=1;
+    if(exactClientAnalyticsNativeV17)clientAnalyticsNativeV17AppliedFiles+=1;
     if(exactClientContractEventDriven)clientContractEventDrivenAppliedFiles+=1;
     if(exactClientDealsVisualHierarchy)clientDealsVisualHierarchyAppliedFiles+=1;
     if(exactClientBackgroundManifestEventDriven)clientBackgroundManifestEventDrivenAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientAnalyticsCanonicalRestore&&!exactClientAnalyticsAuthorizedPrice&&!exactClientAnalyticsPublishedPrice&&!exactClientAnalyticsAdminParity&&!exactClientAnalyticsDtLpgV11&&!exactAnalyticsDailyV12&&!exactAnalyticsLpgV13&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientAnalyticsCanonicalRestore&&!exactClientAnalyticsAuthorizedPrice&&!exactClientAnalyticsPublishedPrice&&!exactClientAnalyticsAdminParity&&!exactClientAnalyticsDtLpgV11&&!exactAnalyticsDailyV12&&!exactAnalyticsLpgV13&&!exactClientAnalyticsNativeV17&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
@@ -1623,6 +1655,8 @@ if(!clientAnalyticsAdminParityException)errors.push('CLIENT_ANALYTICS_ADMIN_PARI
 if(!clientAnalyticsDtLpgV11Exception)errors.push('CLIENT_ANALYTICS_DT_LPG_V11_GOVERNANCE_NOT_AUTHORIZED');
 if(!analyticsDailyV12Exception)errors.push('ANALYTICS_DAILY_V12_GOVERNANCE_NOT_AUTHORIZED');
 if(!analyticsLpgV13Exception)errors.push('ANALYTICS_LPG_V13_GOVERNANCE_NOT_AUTHORIZED');
+if(!clientAnalyticsNativeV17ExceptionAuthorized)errors.push('CLIENT_ANALYTICS_NATIVE_V17_GOVERNANCE_NOT_AUTHORIZED');
+if(clientAnalyticsNativeV17ExceptionAuthorized&&clientAnalyticsNativeV17AppliedFiles!==1)errors.push('CLIENT_ANALYTICS_NATIVE_V17_EXACT_BLOB_COUNT expected=1 actual='+clientAnalyticsNativeV17AppliedFiles);
 if(analyticsLpgV13Exception&&analyticsLpgV13AppliedFiles!==ANALYTICS_LPG_V13_FILES.length)
   errors.push(`ANALYTICS_LPG_V13_EXACT_BLOB_COUNT expected=${ANALYTICS_LPG_V13_FILES.length} actual=${analyticsLpgV13AppliedFiles}`);
 const analyticsDailyV12EffectiveFiles=analyticsDailyV12AppliedFiles+
