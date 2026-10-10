@@ -24,6 +24,47 @@ async function authRefresh(refreshToken){const r=await fetch(`${SUPABASE_URL}/au
 async function analyticsRpc(token){return fetch(`${SUPABASE_URL}/rest/v1/rpc/owner_analytics_admin_bootstrap`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${token}`,accept:'application/json','content-type':'application/json'},body:'{}'})}
 async function loadWithRefresh(access,refresh){let cookies=[];let response=await analyticsRpc(access);if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;cookies=tokenCookies(next.data);response=await analyticsRpc(access)}}return{response,cookies}}
 const CANONICAL_PRODUCTS=Object.freeze(['AI92','AI95','DT','LPG']);
+// Display-only rolling 30 calendar dates, inclusive of today; source rows are never modified.
+const rolling30Floor=()=>{const now=new Date(),utc=Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate());return {floor:utc-29*86400000,today:utc};};
+function observationDay(label,anchor){
+  if(!/^\\d{2}\\.\\d{2}$/.test(String(label))||!/^\\d{2}\\.\\d{2}\\.\\d{4}$/.test(String(anchor)))return null;
+  const [day,month]=String(label).split('.').map(Number);
+  const year=Number(String(anchor).slice(6));
+  const anchorDay=Date.UTC(year,Number(anchor.slice(3,5))-1,Number(anchor.slice(0,2)));
+  if(!Number.isFinite(anchorDay))return null;
+  for(const y of [year,year-1]){
+    const ms=Date.UTC(y,month-1,day),d=new Date(ms);
+    if(d.getUTCFullYear()===y&&d.getUTCMonth()===month-1&&d.getUTCDate()===day&&ms<=anchorDay)return ms;
+  }
+  return null;
+}
+function last30Series(raw,anchor){
+  const dates=Array.isArray(raw.dates)?raw.dates:[],values=Array.isArray(raw.values)?raw.values:[];
+  if(dates.length!==values.length)return {...raw,dates:[],values:[],dailyMonitor:null};
+  const {floor,today}=rolling30Floor(),monitor=raw.dailyMonitor;
+  const kept=[];
+  for(let i=0;i<dates.length;i++){
+    const observed=Array.isArray(monitor?.observedDates)&&monitor.observedDates.length===dates.length
+      ? String(monitor.observedDates[i]):null;
+    const ms=observed&&/^\\d{4}-\\d{2}-\\d{2}$/.test(observed)?Date.parse(observed+'T00:00:00Z'):observationDay(dates[i],anchor);
+    const v=values[i];
+    if(Number.isFinite(ms)&&ms>=floor&&ms<=today&&v!==null&&v!==''&&Number.isFinite(Number(v)))kept.push(i);
+  }
+  const safe={...raw,dates:kept.map(i=>dates[i]),values:kept.map(i=>values[i])};
+  if(monitor&&Array.isArray(monitor.observedDates)){
+    const obs=kept.map(i=>monitor.observedDates[i]);
+    const segments=kept.map(i=>monitor.segmentIds?.[i]??0);
+    const gaps=obs.map((d,i)=>i===0?0:Math.round((Date.parse(d+'T00:00:00Z')-Date.parse(obs[i-1]+'T00:00:00Z'))/86400000));
+    safe.dailyMonitor={...monitor,dates:safe.dates,values:safe.values,observedDates:obs,
+      segmentIds:segments,gapBeforeDays:gaps,observationCount:obs.length,
+      firstAsOf:obs.length?obs[0].slice(8)+'.'+obs[0].slice(5,7)+'.'+obs[0].slice(0,4):null,
+      lastAsOf:obs.length?obs.at(-1).slice(8)+'.'+obs.at(-1).slice(5,7)+'.'+obs.at(-1).slice(0,4):null,
+      sourceGap:gaps.some(n=>n>1),segmentCount:new Set(segments).size,
+      historyIncludesAllGapSegments:monitor.historyIncludesAllGapSegments===true,
+      status:obs.length===0?'SOURCE_ABSENT':obs.length===1?'SINGLE_CONFIRMED_OBSERVATION':monitor.status};
+  }
+  return safe;
+}
 function normalizeCanonical(payload){
   if(!payload||payload.version!=='RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1'||!payload.products)return null;
   const products={...payload.products};
@@ -33,7 +74,7 @@ function normalizeCanonical(payload){
     const dates=Array.isArray(raw.dates)?raw.dates:[];
     const values=Array.isArray(raw.values)?raw.values:[];
     if(dates.length!==values.length)return null;
-    products[key]={...raw,dates,values};
+    products[key]=last30Series({...raw,dates,values},payload.latestTradeDate);
   }
   return {...payload,products};
 }
