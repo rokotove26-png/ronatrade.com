@@ -39,7 +39,14 @@
       "current source-safe browser",
       "visual freeze",
       "postmerge production smoke"
-    ]
+    ],
+    "visual_freeze_remains_enabled": true,
+    "exact_blob_enforcement": true,
+    "exact_file_enforcement": true,
+    "wildcard_exception": false,
+    "other_sections_unchanged": true,
+    "no_css_or_html_change": true,
+    "supersedes_v13_asset_sha": "bd15c42b22e1a65a420d507618cc1c4d08109861"
   },
   "rollback": "Restore prior protected client runtime blob bd15c42b22e1a65a420d507618cc1c4d08109861 and previous source-locked Edge v101 pin c1af7eedb9ed00e4a8d0f30f81285444997c24b4; no rollback or edit of business facts."
 }
