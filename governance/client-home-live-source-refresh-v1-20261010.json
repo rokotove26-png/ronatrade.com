@@ -13,7 +13,7 @@
     "assets/portal-runtime/client-home-command-center-v2.js": {
       "visual_freeze_baseline_blob_sha": "057b373152c534284ce6918eca21ed7c22e5232c",
       "supersedes_authorized_post_blob_sha": "14c3a251ba7015e7d46e2cf48d14f7c07e049ed6",
-      "authorized_post_blob_sha": "c2a64b48d8cc413b1428ea2bd54ea818757c87f0",
+      "authorized_post_blob_sha": "c407ce0d4657ba9c49555d18cffa5710b82acd3b",
       "required_marker": "20261010-client-home-live-freshness-v1"
     }
   },
