@@ -504,6 +504,58 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         // Keep termCurve as forecast metadata only; never override daily dates
         // with month-of-delivery labels (M1/M2/M3).
       }
+      // The approved "Аналитический вывод" uses ONLY client-authorized
+      // dated observations and the already source-verified indicative model.
+      // No AI-authored causes, manufactured market events or financial pricing.
+      if (output.forecast && Array.isArray(output.values) &&
+          Array.isArray(output.dates) && output.values.length > 0 &&
+          output.values.length === output.dates.length &&
+          output.values.every((v: unknown) => finite(v))) {
+        const first = Number(output.values[0]);
+        const last = Number(output.values[output.values.length - 1]);
+        const absoluteChange = last - first;
+        const relativeChange = first > 0 ? absoluteChange / first * 100 : null;
+        const formatAmount = (v: number): string =>
+          v.toLocaleString("ru-RU", {maximumFractionDigits: 2});
+        const formatSigned = (v: number): string =>
+          (v > 0 ? "+" : "") + formatAmount(v);
+        const fmtDate = (value: string): string =>
+          /^\\d{4}-\\d{2}-\\d{2}$/.test(value)
+            ? value.slice(8,10) + "." + value.slice(5,7) + "." + value.slice(0,4)
+            : value;
+        const firstAsOf = text(output.dailyMonitor?.firstAsOf) ||
+          text(output.dates[0]) + "." + text(source.latestTradeDate).slice(6);
+        const lastAsOf = text(output.dailyMonitor?.lastAsOf) ||
+          text(output.dates[output.dates.length - 1]) + "." +
+          text(source.latestTradeDate).slice(6);
+        const measurement = key === "AI95"
+          ? "Расчётный ряд АИ-95 (АИ-92 + 40 USD/т)"
+          : key === "AI92" ? "Подтверждённый физический ряд АИ-92 FOB Med"
+          : key === "DT" ? "Подтверждённый физический компонент ДТ CIF NWE (не композит БНК)"
+          : "Подтверждённый финансовый ряд Platts propane CIF NWE, поставка " +
+            text(output.dailyMonitor?.deliveryMonth || "10.2026");
+        const gaps = output.dailyMonitor?.sourceGap === true
+          ? " Есть пропуски между датами источника: значения в разрывах не рассчитывались."
+          : "";
+        const benchmark = key === "DT"
+          ? " Финансовый прогноз и физический компонент ДТ используют разные базисы."
+          : key === "LPG"
+            ? " Прогноз относится к следующему месяцу поставки, а не к текущему споту СУГ."
+            : key === "AI95"
+              ? " АИ-95 не является отдельной подтверждённой оценкой Platts."
+              : "";
+        output.forecast.comment = measurement + ": " +
+          output.values.length + " наблюд. за " + firstAsOf + "–" + lastAsOf +
+          ". Последняя точка " + formatAmount(last) + " USD/т; изменение от первой " +
+          formatSigned(absoluteChange) + " USD/т" +
+          (relativeChange === null ? "" : " (" + formatSigned(relativeChange) + "%)") +
+          "." + gaps + " Индикативный сценарий " + target + ": LOW " +
+          formatAmount(Number(output.forecast.low)) + ", BASE " +
+          formatAmount(Number(output.forecast.base)) + ", HIGH " +
+          formatAmount(Number(output.forecast.high)) +
+          " USD/т. Оценка Platts от " + fmtDate(lastSourceDate) +
+          "." + benchmark + " Данные не являются коммерческой офертой.";
+      }
       sourceProducts[key] = output;
     }
     // Same shape as Admin; only permitted client projection is serialized.
