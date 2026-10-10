@@ -75,7 +75,7 @@ test('pricing bridge is unchanged arithmetically and model limitations are discl
 
 test('owner-scoped Admin Analytics fix exact-blobs and rollback are locked',()=>{
   const gov=JSON.parse(readFileSync('governance/admin-analytics-insight-chart-v1-20261010.json','utf8'));
-  const hash=body=>createHash('sha1').update('blob '+Buffer.byteLength(body)+'\\0'+body).digest('hex');
+  const hash=body=>createHash('sha1').update('blob '+Buffer.byteLength(body)+'\0'+body).digest('hex');
   assert.equal(gov.approval,'OWNER_IN_CHAT');
   assert.equal(gov.scope,'ADMIN_ANALYTICS_SOURCE_SAFE_CONCLUSION_AND_EXCLUSIVE_LPG_CHART_V1');
   assert.equal(gov.source_baseline.release_commit,'a36f510901a475431f0c39e72daacaecabf7a50e');
