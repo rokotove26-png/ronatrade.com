@@ -1,0 +1,40 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "owner_instruction_ref": "OWNER_IN_CHAT:2026-10-10:ADMIN_CLIENT_ANALYTICS_ROLLING_30_DAYS",
+  "scope": "ADMIN_CLIENT_ANALYTICS_ROLLING_30_CALENDAR_DAYS_V1",
+  "decision": "TECHNICAL_SOURCE_SAFE_OBSERVATION_WINDOW",
+  "rolling_window": {
+    "days": 30,
+    "calendar": "UTC_DATE",
+    "bounds": "TODAY_MINUS_29_DAYS_THROUGH_TODAY_INCLUSIVE",
+    "null_and_non_numeric": "EXCLUDED",
+    "older_than_window": "EXCLUDED",
+    "not_yet_observed": "NO_SYNTHETIC_POINTS",
+    "historical_business_storage": "UNMODIFIED"
+  },
+  "previous_admin_blob_sha": "7874a3c20d3ab3cf1e7c1e27b47c9a10d256d948",
+  "current_admin_blob_sha": "0d6cd654ced50888dbbd6d760ebcb4a83700b8ed",
+  "current_admin_endpoint_blob_sha": "b5786af42cc60ecb34bc5059b853aabacae236d7",
+  "current_client_edge_blob_sha": "46191713aa8b6db2f594dca195e43edc5cef984c",
+  "files": [
+    "functions/portal/api/v1/admin/analytics.js",
+    "functions/portal/analytics-canonical-live-hydration.js",
+    "supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts"
+  ],
+  "preserved": [
+    "CANONICAL_VISUAL_OWNER",
+    "CLIENT_TENANT_SCOPING",
+    "CLIENT_AUTHORIZED_PUBLICATIONS",
+    "FORECAST_AS_DISTINCT_INDICATIVE_LAYER",
+    "NO_BUSINESS_FACT_CREATION",
+    "NO_INTERPOLATION",
+    "R3_V20_HISTORICAL_APPROVALS"
+  ],
+  "rollback": {
+    "base_branch": "release/public-go-live-v1.1",
+    "admin_endpoint_blob_sha": "7934b365c8586b423d25a761cb035fb52b74b7f0",
+    "admin_runtime_blob_sha": "7874a3c20d3ab3cf1e7c1e27b47c9a10d256d948",
+    "client_edge_blob_sha": "4001459296e2819bf32e29e4fbc4d4522e340150"
+  },
+  "release_gate": "PR_SCOPE_TESTS_PASS_BEFORE_MERGE; PRODUCTION_DEPLOYMENT_SEPARATE_VERIFICATION"
+}
