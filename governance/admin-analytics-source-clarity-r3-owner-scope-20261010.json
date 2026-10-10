@@ -1,0 +1,58 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-10",
+  "owner_instruction": "Администраторская Аналитика: исправить отображение всех четырех продуктов, динамику графиков и содержательный аналитический вывод без служебной информации; screenshot 2026-10-10 19:01:57. Preserve Admin canonical visual owner and pricing, data source, access gates and client portal V20.",
+  "owner_instruction_ref": "OWNER_SCREENSHOT:20261010-190157; OWNER_IN_CHAT:20261010:ADMIN_ANALYTICS_SHOW_AND_CONCLUSION",
+  "scope": "ADMIN_ANALYTICS_SOURCE_LOCKED_CHART_READABILITY_AND_CONCLUSION_R3",
+  "decision": "ADMIN_ONLY_TECHNICAL_PRESENTATION_AND_FAILURE_RECOVERY",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: ADMIN_ANALYTICS_SOURCE_CLARITY_R3",
+  "authorized_file": "functions/portal/analytics-canonical-live-hydration.js",
+  "exact_post_blob_sha": "3c24c26dac90db9148319e484a73e0b95a4e6bd4",
+  "prior_blob_sha": "cdeb378b65e12fa14e11af649720cd2ee429dd1d",
+  "requirements": {
+    "admin_only_path": "/portal/admin",
+    "client_buyer_conclusion_v20_preserved": true,
+    "canonical_single_visual_owner": true,
+    "no_html_template_change": true,
+    "no_css_theme_change": true,
+    "no_spurious_visual_layer": true,
+    "all_four_products": [
+      "AI92",
+      "AI95",
+      "DT",
+      "LPG"
+    ],
+    "verified_observation_date_plot": true,
+    "no_maturity_curve_as_spot": true,
+    "no_gap_interpolation": true,
+    "chart_observation_values_preserved": true,
+    "hover_accessible_points": true,
+    "dense_labels_suppressed_only": true,
+    "source_links_not_in_conclusion": true,
+    "methodology_basis_warning": true,
+    "analytical_causality_unproven": false,
+    "forecast_low_base_high_source_locked": true,
+    "bank_rail_pricing_terms_unchanged": true,
+    "source_error_fails_closed": true,
+    "same_signature_recovery_restores_chart": true,
+    "technical_footer_hidden_admin_only": true,
+    "exact_blob_enforcement": true,
+    "no_wildcard_exception": true,
+    "visual_freeze_remains_enabled": true,
+    "no_source_data_or_role_mutation": true
+  },
+  "rollback": {
+    "release_commit": "a36f510901a475431f0c39e72daacaecabf7a50e",
+    "runtime_file_sha": "cdeb378b65e12fa14e11af649720cd2ee429dd1d",
+    "database_mutations": "NONE",
+    "edge_function_deployment": "NONE"
+  },
+  "tests": [
+    "Admin Analytics current-single-owner QA",
+    "Admin Analytics source-safe hydration tests",
+    "Admin Analytics real-shape browser R2",
+    "Admin Analytics source clarity browser R3 (14 DT,15 LPG, outage/recovery)",
+    "Admin/Client visual freeze and access gate",
+    "Cloudflare source-safe production QA"
+  ]
+}
