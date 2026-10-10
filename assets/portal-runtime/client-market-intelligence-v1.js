@@ -96,8 +96,10 @@ function ensureOwner(root){
   // The canonical design is the sole visual owner; never replace its subtree.
   const original=root.querySelector(':scope > #rona-analytics-v2');
   if(!original){root.dataset.ronaClientAnalyticsSource='CANONICAL_VISUAL_MISSING';return null}
-  const substitute=root.querySelector(':scope > [data-rona-client-market-intelligence-owner="analytics"]');
-  if(substitute)substitute.remove();
+  // Retire only known obsolete generated substitute roots, never the frozen AN2.
+  for(const substitute of root.querySelectorAll(':scope > [data-rona-client-market-intelligence-owner="analytics"], :scope > .mi-grid, :scope > .mi-card')){
+    substitute.remove();
+  }
   if(original.hidden)original.hidden=false;
   if(original.hasAttribute('data-rona-client-analytics-legacy'))original.removeAttribute('data-rona-client-analytics-legacy');
   if(original.style.getPropertyValue('display')==='none')original.style.removeProperty('display');
@@ -390,10 +392,19 @@ function accept(data,reason){
 let requestSequence=0;
 async function load(reason='open'){
   const id=++requestSequence;
-  // Never retain previous tenant or archive data across refresh/context switch, including failed responses.
-  state.data=null;state.fingerprint='';state.loaded=false;state.error='';state.loading=true;
-  const root=analyticsPage();if(root)root.dataset.ronaClientMarketIntelligenceFingerprint='';
-  document.documentElement.dataset.ronaClientMarketIntelligence='loading';schedule();
+  // Preserve the last verified same-context projection while a refresh is in
+  // flight; clearing and re-rendering blanks the canonical chart on every focus.
+  // A tenant/context switch is an exception: fail closed before making the call.
+  const root=analyticsPage();
+  const context=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();
+  const contextKey=context ? String(context.client_id||'')+'|'+String(context.contract_id||'') : '';
+  if(state.contextKey!==undefined&&state.contextKey!==contextKey){
+    state.data=null;state.fingerprint='';state.loaded=false;
+    if(root)root.dataset.ronaClientMarketIntelligenceFingerprint='';
+    schedule();
+  }
+  state.contextKey=contextKey;state.error='';state.loading=true;
+  document.documentElement.dataset.ronaClientMarketIntelligence='loading';
   try{
     const r=await fetch(API,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-client-market-intelligence':MARK}});
     const body=await r.json().catch(()=>null);
@@ -401,7 +412,10 @@ async function load(reason='open'){
     if(!r.ok||!body?.ok||!accept(body.data,reason))throw new Error(String(body?.code||'CLIENT_MARKET_INTELLIGENCE_LOAD_FAILED'));
   }catch(error){
     if(id!==requestSequence)return;
-    state.data=null;state.fingerprint='';state.loaded=true;state.error=String(error?.message||error||'CLIENT_MARKET_INTELLIGENCE_LOAD_FAILED');schedule();
+    // A failed refresh must not promote stale data as CURRENT. Fail closed.
+    state.data=null;state.fingerprint='';state.loaded=true;state.error=String(error?.message||error||'CLIENT_MARKET_INTELLIGENCE_LOAD_FAILED');
+    if(root)root.dataset.ronaClientMarketIntelligenceFingerprint='';
+    schedule();
   }finally{
     if(id===requestSequence){state.loading=false;schedule()}
   }
