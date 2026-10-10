@@ -16,7 +16,7 @@ for(const token of [
   "window.setInterval(()=>refreshVisible('timer'),SOURCE_REFRESH_MS)",
   "document.visibilityState!=='visible'",
   "if(contextKey(authority.getCurrentContext?.())!==key)return",
-  "if(contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule)",
+  "else if(key&&contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule)",
   "root?.querySelectorAll('[data-open-deal]')"
 ])assert.ok(home.includes(token),'Missing current-only refresh contract: '+token);
 for(const forbidden of ['RONA-C001','UNIVERSAL SOLYARIS','DEAL-2026-004'])assert.ok(!home.includes(forbidden));
