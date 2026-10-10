@@ -216,7 +216,7 @@ try{
   const live=await snapshot();
   const liveMetrics=await page.evaluate(()=>
     ['last','change','range'].map(k=>
-      document.querySelector('[data-chart-metric="'+k+'"]')?.textContent?.replace(/[\\s\\u00a0\\u202f]/g,'')||''));
+      document.querySelector('[data-chart-metric="'+k+'"]')?.textContent?.replace(/\s/g,'')||''));
   if(!liveMetrics[0].includes('1103,00')||liveMetrics[1]!=='+22,00'||
      liveMetrics[2]!=='1081–1103')
     throw Error('NATIVE_METRICS_NOT_REPAINTED_AFTER_SOURCE '+JSON.stringify(liveMetrics));
@@ -251,7 +251,7 @@ try{
     await page.waitForFunction(k=>document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct===k,entry.key,{timeout:5500});
     const proof=await page.evaluate(()=>{
       const r=document.querySelector('#rona-analytics-v2');
-      return {metrics:['last','change','range'].map(k=>r.querySelector('[data-chart-metric="'+k+'"]')?.textContent?.replace(/[\\s\\u00a0\\u202f]/g,'')||''),
+      return {metrics:['last','change','range'].map(k=>r.querySelector('[data-chart-metric="'+k+'"]')?.textContent?.replace(/\s/g,'')||''),
         title:r.querySelector('.an2-rona-head h2')?.textContent,
         conclusion:r.querySelector('.an2-comment')?.textContent};
     });
