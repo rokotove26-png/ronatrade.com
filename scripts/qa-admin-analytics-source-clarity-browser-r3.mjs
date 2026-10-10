@@ -175,6 +175,38 @@ try{
   const recovered=await page.locator('#rona-analytics-v2 .an2-comment').innerText();
   assert(recovered.includes('BASE 725,00')&&recovered.includes('775,00'),'Same-signature source recovery did not restore full analysis: '+recovered);
   console.log('ADMIN_ANALYTICS_SOURCE_RECOVERY_SAME_SIGNATURE=PASS');
+
+  for(const product of ['AI92','AI95']){
+    await page.locator('#rona-analytics-v2 [data-product="'+product+'"]').click();
+    await page.waitForFunction(k=>window.RONA_ANALYTICS_VIEW?.getState?.()?.product===k&&
+      document.querySelector('#rona-analytics-v2 .an2-comment')?.textContent?.includes('одно подтверждённое наблюдение'),
+      product,{timeout:8000});
+    const outcome=await page.evaluate(()=>{
+      const r=document.querySelector('#rona-analytics-v2');
+      return {state:window.RONA_ANALYTICS_VIEW.getState(),insight:r.querySelector('.an2-comment')?.textContent,
+        forecast:r.querySelector('.an2-market-forecast')?.innerText,
+        prices:[...r.querySelectorAll('.an2-price-base')].map(x=>x.innerText)};
+    });
+    assert(outcome.insight.includes('BASE ')&&outcome.insight.includes('Разница BASE'),'Gasoline '+product+' scenario/fact interpretation missing '+JSON.stringify(outcome));
+    assert(!outcome.insight.includes('RONA_CLIENT_ADMIN')&&!outcome.insight.includes('https://'),
+      'Gasoline '+product+' service internals leaked into conclusion');
+    assert(outcome.forecast.includes('2026-11')&&outcome.prices.length>0,
+      'Gasoline '+product+' forecast/pricing missing');
+    console.log('ADMIN_ANALYTICS_FUEL_'+product+'_INSIGHT=PASS');
+  }
+  const sources=await page.evaluate(()=>[...document.querySelectorAll('#rona-analytics-v2 .an2-controls button[data-source]')]
+    .map(x=>({key:x.getAttribute('data-source'),text:x.textContent.trim()})));
+  console.log('ADMIN_ANALYTICS_SOURCE_CONTROLS',JSON.stringify(sources));
+  const argus=sources.find(x=>x.key==='ARGUS');
+  if(argus){
+    await page.locator('#rona-analytics-v2 .an2-controls button[data-source="ARGUS"]').click();
+    await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 .an2-comment')?.textContent?.includes('Источник Argus выбран'),
+      {timeout:8000});
+    const insight=await page.locator('#rona-analytics-v2 .an2-comment').innerText();
+    assert(!insight.includes('BASE 1 097,75'),'Unproven Argus mixed with Platts facts');
+    console.log('ADMIN_ANALYTICS_ARGUS_SOURCE_SAFE_CONCLUSION=PASS');
+  }
+
   assert(errors.length===0,'Uncaught browser errors: '+errors.join('; '));
   console.log('ADMIN_ANALYTICS_SOURCE_CLARITY_R3=PASS');
   console.log(JSON.stringify({result:'PASS',browser:'chromium',real_ui_response:true,dt_month:'2026-11',dt_base:1370,dt_chart:'OBSERVATION_DAILY_DT',dt_owner_prices:'SOURCE_LOCKED',lpg_month:'2026-11',lpg_base:725,lpg_petromarket:'STALE_HIDDEN',lpg_chart:'OBSERVATION_DAILY_LPG',api_failure:'FAIL_CLOSED',pageerrors:errors.length,requests}));
