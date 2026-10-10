@@ -32,12 +32,18 @@ test('each news factor strictly maps to a fuel product, with explicit timing and
     '["ДИЗЕЛЬ","ДТ"]',
     '["СУГ"]',
     'news.direct || news.related',
-    'Событие опубликовано ПОСЛЕ последнего наблюдения',
-    'Влияние события на именно этот индекс Platts отдельно не доказано.',
-    'подтверждённое объяснение причин изменения именно этого индекса пока не опубликовано',
+    'Новость опубликована после последнего наблюдения',
+    'Влияние новости на движение выбранного индикатора не подтверждено.',
+    'candidate.headline.replace(/[.!?]+$/u',
+    'Планируя закупку, учитывайте сценарный диапазон',
     'commercialFactorFor(key,lastAsOf)'
   ])assert.ok(edge.includes(phrase),phrase);
   assert.ok(!edge.includes('changesCausedByNews=true'));
+  assert.ok(!edge.includes('candidate.commentary + "." + timing'));
+  assert.ok(edge.includes('headline: text(row.headline)'));
+  assert.ok(edge.includes('candidate.source'));
+  assert.ok(edge.includes('candidate.published'));
+  assert.ok(edge.includes('if (!candidate) return "";'));
 });
 test('client NEWS feed remains exactly original fields, annotations used only inside Analytics commentary',()=>{
   assert.ok(edge.includes('commercial_commentary: _hidden'));

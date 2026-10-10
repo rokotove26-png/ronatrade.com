@@ -27,18 +27,21 @@ test('all fuels retain canonical price heading and source-authorized contract pr
   assert.ok(client.includes('опубликованные цены выбранного договора, а не рассчитанные возможные цены'));
 });
 
-test('analytical conclusion preserves verified trend and forward forecasts but suppresses service prose (V19)',()=>{
+test('buyer-facing conclusion retains verified trend and forecast, suppresses internal commentary (V20)',()=>{
   for(const phrase of [
     'relativeChange = first > 0',
     'const first = Number(output.values[0])',
     'const last = Number(output.values[output.values.length - 1])',
     'const absoluteChange = last - first',
-    'const trend = absoluteChange > 0',
+    'const movement = absoluteChange > 0',
     'formatAmount(Math.abs(absoluteChange))',
     'formatAmount(Number(output.forecast.low))',
     'formatAmount(Number(output.forecast.base))',
     'formatAmount(Number(output.forecast.high))',
-    'output.forecast.comment = trendText + " " + forecastText +',
+    'output.forecast.comment = trendText + " " + forecastText + " " +',
+    'buyerGuidance + commercialFactorFor(key,lastAsOf)',
+    'Планируя закупку, учитывайте сценарный диапазон',
+    'не определяет договорную цену',
     'commercialFactorFor(key,lastAsOf)',
     'output.dailyMonitor?.lastAsOf',
     'text(raw.calculationRule) === "AI92+40"'

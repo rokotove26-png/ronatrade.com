@@ -211,6 +211,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       text(row.news_id) && text(row.source_name) && text(row.source_published_at))
     .map((row: any) => ({
       newsId: text(row.news_id),
+      headline: text(row.headline).replace(/\s+/g," ").slice(0,140),
       product: text(row.product),
       relatedProducts: text(row.commercial_related_products),
       source: text(row.source_name),
@@ -239,16 +240,21 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       .sort((a: any,b: any) =>
         Number(b.direct)-Number(a.direct) ||
         Date.parse(b.published)-Date.parse(a.published))[0];
-    if (!candidate) return " Коммерческий директор: подтверждённое объяснение причин изменения именно этого индекса пока не опубликовано.";
+    // The CD-approved comment is verification evidence, never client prose:
+    // it may recommend internal RONA procurement or commercial decisions.
+    if (!candidate) return "";
     const date = candidate.published.slice(0,10);
     const observation = lastObservedAsOf.replace(
       /^(\d{2})\.(\d{2})\.(\d{4})$/, "$3-$2-$1");
-    const timing = date>observation
-      ? " Событие опубликовано ПОСЛЕ последнего наблюдения, поэтому не может подтверждать причину уже произошедшего изменения."
-      : " Влияние события на именно этот индекс Platts отдельно не доказано.";
-    return " Коммерческий директор — возможный рыночный фактор (" +
-      "новость от " + date + ", " + candidate.source + "): " +
-      candidate.commentary + "." + timing;
+    const timing = date > observation
+      ? " Новость опубликована после последнего наблюдения и не объясняет уже произошедшее изменение."
+      : " Влияние новости на движение выбранного индикатора не подтверждено.";
+    const headline = candidate.headline.replace(/[.!?]+$/u,"");
+    return headline
+      ? " Рыночная новость (" + candidate.source + ", " + date + "): «" +
+        headline + "»." + timing
+      : " По выбранному продукту опубликована рыночная новость (" +
+        candidate.source + ", " + date + ")." + timing;
   };
   // A published forecast permission is INDEPENDENT of a CURRENT physical-spot
   // quotation. This query mirrors the existing client audience/tenant authority
@@ -595,22 +601,30 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         const lastAsOf = text(output.dailyMonitor?.lastAsOf) ||
           text(output.dates[output.dates.length - 1]) + "." +
           text(source.latestTradeDate).slice(6);
-        // Client-only editorial presentation; source facts/model remain unchanged.
-        // Do not surface diagnostic source taxonomy or internal calculation metadata.
-        const trend = absoluteChange > 0 ? "повысилась" :
-          absoluteChange < 0 ? "снизилась" : "не изменилась";
-        const trendText = "За рассматриваемый период цена " + trend +
-          " на " + formatAmount(Math.abs(absoluteChange)) + " USD/т" +
-          (relativeChange === null ? "" :
-            " (" + formatAmount(Math.abs(relativeChange)) + "%)") + ".";
-        const forecastText = "Прогноз на " + target +
+        // Consumer-oriented presentation: market index != the client's
+        // contract price. Preserve verified inputs, forecast and news gates.
+        const productLabel = key === "AI92" ? "АИ-92" :
+          key === "AI95" ? "АИ-95" : key === "DT" ? "ДТ" : "СУГ";
+        const movement = absoluteChange > 0
+          ? "вырос на " + formatAmount(absoluteChange) + " USD/т"
+          : absoluteChange < 0
+            ? "снизился на " + formatAmount(Math.abs(absoluteChange)) + " USD/т"
+            : "не изменился";
+        const percent = relativeChange === null || absoluteChange === 0
+          ? "" : " (" + formatAmount(Math.abs(relativeChange)) + "%)";
+        const trendText = "Рыночный индикатор " + productLabel +
+          " за период наблюдений " + movement + percent + ".";
+        const forecastText = "Прогнозный ориентир на " + target +
           ": базовый сценарий " + formatAmount(Number(output.forecast.base)) +
           " USD/т, диапазон " + formatAmount(Number(output.forecast.low)) +
           "–" + formatAmount(Number(output.forecast.high)) + " USD/т.";
-        // Exact fuel-specific approved news factor remains sourced from the
-        // independently authorized client-visible publication gate above.
-        output.forecast.comment = trendText + " " + forecastText +
-          commercialFactorFor(key,lastAsOf);
+        const buyerGuidance = "Планируя закупку, учитывайте сценарный диапазон " +
+          "и цену, опубликованную для вашего договора. Рыночный прогноз " +
+          "не определяет договорную цену и не является коммерческим предложением.";
+        // The externally published headline is safe to display; never expose
+        // the CD internal analyst_commentary, news ID or operational advice.
+        output.forecast.comment = trendText + " " + forecastText + " " +
+          buyerGuidance + commercialFactorFor(key,lastAsOf);
       }
       sourceProducts[key] = output;
     }

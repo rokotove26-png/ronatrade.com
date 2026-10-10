@@ -16,7 +16,7 @@ const marker='20261009-lpg-source-gap-history-v13';
 const bridge='<script id="rona-client-market-intelligence-v1"';
 const report={
   hasBridge:html.includes(bridge),
-  markerRef:html.includes('client-market-intelligence-v1.js?v=20261010-client-analytics-clean-conclusion-single-owner-v19'),
+  markerRef:html.includes('client-market-intelligence-v1.js?v=20261010-client-analytics-buyer-facing-insight-v20'),
   rootStatic:/id=["']page-analytics["']/.test(html),
   analyticsNodeMatch:html.match(/.{0,180}id=["']page-analytics["'].{0,280}/)?.[0]||'not found',
   possibleIds:([...html.matchAll(/id=["']([^"']*analytic[^"']*)["']/gi)]).map(x=>x[1]).slice(0,30),
@@ -137,6 +137,16 @@ try{
   await nav('analytics');
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1',null,{timeout:6500});
   const initial=await snapshot();
+  const initialFooter=await page.evaluate(()=>{
+    const owner=document.querySelector('#rona-analytics-v2');
+    const node=owner?.querySelector('.an2-comment + .rona-owner-muted');
+    return {exists:!!node,text:node?.textContent||'',display:node?getComputedStyle(node).display:null,
+      commentDisplay:getComputedStyle(owner.querySelector('.an2-comment')).display};
+  });
+  if(!initialFooter.exists||!initialFooter.text.startsWith('Источник аналитического среза:')||
+     initialFooter.display!=='none'||initialFooter.commentDisplay==='none')
+    throw Error('CLIENT_BUYER_INSIGHT_INTERNAL_FOOTER_VISIBLE '+JSON.stringify(initialFooter));
+  console.log('CLIENT_BUYER_INSIGHT_FOOTER_HIDDEN_V20=PASS');
   const metricStructure=await page.evaluate(()=>
     [...document.querySelectorAll('#rona-analytics-v2 .rona-market-chart-metric')]
       .map(n=>[n.querySelector('span')?.textContent?.trim(),
@@ -240,9 +250,10 @@ try{
       dates:['07.10','08.10','09.10'],values:base,
       forecast:{month:'2026-11',low:base[0]-10,base:base[1],
         high:base[2],forward:base[1],sourceRef:'QA-VERIFIED-SOURCE',
-        comment:'Вывод по '+entry.label+': '+entry.delta+' USD/т; индикативно, не оферта. '+
-          'Коммерческий директор — возможный рыночный фактор (новость от 2026-10-09, QA-ONLY, QA-NEWS): '+
-          'Тестовый фактор предложения, не доказанная причина изменения индекса Platts.'}
+        comment:'Рыночный индикатор '+entry.label+': изменение '+entry.delta+
+          ' USD/т. Планируя закупку, учитывайте прогнозный диапазон и цену по вашему договору. '+
+          'Рыночная новость (QA-ONLY, 2026-10-09): «Проверенный тестовый фактор»; '+
+          'её влияние на изменение индикатора не подтверждено.'}
     };
   }
   // Exercise the actual source-gated client projection, not merely the
@@ -263,15 +274,18 @@ try{
       const r=document.querySelector('#rona-analytics-v2');
       return {metrics:['last','change','range'].map(k=>r.querySelector('[data-chart-metric="'+k+'"]')?.textContent?.replace(/\s/g,'')||''),
         title:r.querySelector('.an2-rona-head h2')?.textContent,
-        conclusion:r.querySelector('.an2-comment')?.textContent};
+        conclusion:r.querySelector('.an2-comment')?.textContent,
+        footerDisplay:getComputedStyle(r.querySelector('.an2-comment + .rona-owner-muted')).display};
     });
     if(!proof.metrics[0].includes(String(entry.last))||
       proof.metrics[1]!=='+'+entry.delta+',00'||
       proof.metrics[2]!==entry.low+'–'+entry.high||
       proof.title!=='Возможные цены RONA Trade'||
-      !proof.conclusion?.includes('Вывод по '+entry.label)||
-      !proof.conclusion?.includes('Коммерческий директор — возможный рыночный фактор')||
-      !proof.conclusion?.includes('не доказанная причина изменения индекса Platts'))
+      !proof.conclusion?.includes('Рыночный индикатор '+entry.label)||
+      !proof.conclusion?.includes('Планируя закупку')||
+      !proof.conclusion?.includes('цену по вашему договору')||
+      proof.conclusion?.includes('Коммерческий директор')||
+      proof.footerDisplay!=='none')
       throw Error('FOUR_PRODUCT_ORIGINAL_FUNCTIONALITY_V17 '+JSON.stringify({product:entry.key,proof}));
     console.log('NATIVE_ANALYTICS_V17_'+entry.key+'=PASS',JSON.stringify(proof));
   }

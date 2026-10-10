@@ -1,0 +1,67 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-10",
+  "owner_instruction": "Owner screenshot 2026-10-10 16:57:37: 'Аналитический вывод больше ориентирован на РОНА, а должен быть на клиента'. Rewrite client-facing Analytics insight without internal RONA guidance, keep source and forecast gates unchanged. Existing technical source footer must not be visible.",
+  "owner_instruction_ref": "OWNER_SCREENSHOT:20261010-165737; OWNER_IN_CHAT:20261010:ANALYTICAL_CONCLUSION_MUST_BE_CLIENT_ORIENTED",
+  "scope": "CLIENT_ANALYTICS_BUYER_FACING_INSIGHT_V20",
+  "decision": "SCOPED_TEXT_PRESENTATION_AND_FOOTER_VISIBILITY_ONLY",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_BUYER_FACING_INSIGHT_V20",
+  "supersedes_scope": "CLIENT_ANALYTICS_SINGLE_OWNER_CLEAN_CONCLUSION_V19",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "ee69cc8eb1c8fb40602fe4aa8f6604e518f2ff09",
+      "authorized_post_blob_sha": "417bf3773613a54b0aa4420f0978cf94d4d04a02",
+      "required_marker": "20261010-client-analytics-buyer-facing-insight-v20"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "1032f675a71a7a486de8cad267c36cc17f3d8bf3",
+      "authorized_post_blob_sha": "05393c10d44a4af615e1250080560c8b73cf5b92",
+      "required_marker": "20261010-client-analytics-buyer-facing-insight-v20"
+    }
+  },
+  "requirements": {
+    "four_fuels": [
+      "AI92",
+      "AI95",
+      "DT",
+      "LPG"
+    ],
+    "buyer_value_only": true,
+    "raw_commercial_director_internal_advice_never_published_in_insight": true,
+    "news_headline_only_from_existing_verified_client_authorized_publication": true,
+    "no_proven_causality_claim": true,
+    "contract_price_distinction": true,
+    "source_diagnostic_footer_hidden_only_in_client_an2": true,
+    "exact_canonical_dom_preserved": true,
+    "no_new_ui_elements": true,
+    "no_html_change": true,
+    "no_canonical_css_asset_change": true,
+    "pricing_and_models_unchanged": true,
+    "publication_gates_unchanged": true,
+    "market_news_original_feed_unchanged": true,
+    "tenant_scope_and_fail_closed_unchanged": true,
+    "no_business_data_mutation": true,
+    "visual_freeze_remains_enabled": true,
+    "exact_blob_enforcement": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "other_client_sections_unchanged": true,
+    "rollback_preserved": true
+  },
+  "rollback": {
+    "release_commit": "8e11b9bacf8af2853acf9d497ec2c7bc72205ac3",
+    "previous_edge_version": 104,
+    "previous_edge_pin": "8e11b9bacf8af2853acf9d497ec2c7bc72205ac3",
+    "previous_runtime_sha": "ee69cc8eb1c8fb40602fe4aa8f6604e518f2ff09",
+    "previous_injector_sha": "1032f675a71a7a486de8cad267c36cc17f3d8bf3",
+    "auth": "JWT_TRUE_UNCHANGED",
+    "business_data": "NO_MUTATION"
+  },
+  "release_guard": "REQUIRE_V15_V20_TESTS_NATIVE_CHROMIUM_SOURCE_SAFE_VISUAL_FREEZE_AND_LIVE_DEPLOY_SMOKE"
+}
