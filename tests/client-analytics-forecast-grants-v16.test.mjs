@@ -34,7 +34,7 @@ test('forecast is sourced, dated, bounded and never labelled as CURRENT spot',()
     'ageFromAnchor <= 4 && ageFromToday >= 0 && ageFromToday <= 6',
     'sourceAsOf: lastSourceDate',
     '"; оценка Platts от " + lastSourceDate',
-    '"не текущая котировка. Источник: "'
+    'не текущая котировка. Источник: "'
   ])assert.ok(edge.includes(token),token);
   // The baseline visual still rejects a missing/invalid forecast.
   assert.ok(client.includes('forecast:forecastOk?forecast:emptyForecast()'));
