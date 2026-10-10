@@ -306,7 +306,7 @@ function isHomeNavigation(target){const explicit=target?.closest?.('[data-page="
 function start(){
   installStyle();setHomeState('loading');const authority=contextAuthority();if(!authority){setHomeState('error');return}
   state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';if(key!==state.activeKey)clearForContext(ctx);schedule()});
-  document.addEventListener('click',event=>{if(isHomeNavigation(event.target))queueMicrotask(()=>refreshVisible('navigation'))},true);
+  document.addEventListener('click',event=>{if(isHomeNavigation(event.target))requestAnimationFrame(()=>refreshVisible('navigation'))},true);
   state.refreshTimer=window.setInterval(()=>refreshVisible('timer'),SOURCE_REFRESH_MS);
   window.addEventListener('pageshow',()=>refreshVisible('pageshow'),{passive:true});
   window.addEventListener('rona:client-home-invalidated',()=>refreshVisible('invalidation'),{passive:true});
