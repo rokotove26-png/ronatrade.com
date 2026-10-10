@@ -31,6 +31,7 @@ const CLIENT_ANALYTICS_SINGLE_OWNER_V19_APPROVAL_PATH='governance/client-analyti
 const CLIENT_ANALYTICS_BUYER_V20_APPROVAL_PATH='governance/client-analytics-buyer-facing-insight-v20-20261010.json';
 const CLIENT_HOME_LIVE_REFRESH_V1_APPROVAL_PATH='governance/client-home-live-source-refresh-v1-20261010.json';
 const CLIENT_HOME_PENDING_REFRESH_V2_APPROVAL_PATH='governance/client-home-inflight-refresh-v2-20261010.json';
+const CLIENT_HOME_SERVER_CLOSEOUT_V3_APPROVAL_PATH='governance/client-home-server-closeout-attention-v3-20261010.json';
 const CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH='governance/client-contract-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH='governance/client-background-manifest-event-driven-owner-approval-20260921.json';
 const CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH='governance/client-sidebar-command-nav-owner-approval-20260921.json';
@@ -68,6 +69,7 @@ const clientAnalyticsSingleOwnerV19Approval=JSON.parse(await readFile(CLIENT_ANA
 const clientAnalyticsBuyerV20Approval=JSON.parse(await readFile(CLIENT_ANALYTICS_BUYER_V20_APPROVAL_PATH,'utf8'));
 const clientHomeLiveRefreshV1Approval=JSON.parse(await readFile(CLIENT_HOME_LIVE_REFRESH_V1_APPROVAL_PATH,'utf8'));
 const clientHomePendingRefreshV2Approval=JSON.parse(await readFile(CLIENT_HOME_PENDING_REFRESH_V2_APPROVAL_PATH,'utf8'));
+const clientHomeServerCloseoutV3Approval=JSON.parse(await readFile(CLIENT_HOME_SERVER_CLOSEOUT_V3_APPROVAL_PATH,'utf8'));
 const clientContractEventDrivenApproval=JSON.parse(await readFile(CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientBackgroundManifestEventDrivenApproval=JSON.parse(await readFile(CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientSidebarCommandNavApproval=JSON.parse(await readFile(CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH,'utf8'));
@@ -1137,6 +1139,22 @@ const clientHomePendingRefreshV2Authorized=
   clientHomePendingRefreshV2Approval?.requirements?.real_chromium_race_test_required===true&&
   Boolean(clientHomePendingRefreshV2Approval?.exact_post_blobs?.[CLIENT_HOME_LIVE_REFRESH_V1_FILE]);
 
+const clientHomeServerCloseoutV3Authorized=
+  clientHomePendingRefreshV2Authorized&&
+  clientHomeServerCloseoutV3Approval?.approval==='OWNER_IN_CHAT'&&
+  clientHomeServerCloseoutV3Approval?.scope==='CLIENT_HOME_SERVER_RAIL_CLOSEOUT_ATTENTION_AND_PROVENANCE_V3'&&
+  clientHomeServerCloseoutV3Approval?.decision==='SCOPED_AUTHORIZED_SERVER_FLAG_RENDERING_AND_SOURCE_TIMESTAMP_ONLY'&&
+  clientHomeServerCloseoutV3Approval?.approval_marker==='OWNER_FUNCTIONAL_APPROVAL: CLIENT_HOME_SERVER_CLOSEOUT_ATTENTION_V3'&&
+  clientHomeServerCloseoutV3Approval?.supersedes_scope==='CLIENT_HOME_INFLIGHT_INVALIDATION_COALESCING_V2'&&
+  JSON.stringify(clientHomeServerCloseoutV3Approval?.approved_protected_files)===JSON.stringify([CLIENT_HOME_LIVE_REFRESH_V1_FILE])&&
+  clientHomeServerCloseoutV3Approval?.requirements?.server_alert_provenance_exact==='RAIL_COMPLETED_AND_100_PERCENT_PAID_OWNER_RULE_V2'&&
+  clientHomeServerCloseoutV3Approval?.requirements?.no_synthetic_rail_or_payment_claim===true&&
+  clientHomeServerCloseoutV3Approval?.requirements?.exact_blob_enforcement===true&&
+  clientHomeServerCloseoutV3Approval?.requirements?.exact_file_enforcement_remains_active===true&&
+  clientHomeServerCloseoutV3Approval?.requirements?.visual_freeze_remains_enabled===true&&
+  clientHomeServerCloseoutV3Approval?.requirements?.wildcard_exception===false&&
+  Boolean(clientHomeServerCloseoutV3Approval?.exact_post_blobs?.[CLIENT_HOME_LIVE_REFRESH_V1_FILE]);
+
 const CLIENT_CONTRACT_EVENT_DRIVEN_FILES=[
   'assets/portal-runtime/client-contract-download-v3.js'
 ];
@@ -1356,6 +1374,7 @@ let clientAnalyticsSingleOwnerV19AppliedFiles=0;
 let clientAnalyticsBuyerV20AppliedFiles=0;
 let clientHomeLiveRefreshV1AppliedFiles=0;
 let clientHomePendingRefreshV2AppliedFiles=0;
+let clientHomeServerCloseoutV3AppliedFiles=0;
 let clientContractEventDrivenAppliedFiles=0;
 let clientBackgroundManifestEventDrivenAppliedFiles=0;
 let clientDealsVisualHierarchyAppliedFiles=0;
@@ -1710,6 +1729,17 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       body.toString('utf8').includes('state.refreshPending=true')&&
       body.toString('utf8').includes("refreshVisible('pending')")
     );
+    const homeV3Entry=clientHomeServerCloseoutV3Authorized?clientHomeServerCloseoutV3Approval?.exact_post_blobs?.[path]:null;
+    const exactClientHomeServerCloseoutV3=Boolean(
+      path===CLIENT_HOME_LIVE_REFRESH_V1_FILE&&homeV3Entry&&
+      homeV3Entry.visual_freeze_baseline_blob_sha===expected&&
+      homeV3Entry.supersedes_authorized_post_blob_sha===clientHomePendingRefreshV2Approval.exact_post_blobs?.[path]?.authorized_post_blob_sha&&
+      homeV3Entry.authorized_post_blob_sha===actual&&
+      homeV3Entry.required_marker==='20261010-client-home-server-closeout-attention-v3'&&
+      body.toString('utf8').includes(homeV3Entry.required_marker)&&
+      body.toString('utf8').includes("upper(d?.client_deal_stage_source)==='RAIL_COMPLETED_AND_100_PERCENT_PAID_OWNER_RULE_V2'")&&
+      body.toString('utf8').includes('function latestSourceEventAt(detail)')
+    );
     const clientContractEventDrivenEntry=clientContractEventDrivenExceptionAuthorized?clientContractEventDrivenApproval?.exact_post_blobs?.[path]:null;
     const exactClientContractEventDriven=Boolean(
       clientContractEventDrivenEntry&&
@@ -1760,12 +1790,13 @@ for(const [path,expected] of Object.entries(protectedFiles)){
     if(exactClientAnalyticsNativeV17||((exactClientAnalyticsSingleOwnerV19||exactClientAnalyticsBuyerV20)&&path===CLIENT_ANALYTICS_NATIVE_V17_RUNTIME))clientAnalyticsNativeV17AppliedFiles+=1;
     if(exactClientAnalyticsSingleOwnerV19||exactClientAnalyticsBuyerV20)clientAnalyticsSingleOwnerV19AppliedFiles+=1;
     if(exactClientAnalyticsBuyerV20)clientAnalyticsBuyerV20AppliedFiles+=1;
-    if(exactClientHomeLiveRefreshV1||exactClientHomePendingRefreshV2)clientHomeLiveRefreshV1AppliedFiles+=1;
-    if(exactClientHomePendingRefreshV2)clientHomePendingRefreshV2AppliedFiles+=1;
+    if(exactClientHomeLiveRefreshV1||exactClientHomePendingRefreshV2||exactClientHomeServerCloseoutV3)clientHomeLiveRefreshV1AppliedFiles+=1;
+    if(exactClientHomePendingRefreshV2||exactClientHomeServerCloseoutV3)clientHomePendingRefreshV2AppliedFiles+=1;
+    if(exactClientHomeServerCloseoutV3)clientHomeServerCloseoutV3AppliedFiles+=1;
     if(exactClientContractEventDriven)clientContractEventDrivenAppliedFiles+=1;
     if(exactClientDealsVisualHierarchy)clientDealsVisualHierarchyAppliedFiles+=1;
     if(exactClientBackgroundManifestEventDriven)clientBackgroundManifestEventDrivenAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientAnalyticsCanonicalRestore&&!exactClientAnalyticsAuthorizedPrice&&!exactClientAnalyticsPublishedPrice&&!exactClientAnalyticsAdminParity&&!exactClientAnalyticsDtLpgV11&&!exactAnalyticsDailyV12&&!exactAnalyticsLpgV13&&!exactClientAnalyticsNativeV17&&!exactClientAnalyticsSingleOwnerV19&&!exactClientAnalyticsBuyerV20&&!exactClientHomeLiveRefreshV1&&!exactClientHomePendingRefreshV2&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientDealAttentionPaymentsExit&&!exactClientMarketEventDriven&&!exactClientAnalyticsCurrentSource&&!exactClientAnalyticsReentry&&!exactClientAnalyticsVisibility&&!exactClientAnalyticsActiveRouteRecovery&&!exactClientAnalyticsCanonicalRestore&&!exactClientAnalyticsAuthorizedPrice&&!exactClientAnalyticsPublishedPrice&&!exactClientAnalyticsAdminParity&&!exactClientAnalyticsDtLpgV11&&!exactAnalyticsDailyV12&&!exactAnalyticsLpgV13&&!exactClientAnalyticsNativeV17&&!exactClientAnalyticsSingleOwnerV19&&!exactClientAnalyticsBuyerV20&&!exactClientHomeLiveRefreshV1&&!exactClientHomePendingRefreshV2&&!exactClientHomeServerCloseoutV3&&!exactClientContractEventDriven&&!exactClientDealsVisualHierarchy&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
@@ -1798,6 +1829,9 @@ if(!clientAnalyticsSingleOwnerV19ExceptionAuthorized)errors.push('CLIENT_ANALYTI
 if(!clientAnalyticsBuyerV20ExceptionAuthorized)errors.push('CLIENT_ANALYTICS_BUYER_V20_GOVERNANCE_NOT_AUTHORIZED');
 if(!clientHomeLiveRefreshV1Authorized)errors.push('CLIENT_HOME_LIVE_REFRESH_V1_GOVERNANCE_NOT_AUTHORIZED');
 if(!clientHomePendingRefreshV2Authorized)errors.push('CLIENT_HOME_PENDING_REFRESH_V2_GOVERNANCE_NOT_AUTHORIZED');
+if(!clientHomeServerCloseoutV3Authorized)errors.push('CLIENT_HOME_SERVER_CLOSEOUT_V3_GOVERNANCE_NOT_AUTHORIZED');
+if(clientHomeServerCloseoutV3Authorized&&clientHomeServerCloseoutV3AppliedFiles!==1)
+  errors.push('CLIENT_HOME_SERVER_CLOSEOUT_V3_EXACT_BLOB_COUNT expected=1 actual='+clientHomeServerCloseoutV3AppliedFiles);
 if(clientHomePendingRefreshV2Authorized&&clientHomePendingRefreshV2AppliedFiles!==1)
   errors.push('CLIENT_HOME_PENDING_REFRESH_V2_EXACT_BLOB_COUNT expected=1 actual='+clientHomePendingRefreshV2AppliedFiles);
 if(clientHomeLiveRefreshV1Authorized&&clientHomeLiveRefreshV1AppliedFiles!==1)
