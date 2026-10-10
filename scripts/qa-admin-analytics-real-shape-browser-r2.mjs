@@ -73,6 +73,42 @@ try{
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='canonical-daily-live-v3',{timeout:15000});
   assert(requests>0,'real UI never fetched Analytics API');
+  for(const [key,name] of [['AI92','АИ-92'],['AI95','АИ-95'],['DT','ДТ'],['LPG','СУГ']]){
+    await page.locator('#rona-analytics-v2 [data-product="'+key+'"]').click();
+    await page.waitForFunction(k=>document.querySelector('#rona-analytics-v2 .an2-comment')?.dataset.insightProduct===k,key,{timeout:8000});
+    const section=await page.evaluate(()=>{
+      const root=document.querySelector('#rona-analytics-v2'),comment=root.querySelector('.an2-comment');
+      return {product:comment.dataset.insightProduct,version:comment.dataset.insightVersion,
+        sections:[...comment.querySelectorAll('.an2-insight-piece')].map(x=>x.textContent),
+        source:root.querySelector('[data-comment-source]')?.textContent||'',
+        owner:document.querySelectorAll('#page-analytics #rona-analytics-v2').length,
+        legacy:document.querySelectorAll('#page-analytics .rona-analytics-canonical-title').length};
+    });
+    assert(section.owner===1&&section.legacy===0,'more than one admin Analytics visual owner '+JSON.stringify(section));
+    assert(section.sections.length===3,'exactly three market explanation layers required '+JSON.stringify(section));
+    assert(section.version==='20261010-admin-analytics-source-locked-insight-v1','missing source-locked conclusion '+JSON.stringify(section));
+    assert(section.sections[0].includes('Подтверждённый факт'),'observed market fact missing '+name);
+    assert(section.sections[1].includes('Рыночный прогноз'),'model forecast label missing '+name);
+    assert(section.sections[1].includes('11.2026'),'November 2026 source scenario missing '+name);
+    assert(section.sections[2].includes('Цены RONA Trade'),'pricing interpretation absent '+name);
+    assert(!section.sections.join(' ').includes('https://'),'raw source URL leaked into conclusion '+name);
+    assert(!section.source.includes('RONA Market Intelligence')&&!section.source.includes('FACT / CALCULATION'),'internal technical metadata leaked '+name);
+    console.log('ADMIN_ANALYTICS_INSIGHT_'+key+'=PASS');
+  }
+  await page.locator('#rona-analytics-v2 [data-product="AI92"]').click();
+  await page.locator('#rona-analytics-v2 [data-source="ARGUS"]').click();
+  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 .an2-comment')?.textContent.includes('Подтверждённый ряд Argus'),{timeout:8000});
+  const unavailableArgus=await page.evaluate(()=>{
+    const root=document.querySelector('#rona-analytics-v2');
+    return {comment:root.querySelector('.an2-comment')?.textContent||'',
+      forecast:root.querySelector('.an2-market-forecast')?.textContent||'',
+      price:[...root.querySelectorAll('.an2-price-base')].map(n=>n.textContent)};
+  });
+  assert(unavailableArgus.comment.includes('по Argus не рассчитывается'),'Platts conclusion leaked into unavailable Argus selection');
+  assert(unavailableArgus.forecast.includes('Argus недоступен'),'Platts forecast leaked into unavailable Argus selection');
+  assert(unavailableArgus.price.every(v=>v==='—'),'Platts price values leaked into unavailable Argus selection');
+  console.log('ADMIN_ANALYTICS_ARGUS_SOURCE_ISOLATED=PASS');
+
   await page.locator('#rona-analytics-v2 [data-product="DT"]').click();
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset?.ronaChartKind==='OBSERVATION_DAILY'&&document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent?.includes('ДТ'),{timeout:8000});
   const dt=await page.evaluate(()=>{
@@ -128,11 +164,47 @@ try{
   assert(lpg.title.includes('Динамика СУГ'),'LPG main chart must use day of observation: '+lpg.title);
   assert(lpg.chartKind==='OBSERVATION_DAILY','LPG observed-day point not rendered');
   assert(lpg.gapCount==='3'&&lpg.points===4&&lpg.lines===1,'LPG dates/gap rendering mismatch '+JSON.stringify(lpg));
+  await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 .rona-market-chart-svg')?.dataset.ronaGapProjection==='20261010-admin-lpg-single-chart-owner-v1',{timeout:8000});
+  const validLpgChart=()=>page.evaluate(()=>{
+    const svg=document.querySelector('#rona-analytics-v2 .rona-market-chart-svg');
+    const points=[...svg.querySelectorAll('circle.rmc-point')],labels=[...svg.querySelectorAll('text.rmc-point-label')];
+    const visible=labels.filter(x=>x.style.display!=='none').map(x=>Number(x.getAttribute('x')));
+    const ticks=[...svg.querySelectorAll('text.rmc-axis[y="372"]')].filter(x=>x.style.display!=='none').map(x=>Number(x.getAttribute('x')));
+    return {cx:points.map(x=>Number(x.getAttribute('cx'))),
+      lines:svg.querySelectorAll('path.rmc-line').length,
+      projection:svg.dataset.ronaGapProjection,
+      noInterpolation:document.querySelector('#rona-analytics-v2')?.dataset.ronaGapInterpolation,
+      titleCount:points.filter(x=>!!x.querySelector('title')).length,visible,ticks};
+  });
+  let lp=await validLpgChart();
+  assert(lp.titleCount===4&&lp.lines===1&&lp.noInterpolation==='OFF','LPG single source gap projection missing '+JSON.stringify(lp));
+  assert(lp.cx[1]-lp.cx[0]<50&&lp.cx[3]-lp.cx[2]>200,'LPG observed dates not time-proportional '+JSON.stringify(lp));
+  assert(lp.visible.every((x,i)=>i===0||x-lp.visible[i-1]>=60),'LPG point labels overlap '+JSON.stringify(lp));
+  assert(lp.ticks.every((x,i)=>i===0||x-lp.ticks[i-1]>=60),'LPG date axis labels overlap '+JSON.stringify(lp));
+  await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.render());
+  await page.waitForFunction(()=>{const svg=document.querySelector('#rona-analytics-v2 .rona-market-chart-svg');
+    const p=[...svg.querySelectorAll('circle.rmc-point')];
+    return p.length===4&&svg.querySelectorAll('path.rmc-line').length===1&&Number(p[1]?.getAttribute('cx'))-Number(p[0]?.getAttribute('cx'))<50;
+  },{timeout:8000});
+  lp=await validLpgChart();
+  assert(lp.lines===1&&lp.titleCount===4,'same-day rerender recreated stale LPG layering '+JSON.stringify(lp));
+  console.log('ADMIN_LPG_TIME_AXIS_SINGLE_OWNER_REPAINT=PASS');
+
   mode='ERROR';
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='SOURCE_UNAVAILABLE',{timeout:8000});
   const failureText=await page.locator('#rona-analytics-v2 .an2-market-forecast').innerText();
   assert(failureText.includes('Прогноз недоступен'),'Outage must never fall back to stale September forecast');
+  const unavailableComment=await page.locator('#rona-analytics-v2 .an2-comment').innerText();
+  assert(unavailableComment.includes('Аналитический вывод недоступен'),'old market conclusion survived source outage');
+  mode='OK';
+  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='canonical-daily-live-v3'&&
+    document.querySelector('#rona-analytics-v2 .an2-comment')?.dataset.insightProduct==='LPG',{timeout:9000});
+  const restored=await page.locator('#rona-analytics-v2 .an2-comment').innerText();
+  assert(restored.includes('Рыночный прогноз')&&!restored.includes('Аналитический вывод недоступен'),'same-payload recovery reused stale hidden values: '+restored);
+  console.log('ADMIN_ANALYTICS_SOURCE_ERROR_AND_RECOVERY=PASS');
+
   assert(errors.length===0,'Uncaught browser errors: '+errors.join('; '));
   console.log(JSON.stringify({result:'PASS',browser:'chromium',real_ui_response:true,dt_month:'2026-11',dt_base:1370,dt_chart:'OBSERVATION_DAILY_DT',dt_owner_prices:'SOURCE_LOCKED',lpg_month:'2026-11',lpg_base:725,lpg_petromarket:'STALE_HIDDEN',lpg_chart:'OBSERVATION_DAILY_LPG',api_failure:'FAIL_CLOSED',pageerrors:errors.length,requests}));
 }finally{
