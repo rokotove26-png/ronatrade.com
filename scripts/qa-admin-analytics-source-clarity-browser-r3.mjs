@@ -116,7 +116,7 @@ try{
   assert(!dt.chart.includes('Нет актуального подтверждённого ряда'),'DT daily observed series must not be shown empty');
   assert(dt.heading.includes('2026-11'),'DT RONA scenario prices were not updated');
   assert(dt.prices.length>0&&dt.prices.every(x=>x!=='—'&&x.trim()),'DT owner-authoritative scenario prices suppressed despite source model');
-  const dtInsight=await page.locator('#rona-analytics-v2 .an2-comment').innerText();
+  const dtInsight=(await page.locator('#rona-analytics-v2 .an2-comment').innerText()).replace(/[\s\u00a0]+/g,' ');
   assert(dtInsight.includes('BASE 1 370,00')&&dtInsight.includes('физическому компоненту')&&dtInsight.includes('некорректно'), 'DT basis-safe insight missing '+dtInsight);
   const dtGeometry=await page.evaluate(()=>{
     const r=document.querySelector('#rona-analytics-v2');
