@@ -217,11 +217,98 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       if(value)value.textContent=valid?Number(regional.low).toLocaleString('ru-RU',{maximumFractionDigits:2})+'–'+Number(regional.high).toLocaleString('ru-RU',{maximumFractionDigits:2})+' USD/т':'Нет актуальных данных';
       if(note)note.textContent=valid?'Petromarket · DAP Сарыагаш · '+date:'Petromarket · DAP Сарыагаш · последняя дата '+(date||'не указана')+'; исторический ориентир скрыт';
     }
+
+    renderAdminInsight(payload,product,key,series,forecast);
   }
+
+  const ADMIN_INSIGHT_V1='20261010-admin-analytics-source-locked-insight-v1';
+  const insightNumber=x=>Number(x).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+  function renderAdminInsight(payload,product,key,series,forecast){
+    const root=document.querySelector('#rona-analytics-v2');
+    const panel=root?.querySelector('.an2-comment');
+    if(!panel)return;
+    let style=document.getElementById('ronaAdminSourceInsightV1Style');
+    if(!style){
+      style=document.createElement('style');style.id='ronaAdminSourceInsightV1Style';
+      style.textContent='#page-analytics #rona-analytics-v2 .an2-comment{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:9px 0 8px!important;font-size:13px;line-height:1.5}'+
+        '#page-analytics #rona-analytics-v2 .an2-insight-piece{display:flex;flex-direction:column;gap:7px;min-width:0;padding:12px 13px;border:1px solid rgba(105,182,216,.18);border-radius:11px;background:rgba(8,21,34,.5);overflow-wrap:anywhere}'+
+        '#page-analytics #rona-analytics-v2 .an2-insight-label{font-weight:800;font-size:11px;letter-spacing:.05em;color:#86d9ef;text-transform:uppercase}'+
+        '#page-analytics #rona-analytics-v2 .an2-insight-value{font-size:13px;color:#dbe9f2}'+
+        '#page-analytics #rona-analytics-v2 [data-comment-source]{font-size:11px;line-height:1.5;color:#9cafbb}'+
+        '@media(max-width:930px){#page-analytics #rona-analytics-v2 .an2-comment{grid-template-columns:1fr}}';
+      document.head.append(style);
+    }
+    const sourceSelected=String(window.RONA_ANALYTICS_VIEW?.getState?.()?.source||'PLATTS').toUpperCase();
+    const items=[];
+    const add=(label,body)=>items.push({label,body});
+    const formatDate=x=>{
+      const v=String(x||'');
+      return /^\d{4}-\d{2}-\d{2}$/.test(v)?v.slice(8,10)+'.'+v.slice(5,7)+'.'+v.slice(0,4):v;
+    };
+    const dates=Array.isArray(product?.dailyMonitor?.observedDates)&&
+      product.dailyMonitor.observedDates.length===product?.values?.length?
+      product.dailyMonitor.observedDates:product?.dates||[];
+    const values=series&&Array.isArray(product?.values)?product.values.map(Number):[];
+    let latestDate='';
+    if(sourceSelected==='ARGUS'&&key!=='LPG'){
+      add('Факт рынка','Подтверждённый ряд Argus по выбранному инструменту не опубликован. Динамика по Argus не рассчитывается.');
+      add('Прогноз','Для выбранного источника Argus подтверждённый прогноз отсутствует.');
+      add('Цены RONA Trade','Расчёт по неподтверждённому источнику не выполняется.');
+    }else{
+      if(values.length){
+        latestDate=formatDate(dates.at(-1));
+        let fact='Последнее подтверждённое наблюдение: '+insightNumber(values.at(-1))+' USD/т'+
+          (latestDate?' ('+latestDate+')':'')+'.';
+        if(values.length>1){
+          const movement=values.at(-1)-values[0];
+          const direction=movement>0?'рост':movement<0?'снижение':'без изменения';
+          fact+=' За '+values.length+' опубликованных наблюдений: '+direction+
+            ' на '+insightNumber(Math.abs(movement))+' USD/т'+
+            (values[0]>0?' ('+insightNumber(Math.abs(movement)/values[0]*100)+'%)':'')+'.';
+        }else fact+=' Для динамики необходимо минимум два наблюдения.';
+        if(product.dailyMonitor?.sourceGap===true||Number(product.dailyMonitor?.segmentCount)>1)
+          fact+=' Между датами есть пропуски; непрерывный тренд не подтверждён.';
+        add('Подтверждённый факт',fact);
+      }else add('Подтверждённый факт','Опубликованного проверенного ряда по выбранному продукту нет. Исторические значения не используются.');
+      const complete=forecast&&Number.isFinite(forecast.low)&&Number.isFinite(forecast.base)&&
+        Number.isFinite(forecast.high)&&forecast.low<=forecast.base&&forecast.base<=forecast.high;
+      if(complete){
+        const month=String(forecast.month).slice(5,7)+'.'+String(forecast.month).slice(0,4);
+        let msg='Прогноз на '+month+': базовый '+insightNumber(forecast.base)+
+          ', нижний '+insightNumber(forecast.low)+', верхний '+insightNumber(forecast.high)+' USD/т.';
+        if(values.length)msg+=' Отклонение базового сценария от последнего наблюдения: '+
+          (forecast.base-values.at(-1)>0?'+':'')+insightNumber(forecast.base-values.at(-1))+' USD/т.';
+        msg+=' Это расчётный сценарий, не установленная будущая цена.';
+        add('Рыночный прогноз',msg);
+      }else add('Рыночный прогноз','Полный прогноз с проверенной ссылкой на источник недоступен. Направление цены не предполагается.');
+      const mode=String(root.querySelector('.an2-rona')?.dataset?.pricingMode||'LEGACY_DELTA');
+      if(complete&&product?.rona){
+        add('Цены RONA Trade',mode==='BRIDGE'
+          ?'Индикативные цены рассчитаны по прогнозу и переданным параметрам тарифа и коммерческих затрат. Их актуальность проверяется отдельно; офертой они не являются.'
+          :'Показаны индикативные сценарии изменения рынка относительно базовой котировки. Актуальные тариф и коммерческие затраты отдельно не подтверждены; договорную цену этот расчёт не определяет.');
+      }else add('Цены RONA Trade','Для индикативного расчёта недостаточно подтверждённых исходных данных; договорная цена не определяется.');
+    }
+    panel.replaceChildren(...items.map(({label,body})=>{
+      const piece=document.createElement('span');piece.className='an2-insight-piece';
+      const head=document.createElement('span');head.className='an2-insight-label';head.textContent=label;
+      const content=document.createElement('span');content.className='an2-insight-value';content.textContent=body;
+      piece.append(head,content);return piece;
+    }));
+    panel.dataset.insightVersion=ADMIN_INSIGHT_V1;
+    panel.dataset.insightProduct=key;
+    const footer=root.querySelector('[data-comment-source]');
+    if(footer)footer.textContent=sourceSelected==='ARGUS'&&key!=='LPG'
+      ?'Источник Argus: подтверждённые котировки отсутствуют. Вывод по другому индексу не подставляется.'
+      :'Рыночный источник: Platts'+
+        (latestDate?' · последнее подтверждённое наблюдение '+latestDate:' · подтверждённый ряд отсутствует')+
+        (forecast?' · прогноз проверен по опубликованной ссылке':' · прогноз не подтверждён')+'.';
+  }
+
   function indicateUnavailable(reason){
     const root=document.querySelector('#rona-analytics-v2');
     document.documentElement.dataset.ronaAnalyticsData='SOURCE_UNAVAILABLE';
     document.documentElement.dataset.ronaAnalyticsError=String(reason||'DATA_NOT_AVAILABLE').slice(0,60);
+    lastApplied='';lastSource=null;
     if(!root)return;
     const stage=root.querySelector('[data-chart-stage]');
     if(stage)stage.innerHTML='<div class="an2-empty"><strong>Текущие данные недоступны</strong><span>Загрузка подтверждённых котировок и прогнозов не выполнена. Архивные значения скрыты.</span></div>';
@@ -230,6 +317,8 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     if(box)box.innerHTML='<div class="an2-mf-title">Прогноз недоступен</div><div class="an2-mf-sub">Нет действующего ответа аналитического сервера. Неподтверждённые значения скрыты.</div>';
     const model=root.querySelector('.an2-model-note');
     if(model)model.textContent='Проверьте соединение и полномочия. До восстановления источника прогнозная цена не рассчитывается.';
+    const note=root.querySelector('.an2-comment');if(note){note.textContent='Аналитический вывод недоступен: подтверждённые данные сейчас не получены. Прежний вывод скрыт.';delete note.dataset.insightProduct}
+    const foot=root.querySelector('[data-comment-source]');if(foot)foot.textContent='Достоверность рыночного источника не подтверждена.';
   }
   async function hydrate(){
     if(inFlight)return inFlight;
@@ -265,7 +354,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
   window.addEventListener('rona:admin-pagechange',hydrate);
   // Capture before controls() replaces the clicked button during its bubble-phase render.
   document.addEventListener('click',event=>{
-    if(event.target?.closest?.('#rona-analytics-v2 .an2-controls button[data-product]'))setTimeout(()=>decorate(lastSource),0);
+    if(event.target?.closest?.('#rona-analytics-v2 .an2-controls button[data-product],#rona-analytics-v2 .an2-controls button[data-source]'))setTimeout(()=>lastSource?decorate(lastSource):indicateUnavailable('NO_CURRENT_SOURCE'),0);
   },true);
   setInterval(hydrate,300000);
 })();
