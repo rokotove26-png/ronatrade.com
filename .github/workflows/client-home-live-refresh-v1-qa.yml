@@ -1,4 +1,4 @@
-name: Client Home live source refresh V2 QA
+name: Client Home source truth and rail closeout V3 QA
 
 on:
   pull_request:
@@ -9,6 +9,8 @@ on:
       - 'assets/portal-runtime/client-home-command-center-v2.js'
       - 'governance/client-home-live-source-refresh-v1-20261010.json'
       - 'governance/client-home-inflight-refresh-v2-20261010.json'
+      - 'governance/client-home-server-closeout-attention-v3-20261010.json'
+      - 'scripts/qa-client-home-server-closeout-v3.mjs'
       - 'scripts/qa-client-portal-visual-freeze.mjs'
       - 'scripts/qa-client-home-live-refresh-v1.mjs'
       - '.github/workflows/client-home-live-refresh-v1-qa.yml'
@@ -29,6 +31,7 @@ jobs:
         run: |
           node --check assets/portal-runtime/client-home-command-center-v2.js
           node --check scripts/qa-client-home-live-refresh-v1.mjs
+          node --check scripts/qa-client-home-server-closeout-v3.mjs
           node --check scripts/qa-client-portal-visual-freeze.mjs
           node scripts/qa-client-portal-visual-freeze.mjs
       - name: Build protected Client Portal
@@ -39,3 +42,5 @@ jobs:
           if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
       - name: Prove automatic source revalidation and client safety in Chromium
         run: node scripts/qa-client-home-live-refresh-v1.mjs
+      - name: Prove source-backed closeout alert and no stale cross-tenant warnings
+        run: node scripts/qa-client-home-server-closeout-v3.mjs
