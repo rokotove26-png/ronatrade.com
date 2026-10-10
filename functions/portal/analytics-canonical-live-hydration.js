@@ -161,8 +161,10 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       notes.push(productName(key)+': последняя подтверждённая котировка '+formatValue(latest)+
         ' USD/т'+(obsDate?' ('+obsDate+')':'')+'.');
       if(values.length>=2){
-        notes.push('Изменение за показанный период: '+signedChange(latest,first)+
-          '; к предыдущему наблюдению: '+signedChange(latest,values.at(-2))+'.');
+        const firstDate=String((key==='DT'||key==='LPG'?daily?.firstAsOf:null)||product.dates?.[0]||'');
+        notes.push('От '+formatValue(first)+' USD/т'+(firstDate?' ('+firstDate+')':'')+
+          ' до '+formatValue(latest)+' USD/т: изменение за показанный период '+signedChange(latest,first)+
+          '; к предыдущему наблюдению '+signedChange(latest,values.at(-2))+'.');
       }else notes.push('Есть только одно подтверждённое наблюдение; направление динамики определить нельзя.');
       if((key==='DT'||key==='LPG')&&(daily?.sourceGap===true||Number(daily?.segmentCount)>1)){
         notes.push('Между наблюдениями есть пропуски: непрерывное движение цены в эти даты не подтверждено.');
@@ -241,14 +243,18 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     }
     const ticks=[...svg.querySelectorAll('text.rmc-axis[y="372"]')];
     if(ticks.length){
-      const used=[];
       const indexed=ticks.map(t=>{
         const text=String(t.textContent||'').trim();
         const i=dates.findIndex(d=>d.slice(8,10)+'.'+d.slice(5,7)===text);
         if(i>=0)t.setAttribute('x',String(xs[i]));
         return {node:t,x:i>=0?xs[i]:Number(t.getAttribute('x'))};
       });
-      for(const {node,x} of [...indexed].reverse()){
+      // Keep the verified period bounds visible; compress only interior ticks.
+      const first=indexed[0],last=indexed.at(-1);
+      const used=[first.x,last.x].filter(Number.isFinite);
+      first.node.style.display='';
+      last.node.style.display='';
+      for(const {node,x} of indexed.slice(1,-1).reverse()){
         const visible=Number.isFinite(x)&&used.every(v=>Math.abs(v-x)>=78);
         node.style.display=visible?'':'none';
         if(visible)used.push(x);
