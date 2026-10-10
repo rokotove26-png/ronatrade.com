@@ -239,15 +239,24 @@ function sectionTrigger(label){
   return candidates.find(el=>norm(el.textContent).toLowerCase().replace(/ё/g,'е')===wanted)||candidates.find(el=>norm(el.textContent).toLowerCase().replace(/ё/g,'е').includes(wanted))||null;
 }
 function openDeal(dealId){
-  sectionTrigger('Сделки')?.click();let attempts=0;
-  const timer=setInterval(()=>{
-    attempts++;const root=document.querySelector('#page-deals,#dealsPage,[data-page-panel="deals"],[data-page-id="deals"]');
-    if(root){
-      const leaf=[...root.querySelectorAll('*')].find(el=>el.childElementCount===0&&norm(el.textContent).includes(dealId));
-      if(leaf){let row=leaf;for(let i=0;row&&row!==root&&i<10;i++,row=row.parentElement){if(!norm(row.textContent).includes(dealId))continue;const open=[...row.querySelectorAll('button,a,[role="button"]')].find(el=>/^Открыть(?:\s+сделку)?$/iu.test(norm(el.textContent)));if(open){clearInterval(timer);open.click();return}}}
+  const nav=sectionTrigger('Сделки');
+  if(!nav)return false;
+  nav.click();
+  let attempts=0;
+  const timer=window.setInterval(()=>{
+    attempts++;
+    const root=document.querySelector('#page-deals,#dealsPage,[data-page-panel="deals"],[data-page-id="deals"]');
+    // Use the canonical deal identity, never a substring of arbitrary text.
+    // The Deals module checks current client/contract authorization on click.
+    const open=[...(root?.querySelectorAll('[data-open-deal]')||[])]
+      .find(el=>norm(el.getAttribute('data-open-deal'))===dealId);
+    if(open){window.clearInterval(timer);open.click();return}
+    if(attempts>=40){
+      window.clearInterval(timer);
+      document.documentElement.dataset.ronaClientHomeDealNavigation='TARGET_NOT_AVAILABLE';
     }
-    if(attempts>=25)clearInterval(timer);
   },120);
+  return true;
 }
 function bindActions(owner){
   if(owner.dataset.ronaHomeActionsBound==='true')return;owner.dataset.ronaHomeActionsBound='true';
