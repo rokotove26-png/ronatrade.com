@@ -23,6 +23,7 @@ jobs:
         run: |
           node --check functions/portal/analytics-canonical-live-hydration.js
           node --test tests/analytics-hydration-source-safe-v1.test.mjs
+          node --test tests/admin-analytics-exclusive-chart-r4.test.mjs
           node --test tests/admin-analytics-source-clarity-r3.test.mjs
           node --test tests/analytics-dual-portal-functional-launch-v1.test.mjs
           node --check scripts/qa-admin-analytics-real-shape-browser-r2.mjs
@@ -48,4 +49,5 @@ jobs:
           grep -q 'source-safe-v4-observation-daily' /tmp/rona-analytics-live.js
           grep -q 'canonical-daily-live-v3' /tmp/rona-analytics-live.js
           grep -q 'SOURCE_UNAVAILABLE' /tmp/rona-analytics-live.js
+          grep -q '20261010-admin-r3-exclusive-chart-owner-r4' /tmp/rona-analytics-live.js
           echo 'RONA_ANALYTICS_PRODUCTION_SCRIPT_SOURCE_SAFE_V2=PASS'
