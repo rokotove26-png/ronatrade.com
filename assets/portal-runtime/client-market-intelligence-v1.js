@@ -9,6 +9,7 @@ const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restore
 const REENTRY_GUARD='20261009-client-analytics-reentry-guard-v4';
 const VISIBLE_OWNER_GUARD='20261009-client-analytics-visible-owner-v5';
 const CLIENT_SINGLE_OWNER_CLEAN_V19='20261010-client-analytics-clean-conclusion-single-owner-v19';
+const CLIENT_BUYER_INSIGHT_V20='20261010-client-analytics-buyer-facing-insight-v20';
 const ACTIVE_ROUTE_RECOVERY='20261009-client-analytics-active-route-recovery-v6';
 if(window.__RONA_CLIENT_MARKET_INTELLIGENCE__===MARK)return;
 window.__RONA_CLIENT_MARKET_INTELLIGENCE__=MARK;
@@ -65,6 +66,7 @@ function installStyle(){
     '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"]{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:28px 15px;text-align:center}',
     '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"] strong{font-weight:700}',
     '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"] span{font-size:12px;opacity:.72}',
+    '#page-analytics #rona-analytics-v2 .an2-comment + .rona-owner-muted{display:none!important}',
     '#page-analytics #rona-analytics-v2 .rona-market-chart-empty[data-rona-client-canonical-empty="v7"][hidden]{display:none!important}'
   ].join('\n');
   document.head.appendChild(s);
@@ -107,6 +109,7 @@ function ensureOwner(root){
   if(original.dataset.ronaClientAnalyticsVisualOwner!=='canonical-v7')original.dataset.ronaClientAnalyticsVisualOwner='canonical-v7';
   root.dataset.ronaClientAnalyticsMigrated='canonical-restored-v7';
   root.dataset.ronaClientCanonicalCleanupVersion=CLIENT_SINGLE_OWNER_CLEAN_V19;
+  root.dataset.ronaClientBuyerInsightVersion=CLIENT_BUYER_INSIGHT_V20;
   root.dataset.ronaClientAnalyticsSource='CLIENT_AUTHORIZED_PUBLISHED_CURRENT_ONLY';
   return original;
 }
