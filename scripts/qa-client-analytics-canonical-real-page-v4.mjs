@@ -255,6 +255,10 @@ try{
   for(const entry of scenarios){
     await page.evaluate(k=>document.querySelector('#rona-analytics-v2 [data-an2-product="'+k+'"]')?.click(),entry.key);
     await page.waitForFunction(k=>document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct===k,entry.key,{timeout:5500});
+    // The native setPayload() initially writes "на YYYY-MM"; the approved
+    // client presentation owner restores the exact canonical heading on its
+    // queued frame. Assert the *settled* user-visible state.
+    await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2 .an2-rona-head h2')?.textContent==='Возможные цены RONA Trade',null,{timeout:4500});
     const proof=await page.evaluate(()=>{
       const r=document.querySelector('#rona-analytics-v2');
       return {metrics:['last','change','range'].map(k=>r.querySelector('[data-chart-metric="'+k+'"]')?.textContent?.replace(/\s/g,'')||''),
