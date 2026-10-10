@@ -247,9 +247,8 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       ? " Событие опубликовано ПОСЛЕ последнего наблюдения, поэтому не может подтверждать причину уже произошедшего изменения."
       : " Влияние события на именно этот индекс Platts отдельно не доказано.";
     return " Коммерческий директор — возможный рыночный фактор (" +
-      (candidate.direct ? "прямой продукт" : "смежный продукт") +
-      ", новость от " + date + ", " + candidate.source + ", " +
-      candidate.newsId + "): " + candidate.commentary + "." + timing;
+      "новость от " + date + ", " + candidate.source + "): " +
+      candidate.commentary + "." + timing;
   };
   // A published forecast permission is INDEPENDENT of a CURRENT physical-spot
   // quotation. This query mirrors the existing client audience/tenant authority
@@ -596,33 +595,21 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         const lastAsOf = text(output.dailyMonitor?.lastAsOf) ||
           text(output.dates[output.dates.length - 1]) + "." +
           text(source.latestTradeDate).slice(6);
-        const measurement = key === "AI95"
-          ? "Расчётный ряд АИ-95 (АИ-92 + 40 USD/т)"
-          : key === "AI92" ? "Подтверждённый физический ряд АИ-92 FOB Med"
-          : key === "DT" ? "Подтверждённый физический компонент ДТ CIF NWE (не композит БНК)"
-          : "Подтверждённый финансовый ряд Platts propane CIF NWE, поставка " +
-            text(output.dailyMonitor?.deliveryMonth || "10.2026");
-        const gaps = output.dailyMonitor?.sourceGap === true
-          ? " Есть пропуски между датами источника: значения в разрывах не рассчитывались."
-          : "";
-        const benchmark = key === "DT"
-          ? " Финансовый прогноз и физический компонент ДТ используют разные базисы."
-          : key === "LPG"
-            ? " Прогноз относится к следующему месяцу поставки, а не к текущему споту СУГ."
-            : key === "AI95"
-              ? " АИ-95 не является отдельной подтверждённой оценкой Platts."
-              : "";
-        output.forecast.comment = measurement + ": " +
-          output.values.length + " наблюд. за " + firstAsOf + "–" + lastAsOf +
-          ". Последняя точка " + formatAmount(last) + " USD/т; изменение от первой " +
-          formatSigned(absoluteChange) + " USD/т" +
-          (relativeChange === null ? "" : " (" + formatSigned(relativeChange) + "%)") +
-          "." + gaps + " Индикативный сценарий " + target + ": LOW " +
-          formatAmount(Number(output.forecast.low)) + ", BASE " +
-          formatAmount(Number(output.forecast.base)) + ", HIGH " +
-          formatAmount(Number(output.forecast.high)) +
-          " USD/т. Оценка Platts от " + fmtDate(lastSourceDate) +
-          "." + benchmark + " Данные не являются коммерческой офертой." +
+        // Client-only editorial presentation; source facts/model remain unchanged.
+        // Do not surface diagnostic source taxonomy or internal calculation metadata.
+        const trend = absoluteChange > 0 ? "повысилась" :
+          absoluteChange < 0 ? "снизилась" : "не изменилась";
+        const trendText = "За рассматриваемый период цена " + trend +
+          " на " + formatAmount(Math.abs(absoluteChange)) + " USD/т" +
+          (relativeChange === null ? "" :
+            " (" + formatAmount(Math.abs(relativeChange)) + "%)") + ".";
+        const forecastText = "Прогноз на " + target +
+          ": базовый сценарий " + formatAmount(Number(output.forecast.base)) +
+          " USD/т, диапазон " + formatAmount(Number(output.forecast.low)) +
+          "–" + formatAmount(Number(output.forecast.high)) + " USD/т.";
+        // Exact fuel-specific approved news factor remains sourced from the
+        // independently authorized client-visible publication gate above.
+        output.forecast.comment = trendText + " " + forecastText +
           commercialFactorFor(key,lastAsOf);
       }
       sourceProducts[key] = output;
