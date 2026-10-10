@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 
 const hydration=readFileSync('functions/portal/analytics-canonical-live-hydration.js','utf8');
 const chart=readFileSync('functions/portal/lpg-observation-gap-runtime-v13.js','utf8');
@@ -70,4 +71,19 @@ test('pricing bridge is unchanged arithmetically and model limitations are discl
     'Актуальность и утверждение вводных проверяются отдельно'
   ])assert.ok(wrapper.includes(token),token);
   assert.ok(!wrapper.includes('актуальный ЖД тариф + коммерческие компоненты RONA Trade'));
+});
+
+test('owner-scoped Admin Analytics fix exact-blobs and rollback are locked',()=>{
+  const gov=JSON.parse(readFileSync('governance/admin-analytics-insight-chart-v1-20261010.json','utf8'));
+  const hash=body=>createHash('sha1').update('blob '+Buffer.byteLength(body)+'\\0'+body).digest('hex');
+  assert.equal(gov.approval,'OWNER_IN_CHAT');
+  assert.equal(gov.scope,'ADMIN_ANALYTICS_SOURCE_SAFE_CONCLUSION_AND_EXCLUSIVE_LPG_CHART_V1');
+  assert.equal(gov.source_baseline.release_commit,'a36f510901a475431f0c39e72daacaecabf7a50e');
+  assert.equal(gov.requirements.no_database_or_edge_or_rpc_changes,true);
+  assert.equal(gov.requirements.pricing_math_unchanged,true);
+  assert.equal(gov.requirements.canonical_base_compressed_runtime_unchanged,true);
+  for(const path of gov.approved_source_files){
+    const body=readFileSync(path,'utf8');
+    assert.equal(hash(body),gov.exact_post_blobs[path],'unapproved source drift '+path);
+  }
 });
