@@ -341,8 +341,8 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         and sd.source_family='PLATTS'
         and sd.data_status='CONFIRMED' and sd.processing_state='INGESTED'
         and f.as_of_date between
-          date_trunc('month',to_date(${text(source.latestTradeDate)},'DD.MM.YYYY'))::date
-          and to_date(${text(source.latestTradeDate)},'DD.MM.YYYY')
+          (now() at time zone 'Europe/Moscow')::date - 29
+          and least(to_date(${text(source.latestTradeDate)},'DD.MM.YYYY'),(now() at time zone 'Europe/Moscow')::date)
       order by f.as_of_date, f.created_at desc
     `;
     const anchorIso = text(source.latestTradeDate).replace(
@@ -434,6 +434,39 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       value !== null && value !== undefined && value !== "" &&
       Number.isFinite(Number(value));
 
+    // A market observation is eligible only inside the last 30 Moscow dates.
+    // Full YYYY-MM-DD source dates are verified; short display labels never
+    // invent a year or a missing daily value.
+    const moscowParts = Object.fromEntries(
+      new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit"
+      }).formatToParts(new Date()).map(p => [p.type,p.value])
+    );
+    const marketTodayMs = Date.UTC(
+      Number(moscowParts.year),Number(moscowParts.month)-1,Number(moscowParts.day)
+    );
+    const marketFloorMs = marketTodayMs - 29*86400000;
+    const inLast30 = (iso: string): boolean => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+      const ms=Date.parse(iso+"T00:00:00Z");
+      return Number.isFinite(ms) && new Date(ms).toISOString().slice(0,10)===iso &&
+        ms >= marketFloorMs && ms <= marketTodayMs;
+    };
+    const shortDayInLast30 = (label: string): boolean => {
+      if(!/^\d{2}\.\d{2}$/.test(label))return false;
+      const d=Number(label.slice(0,2)),m=Number(label.slice(3));
+      const y=Number(text(source.latestTradeDate).slice(6));
+      const anchor=Date.parse(anchorIso+"T00:00:00Z");
+      for(const year of [y,y-1]){
+        const ms=Date.UTC(year,m-1,d),date=new Date(ms);
+        if(date.getUTCFullYear()===year&&date.getUTCMonth()===m-1&&
+           date.getUTCDate()===d&&ms<=anchor&&ms>=marketFloorMs&&ms<=marketTodayMs)
+          return true;
+      }
+      return false;
+    };
+
+
     for (const key of ["AI92", "AI95", "DT", "LPG"]) {
       const productName = sourceNames[key];
       const raw = source.products[key];
@@ -450,7 +483,8 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       const values: unknown[] = Array.isArray(raw.values) ? raw.values : [];
       const safeSeries = (publicNames.has(productName) || verifiedDatedGasoline) &&
         dates.length > 0 && dates.length === values.length &&
-        dates.every((date: unknown) => /^\d{2}\.\d{2}$/.test(text(date))) &&
+        (key === "AI92" || key === "AI95") &&
+        dates.every((date: unknown) => shortDayInLast30(text(date))) &&
         values.every((value: unknown) => finite(value));
       const output: Record<string, any> = {
         name: productName,
@@ -495,7 +529,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           month: target,
           low: Number(model.low_usd_t), base: Number(model.base_usd_t),
           high: Number(model.high_usd_t), forward: Number(model.forward_implied_usd_t),
-          reference: safeSeries ? Number(values[values.length - 1]) : null,
+          reference: (key === "AI92" || key === "AI95") && safeSeries ? Number(values[values.length - 1]) : null,
           sourceRef: text(model.source_ref), sourceAsOf: lastSourceDate,
           direction: text(model.direction), confidence: text(model.confidence),
           curveType: text(model.curve_type),
@@ -527,6 +561,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           /^\d{4}-\d{2}-\d{2}$/.test(text(observedDates[i])) &&
           text(v) === text(observedDates[i]).slice(8,10) + "." +
                       text(observedDates[i]).slice(5,7)) &&
+        observedDates.every((v: unknown) => inLast30(text(v))) &&
         observedDates.every((v: unknown, i: number) =>
           i === 0 || text(v) > text(observedDates[i-1])) &&
         dailyValues.every((v: unknown) => finite(v)) &&
@@ -539,6 +574,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       if (dailyApproved) {
         output.dates = dailyDates.map((v: unknown) => text(v));
         output.values = dailyValues.map((v: unknown) => Number(v));
+        if (output.forecast) output.forecast.reference = output.values.at(-1) ?? null;
         output.basis = text(daily.basis);
         output.dailyMonitor = {
           version: daily.version, granularity: daily.granularity,
@@ -596,11 +632,15 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           /^\d{4}-\d{2}-\d{2}$/.test(value)
             ? value.slice(8,10) + "." + value.slice(5,7) + "." + value.slice(0,4)
             : value;
+        const gasolineObservedIso = (index: number): string =>
+          text(verifiedGasolineRows[index]?.as_of_date);
         const firstAsOf = text(output.dailyMonitor?.firstAsOf) ||
-          text(output.dates[0]) + "." + text(source.latestTradeDate).slice(6);
+          (verifiedDatedGasoline ? fmtDate(gasolineObservedIso(0)) :
+           text(output.dates[0]) + "." + text(source.latestTradeDate).slice(6));
         const lastAsOf = text(output.dailyMonitor?.lastAsOf) ||
-          text(output.dates[output.dates.length - 1]) + "." +
-          text(source.latestTradeDate).slice(6);
+          (verifiedDatedGasoline ? fmtDate(gasolineObservedIso(output.values.length-1)) :
+           text(output.dates[output.dates.length - 1]) + "." +
+             text(source.latestTradeDate).slice(6));
         // Consumer-oriented presentation: market index != the client's
         // contract price. Preserve verified inputs, forecast and news gates.
         const productLabel = key === "AI92" ? "АИ-92" :
