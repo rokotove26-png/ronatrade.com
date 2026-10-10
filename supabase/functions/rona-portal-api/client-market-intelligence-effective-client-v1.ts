@@ -434,6 +434,46 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       value !== null && value !== undefined && value !== "" &&
       Number.isFinite(Number(value));
 
+    // Presentation-only: remove unavailable and older observation dates before all client trend calculations.
+    const rollingToday = (() => { const n = new Date(); return Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate()); })();
+    const rollingFloor = rollingToday - 29 * 86400000;
+    const chartObservationMs = (shortDate: unknown, anchor: string): number => {
+      const label = text(shortDate);
+      if (!/^\d{2}\.\d{2}$/.test(label) || !/^\d{2}\.\d{2}\.\d{4}$/.test(anchor)) return NaN;
+      const [d,m] = label.split(".").map(Number), year = Number(anchor.slice(6));
+      const anchorMs = Date.UTC(year,Number(anchor.slice(3,5))-1,Number(anchor.slice(0,2)));
+      for (const y of [year,year-1]) {
+        const ms=Date.UTC(y,m-1,d),date=new Date(ms);
+        if(date.getUTCFullYear()===y && date.getUTCMonth()===m-1 && date.getUTCDate()===d && ms<=anchorMs)return ms;
+      }
+      return NaN;
+    };
+    const enforceRolling30 = (output: Record<string, any>, anchor: string): void => {
+      const dates = Array.isArray(output.dates)?output.dates:[], values=Array.isArray(output.values)?output.values:[];
+      if(dates.length!==values.length){output.dates=[];output.values=[];delete output.dailyMonitor;return;}
+      const monitor=output.dailyMonitor;
+      const indices: number[] = [];
+      for(let i=0;i<dates.length;i++){
+        const full=monitor?.observedDates?.length===dates.length?text(monitor.observedDates[i]):"";
+        const ms=/^\d{4}-\d{2}-\d{2}$/.test(full)?Date.parse(full+"T00:00:00Z"):chartObservationMs(dates[i],anchor);
+        if(Number.isFinite(ms)&&ms>=rollingFloor&&ms<=rollingToday&&
+            values[i]!==null&&values[i]!==""&&Number.isFinite(Number(values[i])))indices.push(i);
+      }
+      output.dates=indices.map(i=>dates[i]);
+      output.values=indices.map(i=>Number(values[i]));
+      if(monitor){
+        const observed=indices.map(i=>monitor.observedDates[i]);
+        const ids=indices.map(i=>monitor.segmentIds?.[i]??0);
+        const gaps=observed.map((d: string,i: number)=>i?Math.round((Date.parse(d+"T00:00:00Z")-Date.parse(observed[i-1]+"T00:00:00Z"))/86400000):0);
+        output.dailyMonitor={...monitor,dates:output.dates,values:output.values,observedDates:observed,
+          segmentIds:ids,gapBeforeDays:gaps,observationCount:observed.length,
+          firstAsOf:observed.length?observed[0].slice(8)+"."+observed[0].slice(5,7)+"."+observed[0].slice(0,4):null,
+          lastAsOf:observed.length?observed.at(-1).slice(8)+"."+observed.at(-1).slice(5,7)+"."+observed.at(-1).slice(0,4):null,
+          sourceGap:gaps.some((n: number)=>n>1),segmentCount:new Set(ids).size,
+          status:observed.length===0?"SOURCE_ABSENT":observed.length===1?"SINGLE_CONFIRMED_OBSERVATION":monitor.status};
+      }
+      if(output.forecast)output.forecast.reference=output.values.length?output.values.at(-1):null;
+    };
     for (const key of ["AI92", "AI95", "DT", "LPG"]) {
       const productName = sourceNames[key];
       const raw = source.products[key];
@@ -557,6 +597,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
           historyIncludesAllGapSegments: daily.historyIncludesAllGapSegments === true
         };
       }
+      enforceRolling30(output,text(source.latestTradeDate));
       const term = termByKey[key];
       if ((key === "DT" || key === "LPG") && output.forecast && term &&
           term.kind === "FORWARD_TERM_STRUCTURE" &&

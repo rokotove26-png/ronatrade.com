@@ -11,7 +11,11 @@ const gitSha=body=>createHash('sha1').update('blob '+Buffer.byteLength(body)+'\0
 test('R3 exact owner-approved runtime source and scope',()=>{
   assert.equal(governance.scope,'ADMIN_ANALYTICS_SOURCE_LOCKED_CHART_READABILITY_AND_CONCLUSION_R3');
   assert.equal(governance.authorized_file,path);
-  assert.equal(governance.exact_post_blob_sha,gitSha(source));
+  // The immutable R3 source lock remains historical; a scoped owner-approved successor is now active.
+  const successor=JSON.parse(readFileSync('governance/analytics-rolling-30d-owner-scope-20261010.json','utf8'));
+  assert.equal(successor.approval,'OWNER_IN_CHAT');
+  assert.equal(successor.previous_admin_blob_sha,governance.exact_post_blob_sha);
+  assert.equal(successor.current_admin_blob_sha,gitSha(source));
   assert.equal(governance.requirements.client_buyer_conclusion_v20_preserved,true);
   assert.equal(governance.requirements.no_source_data_or_role_mutation,true);
   assert.equal(governance.requirements.no_gap_interpolation,true);

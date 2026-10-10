@@ -18,13 +18,18 @@ test('admin Analytics accepts partial canonical live series without visual fallb
     authority_state:'VERIFIED',
     items:[{product:'АИ-92'}]
   };
+  const observedAt=new Date();
+  const dd=String(observedAt.getUTCDate()).padStart(2,'0');
+  const mm=String(observedAt.getUTCMonth()+1).padStart(2,'0');
+  const yyyy=observedAt.getUTCFullYear();
+  const fixtureDate=dd+'.'+mm+'.'+yyyy,fixtureLabel=dd+'.'+mm;
   const canonical={
     version:'RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1',
-    cutoff:'06.10.2026',
-    latestTradeDate:'06.10.2026',
+    cutoff:fixtureDate,
+    latestTradeDate:fixtureDate,
     products:{
-      AI92:{dates:['06.10'],values:[1232.25]},
-      AI95:{dates:['06.10'],values:[1272.25]},
+      AI92:{dates:[fixtureLabel],values:[1232.25]},
+      AI95:{dates:[fixtureLabel],values:[1272.25]},
       DT:{dates:null,values:null},
       LPG:{dates:null,values:null}
     }

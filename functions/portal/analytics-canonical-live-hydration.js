@@ -399,11 +399,11 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
         const view=window.RONA_ANALYTICS_VIEW;
         if(!view||typeof view.setPayload!=='function'){indicateUnavailable('VISUAL_RUNTIME_NOT_READY');return false;}
         const livePayload=availablePayload(payload);
-        if(!livePayload){decorate(payload);indicateUnavailable('NO_SOURCE_BACKED_ITEMS');return false;}
+        if(!livePayload){indicateUnavailable('NO_SOURCE_BACKED_ITEMS');return false;}
         const applied=view.setPayload(livePayload);
         if(applied===false){indicateUnavailable('RENDER_REJECTED');return false;}
-        lastApplied=sig;lastSource=payload;
-        decorate(payload);
+        lastApplied=sig;lastSource=livePayload;
+        decorate(livePayload);
         document.documentElement.dataset.ronaAnalyticsData='canonical-daily-live-v3';
         document.documentElement.dataset.ronaAnalyticsAsOf=String(payload.latestTradeDate||payload.cutoff||'');
         try{window.dispatchEvent(new CustomEvent('rona:analytics-live-applied',{detail:{version:payload.version,cutoff:payload.cutoff,latestTradeDate:payload.latestTradeDate,availableProducts:Object.keys(livePayload.products)}}))}catch(_){ }
