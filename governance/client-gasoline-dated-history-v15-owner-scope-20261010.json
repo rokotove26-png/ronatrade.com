@@ -1,0 +1,45 @@
+{
+  "owner_direction": "Restore the missing AI-92 and AI-95 charts. DT and LPG currently display and must not be regressed.",
+  "direction_date": "2026-10-10",
+  "scope": "CLIENT_ANALYTICS_GASOLINE_VERIFIED_DATED_HISTORY_V15",
+  "change_kind": "BACKEND_CLIENT_PROJECTION_ONLY",
+  "publication_authority": "EXISTING_OWNER_APPROVAL_LPG_V13_SCOPE_ALL_PRODUCTS_AND_LIVE_PUBLISHED_CLIENT_AUDIENCE",
+  "source_scope": {
+    "product": "АИ-92",
+    "source_family": "PLATTS",
+    "physical_index": "Gasoline Prem Unleaded 10 ppm FOB Med Italy",
+    "verified_dates": [
+      "2026-10-01",
+      "2026-10-05",
+      "2026-10-06",
+      "2026-10-07",
+      "2026-10-08"
+    ],
+    "ai95_calculation": "Derived planning layer from independently source-backed AI-92 observations: +40 USD/t. Not separate Platts AI-95 assessment."
+  },
+  "permitted_output": "Authorized client audience may receive only date-labelled verified gasoline history, not CURRENT physical-spot claims or stale price/forecast and not raw Platts PDFs.",
+  "preserved_guards": [
+    "active and verified publication, distribution_allowed and client/tenant audience",
+    "authorization of current effective client from auth or impersonation",
+    "source document family PLATTS and state INGESTED/CONFIRMED",
+    "match exact dated observations with source facts and authorized analytics_as_of",
+    "no physical spot CURRENT reclassification",
+    "no business fact write",
+    "DT/LPG current projection and client prices untouched",
+    "original visual and geometry exact",
+    "model forecast permitted only under existing CURRENT gate"
+  ],
+  "rollback": {
+    "repository": "rokotove26-png/ronatrade.com",
+    "release_before_pr": "c7b51795bd10ad56ef52f6f9df434d1e43473754",
+    "production_edge_previous_version": 99,
+    "edge_pin_previous": "910eb89c4c6cf04b814b25c8ec689a4053a12d0b",
+    "method": "Redeploy original pinned Edge v99 wrapper and revert only V15 backend projection; preserve market facts."
+  },
+  "verification": [
+    "Node source gates and all four product browser tests",
+    "V13 original approved blobs unchanged",
+    "production source proof and exact service-activation hash",
+    "Owner authenticated Client Analytics visual UAT"
+  ]
+}
