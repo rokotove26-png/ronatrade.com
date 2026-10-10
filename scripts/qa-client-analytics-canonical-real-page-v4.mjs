@@ -137,6 +137,14 @@ try{
   await nav('analytics');
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.ronaClientSourceSafe==='1',null,{timeout:6500});
   const initial=await snapshot();
+  const metricStructure=await page.evaluate(()=>
+    [...document.querySelectorAll('#rona-analytics-v2 .rona-market-chart-metric')]
+      .map(n=>[n.querySelector('span')?.textContent?.trim(),
+        n.querySelector('strong[data-chart-metric]')?.dataset.chartMetric]));
+  if(JSON.stringify(metricStructure)!==JSON.stringify([
+    ['Последнее','last'],['Изменение','change'],['Диапазон','range']
+  ]))throw Error('NATIVE_CHART_METRICS_DESTROYED_ON_EMPTY '+JSON.stringify(metricStructure));
+  console.log('CLIENT_ORIGINAL_METRICS_SURVIVE_EMPTY=PASS');
   console.log('CLIENT_CANONICAL_VISUAL_RESTORED_V7_INITIAL',JSON.stringify(initial));
   if(initial.runtime!==marker||!initial.nativeView||initial.visualOwner!=='canonical-v7'||initial.substituteCount!==0||
      initial.ownerHidden||initial.owner?.display==='none'||initial.owner?.height<450||
