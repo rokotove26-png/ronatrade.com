@@ -1,0 +1,40 @@
+name: Client Home live source refresh V1 QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'assets/portal-runtime/client-home-command-center-v2.js'
+      - 'governance/client-home-live-source-refresh-v1-20261010.json'
+      - 'scripts/qa-client-portal-visual-freeze.mjs'
+      - 'scripts/qa-client-home-live-refresh-v1.mjs'
+      - '.github/workflows/client-home-live-refresh-v1-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  home-current-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax and scoped source contract
+        run: |
+          node --check assets/portal-runtime/client-home-command-center-v2.js
+          node --check scripts/qa-client-home-live-refresh-v1.mjs
+          node --check scripts/qa-client-portal-visual-freeze.mjs
+          node scripts/qa-client-portal-visual-freeze.mjs
+      - name: Build protected Client Portal
+        run: npm run build
+      - name: Install actual Chrome runner
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+      - name: Prove automatic source revalidation and client safety in Chromium
+        run: node scripts/qa-client-home-live-refresh-v1.mjs
