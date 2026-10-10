@@ -1144,7 +1144,7 @@ const clientHomeServerCloseoutV3Authorized=
   clientHomeServerCloseoutV3Approval?.approval==='OWNER_IN_CHAT'&&
   clientHomeServerCloseoutV3Approval?.scope==='CLIENT_HOME_SERVER_RAIL_CLOSEOUT_ATTENTION_AND_PROVENANCE_V3'&&
   clientHomeServerCloseoutV3Approval?.decision==='SCOPED_AUTHORIZED_SERVER_FLAG_RENDERING_AND_SOURCE_TIMESTAMP_ONLY'&&
-  clientHomeServerCloseoutV3Approval?.approval_marker==='OWNER_FUNCTIONAL_APPROVAL: CLIENT_HOME_SERVER_CLOSEOUT_ATTENTION_V3'&&
+  clientHomeServerCloseoutV3Approval?.approval_marker==='OWNER_VISUAL_APPROVAL: CLIENT_HOME_SERVER_CLOSEOUT_ATTENTION_V3'&&
   clientHomeServerCloseoutV3Approval?.supersedes_scope==='CLIENT_HOME_INFLIGHT_INVALIDATION_COALESCING_V2'&&
   JSON.stringify(clientHomeServerCloseoutV3Approval?.approved_protected_files)===JSON.stringify([CLIENT_HOME_LIVE_REFRESH_V1_FILE])&&
   clientHomeServerCloseoutV3Approval?.requirements?.server_alert_provenance_exact==='RAIL_COMPLETED_AND_100_PERCENT_PAID_OWNER_RULE_V2'&&
