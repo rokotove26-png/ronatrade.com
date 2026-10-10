@@ -136,6 +136,44 @@ try{
   payload={...payload,generated_at:'2026-10-09T00:03:00Z',analytics:[row('АИ-92','CURRENT',[1081,1092,1145])],clientCanonicalAnalytics:{...payload.clientCanonicalAnalytics,products:{...payload.clientCanonicalAnalytics.products,AI92:{...payload.clientCanonicalAnalytics.products.AI92,values:[1081,1092,1145]}}}};
   await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
   await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.at(-1)===1145,null,{timeout:10000});
+  // Dated confirmed gasoline is visible without CURRENT spot publication.
+  const gasolineValues=[1321,1264.75,1232.25,1261.75,1281.5];
+  payload={...payload,generated_at:'2026-10-09T00:03:30Z',analytics:[],
+    clientCanonicalAnalytics:{version:'RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1',
+      projection:'CLIENT_LPG_HISTORICAL_SEGMENTS_V13',cutoff:'08.10.2026',
+      latestTradeDate:'08.10.2026',products:{
+        AI92:{name:'АИ-92',basis:'Platts European Marketscan · датированный исторический ряд по 08.10.2026; не текущая котировка',
+          dates:['01.10','05.10','06.10','07.10','08.10'],values:gasolineValues,
+          spotFreshness:'STALE_SOURCE',historyOnly:true},
+        AI95:{name:'АИ-95',basis:'Расчетный planning-layer: АИ-92 + 40 USD/т · датированный исторический ряд по 08.10.2026; не текущая котировка',
+          dates:['01.10','05.10','06.10','07.10','08.10'],values:gasolineValues.map(v=>v+40),
+          calculationRule:'AI92+40',spotFreshness:'STALE_SOURCE',historyOnly:true},
+        DT:{dates:[],values:[]},LPG:{dates:[],values:[]}
+      }}
+  };
+  await page.evaluate(()=>document.dispatchEvent(new Event('rona:client:context-changed')));
+  await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.AI92?.values?.length===5,null,{timeout:10000});
+  for(const [key,last] of [['AI92',1281.5],['AI95',1321.5]]){
+    await page.evaluate(k=>document.querySelector('[data-an2-product="'+k+'"]')?.click(),key);
+    await page.waitForFunction(k=>document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct===k,key,{timeout:7000});
+    const proof=await page.evaluate(k=>({
+      selected:window.RONA_ANALYTICS_VIEW.getState().product,
+      values:window.RONA_ANALYTICS_VIEW.data.products[k].values,
+      basis:window.RONA_ANALYTICS_VIEW.data.products[k].basis,
+      calculated:window.RONA_ANALYTICS_VIEW.data.products[k].calculationRule,
+      spot:document.querySelector('#rona-analytics-v2')?.dataset.ronaPhysicalSpotFreshness,
+      svgVisible:getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility!=='hidden',
+      overlay:document.querySelectorAll('#rona-analytics-v2 [data-rona-client-canonical-empty="v7"]').length,
+      heading:document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent
+    }),key);
+    must(proof.selected===key&&proof.values.length===5&&proof.values.at(-1)===last&&
+      proof.svgVisible&&!proof.overlay&&proof.spot==='STALE_SOURCE'&&
+      proof.basis.includes('не текущая котировка')&&
+      proof.heading.includes(key==='AI92'?'АИ-92':'АИ-95')&&
+      (key!=='AI95'||(proof.calculated==='AI92+40'&&proof.basis.includes('АИ-92 + 40'))),
+      'DATED_GASOLINE_'+key+'_HIDDEN_OR_MISLABELED '+JSON.stringify(proof));
+    console.log('CLIENT_GASOLINE_DATED_HISTORY_'+key+'=PASS '+JSON.stringify(proof));
+  }
   // The main chart is a DATE-OF-OBSERVATION monitor, never a three-maturity curve.
   // Monthly LOW/BASE/HIGH remains separately sourced on the right-hand side.
   const dailyFixture=(name,days,values,forecastBase,forecastLow,forecastHigh,
