@@ -1,0 +1,67 @@
+name: Admin Analytics R5 Owner Screenshot Repair
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/migrations/20261011004000_analytics_r5_restore_connected_observations.sql'
+      - 'ops/rollback/analytics-r5-connected-observations-rollback.sql'
+      - 'governance/analytics-r5-owner-screenshot-repair-20261011.json'
+      - 'scripts/qa-admin-analytics-r5-connected-30d-browser.mjs'
+      - 'tests/analytics-r5-connect-sparse-confirmed-dates.test.mjs'
+      - '.github/workflows/admin-analytics-r5-visual-repair-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/migrations/20261011004000_analytics_r5_restore_connected_observations.sql'
+      - 'ops/rollback/analytics-r5-connected-observations-rollback.sql'
+      - 'governance/analytics-r5-owner-screenshot-repair-20261011.json'
+      - 'scripts/qa-admin-analytics-r5-connected-30d-browser.mjs'
+      - 'tests/analytics-r5-connect-sparse-confirmed-dates.test.mjs'
+      - '.github/workflows/admin-analytics-r5-visual-repair-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  admin-r5-sparse-observation-lines:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify exact 30d source-lock, R4 immutable visual and screenshot regression
+        run: |
+          node --check scripts/qa-admin-analytics-r5-connected-30d-browser.mjs
+          node --test tests/analytics-r5-connect-sparse-confirmed-dates.test.mjs \
+            tests/analytics-rolling-30-calendar-days-v2.test.mjs \
+            tests/admin-analytics-exclusive-chart-r4.test.mjs \
+            tests/admin-analytics-source-clarity-r3.test.mjs \
+            tests/client-analytics-native-functional-v17.test.mjs
+      - name: Build canonical Admin and Client visuals
+        run: npm run build
+      - name: Install Chromium browser QA
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Reproduce screenshot fix in true Admin R4 Chromium SVG
+        run: node scripts/qa-admin-analytics-r5-connected-30d-browser.mjs
+      - name: Preserve pre-existing exact Admin R4 browser evidence
+        run: node scripts/qa-admin-analytics-source-clarity-browser-r3.mjs
+      - name: Record R5 browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-analytics-r5-sparse-30d-screenshots
+          path: .qa-artifacts/analytics-r5-*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Verify exact Cloudflare deployment after release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/wait-cloudflare-commit.mjs
+          curl -fsSL --retry 3 "https://ronaoil.com/portal/analytics-v2-ui?r5=${GITHUB_SHA}" -o /tmp/rona-r5-live.js
+          grep -q '20261010-admin-r3-exclusive-chart-owner-r4' /tmp/rona-r5-live.js
+          echo RONA_R5_PRODUCTION_VISUAL_OWNER_INTACT=PASS

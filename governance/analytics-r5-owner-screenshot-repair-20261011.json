@@ -1,0 +1,81 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "owner_evidence": "OWNER_SCREENSHOTS:2026-10-10T23:35:20,23:35:44; owner question 'Что это за ужас?'",
+  "scope": "ADMIN_CLIENT_ANALYTICS_R5_CONNECTED_SPARSE_OBSERVATIONS",
+  "cause": "2026-10-11 30-calendar-day migration changed confirmed-observation segment separation from >10 calendar-day source interruption to >1, turning ordinary no-trade dates into five visual fragments each for DT and LPG.",
+  "release_intent": "restore legible time-series lines by connecting consecutive verified observations through ordinary 2-10 day no-trade gaps, without introducing daily values or days not backed by source; keep break for >10 day material outage.",
+  "user_requirements": {
+    "last_30_calendar_dates_only": true,
+    "timezone": "Europe/Moscow",
+    "older_samples_absent": true,
+    "missing_dates_not_rendered": true,
+    "zero_fill": false,
+    "synthetic_daily_quotes": false,
+    "prices_unchanged": true,
+    "visual_R4_unchanged": true,
+    "client_V20_unchanged": true,
+    "owner_acceptance_required": true
+  },
+  "algorithm": {
+    "source_only_obs_dates": "array confirmed full ISO dates",
+    "segment_id_change_if_gap_days_exceeds": 10,
+    "sourceGap_true_when_any_missing_date": true,
+    "svg_line_between_adjacent_observed_only": true,
+    "interpolated_observations": "FORBIDDEN",
+    "data_storage": "UNMODIFIED",
+    "forecast_maturity_data": "UNCHANGED"
+  },
+  "technical_source_locks": {
+    "release_before": "b12f3506ae8134a311363a9e91982f57f964422f",
+    "daily_monitor_before_md5": "2e008e1a13061963baa0ef5f956da381",
+    "daily_monitor_expected_after_md5": "5a0fdacc196efc889cb8c047f0164330",
+    "canonical_unmodified_md5": "a7f0ff21a938e0554684b3ef90c9d005",
+    "migration_blob": "d1970289e9ed021469e5e0ce5d163bdf86f57424",
+    "rollback_blob": "7b39180ba894ba9405626f58d9e5707777e801b3",
+    "owner_r4_renderer_blob": "a7407d85d8cffca79a44a43465c211ca858d37a0",
+    "client_edge_version": 106,
+    "client_edge_jwt": true
+  },
+  "before_production_dt": {
+    "observed_dates": 11,
+    "segments": 5,
+    "line_edges": 6
+  },
+  "before_production_lpg": {
+    "observed_dates": 12,
+    "segments": 5,
+    "line_edges": 7
+  },
+  "expected_after_production_dt": {
+    "observed_dates": 11,
+    "segments": 1,
+    "line_edges": 10,
+    "source_gap": true
+  },
+  "expected_after_production_lpg": {
+    "observed_dates": 12,
+    "segments": 1,
+    "line_edges": 11,
+    "source_gap": true
+  },
+  "changed_files": [
+    "supabase/migrations/20261011004000_analytics_r5_restore_connected_observations.sql",
+    "ops/rollback/analytics-r5-connected-observations-rollback.sql",
+    "scripts/qa-admin-analytics-r5-connected-30d-browser.mjs",
+    "tests/analytics-r5-connect-sparse-confirmed-dates.test.mjs",
+    ".github/workflows/admin-analytics-r5-visual-repair-qa.yml",
+    "governance/analytics-r5-owner-screenshot-repair-20261011.json"
+  ],
+  "release_gates": [
+    "SQL_SOURCE_LOCK_PRE",
+    "FOCUSED_TESTS",
+    "EXISTING_R4_VISUAL_TESTS",
+    "REAL_CHROMIUM_SCREENSHOT_QA_DT_LPG",
+    "NO_BROADER_ROLLOUT",
+    "SUPABASE_APPLY",
+    "LIVE_QUERY_ACTUAL_SOURCE",
+    "PRODUCTION_CLOUDFLARE_GATE",
+    "OWNER_VISUAL_ACCEPTANCE"
+  ],
+  "rollback": "ops/rollback/analytics-r5-connected-observations-rollback.sql; exact SHA matching; reverts only corrected monitor display segments, keeps 30d."
+}
