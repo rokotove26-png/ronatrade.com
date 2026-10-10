@@ -108,8 +108,17 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'assets/portal-runtime/client-market-intelligence-v1.js',
     'scripts/attach-client-market-intelligence-v1.mjs'
   ]);
-  for(const [path,entry] of Object.entries(approval.exact_post_blobs))
-    assert.equal(entry.authorized_post_blob_sha,gitBlobSha(await readFile(path,'utf8')),path+' exact blob');
+  const v17=JSON.parse(await readFile('governance/client-analytics-native-functionality-v17-20261010.json','utf8'));
+  assert.equal(v17.approval,'OWNER_IN_CHAT');
+  assert.equal(v17.scope,'CLIENT_ANALYTICS_NATIVE_FUNCTIONALITY_V17');
+  assert.equal(v17.requirements.wildcard_exception,false);
+  for(const [path,entry] of Object.entries(approval.exact_post_blobs)){
+    const actual=gitBlobSha(await readFile(path,'utf8'));
+    if(path==='assets/portal-runtime/client-market-intelligence-v1.js'){
+      assert.equal(entry.authorized_post_blob_sha,v17.source_lock.previous_client_runtime_blob);
+      assert.equal(actual,v17.source_lock.new_client_runtime_blob,path+' exact V17 replacement');
+    }else assert.equal(actual,entry.authorized_post_blob_sha,path+' exact V13 preserved');
+  }
   for(const token of [
     'market_intelligence_daily_monitor_v1',
     'RONA_MARKET_OBSERVED_DAILY_V1',
