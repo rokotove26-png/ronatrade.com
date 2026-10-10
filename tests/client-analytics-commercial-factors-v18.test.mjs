@@ -35,7 +35,7 @@ test('each news factor strictly maps to a fuel product, with explicit timing and
     'Новость опубликована после последнего наблюдения',
     'Влияние новости на движение выбранного индикатора не подтверждено.',
     'candidate.headline.replace(/[.!?]+$/u',
-    'Планируя закупку, учитывайте сценарный диапазон'
+    'Планируя закупку, учитывайте сценарный диапазон',
     'commercialFactorFor(key,lastAsOf)'
   ])assert.ok(edge.includes(phrase),phrase);
   assert.ok(!edge.includes('changesCausedByNews=true'));
