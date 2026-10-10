@@ -1,0 +1,46 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "scope": "ADMIN_CLIENT_ANALYTICS_ROLLING_30_CALENDAR_DAYS_V2",
+  "owner_instructions": [
+    "OWNER_IN_CHAT:2026-10-10:ADMIN_CLIENT_ANALYTICS_30D",
+    "OWNER_IN_CHAT:2026-10-11:COMPLETE_THROUGH_OWNER_VISUAL_ACCEPTANCE"
+  ],
+  "decision": "SOURCE_VERIFIED_DAILY_OBSERVATIONS_LAST30",
+  "business_timezone": "Europe/Moscow",
+  "bounds": "[moscow_today - 29 calendar days, moscow_today] inclusive",
+  "no_source_date": "omit observation without zero/interpolation",
+  "older_records": "retain in database; absent from current analytics",
+  "source_contracts": {
+    "admin_visual": "Admin Analytics R4 existing exact visual SHA a7407d85d8cffca79a44a43465c211ca858d37a0 is unchanged",
+    "client_visual": "Client V20 existing protected runtime assets unchanged",
+    "admin_auth": "existing Cloudflare Pages endpoint unchanged",
+    "published_client_authority": "same verified Platts source and tenant/publication grants",
+    "all_market_mutations": "NONE"
+  },
+  "changed_files": [
+    "supabase/migrations/20261011000000_analytics_rolling_30_calendar_days_v1.sql",
+    "supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts"
+  ],
+  "source_locks": {
+    "canonical_function_before_md5": "8ad47e1c97b748017369e0cb870f4bda",
+    "daily_monitor_before_md5": "ae96b04c319334197eb9d81fcb84f09e",
+    "client_edge_before_blob_sha": "4001459296e2819bf32e29e4fbc4d4522e340150",
+    "client_edge_after_blob_sha": "a683dc2846911c8fd09dbb92c59c5d4f1d814983",
+    "sql_migration_blob_sha": "ca9a40e4cf8fccb1fe9bd16c4c13466a162f0074",
+    "git_base_release_at_branch": "810c50a813a4b17e98ea0996fc71d65a706515f0",
+    "production_edge_before_version": 105
+  },
+  "rollback": {
+    "db_functions": "Restore the two source-locked pre-migration function definitions from commits 20260831225752 and 20261009221000 as one controlled transaction with MD5 review; revert only rolling30 substitutions, preserving V13 observed segment metadata.",
+    "edge": "Redeploy audited rona-portal-api v105 using its exact prior bundled sources with verify_jwt=true.",
+    "web": "Restore release branch at previous production SHA 810c50a813a4b17e98ea0996fc71d65a706515f0; do not roll back unrelated commits."
+  },
+  "release_gates": [
+    "source-lock",
+    "tests/analytics-rolling-30-calendar-days-v2.test.mjs",
+    "existing Admin R4 tests and Client V20 tests",
+    "repository CI",
+    "production verified sample four products and unauthorized client guards",
+    "user visual acceptance (last step)"
+  ]
+}
