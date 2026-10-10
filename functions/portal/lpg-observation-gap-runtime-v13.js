@@ -1,4 +1,4 @@
-export const LPG_GAP_RUNTIME=String.raw\`
+export const LPG_GAP_RUNTIME=String.raw`
 ;(()=>{
  if(window.__RONA_LPG_OBSERVATION_GAPS_V13__)return;
  window.__RONA_LPG_OBSERVATION_GAPS_V13__='source-observation-gaps-v13';
@@ -81,4 +81,4 @@ export const LPG_GAP_RUNTIME=String.raw\`
  mo.observe(document.documentElement,{subtree:true,childList:true});
  schedule();
 })();
-\`;
+`;
