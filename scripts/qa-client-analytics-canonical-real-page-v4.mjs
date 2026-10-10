@@ -96,6 +96,8 @@ try{
     return{root:inspect(root),page:inspect(parent),htmlSize:root.outerHTML.length,blocks,structure:structure.slice(0,120),numeric:numerical,views,chartNodes,controls,stateSlots};
   });
   console.log('CLIENT_CANONICAL_ORIGINAL_VISUAL_CONTRACT',JSON.stringify(canonicalProbe));
+  const commentStructure=await page.evaluate(()=>{const root=document.querySelector('#rona-analytics-v2');const node=root?.querySelector('.an2-comment');const parent=node?.parentElement;return {comment:{html:node?.outerHTML.slice(0,800),text:node?.textContent.slice(0,200)},parent:parent?{cls:parent.className,children:[...parent.children].map(n=>({tag:n.tagName,cls:n.className,html:n.outerHTML.slice(0,440)}))}:null}});
+  console.log('CLIENT_V20_COMMENT_STRUCTURE_PROBE',JSON.stringify(commentStructure));
 
   const snapshot=()=>page.evaluate(()=>{
     const pageRoot=document.querySelector('#page-analytics');
