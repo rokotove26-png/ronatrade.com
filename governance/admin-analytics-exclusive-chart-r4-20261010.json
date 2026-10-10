@@ -1,0 +1,66 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-10",
+  "owner_instruction": "Fix visual instability in Admin Analytics for DT/LPG without overwriting source-clarity R3 already verified and live. Original screenshot 2026-10-10 19:01:57 and user requested full reliability of analytical conclusion and display.",
+  "owner_instruction_ref": "OWNER_SCREENSHOT:20261010-190157; OWNER_IN_CHAT:20261010:ADMIN_ANALYTICS_ALL_FUNCTIONS_AND_CONCLUSION",
+  "scope": "ADMIN_ANALYTICS_R3_EXCLUSIVE_CHART_PROJECTION_R4",
+  "decision": "TECHNICAL_EXCLUSIVE_RENDER_OWNER_ONLY",
+  "approval_marker": "OWNER_FUNCTIONAL_APPROVAL: ADMIN_ANALYTICS_EXCLUSIVE_CHART_R4",
+  "supersedes_scope": "ADMIN_ANALYTICS_SOURCE_LOCKED_CHART_READABILITY_AND_CONCLUSION_R3",
+  "approved_protected_files": [
+    "functions/portal/analytics-canonical-live-hydration.js",
+    "functions/portal/lpg-observation-gap-runtime-v13.js"
+  ],
+  "exact_post_blobs": {
+    "functions/portal/analytics-canonical-live-hydration.js": {
+      "supersedes_authorized_post_blob_sha": "7874a3c20d3ab3cf1e7c1e27b47c9a10d256d948",
+      "authorized_post_blob_sha": "a7407d85d8cffca79a44a43465c211ca858d37a0",
+      "required_marker": "20261010-admin-r3-exclusive-chart-owner-r4"
+    },
+    "functions/portal/lpg-observation-gap-runtime-v13.js": {
+      "supersedes_authorized_post_blob_sha": "ff92fcced1e65523ddbb548cd51e03a2229c6ac9",
+      "authorized_post_blob_sha": "6949ea79a293f5b36bee5b80239768063ce7ec20",
+      "required_marker": "if(String(window.location?.pathname||'').startsWith('/portal/admin'))return"
+    }
+  },
+  "requirements": {
+    "owner_admin_only": true,
+    "no_legacy_LPG_svg_writer_in_admin": true,
+    "exclusive_svg_writer": "adminCompactChart",
+    "native_render_reprojection_via_verified_snapshot": true,
+    "idempotent_signatures_require_geometry_validation": true,
+    "real_observation_dates": true,
+    "no_interpolation_across_source_gaps": true,
+    "hover_accessible_all_observations": true,
+    "dense_axis_labels_compacted": true,
+    "verified_R3_conclusion_untouched": true,
+    "canonical_base_runtime_untouched": true,
+    "forecast_sources_untouched": true,
+    "pricing_math_and_authority_untouched": true,
+    "client_analytics_v20_untouched": true,
+    "non_admin_LPG_painter_unchanged": true,
+    "admin_auth_and_RLS_unchanged": true,
+    "no_database_or_edge_changes": true,
+    "current_visual_design_preserved": true,
+    "exact_blob_enforcement": true,
+    "wildcard_exception": false,
+    "source_safe_browser_QA_four_products": true,
+    "repeated_product_switch_and_native_render_required": true,
+    "release_gate_full_green_required": true,
+    "rollback_preserved": true
+  },
+  "baseline": {
+    "release_commit": "aed7ab0a529f9017c588561f4a65a77a20b3b508",
+    "R3_governance": "governance/admin-analytics-source-clarity-r3-owner-scope-20261010.json"
+  },
+  "rollback": {
+    "release_commit": "aed7ab0a529f9017c588561f4a65a77a20b3b508",
+    "previous_blobs": {
+      "functions/portal/analytics-canonical-live-hydration.js": "7874a3c20d3ab3cf1e7c1e27b47c9a10d256d948",
+      "functions/portal/lpg-observation-gap-runtime-v13.js": "ff92fcced1e65523ddbb548cd51e03a2229c6ac9"
+    },
+    "database": "NO_CHANGE",
+    "supabase_edge": "NO_CHANGE"
+  },
+  "risk_note": "R3 already publishes source-safe market conclusion and chart geometry. Only remove two redundant admins chart writers (legacy LPG painter, historical hydration writer), preserving R3 adminCompactChart. No commercial scenario interpretation changed."
+}

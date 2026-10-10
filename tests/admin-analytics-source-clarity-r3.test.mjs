@@ -11,7 +11,11 @@ const gitSha=body=>createHash('sha1').update('blob '+Buffer.byteLength(body)+'\0
 test('R3 exact owner-approved runtime source and scope',()=>{
   assert.equal(governance.scope,'ADMIN_ANALYTICS_SOURCE_LOCKED_CHART_READABILITY_AND_CONCLUSION_R3');
   assert.equal(governance.authorized_file,path);
-  assert.equal(governance.exact_post_blob_sha,gitSha(source));
+  // V3 retains its historical exact approved blob. R4 is allowed only as an
+  // exact, explicit successor; do not silently waive the original SHA gate.
+  const v4=JSON.parse(readFileSync('governance/admin-analytics-exclusive-chart-r4-20261010.json','utf8'));
+  assert.equal(v4.exact_post_blobs[path].supersedes_authorized_post_blob_sha,governance.exact_post_blob_sha);
+  assert.equal(v4.exact_post_blobs[path].authorized_post_blob_sha,gitSha(source));
   assert.equal(governance.requirements.client_buyer_conclusion_v20_preserved,true);
   assert.equal(governance.requirements.no_source_data_or_role_mutation,true);
   assert.equal(governance.requirements.no_gap_interpolation,true);

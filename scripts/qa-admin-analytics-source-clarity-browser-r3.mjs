@@ -162,6 +162,46 @@ try{
   assert(lpg.insight.includes('разные месяцы поставки')&&lpg.insight.includes('пропуски'),'LPG month-basis/gaps disclosure missing: '+lpg.insight);
   assert(!lpg.insight.includes('https://')&&!lpg.insight.includes('RONA_CLIENT_ADMIN'),'Technical IDs/links leaked in Admin conclusion: '+lpg.insight);
   assert(lpg.technicalFooterVisible===false,'Admin conclusion technical footer remains visible');
+  const chartHealth=()=>page.evaluate(()=>{
+    const root=document.querySelector('#rona-analytics-v2'),svg=root?.querySelector('.rona-market-chart-svg');
+    const points=[...(svg?.querySelectorAll('circle.rmc-point')||[])];
+    return {product:window.RONA_ANALYTICS_VIEW?.getState?.()?.product,
+      owner:svg?.dataset?.ronaAdminSingleOwner||'',
+      signature:svg?.dataset?.ronaAdminChartSignature||'',
+      legacyRepaint:svg?.dataset?.ronaLpgHistoryV13||'',
+      points:points.length,lines:svg?.querySelectorAll('path.rmc-line').length||0,
+      areas:svg?.querySelectorAll('path.rmc-area').length||0,
+      labels:points.filter(p=>p.querySelector('title')&&p.hasAttribute('aria-label')).length,
+      gaps:root?.dataset?.ronaSourceGapSegments,
+      gapInterpolation:root?.dataset?.ronaGapInterpolation,
+      x:points.map(p=>Number(p.getAttribute('cx')))};
+  });
+  const checkExclusive=async(product,points,lines)=>{
+    await page.waitForFunction(({p,n,l})=>{
+      const root=document.querySelector('#rona-analytics-v2'),svg=root?.querySelector('.rona-market-chart-svg');
+      return window.RONA_ANALYTICS_VIEW?.getState?.()?.product===p&&
+        svg?.dataset?.ronaAdminSingleOwner==='20261010-admin-r3-exclusive-chart-owner-r4'&&
+        svg.querySelectorAll('circle.rmc-point').length===n&&
+        svg.querySelectorAll('path.rmc-line').length===l&&
+        svg.querySelectorAll('path.rmc-area').length===0&&
+        !svg.dataset.ronaLpgHistoryV13;
+    },{p:product,n:points,l:lines},{timeout:8000});
+    const h=await chartHealth();
+    assert(h.owner==='20261010-admin-r3-exclusive-chart-owner-r4'&&h.areas===0&&h.legacyRepaint==='',
+      'unexpected duplicate legacy SVG owner '+JSON.stringify(h));
+    assert(h.points===points&&h.lines===lines&&h.labels===points,'source date/values modified '+JSON.stringify(h));
+    assert(h.gapInterpolation==='OFF','unverified gap interpolated '+JSON.stringify(h));
+    return h;
+  };
+  await checkExclusive('LPG',15,13);
+  for(const product of ['DT','LPG','DT','LPG']){
+    await page.evaluate(key=>window.RONA_ANALYTICS_VIEW.setProduct(key),product);
+    await checkExclusive(product,product==='LPG'?15:14,product==='LPG'?13:12);
+    await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.render());
+    await checkExclusive(product,product==='LPG'?15:14,product==='LPG'?13:12);
+  }
+  console.log('ADMIN_ANALYTICS_R4_EXCLUSIVE_SVG_REPAINT=PASS');
+
   mode='ERROR';
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='SOURCE_UNAVAILABLE',{timeout:8000});
