@@ -109,6 +109,11 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'scripts/attach-client-market-intelligence-v1.mjs'
   ]);
   const v17=JSON.parse(await readFile('governance/client-analytics-native-functionality-v17-20261010.json','utf8'));
+  const v19=JSON.parse(await readFile('governance/client-analytics-single-owner-clean-conclusion-v19-20261010.json','utf8'));
+  assert.equal(v19.approval,'OWNER_IN_CHAT');
+  assert.equal(v19.scope,'CLIENT_ANALYTICS_SINGLE_OWNER_CLEAN_CONCLUSION_V19');
+  assert.equal(v19.requirements.exact_blob_enforcement,true);
+  assert.equal(v19.requirements.wildcard_exception,false);
   assert.equal(v17.approval,'OWNER_IN_CHAT');
   assert.equal(v17.scope,'CLIENT_ANALYTICS_NATIVE_FUNCTIONALITY_V17');
   assert.equal(v17.requirements.wildcard_exception,false);
@@ -116,8 +121,12 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     const actual=gitBlobSha(await readFile(path,'utf8'));
     if(path==='assets/portal-runtime/client-market-intelligence-v1.js'){
       assert.equal(entry.authorized_post_blob_sha,v17.source_lock.previous_client_runtime_blob);
-      assert.equal(actual,v17.source_lock.new_client_runtime_blob,path+' exact V17 replacement');
-    }else assert.equal(actual,entry.authorized_post_blob_sha,path+' exact V13 preserved');
+      assert.equal(v19.exact_post_blobs[path].supersedes_authorized_post_blob_sha,v17.source_lock.new_client_runtime_blob);
+      assert.equal(actual,v19.exact_post_blobs[path].authorized_post_blob_sha,path+' exact V19 successor to V17');
+    }else{
+      assert.equal(v19.exact_post_blobs[path].supersedes_authorized_post_blob_sha,entry.authorized_post_blob_sha);
+      assert.equal(actual,v19.exact_post_blobs[path].authorized_post_blob_sha,path+' exact V19 successor to V13');
+    }
   }
   for(const token of [
     'market_intelligence_daily_monitor_v1',
@@ -153,7 +162,8 @@ test('client canonical Admin daily observation parity v12 uses the SAME source m
     'publishedPriceContext()',
     'paintAuthorizedPrices(owner,chosen)'
   ])assert.ok(runtime.includes(token),'frozen client runtime missing: '+token);
-  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261009-lpg-source-gap-history-v13'));
+  assert.ok(render.includes('client-market-intelligence-v1.js?v=20261010-client-analytics-clean-conclusion-single-owner-v19'));
+  assert.ok(runtime.includes('20261010-client-analytics-clean-conclusion-single-owner-v19'));
   assert.equal(runtime.includes("fetch('/portal/api/v1/admin/analytics'"),false,'client must not fetch Admin API');
   assert.equal(edge.includes('payload.clientCanonicalAnalytics = canonical'),false,'never expose unsanitized admin canonical payload');
   assert.equal(edge.includes('output.rona ='),false,'never expose internal RONA price bridge');
