@@ -1,0 +1,38 @@
+name: Client gasoline dated observations V15
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'scripts/qa-client-analytics-source-safe-browser-v3.mjs'
+      - 'tests/client-gasoline-dated-observations-v15.test.mjs'
+      - '.github/workflows/client-gasoline-dated-observations-v15.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'scripts/qa-client-analytics-source-safe-browser-v3.mjs'
+      - 'tests/client-gasoline-dated-observations-v15.test.mjs'
+      - '.github/workflows/client-gasoline-dated-observations-v15.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gasoline-verified-observations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Source authority, formula and read-only contract
+        run: node --test tests/client-gasoline-dated-observations-v15.test.mjs tests/analytics-dual-portal-functional-launch-v1.test.mjs
+      - name: Production canonical visual freeze and build
+        run: npm run build
+      - name: Install browser runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Browser proof of all four gasoline diesel and LPG controls
+        run: node scripts/qa-client-analytics-source-safe-browser-v3.mjs
