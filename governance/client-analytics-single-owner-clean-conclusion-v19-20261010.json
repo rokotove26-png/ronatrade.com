@@ -1,0 +1,59 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-10",
+  "owner_instruction": "Owner reports Client Analytics Analytical Conclusion is overloaded with service information on all tabs; old visual layers intermittently replace the current canonical design. Owner instructs safe disabling/removal of obsolete render layers and execution.",
+  "owner_instruction_ref": "OWNER_SCREENSHOT:20261010-162143; OWNER_IN_CHAT:20261010:SAFE_REMOVE_LEGACY_LAYERS_AND_CLEAN_ANALYTICAL_CONCLUSION; OWNER_IN_CHAT:20261010:EXECUTE",
+  "scope": "CLIENT_ANALYTICS_SINGLE_OWNER_CLEAN_CONCLUSION_V19",
+  "decision": "SCOPED_VISUAL_FREEZE_RELEASE",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_SINGLE_OWNER_CLEAN_CONCLUSION_V19",
+  "supersedes_scope": "CLIENT_ANALYTICS_NATIVE_FUNCTIONALITY_V17",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "supersedes_authorized_post_blob_sha": "122d07c847bf5522a095f524c91d410f6633d6d9",
+      "authorized_post_blob_sha": "ee69cc8eb1c8fb40602fe4aa8f6604e518f2ff09",
+      "required_marker": "20261010-client-analytics-clean-conclusion-single-owner-v19"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "supersedes_authorized_post_blob_sha": "2c77459224d88580d58c1ab7dc42b69aa6dc2be4",
+      "authorized_post_blob_sha": "1032f675a71a7a486de8cad267c36cc17f3d8bf3",
+      "required_marker": "20261010-client-analytics-clean-conclusion-single-owner-v19"
+    }
+  },
+  "requirements": {
+    "analytics_section_only": true,
+    "native_an2_hero_kpis_controls_charts_pricing_unchanged": true,
+    "service_metadata_removed_from_client_conclusion": true,
+    "all_fuels_AI92_AI95_DT_LPG": true,
+    "verified_news_factor_and_noncausality_notice_retained": true,
+    "old_known_generated_substitute_nodes_removed": true,
+    "layout_css_html_unchanged": true,
+    "source_only_current_client_publications": true,
+    "tenant_context_change_fail_closed": true,
+    "api_error_fail_closed": true,
+    "source_freshness_gate_preserved": true,
+    "auth_and_publication_authority_unchanged": true,
+    "no_business_data_mutation": true,
+    "other_client_sections_unchanged": true,
+    "exact_blob_enforcement": true,
+    "exact_file_enforcement_remains_active": true,
+    "visual_freeze_remains_enabled": true,
+    "wildcard_exception": false,
+    "scoped_unfreeze_only": true,
+    "canonical_visual_proof_required": true,
+    "rollback_preserved": true
+  },
+  "rollback": {
+    "client_runtime_blob": "122d07c847bf5522a095f524c91d410f6633d6d9",
+    "attachment_blob": "2c77459224d88580d58c1ab7dc42b69aa6dc2be4",
+    "edge_version": 103,
+    "edge_deploy_pin": "d270e9ed57817d9ce02d9d57f3dc5e41b45b5416",
+    "data": "NO_DATA_MUTATION"
+  },
+  "release_guard": "DO_NOT_DEPLOY_OR_MERGE_WITHOUT_SCOPED_TESTS_AND_VISUAL_FREEZE_GREEN"
+}

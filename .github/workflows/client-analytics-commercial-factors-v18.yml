@@ -5,6 +5,7 @@ on:
     paths:
       - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
       - 'tests/client-analytics-commercial-factors-v18.test.mjs'
+      - 'tests/client-analytics-single-owner-clean-conclusion-v19.test.mjs'
       - 'governance/client-analytics-commercial-factors-v18-20261010.json'
       - 'scripts/qa-client-analytics-canonical-real-page-v4.mjs'
       - '.github/workflows/client-analytics-commercial-factors-v18.yml'
@@ -13,6 +14,7 @@ on:
     paths:
       - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
       - 'tests/client-analytics-commercial-factors-v18.test.mjs'
+      - 'tests/client-analytics-single-owner-clean-conclusion-v19.test.mjs'
       - 'governance/client-analytics-commercial-factors-v18-20261010.json'
       - 'scripts/qa-client-analytics-canonical-real-page-v4.mjs'
       - '.github/workflows/client-analytics-commercial-factors-v18.yml'
@@ -29,7 +31,7 @@ jobs:
         with:
           node-version: '24'
       - name: Source, CD approval, client security, no proven causality
-        run: node --test tests/client-analytics-commercial-factors-v18.test.mjs tests/client-analytics-native-functional-v17.test.mjs tests/client-analytics-forecast-grants-v16.test.mjs tests/client-gasoline-dated-observations-v15.test.mjs
+        run: node --test tests/client-analytics-commercial-factors-v18.test.mjs tests/client-analytics-native-functional-v17.test.mjs tests/client-analytics-forecast-grants-v16.test.mjs tests/client-gasoline-dated-observations-v15.test.mjs tests/client-analytics-single-owner-clean-conclusion-v19.test.mjs
       - name: Build frozen canonical Client Analytics and enforce visual freeze
         run: npm run build
       - name: Install browser

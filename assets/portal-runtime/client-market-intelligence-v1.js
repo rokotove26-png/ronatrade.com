@@ -8,6 +8,7 @@ const CLIENT_PRICE_BRIDGE='20261009-client-analytics-published-context-prices-v8
 const CANONICAL_VISUAL_OWNER='20261009-client-analytics-canonical-visual-restored-v7';
 const REENTRY_GUARD='20261009-client-analytics-reentry-guard-v4';
 const VISIBLE_OWNER_GUARD='20261009-client-analytics-visible-owner-v5';
+const CLIENT_SINGLE_OWNER_CLEAN_V19='20261010-client-analytics-clean-conclusion-single-owner-v19';
 const ACTIVE_ROUTE_RECOVERY='20261009-client-analytics-active-route-recovery-v6';
 if(window.__RONA_CLIENT_MARKET_INTELLIGENCE__===MARK)return;
 window.__RONA_CLIENT_MARKET_INTELLIGENCE__=MARK;
@@ -96,6 +97,7 @@ function ensureOwner(root){
   // The canonical design is the sole visual owner; never replace its subtree.
   const original=root.querySelector(':scope > #rona-analytics-v2');
   if(!original){root.dataset.ronaClientAnalyticsSource='CANONICAL_VISUAL_MISSING';return null}
+  // Retire only known obsolete generated substitute roots, never the frozen AN2.
   const substitute=root.querySelector(':scope > [data-rona-client-market-intelligence-owner="analytics"]');
   if(substitute)substitute.remove();
   if(original.hidden)original.hidden=false;
@@ -104,6 +106,7 @@ function ensureOwner(root){
   if(original.style.getPropertyValue('visibility')==='hidden')original.style.removeProperty('visibility');
   if(original.dataset.ronaClientAnalyticsVisualOwner!=='canonical-v7')original.dataset.ronaClientAnalyticsVisualOwner='canonical-v7';
   root.dataset.ronaClientAnalyticsMigrated='canonical-restored-v7';
+  root.dataset.ronaClientCanonicalCleanupVersion=CLIENT_SINGLE_OWNER_CLEAN_V19;
   root.dataset.ronaClientAnalyticsSource='CLIENT_AUTHORIZED_PUBLISHED_CURRENT_ONLY';
   return original;
 }
@@ -390,18 +393,37 @@ function accept(data,reason){
 let requestSequence=0;
 async function load(reason='open'){
   const id=++requestSequence;
-  // Never retain previous tenant or archive data across refresh/context switch, including failed responses.
-  state.data=null;state.fingerprint='';state.loaded=false;state.error='';state.loading=true;
-  const root=analyticsPage();if(root)root.dataset.ronaClientMarketIntelligenceFingerprint='';
-  document.documentElement.dataset.ronaClientMarketIntelligence='loading';schedule();
+  // Preserve the last verified same-context projection while a refresh is in
+  // flight; clearing and re-rendering blanks the canonical chart on every focus.
+  // A tenant/context switch is an exception: fail closed before making the call.
+  const root=analyticsPage();
+  const context=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();
+  const contextKey=context ? String(context.client_id||'')+'|'+String(context.contract_id||'') : '';
+  if(reason==='context-change'||(state.contextKey!==undefined&&state.contextKey!==contextKey)){
+    state.data=null;state.fingerprint='';state.loaded=false;
+    if(root)root.dataset.ronaClientMarketIntelligenceFingerprint='';
+    schedule();
+  }
+  state.contextKey=contextKey;state.error='';state.loading=true;
+  document.documentElement.dataset.ronaClientMarketIntelligence='loading';
   try{
     const r=await fetch(API,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-client-market-intelligence':MARK}});
     const body=await r.json().catch(()=>null);
     if(id!==requestSequence)return;
+    const current=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();
+    const actualContext=current ? String(current.client_id||'')+'|'+String(current.contract_id||'') : '';
+    if(actualContext!==contextKey){
+      state.data=null;state.fingerprint='';state.loaded=false;
+      if(root)root.dataset.ronaClientMarketIntelligenceFingerprint='';
+      schedule();load('context-change');return;
+    }
     if(!r.ok||!body?.ok||!accept(body.data,reason))throw new Error(String(body?.code||'CLIENT_MARKET_INTELLIGENCE_LOAD_FAILED'));
   }catch(error){
     if(id!==requestSequence)return;
-    state.data=null;state.fingerprint='';state.loaded=true;state.error=String(error?.message||error||'CLIENT_MARKET_INTELLIGENCE_LOAD_FAILED');schedule();
+    // A failed refresh must not promote stale data as CURRENT. Fail closed.
+    state.data=null;state.fingerprint='';state.loaded=true;state.error=String(error?.message||error||'CLIENT_MARKET_INTELLIGENCE_LOAD_FAILED');
+    if(root)root.dataset.ronaClientMarketIntelligenceFingerprint='';
+    schedule();
   }finally{
     if(id===requestSequence){state.loading=false;schedule()}
   }
@@ -410,10 +432,9 @@ function start(){
   const cached=cacheData();if(cached)accept(cached,'initial-cache');
   load('open');
   state.timer=setInterval(()=>load('interval'),REFRESH_MS);
-  window.addEventListener('focus',()=>load('focus'),{passive:true});
-  window.addEventListener('pageshow',()=>load('pageshow'),{passive:true});
-  window.addEventListener('online',()=>load('online'),{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load('visible')});
+  // Focus/visibility/pageshow do not invalidate market data; do not re-fetch
+  // and alternate an old native layer merely because the browser regained focus.
+  window.addEventListener('online',()=>load('network-restored'),{passive:true});
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
   window.addEventListener('rona:client-prices-updated',schedule,{passive:true});
   document.addEventListener('click',event=>{

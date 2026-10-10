@@ -27,21 +27,28 @@ test('all fuels retain canonical price heading and source-authorized contract pr
   assert.ok(client.includes('опубликованные цены выбранного договора, а не рассчитанные возможные цены'));
 });
 
-test('analytical conclusion derives only observed series and source-confirmed November forecast',()=>{
+test('analytical conclusion preserves verified trend and forward forecasts but suppresses service prose (V19)',()=>{
   for(const phrase of [
-    'output.forecast.comment = measurement',
-    'output.dailyMonitor?.firstAsOf',
-    'output.dailyMonitor?.lastAsOf',
-    'output.dailyMonitor?.sourceGap === true',
     'relativeChange = first > 0',
-    'formatSigned(absoluteChange)',
-    'Number(output.forecast.low)',
-    'Number(output.forecast.base)',
-    'Number(output.forecast.high)',
-    'fmtDate(lastSourceDate)',
-    'АИ-92 + 40 USD/т',
-    'Данные не являются коммерческой офертой.'
+    'const first = Number(output.values[0])',
+    'const last = Number(output.values[output.values.length - 1])',
+    'const absoluteChange = last - first',
+    'const trend = absoluteChange > 0',
+    'formatAmount(Math.abs(absoluteChange))',
+    'formatAmount(Number(output.forecast.low))',
+    'formatAmount(Number(output.forecast.base))',
+    'formatAmount(Number(output.forecast.high))',
+    'output.forecast.comment = trendText + " " + forecastText +',
+    'commercialFactorFor(key,lastAsOf)',
+    'output.dailyMonitor?.lastAsOf',
+    'text(raw.calculationRule) === "AI92+40"'
   ])assert.ok(edge.includes(phrase),phrase);
+  for(const forbidden of [
+    'output.forecast.comment = measurement',
+    'output.values.length + " наблюд.',
+    'Есть пропуски между датами источника:',
+    ' Данные не являются коммерческой офертой.'
+  ])assert.ok(!edge.includes(forbidden),forbidden);
   for(const phrase of [
     "sd.source_family='PLATTS'","sd.data_status='CONFIRMED'",
     "sd.processing_state='INGESTED'",
