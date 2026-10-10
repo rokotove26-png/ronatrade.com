@@ -214,6 +214,13 @@ try{
   await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset.renderState==='PUBLISHED_CURRENT_ONLY'&&
     getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility!=='hidden',null,{timeout:6500});
   const live=await snapshot();
+  const liveMetrics=await page.evaluate(()=>
+    ['last','change','range'].map(k=>
+      document.querySelector('[data-chart-metric="'+k+'"]')?.textContent?.replace(/[\\s\\u00a0\\u202f]/g,'')||''));
+  if(!liveMetrics[0].includes('1103,00')||liveMetrics[1]!=='+22,00'||
+     liveMetrics[2]!=='1081–1103')
+    throw Error('NATIVE_METRICS_NOT_REPAINTED_AFTER_SOURCE '+JSON.stringify(liveMetrics));
+  console.log('CLIENT_ORIGINAL_METRICS_SOURCE_REPAINT=PASS',JSON.stringify(liveMetrics));
   console.log('CLIENT_CANONICAL_LIVE_PUBLISHED_V7',JSON.stringify(live));
   if(live.visualOwner!=='canonical-v7'||live.substituteCount||live.svgHidden||live.staleExposed)
     throw Error('CLIENT_CANONICAL_LIVE_PUBLICATION_FAILED: '+JSON.stringify(live));
