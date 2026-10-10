@@ -48,5 +48,7 @@
     "no_css_or_html_change": true,
     "supersedes_v13_asset_sha": "bd15c42b22e1a65a420d507618cc1c4d08109861"
   },
-  "rollback": "Restore prior protected client runtime blob bd15c42b22e1a65a420d507618cc1c4d08109861 and previous source-locked Edge v101 pin c1af7eedb9ed00e4a8d0f30f81285444997c24b4; no rollback or edit of business facts."
+  "rollback": "Restore prior protected client runtime blob bd15c42b22e1a65a420d507618cc1c4d08109861 and previous source-locked Edge v101 pin c1af7eedb9ed00e4a8d0f30f81285444997c24b4; no rollback or edit of business facts.",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_NATIVE_FUNCTIONALITY_V17",
+  "approval_intent": "Owner restores exact functional labels and metric nodes of approved frozen Analytics, does not authorize redesign"
 }
