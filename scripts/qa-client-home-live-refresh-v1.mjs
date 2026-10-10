@@ -11,7 +11,7 @@ for(const token of [
   "authority.invalidateCurrentProjection()",
   "authority.whenCurrentProjection(forceFresh",
   "window.setInterval(()=>refreshVisible('timer'),SOURCE_REFRESH_MS)",
-  "document.visibilityState==='visible'",
+  "document.visibilityState!=='visible'",
   "if(contextKey(authority.getCurrentContext?.())!==key)return",
   "if(contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule)",
   "root?.querySelectorAll('[data-open-deal]')"
