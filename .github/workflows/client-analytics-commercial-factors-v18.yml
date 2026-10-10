@@ -1,0 +1,42 @@
+name: Client Analytics Commercial Director factors V18
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'tests/client-analytics-commercial-factors-v18.test.mjs'
+      - 'governance/client-analytics-commercial-factors-v18-20261010.json'
+      - 'scripts/qa-client-analytics-canonical-real-page-v4.mjs'
+      - '.github/workflows/client-analytics-commercial-factors-v18.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'tests/client-analytics-commercial-factors-v18.test.mjs'
+      - 'governance/client-analytics-commercial-factors-v18-20261010.json'
+      - 'scripts/qa-client-analytics-canonical-real-page-v4.mjs'
+      - '.github/workflows/client-analytics-commercial-factors-v18.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-verified-cd-commentary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Source, CD approval, client security, no proven causality
+        run: node --test tests/client-analytics-commercial-factors-v18.test.mjs tests/client-analytics-native-functional-v17.test.mjs tests/client-analytics-forecast-grants-v16.test.mjs tests/client-gasoline-dated-observations-v15.test.mjs
+      - name: Build frozen canonical Client Analytics and enforce visual freeze
+        run: npm run build
+      - name: Install browser
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Real Client HTML browser: all fuels, native metrics, CD factor
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - name: Verify current-only source and contract-price authorizations
+        run: node scripts/qa-client-analytics-source-safe-browser-v3.mjs
