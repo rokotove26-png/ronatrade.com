@@ -7,7 +7,7 @@
   "decision": "ADMIN_ONLY_TECHNICAL_PRESENTATION_AND_FAILURE_RECOVERY",
   "approval_marker": "OWNER_VISUAL_APPROVAL: ADMIN_ANALYTICS_SOURCE_CLARITY_R3",
   "authorized_file": "functions/portal/analytics-canonical-live-hydration.js",
-  "exact_post_blob_sha": "78744f1a14647f9668ab03f5834cba632c11078d",
+  "exact_post_blob_sha": "7874a3c20d3ab3cf1e7c1e27b47c9a10d256d948",
   "prior_blob_sha": "cdeb378b65e12fa14e11af649720cd2ee429dd1d",
   "requirements": {
     "admin_only_path": "/portal/admin",
@@ -41,7 +41,8 @@
     "visual_freeze_remains_enabled": true,
     "no_source_data_or_role_mutation": true,
     "opening_observation_price_and_date_shown": true,
-    "first_and_last_axis_ticks_visible": true
+    "first_and_last_axis_ticks_visible": true,
+    "source_selection_updates_conclusion": true
   },
   "rollback": {
     "release_commit": "a36f510901a475431f0c39e72daacaecabf7a50e",
