@@ -30,6 +30,7 @@ jobs:
       - name: Syntax and scoped source contract
         run: |
           node --check assets/portal-runtime/client-home-command-center-v2.js
+          node --check assets/portal-runtime/client-home-current-only-v1.js
           node --check scripts/qa-client-home-live-refresh-v1.mjs
           node --check scripts/qa-client-home-server-closeout-v3.mjs
           node --check scripts/qa-client-portal-visual-freeze.mjs
