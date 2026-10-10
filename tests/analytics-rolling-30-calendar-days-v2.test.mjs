@@ -41,16 +41,18 @@ test('two exact source-locked SQL-only function replacements and no data mutatio
   for(const s of [
     '8ad47e1c97b748017369e0cb870f4bda',
     'ae96b04c319334197eb9d81fcb84f09e',
-    "date_trunc(''month'',latest_trade_date)::date as source_month",
-    "((now() at time zone ''Europe/Moscow'')::date - 29) as source_month",
-    "AND f.as_of_date >= (now() at time zone ''Europe/Moscow'')::date - 29",
+    "((now() at time zone 'Europe/Moscow')::date - 29) as source_month",
+    "((now() at time zone 'Europe/Moscow')::date - 29) as source_month",
+    "AND f.as_of_date >= (now() at time zone 'Europe/Moscow')::date - 29",
     "as_of_date-prev_date>1",
-    "and as_of_date between (now() at time zone ''Europe/Moscow'')::date - 29",
-    'ROLLING30_LIVE_FUNCTION_SOURCE_LOCK_MISMATCH',
-    'ROLLING30_REWRITE_NOT_VERIFIED'
+    "and as_of_date between (now() at time zone 'Europe/Moscow')::date - 29",
+    'ROLLING30_STATIC_SOURCE_LOCK_MISMATCH',
+    'CREATE OR REPLACE FUNCTION portal_private.market_intelligence_daily_monitor_v1'
   ])assert.ok(sql.includes(s),s);
   assert.ok(!/\b(insert\s+into|update\s+portal_private|delete\s+from|truncate\s+table)\b/i.test(sql));
   assert.ok(!sql.includes('DROP FUNCTION'));
+  assert.ok(!sql.includes('EXECUTE canonical'));
+  assert.ok(!sql.includes('EXECUTE daily'));
 });
 
 test('gasoline client revalidates cross-month source rows using Moscow rolling range',()=>{
