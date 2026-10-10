@@ -1,0 +1,40 @@
+name: Client Analytics dated forecast v16 source and browser QA
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'tests/client-analytics-forecast-grants-v16.test.mjs'
+      - 'scripts/qa-client-analytics-source-safe-browser-v3.mjs'
+      - '.github/workflows/client-analytics-forecast-grants-v16.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'tests/client-analytics-forecast-grants-v16.test.mjs'
+      - 'scripts/qa-client-analytics-source-safe-browser-v3.mjs'
+      - '.github/workflows/client-analytics-forecast-grants-v16.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-authority-and-frozen-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify client audience, independent dated forecast and market-provenance gates
+        run: node --test tests/client-analytics-forecast-grants-v16.test.mjs tests/client-gasoline-dated-observations-v15.test.mjs
+      - name: Build original canonical visuals and run existing freeze gates
+        run: npm run build
+      - name: Install browser
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Browser test all four product tabs and dated gasoline forecast LOW BASE HIGH
+        run: node scripts/qa-client-analytics-source-safe-browser-v3.mjs
+      - name: Test original Client LK page geometry and current-only rollback
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
