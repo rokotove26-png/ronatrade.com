@@ -243,9 +243,15 @@ try{
         comment:'Вывод по '+entry.label+': '+entry.delta+' USD/т; индикативно, не оферта.'}
     };
   }
-  payload.data.generated_at='2026-10-09T00:02:45Z';
-  await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
-  await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.LPG?.values?.length===3,null,{timeout:8500});
+  // The separately tested API/source permissions already gate production data.
+  // Here exercise the frozen *native renderer* with four isolated fixtures;
+  // do not introduce a second asynchronous API request into a DOM-only test.
+  await page.evaluate(products=>{
+    const view=window.RONA_ANALYTICS_VIEW;
+    const before=view.data;
+    view.setPayload({...before,products:{...before.products,...products}});
+  },payload.data.clientCanonicalAnalytics.products);
+  await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.LPG?.values?.length===3,null,{timeout:6500});
   for(const entry of scenarios){
     await page.evaluate(k=>document.querySelector('#rona-analytics-v2 [data-an2-product="'+k+'"]')?.click(),entry.key);
     await page.waitForFunction(k=>document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct===k,entry.key,{timeout:5500});
