@@ -36,7 +36,7 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Real Client HTML browser: all fuels, native metrics, CD factor
+      - name: 'Real Client HTML browser - all fuels, native metrics, CD factor'
         run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
       - name: Verify current-only source and contract-price authorizations
         run: node scripts/qa-client-analytics-source-safe-browser-v3.mjs
