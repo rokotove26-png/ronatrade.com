@@ -19,6 +19,11 @@ const required=[
 for(const token of required)assert.ok(source.includes(token),'Missing server flag contract: '+token);
 for(const token of ['deal.post_rail_completion_attention=closeout;',"deal.client_deal_stage='ATTENTION';","deal.client_deal_stage_source='RAIL_COMPLETED_AND_100_PERCENT_PAID_OWNER_RULE_V2';"])
   assert.ok(backend.includes(token),'Backend stage source missing: '+token);
+const loadBody=source.slice(source.indexOf('async function load(forceFresh=false){'),source.indexOf('\nfunction schedule()'));
+assert.ok(loadBody.indexOf('state.loading=true;')>=0&&loadBody.indexOf('state.loading=true;')<loadBody.indexOf('const ctx=await currentContext();'),'a source load must lock before awaiting context selection');
+assert.ok(loadBody.includes('if(state.loading){if(forceFresh)state.refreshPending=true;return}'),'forced concurrent refresh must be coalesced');
+assert.equal(approval.requirements.loading_lock_acquired_before_first_await,true);
+assert.equal(approval.requirements.no_parallel_context_loads,true);
 assert.equal(approval.requirements.exact_blob_enforcement,true);
 assert.equal(approval.requirements.wildcard_exception,false);
 assert.equal(approval.requirements.no_backend_or_rail_provider_changes,true);
