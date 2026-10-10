@@ -1037,6 +1037,25 @@ const analyticsLpgV13Exception=
 
 
 
+// Exact Owner V17 supersession applies to ONE protected Analytics runtime only.
+const CLIENT_ANALYTICS_NATIVE_V17_RUNTIME='assets/portal-runtime/client-market-intelligence-v1.js';
+const clientAnalyticsNativeV17ExceptionAuthorized=
+  clientAnalyticsNativeV17Approval?.approval==='OWNER_IN_CHAT'&&
+  clientAnalyticsNativeV17Approval?.authorized_at==='2026-10-10'&&
+  clientAnalyticsNativeV17Approval?.scope==='CLIENT_ANALYTICS_NATIVE_FUNCTIONALITY_V17'&&
+  clientAnalyticsNativeV17Approval?.decision==='OWNER_EXPLICIT_TEXT_AND_DATA_FUNCTIONAL_DELTA_ONLY'&&
+  analyticsLpgV13Exception&&
+  clientAnalyticsNativeV17Approval?.source_lock?.previous_client_runtime_blob===
+    analyticsLpgV13Approval?.exact_post_blobs?.[CLIENT_ANALYTICS_NATIVE_V17_RUNTIME]?.authorized_post_blob_sha&&
+  clientAnalyticsNativeV17Approval?.source_lock?.new_client_runtime_blob==='122d07c847bf5522a095f524c91d410f6633d6d9'&&
+  clientAnalyticsNativeV17Approval?.requirements?.visual_freeze_remains_enabled===true&&
+  clientAnalyticsNativeV17Approval?.requirements?.exact_blob_enforcement===true&&
+  clientAnalyticsNativeV17Approval?.requirements?.exact_file_enforcement===true&&
+  clientAnalyticsNativeV17Approval?.requirements?.wildcard_exception===false&&
+  clientAnalyticsNativeV17Approval?.requirements?.no_css_or_html_change===true&&
+  clientAnalyticsNativeV17Approval?.requirements?.other_sections_unchanged===true&&
+  clientAnalyticsNativeV17Approval?.approved_protected_files?.includes(CLIENT_ANALYTICS_NATIVE_V17_RUNTIME);
+  
 const CLIENT_CONTRACT_EVENT_DRIVEN_FILES=[
   'assets/portal-runtime/client-contract-download-v3.js'
 ];
