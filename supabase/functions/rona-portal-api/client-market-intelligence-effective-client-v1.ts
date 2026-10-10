@@ -439,7 +439,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
     const rollingFloor = rollingToday - 29 * 86400000;
     const chartObservationMs = (shortDate: unknown, anchor: string): number => {
       const label = text(shortDate);
-      if (!/^\\d{2}\\.\\d{2}$/.test(label) || !/^\\d{2}\\.\\d{2}\\.\\d{4}$/.test(anchor)) return NaN;
+      if (!/^\d{2}\.\d{2}$/.test(label) || !/^\d{2}\.\d{2}\.\d{4}$/.test(anchor)) return NaN;
       const [d,m] = label.split(".").map(Number), year = Number(anchor.slice(6));
       const anchorMs = Date.UTC(year,Number(anchor.slice(3,5))-1,Number(anchor.slice(0,2)));
       for (const y of [year,year-1]) {
@@ -455,7 +455,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       const indices: number[] = [];
       for(let i=0;i<dates.length;i++){
         const full=monitor?.observedDates?.length===dates.length?text(monitor.observedDates[i]):"";
-        const ms=/^\\d{4}-\\d{2}-\\d{2}$/.test(full)?Date.parse(full+"T00:00:00Z"):chartObservationMs(dates[i],anchor);
+        const ms=/^\d{4}-\d{2}-\d{2}$/.test(full)?Date.parse(full+"T00:00:00Z"):chartObservationMs(dates[i],anchor);
         if(Number.isFinite(ms)&&ms>=rollingFloor&&ms<=rollingToday&&
             values[i]!==null&&values[i]!==""&&Number.isFinite(Number(values[i])))indices.push(i);
       }
