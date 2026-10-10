@@ -193,7 +193,8 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       from jsonb_array_elements_text(${sql.json(clientKeys)}::jsonb)
     )
     select distinct on (pi.product)
-      pi.product, pi.metadata->>'source_freshness_state' as spot_freshness
+      pi.product, pi.metadata->>'source_freshness_state' as spot_freshness,
+       pi.analytics_as_of::date::text as grant_as_of
     from portal_private.publications p
     join portal_private.publication_items pi on pi.publication_key=p.id
     where p.publication_type::text='ANALYTICS'
@@ -206,7 +207,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       and pi.authority_state::text in ('VERIFIED','CONFIRMED')
       and pi.distribution_allowed=true
       and pi.audience::text in ('ALL_CLIENTS','SELECTED_CLIENTS','PUBLIC')
-      and pi.product in ('ДТ','СУГ / СПБТ')
+      and pi.product in ('ДТ','СУГ / СПБТ','АИ-92','АИ-95')
       and pi.metadata->>'publication_layer'='DERIVED_ANALYTICS'
       and lower(coalesce(pi.metadata->>'public_chart_ready','false'))='true'
       and jsonb_typeof(pi.metadata->'public_chart')='object'
@@ -229,6 +230,16 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
   const forecastPermissions = new Map(
     forecastGrantRows.map((row: any) => [text(row.product), text(row.spot_freshness)])
   );
+  // Gasoline historical observation authority is separate from CURRENT spot
+  // publication. The same tenant/audience/distribution/verification gates above
+  // grant an explicitly DATED chart, not today's price or a new forecast.
+  const gasolineHistoryGrants = new Map(
+    forecastGrantRows
+      .filter((row: any) => ["АИ-92", "АИ-95"].includes(text(row.product)) &&
+        ["STALE_SOURCE", "CURRENT"].includes(text(row.spot_freshness)) &&
+        /^\d{4}-\d{2}-\d{2}$/.test(text(row.grant_as_of)))
+      .map((row: any) => [text(row.product), text(row.grant_as_of)])
+  );
   const sourceNames: Record<string, string> = {
     AI92: "АИ-92", AI95: "АИ-95", DT: "ДТ", LPG: "СУГ / СПБТ"
   };
@@ -243,6 +254,46 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         !source.products || !/^\d{2}\.\d{2}\.\d{4}$/.test(text(source.latestTradeDate))) {
       throw new Error("CLIENT_ANALYTICS_ADMIN_CANONICAL_UNAVAILABLE");
     }
+    // Verify each dated gasoline point against an INGESTED CONFIRMED Platts
+    // physical observation. АИ-95 is the explicitly labelled AI92+40 planning
+    // calculation; it is NOT represented as an independent Platts quote.
+    const verifiedGasolineRows = await sql`
+      select distinct on (f.as_of_date)
+        f.as_of_date::text as as_of_date, f.assessment_value as usd_t
+      from portal_private.market_intelligence_facts f
+      join portal_private.market_intelligence_source_documents sd
+        on sd.source_doc_id=f.source_doc_id
+      where f.product='АИ-92'
+        and f.market_family='GASOLINE' and f.value_type='PHYSICAL'
+        and f.data_status='CONFIRMED' and f.quality_status='CONFIRMED'
+        and sd.source_family='PLATTS'
+        and sd.data_status='CONFIRMED' and sd.processing_state='INGESTED'
+        and f.as_of_date between
+          date_trunc('month',to_date(${text(source.latestTradeDate)},'DD.MM.YYYY'))::date
+          and to_date(${text(source.latestTradeDate)},'DD.MM.YYYY')
+      order by f.as_of_date, f.created_at desc
+    `;
+    const anchorIso = text(source.latestTradeDate).replace(
+      /^(\d{2})\.(\d{2})\.(\d{4})$/, "$3-$2-$1"
+    );
+    const backedGasolineHistory = (key: string, raw: any): boolean => {
+      if (key !== "AI92" && key !== "AI95") return false;
+      if (gasolineHistoryGrants.get(sourceNames[key]) !== anchorIso) return false;
+      const labels: unknown[] = Array.isArray(raw?.dates) ? raw.dates : [];
+      const values: unknown[] = Array.isArray(raw?.values) ? raw.values : [];
+      return labels.length > 0 && labels.length === verifiedGasolineRows.length &&
+        labels.length === values.length &&
+        verifiedGasolineRows.every((row: any, i: number) => {
+          const date = text(row.as_of_date);
+          const actual = Number(row.usd_t);
+          const expected = actual + (key === "AI95" ? 40 : 0);
+          return /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+            text(labels[i]) === date.slice(8,10)+"."+date.slice(5,7) &&
+            Number.isFinite(actual) && actual > 0 &&
+            Number.isFinite(Number(values[i])) &&
+            Math.abs(Number(values[i])-expected) < 0.001;
+        }) && (key !== "AI95" || text(raw.calculationRule) === "AI92+40");
+    };
     const modelRows = await sql`
       select distinct on (fs.product)
         fs.product, fs.target_month::text as target_month,
@@ -309,26 +360,33 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
 
     for (const key of ["AI92", "AI95", "DT", "LPG"]) {
       const productName = sourceNames[key];
-      if (!permissionToForecast(key)) {
-        sourceProducts[key] = empty(key);
-        continue;
-      }
       const raw = source.products[key];
       if (!raw || typeof raw !== "object") {
         sourceProducts[key] = empty(key);
         continue;
       }
+      const verifiedDatedGasoline = backedGasolineHistory(key, raw);
+      if (!permissionToForecast(key) && !verifiedDatedGasoline) {
+        sourceProducts[key] = empty(key);
+        continue;
+      }
       const dates: unknown[] = Array.isArray(raw.dates) ? raw.dates : [];
       const values: unknown[] = Array.isArray(raw.values) ? raw.values : [];
-      const safeSeries = publicNames.has(productName) &&
+      const safeSeries = (publicNames.has(productName) || verifiedDatedGasoline) &&
         dates.length > 0 && dates.length === values.length &&
         dates.every((date: unknown) => /^\d{2}\.\d{2}$/.test(text(date))) &&
         values.every((value: unknown) => finite(value));
       const output: Record<string, any> = {
         name: productName,
-        basis: text(raw.basis),
+        basis: text(raw.basis) +
+          (verifiedDatedGasoline && !publicNames.has(productName)
+            ? " · датированный исторический ряд по "+text(source.latestTradeDate)+
+              "; не текущая котировка"
+            : ""),
         dates: safeSeries ? dates.map((date: unknown) => text(date)) : [],
-        values: safeSeries ? values.map((value: unknown) => Number(value)) : []
+        values: safeSeries ? values.map((value: unknown) => Number(value)) : [],
+        historyOnly: verifiedDatedGasoline && !publicNames.has(productName),
+        calculationRule: key === "AI95" && verifiedDatedGasoline ? "AI92+40" : null
       };
       const model: any = modelSources.get(key === "LPG" ? "СУГ" : productName);
       const target = text(model?.target_month).slice(0,7);
@@ -351,7 +409,7 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
       const forecastSourceCurrent = Number.isFinite(ageFromAnchor) &&
         Number.isFinite(ageFromToday) && ageFromAnchor >= 0 &&
         ageFromAnchor <= 4 && ageFromToday >= 0 && ageFromToday <= 6;
-      if (targetIsFuture && forecastSourceCurrent && /^\d{4}-\d{2}-\d{2}$/.test(lastSourceDate) &&
+      if (permissionToForecast(key) && targetIsFuture && forecastSourceCurrent && /^\d{4}-\d{2}-\d{2}$/.test(lastSourceDate) &&
           lastSourceDate <= text(source.latestTradeDate).slice(6) + "-" +
                             text(source.latestTradeDate).slice(3,5) + "-" +
                             text(source.latestTradeDate).slice(0,2) &&
