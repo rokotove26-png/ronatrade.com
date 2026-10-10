@@ -105,10 +105,27 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
              pi.metadata->>'source_url' as source_url,
              pi.metadata->>'country_region' as region,
              pi.metadata->>'category' as category,
+             cd.analyst_commentary as commercial_commentary,
+             cd.related_products as commercial_related_products,
              portal_private.try_timestamptz_v1(pi.metadata->>'source_published_at') as source_published_at
       from portal_private.publications p
       join portal_private.publication_items pi on pi.publication_key=p.id
       cross join params x
+      -- Fail closed unless an independent CD-approved canonical news row
+      -- matches the already client-authorized published NEWS item exactly.
+      left join public.rona_market_news cd
+        on cd.news_id=pi.metadata->>'news_id'
+       and cd.verified is true
+       and cd.publication_status='ОПУБЛИКОВАНО'
+       and cd.approved_by='AI-COMMERCIAL-DIRECTOR'
+       and cd.approved_at is not null and cd.approved_at<=x.server_now
+       and nullif(btrim(cd.analyst_commentary),'') is not null
+       and cd.source_url=pi.metadata->>'source_url'
+       and cd.product=pi.product
+       and cd.analyst_commentary=pi.metadata->>'analyst_commentary'
+       and pi.metadata->>'client_visible'='true'
+       and coalesce(pi.metadata->>'manual_release_required','false')='false'
+       and cd.source_published_at=portal_private.try_timestamptz_v1(pi.metadata->>'source_published_at')
       where p.publication_type::text='NEWS'
         and p.status::text='PUBLISHED'
         and p.lifecycle_state::text='ACTIVE'
@@ -159,7 +176,9 @@ export async function clientMarketIntelligenceForEffectiveClient(c: Ctx): Promis
         'category',d.category,
         'source_name',d.source_name,
         'source_url',d.source_url,
-        'source_published_at',d.source_published_at
+        'source_published_at',d.source_published_at,
+        'commercial_commentary',d.commercial_commentary,
+        'commercial_related_products',d.commercial_related_products
       ) order by d.source_published_at desc,d.published_at desc),'[]'::jsonb) as value
       from deduped_news d
     )
