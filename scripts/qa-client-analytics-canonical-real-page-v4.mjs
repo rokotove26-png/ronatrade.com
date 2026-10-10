@@ -224,6 +224,45 @@ try{
   console.log('CLIENT_CANONICAL_LIVE_PUBLISHED_V7',JSON.stringify(live));
   if(live.visualOwner!=='canonical-v7'||live.substituteCount||live.svgHidden||live.staleExposed)
     throw Error('CLIENT_CANONICAL_LIVE_PUBLICATION_FAILED: '+JSON.stringify(live));
+  // Four-product DATA-only regression on the actual immutable HTML page.
+  const scenarios=[
+    {key:'AI92',last:1103,delta:22,low:1081,high:1103,label:'АИ-92'},
+    {key:'AI95',last:1143,delta:22,low:1121,high:1143,label:'АИ-95'},
+    {key:'DT',last:1337,delta:37,low:1250,high:1337,label:'ДТ'},
+    {key:'LPG',last:735,delta:25,low:710,high:735,label:'СУГ'}
+  ];
+  for(const entry of scenarios){
+    const base=entry.key==='AI92'?[1081,1092,1103]:
+      entry.key==='AI95'?[1121,1132,1143]:
+      entry.key==='DT'?[1300,1250,1337]:[710,720,735];
+    payload.data.clientCanonicalAnalytics.products[entry.key]={
+      name:entry.label,basis:'FIXTURE Platts confirmed '+entry.key,
+      dates:['07.10','08.10','09.10'],values:base,
+      forecast:{month:'2026-11',low:base[0]-10,base:base[1],
+        high:base[2],forward:base[1],sourceRef:'QA-VERIFIED-SOURCE',
+        comment:'Вывод по '+entry.label+': '+entry.delta+' USD/т; индикативно, не оферта.'}
+    };
+  }
+  payload.data.generated_at='2026-10-09T00:02:45Z';
+  await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
+  await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.data?.products?.LPG?.values?.length===3,null,{timeout:8500});
+  for(const entry of scenarios){
+    await page.evaluate(k=>document.querySelector('#rona-analytics-v2 [data-an2-product="'+k+'"]')?.click(),entry.key);
+    await page.waitForFunction(k=>document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct===k,entry.key,{timeout:5500});
+    const proof=await page.evaluate(()=>{
+      const r=document.querySelector('#rona-analytics-v2');
+      return {metrics:['last','change','range'].map(k=>r.querySelector('[data-chart-metric="'+k+'"]')?.textContent?.replace(/[\\s\\u00a0\\u202f]/g,'')||''),
+        title:r.querySelector('.an2-rona-head h2')?.textContent,
+        conclusion:r.querySelector('.an2-comment')?.textContent};
+    });
+    if(!proof.metrics[0].includes(String(entry.last))||
+      proof.metrics[1]!=='+'+entry.delta+',00'||
+      proof.metrics[2]!==entry.low+'–'+entry.high||
+      proof.title!=='Возможные цены RONA Trade'||
+      !proof.conclusion?.includes('Вывод по '+entry.label))
+      throw Error('FOUR_PRODUCT_ORIGINAL_FUNCTIONALITY_V17 '+JSON.stringify({product:entry.key,proof}));
+    console.log('NATIVE_ANALYTICS_V17_'+entry.key+'=PASS',JSON.stringify(proof));
+  }
   payload.data={...payload.data,analytics:[],clientCanonicalAnalytics:null,generated_at:'2026-10-09T00:03:00Z'};
   await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
   await page.waitForFunction(()=>getComputedStyle(document.querySelector('#rona-analytics-v2 [data-chart-svg]')).visibility==='hidden',null,{timeout:6500});
