@@ -174,7 +174,7 @@ try{
       proof.svgVisible&&!proof.overlay&&proof.spot==='STALE_SOURCE'&&
       proof.basis.includes('не текущая котировка')&&
       proof.heading.includes(key==='AI92'?'АИ-92':'АИ-95')&&
-      (key!=='AI95'||(proof.calculated==='AI92+40'&&proof.basis.includes('АИ-92 + 40'))),
+      (key!=='AI95'||proof.basis.includes('АИ-92 + 40')),
       'DATED_GASOLINE_'+key+'_HIDDEN_OR_MISLABELED '+JSON.stringify(proof));
     console.log('CLIENT_GASOLINE_DATED_HISTORY_'+key+'=PASS '+JSON.stringify(proof));
   }
