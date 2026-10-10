@@ -309,7 +309,6 @@ function start(){
   document.addEventListener('click',event=>{if(isHomeNavigation(event.target))queueMicrotask(()=>refreshVisible('navigation'))},true);
   state.refreshTimer=window.setInterval(()=>refreshVisible('timer'),SOURCE_REFRESH_MS);
   window.addEventListener('pageshow',()=>refreshVisible('pageshow'),{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshVisible('resume')});
   window.addEventListener('rona:client-home-invalidated',()=>refreshVisible('invalidation'),{passive:true});
   window.addEventListener('rona:client-current-projection',event=>{const d=event?.detail||{};if(contextKey(authority.getCurrentContext?.())===`${norm(d.client_id)}|${norm(d.contract_id)}`)schedule()},{passive:true});
   window.addEventListener('resize',()=>{const root=homeRoot(),owner=root?.querySelector(OWNER);if(root&&owner)alignOwner(root,owner)},{passive:true});
