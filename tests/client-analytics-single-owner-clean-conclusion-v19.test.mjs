@@ -13,7 +13,7 @@ test('client conclusion is concise and contains no source internals',()=>{
   for(const token of ['output.values.length + " наблюд.', 'Есть пропуски между датами источника:', 'Финансовый прогноз и физический компонент ДТ используют разные базисы.', 'Данные не являются коммерческой офертой.'])
     assert.ok(!tail.includes(token),token);
   const factor=edge.slice(edge.indexOf('const commercialFactorFor'),edge.indexOf('// A published forecast permission'));
-  assert.ok(!factor.includes('candidate.newsId + "'): "'));
+  assert.ok(!factor.includes('candidate.newsId + "): "'));
   assert.ok(factor.includes('candidate.commentary'));
   assert.ok(factor.includes('Событие опубликовано ПОСЛЕ последнего наблюдения'));
 });
@@ -23,6 +23,8 @@ test('one native canonical owner survives; only generated substitutes retired',(
   assert.ok(client.includes('for(const substitute of root.querySelectorAll('));
   assert.ok(client.includes('substitute.remove()'));
   assert.ok(!client.includes('root.replaceChildren('));
+  assert.ok(client.includes('20261010-client-analytics-clean-conclusion-single-owner-v19'));
+  assert.ok(attach.includes('20261010-client-analytics-clean-conclusion-single-owner-v19'));
   assert.ok(attach.includes('CANONICAL_SOURCE_GATE'));
   assert.ok(attach.includes("if(html.includes('portal-market-news-current-v1.js'))"));
 });
@@ -30,6 +32,10 @@ test('one native canonical owner survives; only generated substitutes retired',(
 test('refresh does not blank verified same-context view; switch and errors fail closed',()=>{
   const start=client.slice(client.indexOf('async function load('),client.indexOf('function start()'));
   assert.ok(start.includes('state.contextKey!==contextKey'));
+  assert.ok(start.includes("reason==='context-change'"));
+  assert.ok(start.includes('actualContext!==contextKey'));
+  assert.ok(!client.includes("addEventListener('focus',()=>load('focus')"));
+  assert.ok(!client.includes("addEventListener('pageshow',()=>load('pageshow')"));
   assert.ok(start.includes("state.data=null;state.fingerprint='';state.loaded=false;"));
   assert.ok(!start.includes("state.data=null;state.fingerprint='';state.loaded=false;state.error='';state.loading=true;"));
   assert.ok(start.includes("state.data=null;state.fingerprint='';state.loaded=true;state.error="));
