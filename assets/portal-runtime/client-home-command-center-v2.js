@@ -1,6 +1,7 @@
 (()=>{'use strict';
 const MARK='20260902-client-home-command-center-v3-current-context';
 const HOME_LIVE_FRESHNESS_V1='20261010-client-home-live-freshness-v1';
+const HOME_PENDING_REFRESH_V2='20261010-client-home-pending-refresh-v2';
 const SOURCE_REFRESH_MS=30000;
 if(window.__RONA_CLIENT_HOME_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_HOME_RUNTIME__=MARK;
@@ -10,7 +11,7 @@ const OWNER='[data-rona-client-home-owner="command-center-v2"]';
 const CURRENT_CONTEXT_ROUTE_MARKER='/v1/client/context?clientId=';
 const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED']);
 const TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED']);
-const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,scheduled:false,unsubscribe:null,refreshTimer:0};
+const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,scheduled:false,unsubscribe:null,refreshTimer:0,refreshPending:false};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
@@ -286,19 +287,28 @@ async function load(forceFresh=false){
     window.__RONA_CLIENT_HOME_STATE__={version:MARK,source:'CURRENT_CONTEXT_HOME_PROJECTION',mode:'COMMAND_CENTER',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),active_deals:activeDeals(state.detail).map(d=>norm(d?.deal_id)),loaded_at:new Date(state.lastLoad).toISOString()};
     render(state.detail,ctx,state.lastLoad);
     window.__RONA_CLIENT_HOME_STATE__.freshness_policy=HOME_LIVE_FRESHNESS_V1;
+    window.__RONA_CLIENT_HOME_STATE__.pending_refresh_policy=HOME_PENDING_REFRESH_V2;
     window.__RONA_CLIENT_HOME_STATE__.refresh_ms=SOURCE_REFRESH_MS;
     setHomeState('ready');
-  }catch(error){console.error('RONA client home command center projection',error);state.detail=null;setHomeState('error')}
-  finally{
+  }catch(error){
+    if(contextKey(contextAuthority()?.getCurrentContext?.())===key){
+      console.error('RONA client home command center projection',error);
+      state.detail=null;window.__RONA_CLIENT_HOME_STATE__=null;setHomeState('error');
+    }
+  }finally{
     state.loading=false;
-    // A context change while the previous request was in flight must never
-    // strand the new context behind the old request's loading flag.
-    if(contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule);
+    const pending=state.refreshPending;
+    state.refreshPending=false;
+    // Explicit invalidations received in flight MUST be replayed once after
+    // this request finishes; otherwise Home can appear ready with stale data.
+    if(pending&&visibleHome())queueMicrotask(()=>refreshVisible('pending'));
+    else if(contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule);
   }
 }
 function schedule(){if(state.scheduled)return;state.scheduled=true;requestAnimationFrame(()=>{state.scheduled=false;if(homeRoot())load()})}
 function refreshVisible(reason='timer'){
-  if(!visibleHome()||state.loading)return;
+  if(!visibleHome())return;
+  if(state.loading){if(reason!=='timer')state.refreshPending=true;return;}
   if(reason==='timer'&&state.lastLoad&&Date.now()-state.lastLoad<SOURCE_REFRESH_MS)return;
   void load(true);
 }

@@ -1,4 +1,4 @@
-name: Client Home live source refresh V1 QA
+name: Client Home live source refresh V2 QA
 
 on:
   pull_request:
@@ -8,6 +8,7 @@ on:
     paths:
       - 'assets/portal-runtime/client-home-command-center-v2.js'
       - 'governance/client-home-live-source-refresh-v1-20261010.json'
+      - 'governance/client-home-inflight-refresh-v2-20261010.json'
       - 'scripts/qa-client-portal-visual-freeze.mjs'
       - 'scripts/qa-client-home-live-refresh-v1.mjs'
       - '.github/workflows/client-home-live-refresh-v1-qa.yml'
