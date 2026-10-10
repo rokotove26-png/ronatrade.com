@@ -2,6 +2,7 @@
 const MARK='20260902-client-home-command-center-v3-current-context';
 const HOME_LIVE_FRESHNESS_V1='20261010-client-home-live-freshness-v1';
 const HOME_PENDING_REFRESH_V2='20261010-client-home-pending-refresh-v2';
+const HOME_SERVER_CLOSEOUT_V3='20261010-client-home-server-closeout-attention-v3';
 const SOURCE_REFRESH_MS=30000;
 if(window.__RONA_CLIENT_HOME_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_HOME_RUNTIME__=MARK;
@@ -164,13 +165,22 @@ function latestPayment(detail){
 }
 function resourceTone(d){const code=upper(d?.resource_status);if(code.includes('CONFIRMED'))return'ok';if(code.includes('DENIED')||code.includes('REJECT'))return'danger';return'wait'}
 function paymentTone(d){const code=upper(d?.payment_status);if(code.includes('OVERDUE')||code.includes('ERROR')||code.includes('REJECT'))return'danger';if(code.includes('PAID')||code.includes('CONFIRMED')||code.includes('PARTIALLY'))return'ok';return'wait'}
-function dealTone(d){const code=upper(d?.current_status);if(code.includes('CANCEL')||code.includes('REJECT')||code.includes('ERROR'))return'danger';return''}
+function isServerCloseoutAttention(d){
+  return d?.post_rail_completion_attention===true&&
+    upper(d?.client_deal_stage)==='ATTENTION'&&
+    upper(d?.client_deal_stage_source)==='RAIL_COMPLETED_AND_100_PERCENT_PAID_OWNER_RULE_V2';
+}
+function dealTone(d){if(isServerCloseoutAttention(d))return'wait';const code=upper(d?.current_status);if(code.includes('CANCEL')||code.includes('REJECT')||code.includes('ERROR'))return'danger';return''}
 function confirmedResources(deals){return deals.filter(d=>resourceTone(d)==='ok').length}
 function financePrimary(groups){if(groups.length!==1)return null;return groups[0]}
 function attentionItems(deals,detail){
   const items=[];
   for(const d of deals){
     const id=norm(d?.deal_id)||'Сделка';const r=upper(d?.resource_status),p=upper(d?.payment_status);
+    if(isServerCloseoutAttention(d))items.push({
+      tone:'wait',title:id+' · закрытие сделки',
+      note:'Ж/д-мониторинг завершён, оплата 100% подтверждена. Требуется проверить закрытие сделки.'
+    });
     if(r.includes('DENIED')||r.includes('REJECT'))items.push({tone:'danger',title:id+' · ресурс',note:norm(d?.resource_label)||'Сервер зафиксировал отказ по ресурсу'});
     else if(r.includes('PENDING')||r.includes('WAIT'))items.push({tone:'wait',title:id+' · ресурс',note:norm(d?.resource_label)||'Ресурс ожидает подтверждения'});
     if(p.includes('OVERDUE')||p.includes('ERROR')||p.includes('REJECT'))items.push({tone:'danger',title:id+' · оплата',note:norm(d?.payment_label)||'Сервер зафиксировал проблему оплаты'});
@@ -178,7 +188,21 @@ function attentionItems(deals,detail){
   const apps=activeApplications(detail);if(apps.length)items.push({tone:'wait',title:'Заявки без сделки: '+apps.length,note:'Текущие заявки выбранного договора, по которым сделка ещё не зарегистрирована'});
   return items;
 }
-function renderLivebar(loadedAt){return `<div class="rona-cc-livebar"><div class="rona-cc-liveleft"><i class="rona-cc-live-dot"></i><div><div class="rona-cc-live-title">Оперативный центр</div><div class="rona-cc-panel-sub">Только актуальные данные выбранного договора</div></div></div><div class="rona-cc-live-note">Автообновление 30 сек · ${esc(formatDateTime(loadedAt))}</div></div>`}
+function latestSourceEventAt(detail){
+  const stamps=[];
+  const add=value=>{if(!value)return;const ts=Date.parse(String(value));if(Number.isFinite(ts)&&ts<=Date.now()+60000)stamps.push(ts)};
+  for(const d of Array.isArray(detail?.deals)?detail.deals:[]){
+    add(d?.updated_at);add(d?.payment_source_timestamp);add(d?.rail_monitoring_completed_at);
+  }
+  for(const a of Array.isArray(detail?.applications)?detail.applications:[])add(a?.updated_at);
+  for(const p of Array.isArray(detail?.payments)?detail.payments:[])add(p?.payment_at);
+  return stamps.length?new Date(Math.max(...stamps)).toISOString():null;
+}
+function renderLivebar(loadedAt,detail){
+  const lastEvent=latestSourceEventAt(detail);
+  const sourceNote=lastEvent?'Последнее событие в источниках: '+formatDateTime(lastEvent):'Дата события в источниках не установлена';
+  return `<div class="rona-cc-livebar"><div class="rona-cc-liveleft"><i class="rona-cc-live-dot"></i><div><div class="rona-cc-live-title">Оперативный центр</div><div class="rona-cc-panel-sub">Последние доступные данные договора · ${esc(sourceNote)}</div></div></div><div class="rona-cc-live-note">Проверено ${esc(formatDateTime(loadedAt))} · автообновление 30 сек</div></div>`;
+}
 function renderKpis(deals,detail){
   const volume=totalVolume(deals,detail),groups=financeGroups(deals),primary=financePrimary(groups),confirmed=confirmedResources(deals),apps=activeApplications(detail);
   const financeValue=primary?money(primary.received,primary.currency==='—'?'':primary.currency):(groups.length?groups.length+' валют':'—');
@@ -196,14 +220,14 @@ function renderDeals(deals,detail){
   const apps=applicationByDeal(detail);
   const rows=deals.map(d=>{
     const id=norm(d?.deal_id),app=apps.get(id)||{},product=norm(app?.product)||'Товар по сделке',q=quantity(app?.quantity_tonnes),route=[norm(app?.delivery_basis),norm(app?.destination)].filter(Boolean).join(' · ');
-    const stage=norm(d?.current_status_label)||norm(d?.current_status)||'Статус не опубликован',resource=norm(d?.resource_label)||'Статус ресурса не опубликован',payment=norm(d?.payment_label)||'Статус оплаты не опубликован';
+    const stage=isServerCloseoutAttention(d)?(norm(d?.client_deal_stage_label)||'Требует внимания'):(norm(d?.current_status_label)||norm(d?.current_status)||'Статус не опубликован'),resource=norm(d?.resource_label)||'Статус ресурса не опубликован',payment=norm(d?.payment_label)||'Статус оплаты не опубликован';
     return `<article class="rona-cc-deal" data-home-deal-id="${esc(id)}"><div><div class="rona-cc-deal-id">${esc(id||'Сделка')}</div><div class="rona-cc-deal-product">${esc(product)}${q?' · '+esc(q):''}</div>${route?`<div class="rona-cc-deal-route">${esc(route)}</div>`:''}</div><div><span class="rona-cc-label">Сделка</span><span class="rona-cc-pill" data-tone="${dealTone(d)}">${esc(stage)}</span></div><div><span class="rona-cc-label">Ресурс</span><span class="rona-cc-pill" data-tone="${resourceTone(d)}">${esc(resource)}</span></div><div><span class="rona-cc-label">Оплата</span><span class="rona-cc-pill" data-tone="${paymentTone(d)}">${esc(payment)}</span></div><button class="rona-cc-open" type="button" data-home-action="deal" data-deal-id="${esc(id)}">Открыть</button></article>`;
   }).join('');
   return `<section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Сделки в работе</strong><span class="rona-cc-panel-sub">Статус сделки, ресурса и оплаты в одном месте</span></div><span class="rona-cc-panel-meta">${deals.length} текущ.</span></div><div class="rona-cc-deals">${rows}</div></section>`;
 }
 function renderAttention(deals,detail){
   const items=attentionItems(deals,detail);
-  const html=items.length?items.map(x=>`<div class="rona-cc-alert" data-tone="${x.tone}"><strong>${esc(x.title)}</strong><span>${esc(x.note)}</span></div>`).join(''):`<div class="rona-cc-alert" data-tone="ok"><strong>Критических событий нет</strong><span>По опубликованным серверным статусам выбранного договора нет просроченной оплаты, отказа ресурса или необработанных исключений.</span></div>`;
+  const html=items.length?items.map(x=>`<div class="rona-cc-alert" data-tone="${x.tone}"><strong>${esc(x.title)}</strong><span>${esc(x.note)}</span></div>`).join(''):`<div class="rona-cc-alert" data-tone="ok"><strong>По проверяемым статусам исключений нет</strong><span>Это относится только к опубликованным состояниям ресурса, оплаты, закрытия сделки и заявок. Остальные процессы проверяются в соответствующих разделах.</span></div>`;
   return `<section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Требует внимания</strong><span class="rona-cc-panel-sub">Только фактические исключения и ожидания</span></div><span class="rona-cc-panel-meta">${items.length||'0'}</span></div><div class="rona-cc-attention">${html}</div></section>`;
 }
 function renderFinance(deals,detail){
@@ -227,7 +251,7 @@ function renderActions(){
 function render(detail,ctx,loadedAt){
   const root=homeRoot();if(!root)return false;const owner=ensureOwner(root);hideLegacy(root,owner);alignOwner(root,owner);updateTitleMeta(root,loadedAt);
   const deals=activeDeals(detail);
-  owner.innerHTML=renderLivebar(loadedAt)+renderKpis(deals,detail)+`<div class="rona-cc-main"><div>${renderDeals(deals,detail)}</div><div class="rona-cc-stack">${renderAttention(deals,detail)}${renderActions()}</div></div>`+`<div class="rona-cc-bottom">${renderFinance(deals,detail)}<section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Контур управления</strong><span class="rona-cc-panel-sub">Что обновляется автоматически</span></div></div><div class="rona-cc-attention"><div class="rona-cc-alert"><strong>Сделки и ресурс</strong><span>Серверные статусы активных сделок и доступности ресурса.</span></div><div class="rona-cc-alert"><strong>Финансы</strong><span>Суммы обязательств, подтверждённых поступлений и остатка.</span></div><div class="rona-cc-alert"><strong>Контекст</strong><span>При смене компании или договора Главная перестраивается автоматически.</span></div></div></section></div>`;
+  owner.innerHTML=renderLivebar(loadedAt,detail)+renderKpis(deals,detail)+`<div class="rona-cc-main"><div>${renderDeals(deals,detail)}</div><div class="rona-cc-stack">${renderAttention(deals,detail)}${renderActions()}</div></div>`+`<div class="rona-cc-bottom">${renderFinance(deals,detail)}<section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Контур управления</strong><span class="rona-cc-panel-sub">Что обновляется автоматически</span></div></div><div class="rona-cc-attention"><div class="rona-cc-alert"><strong>Сделки и ресурс</strong><span>Серверные статусы активных сделок и доступности ресурса.</span></div><div class="rona-cc-alert"><strong>Финансы</strong><span>Суммы обязательств, подтверждённых поступлений и остатка.</span></div><div class="rona-cc-alert"><strong>Контекст</strong><span>При смене компании или договора Главная перестраивается автоматически.</span></div></div></section></div>`;
   bindActions(owner);return true;
 }
 function renderContextRequired(){
@@ -265,18 +289,21 @@ function bindActions(owner){
 }
 function clearForContext(ctx){state.activeKey=ctx?contextKey(ctx):'';state.detail=null;state.ctx=ctx||null;state.lastLoad=0}
 async function load(forceFresh=false){
-  if(state.loading)return;
+  // Acquire the single-request lock before awaiting context selection.
+  // Otherwise two concurrent loads can both see loading=false, and a stale
+  // cached result may repaint "ready" after another request failed closed.
+  if(state.loading){if(forceFresh)state.refreshPending=true;return}
   const root=homeRoot();if(!root)return;
-  let ctx=null;
-  try{ctx=await currentContext()}catch(error){console.error('RONA client home context authority',error);state.detail=null;setHomeState('error');return}
-  if(!ctx){clearForContext(null);renderContextRequired();setHomeState('ready');return}
-  const key=contextKey(ctx);if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
   state.loading=true;
+  let key='';
   try{
+    const ctx=await currentContext();
+    if(!ctx){clearForContext(null);renderContextRequired();setHomeState('ready');return}
+    key=contextKey(ctx);
+    if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
     const authority=contextAuthority();
-    // A same-context projection is cached indefinitely by the central authority.
-    // Refresh it explicitly only from the visible Home: this preserves a single
-    // authoritative network owner and reuses the existing tenant/session gate.
+    // All displayed facts originate from the one authenticated current
+    // context. A forced Home refresh invalidates its cached projection.
     if(forceFresh&&typeof authority.invalidateCurrentProjection==='function'&&authority.getCurrentProjection?.())
       authority.invalidateCurrentProjection();
     if(!state.detail||state.activeKey!==key)setHomeState('loading');
@@ -288,10 +315,12 @@ async function load(forceFresh=false){
     render(state.detail,ctx,state.lastLoad);
     window.__RONA_CLIENT_HOME_STATE__.freshness_policy=HOME_LIVE_FRESHNESS_V1;
     window.__RONA_CLIENT_HOME_STATE__.pending_refresh_policy=HOME_PENDING_REFRESH_V2;
+    window.__RONA_CLIENT_HOME_STATE__.server_closeout_attention_policy=HOME_SERVER_CLOSEOUT_V3;
     window.__RONA_CLIENT_HOME_STATE__.refresh_ms=SOURCE_REFRESH_MS;
     setHomeState('ready');
   }catch(error){
-    if(contextKey(contextAuthority()?.getCurrentContext?.())===key){
+    // An older tenant's late failure must not erase a newly selected tenant.
+    if(!key||contextKey(contextAuthority()?.getCurrentContext?.())===key){
       console.error('RONA client home command center projection',error);
       state.detail=null;window.__RONA_CLIENT_HOME_STATE__=null;setHomeState('error');
     }
@@ -299,10 +328,10 @@ async function load(forceFresh=false){
     state.loading=false;
     const pending=state.refreshPending;
     state.refreshPending=false;
-    // Explicit invalidations received in flight MUST be replayed once after
-    // this request finishes; otherwise Home can appear ready with stale data.
+    // Replay explicit invalidations after the lock is released, never show a
+    // stale ready state from a parallel load or a previous tenant's source.
     if(pending&&visibleHome())queueMicrotask(()=>refreshVisible('pending'));
-    else if(contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule);
+    else if(key&&contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule);
   }
 }
 function schedule(){if(state.scheduled)return;state.scheduled=true;requestAnimationFrame(()=>{state.scheduled=false;if(homeRoot())load()})}

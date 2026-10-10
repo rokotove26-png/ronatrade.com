@@ -16,7 +16,7 @@ for(const token of [
   "window.setInterval(()=>refreshVisible('timer'),SOURCE_REFRESH_MS)",
   "document.visibilityState!=='visible'",
   "if(contextKey(authority.getCurrentContext?.())!==key)return",
-  "if(contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule)",
+  "else if(key&&contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule)",
   "root?.querySelectorAll('[data-open-deal]')"
 ])assert.ok(home.includes(token),'Missing current-only refresh contract: '+token);
 for(const forbidden of ['RONA-C001','UNIVERSAL SOLYARIS','DEAL-2026-004'])assert.ok(!home.includes(forbidden));
@@ -176,6 +176,14 @@ await page.evaluate(()=>{
   window.__QA_HOME.releaseHeld();
 });
 await page.waitForFunction(()=>window.__QA_HOME_STATE_TRANSITIONS.includes('error'),null,{timeout:6000});
+// A browser can briefly report 'ready' from the just-settled first request
+// while its invalidation replay is queued. Only assess the terminal state
+// after the explicit replay either failed closed or reauthorized afresh.
+await page.waitForFunction(({before})=>{
+  const state=document.documentElement.getAttribute('data-rona-client-home-state');
+  const calls=window.__QA_HOME.counters().networkCalls;
+  return state==='error'||(state==='ready'&&calls>=before+2);
+},{before:beforeRace},{timeout:7000});
 const afterRace=(await snapshot()).counters;
 assert.ok(afterRace.networkCalls>=beforeRace+1,'pending invalidation was lost');
 const raceStates=await page.evaluate(()=>window.__QA_HOME_STATE_TRANSITIONS.slice());

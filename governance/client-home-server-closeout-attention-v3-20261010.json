@@ -1,0 +1,71 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-10",
+  "owner_instruction": "Main Client Home remains inconsistent with live operational facts (owner screenshot 2026-10-10 17:59:40). Existing server-side Payments V8 code marks a fully paid deal with completed rail monitoring as post_rail_completion_attention=true, client_deal_stage=ATTENTION; the Home ignores this authoritative field. Display exactly that source-backed attention and stage, and do not claim fresh underlying business facts merely because HTTP was polled. Chromium V2 regression revealed a pre-context concurrent load race allowing a transient stale-ready state after source error; fix technical lock without changing data semantics.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261010:НЕ_СООТВЕТСТВУЕТ; OWNER_SCREENSHOT:20261010-175940; OWNER_IN_CHAT:20261010:HOME_NOT_CURRENT",
+  "scope": "CLIENT_HOME_SERVER_RAIL_CLOSEOUT_ATTENTION_AND_PROVENANCE_V3",
+  "decision": "SCOPED_AUTHORIZED_SERVER_FLAG_RENDERING_AND_SOURCE_TIMESTAMP_ONLY",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_HOME_SERVER_CLOSEOUT_ATTENTION_V3",
+  "supersedes_scope": "CLIENT_HOME_INFLIGHT_INVALIDATION_COALESCING_V2",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-home-command-center-v2.js"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-home-command-center-v2.js": {
+      "visual_freeze_baseline_blob_sha": "057b373152c534284ce6918eca21ed7c22e5232c",
+      "supersedes_authorized_post_blob_sha": "29f0b642e74ecedd3fc56d02699a42a7a1645827",
+      "authorized_post_blob_sha": "473f6ab6f8c5888f7aa8596ba0a9372f7fe0fd62",
+      "required_marker": "20261010-client-home-server-closeout-attention-v3"
+    }
+  },
+  "requirements": {
+    "client_home_only": true,
+    "server_alert_provenance_exact": "RAIL_COMPLETED_AND_100_PERCENT_PAID_OWNER_RULE_V2",
+    "requires_server_post_rail_completion_attention_true": true,
+    "requires_server_client_deal_stage_ATTENTION": true,
+    "no_synthetic_rail_or_payment_claim": true,
+    "source_refresh_timestamp_distinct_from_source_business_event_at": true,
+    "source_event_max_only_from_server_published_timestamps": true,
+    "fallback_attention_text_scoped_to_checked_statuses": true,
+    "single_canonical_home_owner": true,
+    "business_currency_totals_unchanged": true,
+    "payment_bank_finance_separation_policy_not_mutated": true,
+    "existing_tenant_authorization_unchanged": true,
+    "no_new_source_scope": true,
+    "no_new_server_role_or_authority": true,
+    "no_database_changes": true,
+    "no_backend_or_rail_provider_changes": true,
+    "no_asset_css_or_html_changes": true,
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "exact_blob_enforcement": true,
+    "wildcard_exception": false,
+    "rollback_preserved": true,
+    "chrome_positive_negative_cross_context_failclosed_tests_required": true,
+    "loading_lock_acquired_before_first_await": true,
+    "no_parallel_context_loads": true,
+    "fail_closed_after_concurrent_failure": true
+  },
+  "rollback": {
+    "release_commit": "38a5e314c27525dc764a2b64f4e634a55d18b315",
+    "previous_home_blob_sha": "29f0b642e74ecedd3fc56d02699a42a7a1645827",
+    "edge_version": 105,
+    "edge_pin": "c37b8215e308db72f37d6ad625d346b9778a7ea9",
+    "edge_deployment_required": false,
+    "db_changes": "NONE"
+  },
+  "source_lock": {
+    "rail_deal": "DEAL-2026-004",
+    "rail_monitoring_state": "COMPLETED",
+    "rail_monitoring_completed_at": "2026-10-03",
+    "authoritative_finance_status": "PAID",
+    "backend_contract": "CLIENT_DEAL_RAIL_COMPLETION_ATTENTION_AND_PAYMENTS_EXIT_V1",
+    "client_data_source": "AUTHENTICATED_RONA_CLIENT_CONTEXT_V1"
+  },
+  "unresolved_business_scopes": [
+    "Bank vs Finance confirmed receipt label requires FINANCE signoff",
+    "Full operational exceptions require OPERATIONS_DIRECTOR scope",
+    "No external live bank/rail source integration is added by this PR"
+  ],
+  "release_guard": "REQUIRE_V3_BROWSER_PROVENANCE_NEGATIVE_TENANT_ERRORS_V1_V2_REGRESSION_VISUAL_FREEZE_CI_AND_DEPLOY_SMOKE"
+}
