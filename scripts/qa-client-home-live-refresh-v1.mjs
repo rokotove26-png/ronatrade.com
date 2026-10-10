@@ -168,7 +168,8 @@ await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-
 const afterRace=(await snapshot()).counters;
 assert.equal(afterRace.networkCalls,beforeRace+1,'pending invalidation was lost or issued duplicates');
 console.log('HOME_V2_INFLIGHT_INVALIDATION_REPLAY=PASS');
-await page.waitForFunction(()=>document.querySelector('[data-rona-client-home-owner]')?.textContent.includes('не удалось'),null,{timeout:5000}).catch(()=>{});
+// Capture the fail-closed error transition immediately: authorized event-driven
+// recovery may legitimately move the Home back to ready moments afterwards.
 const failed=await snapshot();
 assert.equal(failed.status,'error');
 assert.ok(!failed.labels.some(x=>x.includes('420')||x.includes('80')),'old numbers survived source failure: '+JSON.stringify(failed));
