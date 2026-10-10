@@ -132,6 +132,152 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     if(!Object.keys(products).length)return null;
     return {...payload,products};
   }
+
+  // Admin-only: interpret verified numeric series without inventing market
+  // causes, mixing physical/financial bases, or leaking technical source IDs.
+  const ADMIN_INSIGHT_V1='20261010-admin-analytics-source-locked-insight-v1';
+  const formatValue=value=>Number(value).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const numeric=value=>value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value))?Number(value):null;
+  const adminRoute=()=>String(window.location?.pathname||'').startsWith('/portal/admin');
+  const productName=key=>({'AI92':'АИ-92','AI95':'АИ-95','DT':'ДТ','LPG':'СУГ'})[key]||key;
+  const monthName=month=>/^\d{4}-\d{2}$/.test(month)?month.slice(5)+'.'+month.slice(0,4):month;
+  function signedChange(value,initial){
+    const amount=value-initial;
+    const sign=amount>0?'+':'';
+    const pct=initial!==0?' ('+sign+formatValue(100*amount/Math.abs(initial))+'%)':'';
+    return sign+formatValue(amount)+' USD/т'+pct;
+  }
+  function adminConclusion(product,payload,key,source){
+    if(source==='ARGUS'&&key!=='LPG')
+      return 'Источник Argus выбран. Для выбранного продукта подтверждённые данные этого источника не опубликованы; вывод по котировкам Platts к нему не относится.';
+    if(!product||typeof product!=='object')
+      return 'Данные по выбранному продукту не опубликованы. Аналитический вывод не рассчитывается.';
+    const notes=[],values=Array.isArray(product.values)?product.values.map(numeric):[];
+    const series=hasSeries(product,key)&&values.every(v=>v!==null);
+    const daily=product.dailyMonitor;
+    const obsDate=String((key==='DT'||key==='LPG'?daily?.lastAsOf:null)||product.dates?.at(-1)||'');
+    if(series){
+      const latest=values.at(-1),first=values[0];
+      notes.push(productName(key)+': последняя подтверждённая котировка '+formatValue(latest)+
+        ' USD/т'+(obsDate?' ('+obsDate+')':'')+'.');
+      if(values.length>=2){
+        const firstDate=String((key==='DT'||key==='LPG'?daily?.firstAsOf:null)||product.dates?.[0]||'');
+        notes.push('От '+formatValue(first)+' USD/т'+(firstDate?' ('+firstDate+')':'')+
+          ' до '+formatValue(latest)+' USD/т: изменение за показанный период '+signedChange(latest,first)+
+          '; к предыдущему наблюдению '+signedChange(latest,values.at(-2))+'.');
+      }else notes.push('Есть только одно подтверждённое наблюдение; направление динамики определить нельзя.');
+      if((key==='DT'||key==='LPG')&&(daily?.sourceGap===true||Number(daily?.segmentCount)>1)){
+        notes.push('Между наблюдениями есть пропуски: непрерывное движение цены в эти даты не подтверждено.');
+      }
+    }else{
+      notes.push('Подтверждённый ряд котировок по '+productName(key)+' недоступен: вывод о динамике не формируется.');
+    }
+    const forecast=backedForecast(product,payload,key);
+    if(forecast){
+      notes.push('Сценарий на '+monthName(forecast.month)+
+        ': BASE '+formatValue(forecast.base)+
+        ' USD/т, диапазон LOW '+formatValue(forecast.low)+
+        ' — HIGH '+formatValue(forecast.high)+' USD/т.');
+      if(series&&key==='DT'){
+        notes.push('Наблюдения ДТ относятся к физическому компоненту CIF NWE, а прогноз — к модельной форвардной структуре. Их прямое сравнение без выравнивания базиса некорректно.');
+      }else if(series&&key==='LPG'){
+        const delta=forecast.base-values.at(-1);
+        notes.push('BASE отличается от последней котировки на '+signedChange(forecast.base,values.at(-1))+
+          '; сравниваются разные месяцы поставки, это не подтверждённое изменение спотовой цены.');
+      }else if(series){
+        notes.push('Разница BASE к последней котировке: '+signedChange(forecast.base,values.at(-1))+
+          '; это сопоставление прогноза с фактом, а не доказанная причина движения рынка.');
+      }
+    }else notes.push('Подтверждённый прогноз на следующий месяц недоступен.');
+    if(Array.isArray(product?.rona?.bases)&&product.rona.bases.length)
+      notes.push('Возможные цены RONA Trade по базисам — отдельные индикативные сценарии, не договорные обязательства.');
+    return notes.join(' ');
+  }
+  function adminCompactChart(root,product,key){
+    if(!adminRoute()||(key!=='DT'&&key!=='LPG')||!hasSeries(product,key))return;
+    const dates=product.dailyMonitor?.observedDates;
+    const ids=product.dailyMonitor?.segmentIds;
+    const svg=root.querySelector('.rona-market-chart-svg,[data-chart-svg]');
+    const pts=[...(svg?.querySelectorAll('circle.rmc-point')||[])];
+    if(!svg||!Array.isArray(dates)||!Array.isArray(ids)||
+       pts.length<2||pts.length!==dates.length||pts.length!==ids.length)return;
+    const datesMs=dates.map(d=>Date.parse(d+'T00:00:00Z'));
+    const span=datesMs.at(-1)-datesMs[0];
+    if(!Number.isFinite(span)||span<=0||datesMs.some(t=>!Number.isFinite(t)))return;
+    const xs=datesMs.map(t=>62+896*(t-datesMs[0])/span);
+    const ys=pts.map(p=>Number(p.getAttribute('cy')));
+    if(ys.some(y=>!Number.isFinite(y)))return;
+    pts.forEach((p,i)=>{
+      p.setAttribute('cx',String(xs[i]));
+      const label=dates[i].slice(8,10)+'.'+dates[i].slice(5,7)+'.'+dates[i].slice(0,4)+
+        ', '+formatValue(product.values[i])+' USD/т';
+      p.setAttribute('aria-label',label);
+      p.setAttribute('tabindex','0');
+      let title=p.querySelector('title');
+      if(!title){title=document.createElementNS('http://www.w3.org/2000/svg','title');p.appendChild(title)}
+      title.textContent=label;
+    });
+    // Only observed-day neighbors inside the SAME verified segment may
+    // connect. No line or shaded area over an unobserved calendar gap.
+    svg.querySelectorAll('path.rmc-area,path.rmc-line-depth,path.rmc-line-glow,path.rmc-line').forEach(n=>n.remove());
+    for(let i=1;i<ids.length;i++){
+      if(Number(ids[i])!==Number(ids[i-1]))continue;
+      for(const cl of ['rmc-line-depth','rmc-line-glow','rmc-line']){
+        const n=document.createElementNS('http://www.w3.org/2000/svg','path');
+        n.setAttribute('class',cl);
+        n.setAttribute('d','M '+xs[i-1]+' '+ys[i-1]+' L '+xs[i]+' '+ys[i]);
+        svg.insertBefore(n,pts[0]);
+      }
+    }
+    const labels=[...svg.querySelectorAll('text.rmc-point-label')];
+    if(labels.length===pts.length){
+      const keep=new Set([0,pts.length-1]);
+      // Latest observation has priority; suppress overlapping labels only.
+      for(let i=pts.length-2;i>0;i--){
+        if([...keep].every(j=>Math.abs(xs[j]-xs[i])>=64))keep.add(i);
+      }
+      labels.forEach((node,i)=>{
+        node.setAttribute('x',String(xs[i]));
+        node.style.display=keep.has(i)?'':'none';
+      });
+    }
+    const ticks=[...svg.querySelectorAll('text.rmc-axis[y="372"]')];
+    if(ticks.length){
+      const indexed=ticks.map(t=>{
+        const text=String(t.textContent||'').trim();
+        const i=dates.findIndex(d=>d.slice(8,10)+'.'+d.slice(5,7)===text);
+        if(i>=0)t.setAttribute('x',String(xs[i]));
+        return {node:t,x:i>=0?xs[i]:Number(t.getAttribute('x'))};
+      });
+      // Keep the verified period bounds visible; compress only interior ticks.
+      const first=indexed[0],last=indexed.at(-1);
+      const used=[first.x,last.x].filter(Number.isFinite);
+      first.node.style.display='';
+      last.node.style.display='';
+      for(const {node,x} of indexed.slice(1,-1).reverse()){
+        const visible=Number.isFinite(x)&&used.every(v=>Math.abs(v-x)>=78);
+        node.style.display=visible?'':'none';
+        if(visible)used.push(x);
+      }
+    }
+    root.dataset.ronaAdminChartReadability=ADMIN_INSIGHT_V1;
+    root.dataset.ronaGapInterpolation='OFF';
+  }
+  function presentAdmin(root,product,payload,key,series,source){
+    if(!adminRoute())return;
+    const comment=root.querySelector('.an2-comment');
+    if(comment){
+      comment.textContent=adminConclusion(product,payload,key,source);
+      comment.dataset.ronaAdminInsight=ADMIN_INSIGHT_V1;
+      const tech=comment.nextElementSibling;
+      if(tech?.classList?.contains('rona-owner-muted')&&
+         /RONA_CLIENT_ADMIN|RONA Market Intelligence|FACT\s*\/\s*CALCULATION|источник аналитического среза/i.test(String(tech.textContent||''))){
+        tech.style.display='none';
+      }
+    }
+    if(series&&(key==='DT'||key==='LPG'))adminCompactChart(root,product,key);
+  }
+
   function decorate(payload){
     if(!payload)return;
     const root=document.querySelector('#rona-analytics-v2');
@@ -217,8 +363,12 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       if(value)value.textContent=valid?Number(regional.low).toLocaleString('ru-RU',{maximumFractionDigits:2})+'–'+Number(regional.high).toLocaleString('ru-RU',{maximumFractionDigits:2})+' USD/т':'Нет актуальных данных';
       if(note)note.textContent=valid?'Petromarket · DAP Сарыагаш · '+date:'Petromarket · DAP Сарыагаш · последняя дата '+(date||'не указана')+'; исторический ориентир скрыт';
     }
+    const ownerState=view.getState?.()||{};
+    presentAdmin(root,product,payload,key,series,String(ownerState.source||'PLATTS').toUpperCase());
   }
   function indicateUnavailable(reason){
+    // Clear the signature: a same-payload recovery MUST rebuild the chart.
+    lastApplied='';lastSource=null;
     const root=document.querySelector('#rona-analytics-v2');
     document.documentElement.dataset.ronaAnalyticsData='SOURCE_UNAVAILABLE';
     document.documentElement.dataset.ronaAnalyticsError=String(reason||'DATA_NOT_AVAILABLE').slice(0,60);
@@ -230,6 +380,10 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     if(box)box.innerHTML='<div class="an2-mf-title">Прогноз недоступен</div><div class="an2-mf-sub">Нет действующего ответа аналитического сервера. Неподтверждённые значения скрыты.</div>';
     const model=root.querySelector('.an2-model-note');
     if(model)model.textContent='Проверьте соединение и полномочия. До восстановления источника прогнозная цена не рассчитывается.';
+    if(adminRoute()){
+      const insight=root.querySelector('.an2-comment');
+      if(insight)insight.textContent='Аналитический вывод недоступен: источник не подтвердил текущие данные. Повторная загрузка требуется до публикации выводов.';
+    }
   }
   async function hydrate(){
     if(inFlight)return inFlight;
@@ -265,7 +419,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
   window.addEventListener('rona:admin-pagechange',hydrate);
   // Capture before controls() replaces the clicked button during its bubble-phase render.
   document.addEventListener('click',event=>{
-    if(event.target?.closest?.('#rona-analytics-v2 .an2-controls button[data-product]'))setTimeout(()=>decorate(lastSource),0);
+    if(event.target?.closest?.('#rona-analytics-v2 .an2-controls button[data-product],#rona-analytics-v2 .an2-controls button[data-source]'))setTimeout(()=>{if(document.documentElement.dataset.ronaAnalyticsData!=='SOURCE_UNAVAILABLE')decorate(lastSource)},0);
   },true);
   setInterval(hydrate,300000);
 })();

@@ -23,14 +23,18 @@ jobs:
         run: |
           node --check functions/portal/analytics-canonical-live-hydration.js
           node --test tests/analytics-hydration-source-safe-v1.test.mjs
+          node --test tests/admin-analytics-source-clarity-r3.test.mjs
           node --test tests/analytics-dual-portal-functional-launch-v1.test.mjs
           node --check scripts/qa-admin-analytics-real-shape-browser-r2.mjs
+          node --check scripts/qa-admin-analytics-source-clarity-browser-r3.mjs
       - name: Install Chromium browser QA runtime
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
       - name: Verify actual approved visual with raw-shaped DT and LPG data
         run: node scripts/qa-admin-analytics-real-shape-browser-r2.mjs
+      - name: Verify dense verified Platts rows, narrative and API failure recovery on Admin
+        run: node scripts/qa-admin-analytics-source-clarity-browser-r3.mjs
       - name: Wait for exact release deployment
         if: github.event_name == 'push'
         env:
