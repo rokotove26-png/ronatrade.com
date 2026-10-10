@@ -26,9 +26,11 @@
     "daily_monitor_before_md5": "ae96b04c319334197eb9d81fcb84f09e",
     "client_edge_before_blob_sha": "4001459296e2819bf32e29e4fbc4d4522e340150",
     "client_edge_after_blob_sha": "a683dc2846911c8fd09dbb92c59c5d4f1d814983",
-    "sql_migration_blob_sha": "ca9a40e4cf8fccb1fe9bd16c4c13466a162f0074",
+    "sql_migration_blob_sha": "c301739618489969882c1b9f619c3f129e31ea3a",
     "git_base_release_at_branch": "810c50a813a4b17e98ea0996fc71d65a706515f0",
-    "production_edge_before_version": 105
+    "production_edge_before_version": 105,
+    "migration_mode": "EXACT_STATIC_SOURCE_LOCKED_DEFINITIONS",
+    "dynamic_execution": "FORBIDDEN"
   },
   "rollback": {
     "db_functions": "Restore the two source-locked pre-migration function definitions from commits 20260831225752 and 20261009221000 as one controlled transaction with MD5 review; revert only rolling30 substitutions, preserving V13 observed segment metadata.",
