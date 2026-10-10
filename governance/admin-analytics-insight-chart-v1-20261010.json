@@ -1,0 +1,74 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "owner_instruction": "2026-10-10 screenshot and instruction: Admin Analytics displays chaotic chart and internal diagnostic commentary. Make entire section operational from chart rendering through analytical conclusion while preserving business facts, published inputs, pricing methods, admin authorization and the existing visual design.",
+  "owner_instruction_ref": "OWNER_SCREENSHOT:20261010-190157; OWNER_IN_CHAT:20261010:ADMIN_ANALYTICS_ALL_FUNCTIONS_AND_CONCLUSION",
+  "scope": "ADMIN_ANALYTICS_SOURCE_SAFE_CONCLUSION_AND_EXCLUSIVE_LPG_CHART_V1",
+  "decision": "TECHNICAL_PRESENTATION_ONLY_NO_MARKET_CONTENT_AUTHORITY_EXPANSION",
+  "approval_marker": "OWNER_FUNCTIONAL_APPROVAL: ADMIN_ANALYTICS_SOURCE_SAFE_CONCLUSION_V1",
+  "authorized_at": "2026-10-10",
+  "approved_source_files": [
+    "functions/portal/analytics-canonical-live-hydration.js",
+    "functions/portal/lpg-observation-gap-runtime-v13.js",
+    "functions/portal/analytics-v2-ui.js"
+  ],
+  "exact_post_blobs": {
+    "functions/portal/analytics-canonical-live-hydration.js": "e2f9fc98378745e05aaddc8ec1762834bfe480ee",
+    "functions/portal/lpg-observation-gap-runtime-v13.js": "06e9bb6b44fe9df010c6ad773ada34981f88f9a4",
+    "functions/portal/analytics-v2-ui.js": "e84926dc49f39f4f88040de1f12566c0e978907a"
+  },
+  "source_baseline": {
+    "release_commit": "a36f510901a475431f0c39e72daacaecabf7a50e",
+    "canonical_base_blob_sha": "64903cd0f64acd1250c103456ea12104e81445e0",
+    "admin_bootstrap": "public.owner_analytics_admin_bootstrap",
+    "market_data_model": "RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1",
+    "source_gate": "PUBLISHED, ALL_CLIENTS, VERIFIED, and role-authorized owner_analytics_admin_bootstrap"
+  },
+  "requirements": {
+    "canonical_owner_count": 1,
+    "canonical_dom_id": "rona-analytics-v2",
+    "four_products": [
+      "AI92",
+      "AI95",
+      "DT",
+      "LPG"
+    ],
+    "verified_observation_not_term_curve": true,
+    "no_interpolation_over_daily_source_gaps": true,
+    "one_svg_gap_writer": true,
+    "source_only_observed_change_math": true,
+    "forecast_requires_month_and_source_ref": true,
+    "forecast_confidence_not_misstated": true,
+    "no_invented_market_causation": true,
+    "no_news_conflation": true,
+    "no_commercial_offer_claim": true,
+    "explicit_legacy_delta_vs_bridge": true,
+    "do_not_imply_verified_rail_tariff": true,
+    "argus_unavailable_does_not_show_platts_prices": true,
+    "api_error_clears_cached_conclusion": true,
+    "api_recovery_repaints_same_payload": true,
+    "no_login_or_authority_bypass": true,
+    "no_database_or_edge_or_rpc_changes": true,
+    "pricing_math_unchanged": true,
+    "canonical_base_compressed_runtime_unchanged": true,
+    "client_analytics_unchanged": true,
+    "visual_shell_preserved": true,
+    "admin_canonical_only_ci": true,
+    "chromium_four_product_source_qa": true,
+    "source_safe_browser_qa": true,
+    "production_asset_marker_required": true,
+    "rollback_available": true
+  },
+  "rollback": {
+    "release_commit": "a36f510901a475431f0c39e72daacaecabf7a50e",
+    "revert_scope": [
+      "functions/portal/analytics-canonical-live-hydration.js",
+      "functions/portal/lpg-observation-gap-runtime-v13.js",
+      "functions/portal/analytics-v2-ui.js"
+    ],
+    "cloudflare_redeploy_exact_release": true,
+    "db_migrations": "NONE",
+    "supabase_edge_version": 105,
+    "edge_deployment": "NOT_REQUIRED"
+  },
+  "unresolved_business_scope": "Semantic market commentary about causation, news, commercial actions or verified tariff values remains Commercial Director responsibility. This change provides only arithmetic/provenance statements directly derived from verified source fields."
+}
