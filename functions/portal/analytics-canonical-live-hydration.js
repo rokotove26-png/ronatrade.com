@@ -194,6 +194,18 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
       if(note)note.textContent=valid?'Petromarket · DAP Сарыагаш · '+date:'Petromarket · DAP Сарыагаш · последняя дата '+(date||'не указана')+'; исторический ориентир скрыт';
     }
 
+    const selectedSource=String(view.getState?.()?.source||'PLATTS').toUpperCase();
+    if(selectedSource==='ARGUS'&&key!=='LPG'){
+      const fbox=root.querySelector('.an2-market-forecast');
+      if(fbox)fbox.innerHTML='<div class="an2-mf-title">Прогноз Argus недоступен</div><div class="an2-mf-sub">Для выбранного индекса не опубликован полный подтверждённый прогноз.</div>';
+      root.querySelectorAll('.an2-price-card').forEach(card=>{
+        for(const selector of ['.an2-price-base','.an2-price-range','.an2-price-current']){
+          const node=card.querySelector(selector);if(node)node.textContent='—';
+        }
+      });
+      const note=root.querySelector('.an2-model-note');
+      if(note)note.textContent='Для недоступного источника Argus индикативная цена RONA Trade не рассчитывается.';
+    }
     renderAdminInsight(payload,product,key,series,forecast);
   }
 
