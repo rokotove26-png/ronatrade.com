@@ -1,5 +1,7 @@
 (()=>{'use strict';
 const MARK='20260902-client-home-command-center-v3-current-context';
+const HOME_LIVE_FRESHNESS_V1='20261010-client-home-live-freshness-v1';
+const SOURCE_REFRESH_MS=30000;
 if(window.__RONA_CLIENT_HOME_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_HOME_RUNTIME__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -8,7 +10,7 @@ const OWNER='[data-rona-client-home-owner="command-center-v2"]';
 const CURRENT_CONTEXT_ROUTE_MARKER='/v1/client/context?clientId=';
 const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED']);
 const TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED']);
-const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,scheduled:false,unsubscribe:null};
+const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,scheduled:false,unsubscribe:null,refreshTimer:0};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
@@ -47,6 +49,11 @@ function titleFrame(root){return frameFromText(root,'Главная')}
 function contextFrame(root){return frameFromText(root,'Выбрана компания')}
 function directChild(root,node){let cur=node;if(!cur)return null;while(cur.parentElement&&cur.parentElement!==root)cur=cur.parentElement;return cur.parentElement===root?cur:null}
 function contextKey(c){return norm(c?.client_id)+'|'+norm(c?.contract_id)}
+function visibleHome(){
+  const root=homeRoot();if(!root||!root.isConnected||document.visibilityState!=='visible')return false;
+  const style=getComputedStyle(root);
+  return style.display!=='none'&&style.visibility!=='hidden'&&root.getClientRects().length>0;
+}
 function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
 async function currentContext(){const authority=contextAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');return authority.getCurrentContext()||await authority.whenReady()}
 function setHomeState(mode){
@@ -232,22 +239,31 @@ function sectionTrigger(label){
   return candidates.find(el=>norm(el.textContent).toLowerCase().replace(/ё/g,'е')===wanted)||candidates.find(el=>norm(el.textContent).toLowerCase().replace(/ё/g,'е').includes(wanted))||null;
 }
 function openDeal(dealId){
-  sectionTrigger('Сделки')?.click();let attempts=0;
-  const timer=setInterval(()=>{
-    attempts++;const root=document.querySelector('#page-deals,#dealsPage,[data-page-panel="deals"],[data-page-id="deals"]');
-    if(root){
-      const leaf=[...root.querySelectorAll('*')].find(el=>el.childElementCount===0&&norm(el.textContent).includes(dealId));
-      if(leaf){let row=leaf;for(let i=0;row&&row!==root&&i<10;i++,row=row.parentElement){if(!norm(row.textContent).includes(dealId))continue;const open=[...row.querySelectorAll('button,a,[role="button"]')].find(el=>/^Открыть(?:\s+сделку)?$/iu.test(norm(el.textContent)));if(open){clearInterval(timer);open.click();return}}}
+  const nav=sectionTrigger('Сделки');
+  if(!nav)return false;
+  nav.click();
+  let attempts=0;
+  const timer=window.setInterval(()=>{
+    attempts++;
+    const root=document.querySelector('#page-deals,#dealsPage,[data-page-panel="deals"],[data-page-id="deals"]');
+    // Use the canonical deal identity, never a substring of arbitrary text.
+    // The Deals module checks current client/contract authorization on click.
+    const open=[...(root?.querySelectorAll('[data-open-deal]')||[])]
+      .find(el=>norm(el.getAttribute('data-open-deal'))===dealId);
+    if(open){window.clearInterval(timer);open.click();return}
+    if(attempts>=40){
+      window.clearInterval(timer);
+      document.documentElement.dataset.ronaClientHomeDealNavigation='TARGET_NOT_AVAILABLE';
     }
-    if(attempts>=25)clearInterval(timer);
   },120);
+  return true;
 }
 function bindActions(owner){
   if(owner.dataset.ronaHomeActionsBound==='true')return;owner.dataset.ronaHomeActionsBound='true';
   owner.addEventListener('click',e=>{const target=e.target?.closest?.('[data-home-action]');if(!target)return;const action=target.getAttribute('data-home-action');if(action==='deal'){const id=norm(target.getAttribute('data-deal-id'));if(id)openDeal(id)}else if(action==='section'){sectionTrigger(target.getAttribute('data-section'))?.click()}});
 }
 function clearForContext(ctx){state.activeKey=ctx?contextKey(ctx):'';state.detail=null;state.ctx=ctx||null;state.lastLoad=0}
-async function load(){
+async function load(forceFresh=false){
   if(state.loading)return;
   const root=homeRoot();if(!root)return;
   let ctx=null;
@@ -256,20 +272,44 @@ async function load(){
   const key=contextKey(ctx);if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
   state.loading=true;
   try{
-    setHomeState('loading');const authority=contextAuthority();const detail=await authority.whenCurrentProjection('client-home-command-center-v2');
+    const authority=contextAuthority();
+    // A same-context projection is cached indefinitely by the central authority.
+    // Refresh it explicitly only from the visible Home: this preserves a single
+    // authoritative network owner and reuses the existing tenant/session gate.
+    if(forceFresh&&typeof authority.invalidateCurrentProjection==='function'&&authority.getCurrentProjection?.())
+      authority.invalidateCurrentProjection();
+    if(!state.detail||state.activeKey!==key)setHomeState('loading');
+    const detail=await authority.whenCurrentProjection(forceFresh
+      ?'client-home-command-center-v2:source-refresh':'client-home-command-center-v2');
     if(contextKey(authority.getCurrentContext?.())!==key)return;
     state.activeKey=key;state.detail=detail||{};state.ctx=ctx;state.lastLoad=Date.now();
     window.__RONA_CLIENT_HOME_STATE__={version:MARK,source:'CURRENT_CONTEXT_HOME_PROJECTION',mode:'COMMAND_CENTER',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),active_deals:activeDeals(state.detail).map(d=>norm(d?.deal_id)),loaded_at:new Date(state.lastLoad).toISOString()};
-    render(state.detail,ctx,state.lastLoad);setHomeState('ready');
+    render(state.detail,ctx,state.lastLoad);
+    window.__RONA_CLIENT_HOME_STATE__.freshness_policy=HOME_LIVE_FRESHNESS_V1;
+    window.__RONA_CLIENT_HOME_STATE__.refresh_ms=SOURCE_REFRESH_MS;
+    setHomeState('ready');
   }catch(error){console.error('RONA client home command center projection',error);state.detail=null;setHomeState('error')}
-  finally{state.loading=false}
+  finally{
+    state.loading=false;
+    // A context change while the previous request was in flight must never
+    // strand the new context behind the old request's loading flag.
+    if(contextKey(contextAuthority()?.getCurrentContext?.())!==key)queueMicrotask(schedule);
+  }
 }
 function schedule(){if(state.scheduled)return;state.scheduled=true;requestAnimationFrame(()=>{state.scheduled=false;if(homeRoot())load()})}
+function refreshVisible(reason='timer'){
+  if(!visibleHome()||state.loading)return;
+  if(reason==='timer'&&state.lastLoad&&Date.now()-state.lastLoad<SOURCE_REFRESH_MS)return;
+  void load(true);
+}
 function isHomeNavigation(target){const explicit=target?.closest?.('[data-page="home"],[data-page-link="home"]');if(explicit)return true;const el=target?.closest?.('a,button,[role="tab"],[role="menuitem"]');return /^Главная$/iu.test(norm(el?.textContent))}
 function start(){
   installStyle();setHomeState('loading');const authority=contextAuthority();if(!authority){setHomeState('error');return}
   state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';if(key!==state.activeKey)clearForContext(ctx);schedule()});
-  document.addEventListener('click',event=>{if(isHomeNavigation(event.target))queueMicrotask(schedule)},true);
+  document.addEventListener('click',event=>{if(isHomeNavigation(event.target))requestAnimationFrame(()=>refreshVisible('navigation'))},true);
+  state.refreshTimer=window.setInterval(()=>refreshVisible('timer'),SOURCE_REFRESH_MS);
+  window.addEventListener('pageshow',()=>refreshVisible('pageshow'),{passive:true});
+  window.addEventListener('rona:client-home-invalidated',()=>refreshVisible('invalidation'),{passive:true});
   window.addEventListener('rona:client-current-projection',event=>{const d=event?.detail||{};if(contextKey(authority.getCurrentContext?.())===`${norm(d.client_id)}|${norm(d.contract_id)}`)schedule()},{passive:true});
   window.addEventListener('resize',()=>{const root=homeRoot(),owner=root?.querySelector(OWNER);if(root&&owner)alignOwner(root,owner)},{passive:true});
   schedule();

@@ -1,0 +1,59 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-10",
+  "owner_instruction": "The Client Home is nonfunctional and does not automatically reflect real operational circumstances. Owner screenshot 2026-10-10 17:26:31. Correct false 'Автообновление 30 сек' by actually revalidating the authoritative current-client-context projection while Home is visible, fail closed on errors; repair precise open-deal navigation. Preserve business formulas, commercial metrics and visual layout.",
+  "owner_instruction_ref": "OWNER_SCREENSHOT:20261010-172631; OWNER_IN_CHAT:20261010:HOME_NOT_FUNCTIONAL_OR_AUTOMATICALLY_CURRENT",
+  "scope": "CLIENT_HOME_LIVE_SOURCE_REFRESH_V1",
+  "decision": "SCOPED_TECHNICAL_REFRESH_AND_NAVIGATION_FIX",
+  "approval_marker": "OWNER_FUNCTIONAL_APPROVAL: CLIENT_HOME_LIVE_SOURCE_REFRESH_V1",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-home-command-center-v2.js"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-home-command-center-v2.js": {
+      "visual_freeze_baseline_blob_sha": "057b373152c534284ce6918eca21ed7c22e5232c",
+      "supersedes_authorized_post_blob_sha": "14c3a251ba7015e7d46e2cf48d14f7c07e049ed6",
+      "authorized_post_blob_sha": "8b130d5782d50c4f2d3ea6cd2072df18c195e63f",
+      "required_marker": "20261010-client-home-live-freshness-v1"
+    }
+  },
+  "requirements": {
+    "client_home_only": true,
+    "refresh_interval_ms": 30000,
+    "refresh_only_when_home_visible": true,
+    "source": "RONA_CLIENT_CONTEXT.whenCurrentProjection",
+    "cache_invalidation": "RONA_CLIENT_CONTEXT.invalidateCurrentProjection",
+    "tenant_scope_verified_on_each_result": true,
+    "source_authorization_unchanged": true,
+    "old_context_response_not_rendered": true,
+    "no_archived_fallback": true,
+    "no_hardcoded_business_facts": true,
+    "no_business_calculation_changes": true,
+    "no_finance_or_rail_rule_changes": true,
+    "canonical_home_single_visual_owner": true,
+    "no_visual_theme_change": true,
+    "no_html_template_change": true,
+    "no_css_asset_change": true,
+    "core_home_kpi_cards_unchanged": true,
+    "deal_open_matches_exact_id": true,
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "exact_blob_enforcement": true,
+    "wildcard_exception": false,
+    "rollback_preserved": true,
+    "production_uat_required": true
+  },
+  "rollback": {
+    "release_commit": "c37b8215e308db72f37d6ad625d346b9778a7ea9",
+    "home_blob_sha": "14c3a251ba7015e7d46e2cf48d14f7c07e049ed6",
+    "supabase_edge_version": 105,
+    "supabase_edge_pin": "c37b8215e308db72f37d6ad625d346b9778a7ea9",
+    "no_edge_deployment_required": true,
+    "no_database_migration": true
+  },
+  "independent_business_scope_pending": [
+    "OPERATIONS_DIRECTOR: source-locked exception/status scope",
+    "FINANCE: overdue/payment semantics"
+  ],
+  "release_gate": "CLIENT_HOME_BROWSER_REFRESH_AND_CONTEXT_QA_GREEN; VISUAL_FREEZE_GREEN; LIVE_SOURCE_SECURITY_GREEN; PRODUCTION_DEPLOY_VERIFIED"
+}
