@@ -1,0 +1,45 @@
+name: Analytics rolling 30-day verified observations V2
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/migrations/20261011000000_analytics_rolling_30_calendar_days_v1.sql'
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'governance/analytics-rolling30-owner-approval-v2-20261011.json'
+      - 'tests/analytics-rolling-30-calendar-days-v2.test.mjs'
+      - '.github/workflows/analytics-rolling-30d-v2.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/migrations/20261011000000_analytics_rolling_30_calendar_days_v1.sql'
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'governance/analytics-rolling30-owner-approval-v2-20261011.json'
+      - 'tests/analytics-rolling-30-calendar-days-v2.test.mjs'
+      - '.github/workflows/analytics-rolling-30d-v2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rolling30-source-safe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Source-locked 30-day boundary tests plus immutable visual and client gates
+        run: |
+          node --test tests/analytics-rolling-30-calendar-days-v2.test.mjs \
+            tests/analytics-dual-portal-functional-launch-v1.test.mjs \
+            tests/admin-analytics-source-clarity-r3.test.mjs \
+            tests/admin-analytics-exclusive-chart-r4.test.mjs \
+            tests/client-analytics-native-functional-v17.test.mjs \
+            tests/client-gasoline-dated-observations-v15.test.mjs
+      - name: Build both canonical portals without altering frozen visuals
+        run: npm run build
+      - name: Confirm authenticated API unchanged and original runtime syntax
+        run: |
+          node --check functions/portal/api/v1/admin/analytics.js
+          node --check functions/portal/analytics-canonical-live-hydration.js
+          node --check assets/portal-runtime/client-market-intelligence-v1.js
