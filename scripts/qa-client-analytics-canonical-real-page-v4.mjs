@@ -243,15 +243,13 @@ try{
         comment:'Вывод по '+entry.label+': '+entry.delta+' USD/т; индикативно, не оферта.'}
     };
   }
-  // The separately tested API/source permissions already gate production data.
-  // Here exercise the frozen *native renderer* with four isolated fixtures;
-  // do not introduce a second asynchronous API request into a DOM-only test.
-  const applied=await page.evaluate(products=>
-    window.RONA_ANALYTICS_VIEW.setPayload({
-      version:'RONA_CLIENT_ADMIN_CANONICAL_PARITY_V10',
-      latestTradeDate:'09.10.2026',products
-    }),payload.data.clientCanonicalAnalytics.products);
-  if(applied!==true)throw Error('FOUR_PRODUCT_NATIVE_SET_PAYLOAD_REJECTED');
+  // Exercise the actual source-gated client projection, not merely the
+  // native renderer: it intentionally clears stale/unauthorized badges.
+  payload.data.generated_at='2026-10-09T00:02:45Z';
+  await page.evaluate(()=>window.dispatchEvent(new Event('rona:client-market-intelligence-invalidated')));
+  await page.waitForFunction(()=>
+    document.querySelector('#rona-analytics-v2')?.dataset.ronaClientPayloadFingerprint?.includes('2026-10-09T00:02:45Z'),
+    null,{timeout:9000});
   for(const entry of scenarios){
     await page.evaluate(k=>document.querySelector('#rona-analytics-v2 [data-an2-product="'+k+'"]')?.click(),entry.key);
     await page.waitForFunction(k=>document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct===k,entry.key,{timeout:5500});
