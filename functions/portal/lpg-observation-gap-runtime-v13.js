@@ -2,6 +2,9 @@ export const LPG_GAP_RUNTIME=String.raw`
 ;(()=>{
  if(window.__RONA_LPG_OBSERVATION_GAPS_V13__)return;
  window.__RONA_LPG_OBSERVATION_GAPS_V13__='source-observation-gaps-v13';
+ // Admin R3 has its own source-locked and accessible chart painter.
+ // Keep this compatibility runtime exclusively for non-admin consumers.
+ if(String(window.location?.pathname||'').startsWith('/portal/admin'))return;
  let queued=false;
  function repaint(){
   const root=document.querySelector('#rona-analytics-v2');
