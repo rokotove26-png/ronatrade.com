@@ -98,9 +98,8 @@ function ensureOwner(root){
   const original=root.querySelector(':scope > #rona-analytics-v2');
   if(!original){root.dataset.ronaClientAnalyticsSource='CANONICAL_VISUAL_MISSING';return null}
   // Retire only known obsolete generated substitute roots, never the frozen AN2.
-  for(const substitute of root.querySelectorAll(':scope > [data-rona-client-market-intelligence-owner="analytics"], :scope > .mi-grid, :scope > .mi-card')){
-    substitute.remove();
-  }
+  const substitute=root.querySelector(':scope > [data-rona-client-market-intelligence-owner="analytics"]');
+  if(substitute)substitute.remove();
   if(original.hidden)original.hidden=false;
   if(original.hasAttribute('data-rona-client-analytics-legacy'))original.removeAttribute('data-rona-client-analytics-legacy');
   if(original.style.getPropertyValue('display')==='none')original.style.removeProperty('display');
