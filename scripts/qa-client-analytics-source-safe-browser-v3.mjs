@@ -156,6 +156,10 @@ try{
   for(const [key,last] of [['AI92',1281.5],['AI95',1321.5]]){
     await page.evaluate(k=>document.querySelector('[data-an2-product="'+k+'"]')?.click(),key);
     await page.waitForFunction(k=>document.querySelector('#rona-analytics-v2')?.dataset.ronaSelectedProduct===k,key,{timeout:7000});
+    await page.waitForFunction(k=>{
+      const label=k==='AI92'?'АИ-92':'АИ-95';
+      return (document.querySelector('#rona-analytics-v2 [data-chart-title]')?.textContent||'').includes(label);
+    },key,{timeout:5000});
     const proof=await page.evaluate(k=>({
       selected:window.RONA_ANALYTICS_VIEW.getState().product,
       values:window.RONA_ANALYTICS_VIEW.data.products[k].values,
