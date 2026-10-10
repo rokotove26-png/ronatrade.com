@@ -25,33 +25,8 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     if(/^\d{4}-\d{2}/.test(date))return date.slice(0,7);
     return '';
   }
-  function markLpgObservationGaps(root,p){
-    const m=p?.dailyMonitor, ids=m?.segmentIds,dates=m?.observedDates;
-    const svg=root.querySelector('.rona-market-chart-svg,[data-chart-svg]');
-    const points=[...(svg?.querySelectorAll('circle.rmc-point')||[])];
-    if(!m?.historyIncludesAllGapSegments||!Array.isArray(ids)||!Array.isArray(dates)||
-       ids.length<2||ids.length!==points.length||dates.length!==points.length)return;
-    const tm=dates.map(d=>Date.parse(d+'T00:00:00Z'));
-    if(tm.some(t=>!Number.isFinite(t))||tm.at(-1)<=tm[0])return;
-    const x=tm.map(t=>62+896*(t-tm[0])/(tm.at(-1)-tm[0]));
-    const y=points.map(p=>Number(p.getAttribute('cy')));
-    points.forEach((p,i)=>p.setAttribute('cx',String(x[i])));
-    [...svg.querySelectorAll('text.rmc-point-label')].forEach((p,i)=>p.setAttribute('x',String(x[i])));
-    svg.querySelectorAll('path.rmc-area,path.rmc-line-depth,path.rmc-line-glow,path.rmc-line').forEach(n=>n.remove());
-    for(let i=1;i<ids.length;i++)if(ids[i]===ids[i-1]){
-      for(const cl of ['rmc-line-depth','rmc-line-glow','rmc-line']){
-        const n=document.createElementNS('http://www.w3.org/2000/svg','path');
-        n.setAttribute('class',cl);n.setAttribute('d','M '+x[i-1]+' '+y[i-1]+' L '+x[i]+' '+y[i]);
-        svg.insertBefore(n,points[0]);
-      }
-    }
-    for(const t of svg.querySelectorAll('text.rmc-axis')){
-      const i=dates.findIndex(d=>d.slice(8,10)+'.'+d.slice(5,7)===t.textContent.trim());
-      if(i>=0&&t.getAttribute('y')==='372')t.setAttribute('x',String(x[i]));
-    }
-    root.dataset.ronaSourceGapSegments=String(new Set(ids).size);
-    root.dataset.ronaGapInterpolation='OFF';
-  }
+  // Admin chart coordinates have one exclusive owner: adminCompactChart().
+  // The historical LPG painter is disabled for /portal/admin only.
   function hasSeries(p,key){
     const base=Array.isArray(p?.dates)&&Array.isArray(p?.values)&&
       p.dates.length>0&&p.dates.length===p.values.length&&
@@ -207,6 +182,17 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
     const xs=datesMs.map(t=>62+896*(t-datesMs[0])/span);
     const ys=pts.map(p=>Number(p.getAttribute('cy')));
     if(ys.some(y=>!Number.isFinite(y)))return;
+    const sig=dates.join('|')+';'+ids.join('|')+';'+ys.join('|');
+    let expectedLines=0;
+    for(let i=1;i<ids.length;i++)if(Number(ids[i])===Number(ids[i-1]))expectedLines++;
+    const positionsMatch=pts.every((p,i)=>Math.abs(Number(p.getAttribute('cx'))-xs[i])<.25);
+    const lines=[...svg.querySelectorAll('path.rmc-line')];
+    const accessible=pts.every(p=>!!p.querySelector('title')&&p.hasAttribute('aria-label'));
+    const owned=svg.dataset.ronaAdminChartSignature===sig;
+    const straight=lines.every(p=>!String(p.getAttribute('d')||'').includes(' C '));
+    // Native view keeps the SVG element but replaces its children. A cached
+    // date signature alone cannot attest that the new nodes are projected.
+    if(owned&&positionsMatch&&accessible&&lines.length===expectedLines&&straight)return;
     pts.forEach((p,i)=>{
       p.setAttribute('cx',String(xs[i]));
       const label=dates[i].slice(8,10)+'.'+dates[i].slice(5,7)+'.'+dates[i].slice(0,4)+
@@ -260,6 +246,9 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
         if(visible)used.push(x);
       }
     }
+    svg.dataset.ronaAdminChartSignature=sig;
+    svg.dataset.ronaAdminSingleOwner='20261010-admin-r3-exclusive-chart-owner-r4';
+    root.dataset.ronaSourceGapSegments=String(new Set(ids.map(Number)).size);
     root.dataset.ronaAdminChartReadability=ADMIN_INSIGHT_V1;
     root.dataset.ronaGapInterpolation='OFF';
   }
@@ -327,7 +316,7 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
         root.dataset.ronaLpgHistorySegments=JSON.stringify({
           dates:daily.observedDates,ids:daily.segmentIds,gaps:daily.gapBeforeDays||[]
         });
-        markLpgObservationGaps(root,product);
+        // No secondary chart writer: adminCompactChart() projects the verified dates.
       }else delete root.dataset.ronaLpgHistorySegments;
     }else if(root.dataset.ronaChartKind==='OBSERVATION_DAILY'){
       delete root.dataset.ronaChartKind;delete root.dataset.ronaChartAsOf;delete root.dataset.ronaChartInstrument;
@@ -417,6 +406,13 @@ export const CANONICAL_LIVE_HYDRATION_RUNTIME=String.raw`
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else queueMicrotask(boot);
   window.addEventListener('focus',hydrate,{passive:true});
   window.addEventListener('rona:admin-pagechange',hydrate);
+  // External canonical view.render()/setProduct() calls can regenerate the SVG
+  // without refetching the market payload. Re-project only the last VERIFIED
+  // source after the pricing bridge has finished, never on source outage.
+  window.addEventListener('rona:analytics-price-model',()=>{
+    if(!adminRoute()||inFlight||!lastSource||document.documentElement.dataset.ronaAnalyticsData!=='canonical-daily-live-v3')return;
+    queueMicrotask(()=>decorate(lastSource));
+  });
   // Capture before controls() replaces the clicked button during its bubble-phase render.
   document.addEventListener('click',event=>{
     if(event.target?.closest?.('#rona-analytics-v2 .an2-controls button[data-product],#rona-analytics-v2 .an2-controls button[data-source]'))setTimeout(()=>{if(document.documentElement.dataset.ronaAnalyticsData!=='SOURCE_UNAVAILABLE')decorate(lastSource)},0);
