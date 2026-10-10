@@ -1,0 +1,45 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-10",
+  "owner_instruction": "Restore all 3 native dynamics badges for all 4 fuel tabs; keep canonical heading 'Возможные цены RONA Trade'; restore per-product 'Аналитический вывод' exactly within approved Analytics layout.",
+  "owner_instruction_ref": "OWNER_SCREENSHOT:20261010-002558; OWNER_IN_CHAT:20261010:DYNAMICS_POSSIBLE_PRICES_ANALYTICAL_CONCLUSION",
+  "canonical_basis": "RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html (approved source); functions/portal/analytics-v2-ui.js requires both native headings",
+  "scope": "CLIENT_ANALYTICS_NATIVE_FUNCTIONALITY_V17",
+  "decision": "OWNER_EXPLICIT_TEXT_AND_DATA_FUNCTIONAL_DELTA_ONLY",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts",
+    "scripts/qa-client-analytics-canonical-real-page-v4.mjs",
+    "scripts/qa-client-analytics-source-safe-browser-v3.mjs"
+  ],
+  "source_lock": {
+    "previous_client_runtime_blob": "bd15c42b22e1a65a420d507618cc1c4d08109861",
+    "new_client_runtime_blob": "122d07c847bf5522a095f524c91d410f6633d6d9",
+    "previous_edge_module_blob": "bdad8259beee40d3599c6d6019d64d9abac552fd",
+    "new_edge_module_blob": "42c1f970ec19a7900b40362daf3c413ab0a641d8",
+    "previous_edge_pin": "c1af7eedb9ed00e4a8d0f30f81285444997c24b4",
+    "previous_edge_version": 101
+  },
+  "requirements": {
+    "preserve_original_DOM_CSS": true,
+    "preserve_original_chart_metric_nodes": true,
+    "metric_semantics": "last confirmed datapoint; change last-minus-first of displayed verified observations; min/max of displayed observations, no interpolation",
+    "fixed_heading_all_four": "Возможные цены RONA Trade",
+    "contract_price_source": "client-and-contract-authorized published price only; not itself an indicative scenario",
+    "per_product_insight": "deterministic arithmetic and model LOW BASE HIGH for the selected product only, dated/attributed, no synthetic causes",
+    "no_market_or_official_price_mutation": true,
+    "no_new_predictive_pricing_bridge_without_verified_inputs": true,
+    "fail_closed_on_no_source": true,
+    "preserve_argus_gate": true,
+    "tenant_security_unchanged": true,
+    "original_visual_freeze": true,
+    "required_gates": [
+      "source tests",
+      "original page four-product real browser QA",
+      "current source-safe browser",
+      "visual freeze",
+      "postmerge production smoke"
+    ]
+  },
+  "rollback": "Restore prior protected client runtime blob bd15c42b22e1a65a420d507618cc1c4d08109861 and previous source-locked Edge v101 pin c1af7eedb9ed00e4a8d0f30f81285444997c24b4; no rollback or edit of business facts."
+}
