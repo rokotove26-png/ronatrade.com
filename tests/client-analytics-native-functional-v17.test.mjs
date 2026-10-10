@@ -41,7 +41,7 @@ test('analytical conclusion preserves verified trend and forward forecasts but s
     'output.forecast.comment = trendText + " " + forecastText +',
     'commercialFactorFor(key,lastAsOf)',
     'output.dailyMonitor?.lastAsOf',
-    'АИ-92 + 40 USD/т'
+    'text(raw.calculationRule) === "AI92+40"'
   ])assert.ok(edge.includes(phrase),phrase);
   for(const forbidden of [
     'output.forecast.comment = measurement',
