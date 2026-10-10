@@ -173,7 +173,7 @@ try{
       substituteCount:document.querySelectorAll('[data-rona-client-market-intelligence-owner="analytics"]').length};
   });
   console.log('CLIENT_CANONICAL_PUBLISHED_PRICES_PROMINENT_V9',JSON.stringify(published));
-  if(!published.title?.includes('Опубликованные цены RONA Trade')||published.substituteCount||
+  if(!published.title==='Возможные цены RONA Trade'||published.substituteCount||
      !published.cards?.[0]?.amount?.includes('242,75')||
      !published.cards?.[1]?.amount?.includes('379,95')||
      published.cards?.[2]?.amount!=='—'||
