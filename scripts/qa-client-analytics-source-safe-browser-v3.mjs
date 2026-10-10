@@ -103,7 +103,7 @@ try{
     title:document.querySelector('.an2-rona-head h2')?.textContent,
     visible:document.querySelector('.an2-rona')?.dataset.ronaClientPricePresentation}));
   must(priced.base.includes('242,75')&&priced.base.includes('USD/т')&&
-    priced.text.includes('Опубликованная цена')&&priced.title.includes('Опубликованные цены RONA Trade')&&
+    priced.text.includes('Опубликованная цена')&&priced.title==='Возможные цены RONA Trade'&&
     priced.visible==='CANONICAL_AN2_PUBLISHED_CONTRACT_PRICE_VISIBLE_V9'&&
     priced.authority==='SERVER_AUTHORITATIVE_PRICE_PROJECTION'&&priced.source==='PUBLISHED_CURRENT_CONTRACT'&&
     !priced.range.includes('1242'),
