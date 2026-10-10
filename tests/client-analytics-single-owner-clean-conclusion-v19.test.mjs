@@ -7,15 +7,17 @@ const client=readFileSync('assets/portal-runtime/client-market-intelligence-v1.j
 const attach=readFileSync('scripts/attach-client-market-intelligence-v1.mjs','utf8');
 
 test('client conclusion is concise and contains no source internals',()=>{
-  const tail=edge.slice(edge.indexOf('const trend = absoluteChange > 0'));
-  assert.ok(tail.includes('output.forecast.comment = trendText + " " + forecastText +'));
+  const tail=edge.slice(edge.indexOf('const movement = absoluteChange > 0'));
+  assert.ok(tail.includes('output.forecast.comment = trendText + " " + forecastText + " " +'));
   assert.ok(tail.includes('commercialFactorFor(key,lastAsOf)'));
   for(const token of ['output.values.length + " наблюд.', 'Есть пропуски между датами источника:', 'Финансовый прогноз и физический компонент ДТ используют разные базисы.', 'Данные не являются коммерческой офертой.'])
     assert.ok(!tail.includes(token),token);
   const factor=edge.slice(edge.indexOf('const commercialFactorFor'),edge.indexOf('// A published forecast permission'));
   assert.ok(!factor.includes('candidate.newsId + "): "'));
-  assert.ok(factor.includes('candidate.commentary'));
-  assert.ok(factor.includes('Событие опубликовано ПОСЛЕ последнего наблюдения'));
+  assert.ok(!factor.includes('candidate.commentary + "." + timing'));
+  assert.ok(factor.includes('candidate.headline'));
+  assert.ok(factor.includes('candidate.source'));
+  assert.ok(factor.includes('Новость опубликована после последнего наблюдения'));
 });
 
 test('one native canonical owner survives; only generated substitutes retired',()=>{
@@ -25,7 +27,8 @@ test('one native canonical owner survives; only generated substitutes retired',(
   assert.ok(client.includes('substitute.remove()'));
   assert.ok(!client.includes('root.replaceChildren('));
   assert.ok(client.includes('20261010-client-analytics-clean-conclusion-single-owner-v19'));
-  assert.ok(attach.includes('20261010-client-analytics-clean-conclusion-single-owner-v19'));
+  assert.ok(attach.includes('20261010-client-analytics-buyer-facing-insight-v20'));
+  assert.ok(client.includes('20261010-client-analytics-buyer-facing-insight-v20'));
   assert.ok(attach.includes('CANONICAL_SOURCE_GATE'));
   assert.ok(attach.includes("if(html.includes('portal-market-news-current-v1.js'))"));
 });
