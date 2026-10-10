@@ -101,8 +101,8 @@ const CANONICAL_PRICING_BRIDGE_RUNTIME=String.raw`
     box.dataset.pricingMode=bridgeActive?'BRIDGE':'LEGACY_DELTA';
     const note=box.querySelector('.an2-model-note');
     if(note)note.textContent=bridgeActive
-      ?'Расчёт: прогнозный рыночный нетбек + актуальный ЖД тариф + коммерческие компоненты RONA Trade. Активен локальный pricing bridge; значения остаются индикативными и не являются коммерческой офертой.'
-      :'Смысл блока: прогнозный рыночный нетбек + актуальный ЖД тариф + коммерческие компоненты RONA Trade. До загрузки полного набора локальных pricing-inputs сохранён прежний индикативный расчёт по изменению рынка относительно reference; это не коммерческая оферта.';
+      ?'Индикативная модель BRIDGE: рыночный прогноз и переданные значения тарифа, коммерческих и прочих затрат. Актуальность и утверждение вводных проверяются отдельно; это не коммерческая оферта.'
+      :'Индикативная модель LEGACY_DELTA: сценарий изменения рынка относительно исходного базиса. Актуальные тариф и коммерческие затраты этим расчётом отдельно не подтверждаются; это не коммерческая оферта.';
     try{window.dispatchEvent(new CustomEvent('rona:analytics-price-model',{detail:{product:key,mode:box.dataset.pricingMode,bridgeCount,totalCount}}))}catch(_){ }
     return bridgeActive;
   }
