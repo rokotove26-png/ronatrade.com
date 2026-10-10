@@ -1,7 +1,7 @@
 {
   "approval": "OWNER_IN_CHAT",
   "authorized_at": "2026-10-10",
-  "owner_instruction": "Main Client Home remains inconsistent with live operational facts (owner screenshot 2026-10-10 17:59:40). Existing server-side Payments V8 code marks a fully paid deal with completed rail monitoring as post_rail_completion_attention=true, client_deal_stage=ATTENTION; the Home ignores this authoritative field. Display exactly that source-backed attention and stage, and do not claim fresh underlying business facts merely because HTTP was polled.",
+  "owner_instruction": "Main Client Home remains inconsistent with live operational facts (owner screenshot 2026-10-10 17:59:40). Existing server-side Payments V8 code marks a fully paid deal with completed rail monitoring as post_rail_completion_attention=true, client_deal_stage=ATTENTION; the Home ignores this authoritative field. Display exactly that source-backed attention and stage, and do not claim fresh underlying business facts merely because HTTP was polled. Chromium V2 regression revealed a pre-context concurrent load race allowing a transient stale-ready state after source error; fix technical lock without changing data semantics.",
   "owner_instruction_ref": "OWNER_IN_CHAT:20261010:НЕ_СООТВЕТСТВУЕТ; OWNER_SCREENSHOT:20261010-175940; OWNER_IN_CHAT:20261010:HOME_NOT_CURRENT",
   "scope": "CLIENT_HOME_SERVER_RAIL_CLOSEOUT_ATTENTION_AND_PROVENANCE_V3",
   "decision": "SCOPED_AUTHORIZED_SERVER_FLAG_RENDERING_AND_SOURCE_TIMESTAMP_ONLY",
@@ -14,7 +14,7 @@
     "assets/portal-runtime/client-home-command-center-v2.js": {
       "visual_freeze_baseline_blob_sha": "057b373152c534284ce6918eca21ed7c22e5232c",
       "supersedes_authorized_post_blob_sha": "29f0b642e74ecedd3fc56d02699a42a7a1645827",
-      "authorized_post_blob_sha": "495fcf8260fed4d000a398a139f148108e878c64",
+      "authorized_post_blob_sha": "473f6ab6f8c5888f7aa8596ba0a9372f7fe0fd62",
       "required_marker": "20261010-client-home-server-closeout-attention-v3"
     }
   },
@@ -41,7 +41,10 @@
     "exact_blob_enforcement": true,
     "wildcard_exception": false,
     "rollback_preserved": true,
-    "chrome_positive_negative_cross_context_failclosed_tests_required": true
+    "chrome_positive_negative_cross_context_failclosed_tests_required": true,
+    "loading_lock_acquired_before_first_await": true,
+    "no_parallel_context_loads": true,
+    "fail_closed_after_concurrent_failure": true
   },
   "rollback": {
     "release_commit": "38a5e314c27525dc764a2b64f4e634a55d18b315",
