@@ -20,7 +20,8 @@ test('client conclusion is concise and contains no source internals',()=>{
 
 test('one native canonical owner survives; only generated substitutes retired',()=>{
   assert.ok(client.includes("const original=root.querySelector(':scope > #rona-analytics-v2')"));
-  assert.ok(client.includes('for(const substitute of root.querySelectorAll('));
+  assert.ok(client.includes("const substitute=root.querySelector(':scope > [data-rona-client-market-intelligence-owner=\"analytics\"]')"));
+  assert.ok(!client.includes("root.querySelectorAll(':scope > [data-rona-client-market-intelligence-owner"));
   assert.ok(client.includes('substitute.remove()'));
   assert.ok(!client.includes('root.replaceChildren('));
   assert.ok(client.includes('20261010-client-analytics-clean-conclusion-single-owner-v19'));
