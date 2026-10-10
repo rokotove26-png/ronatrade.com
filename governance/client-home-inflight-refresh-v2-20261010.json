@@ -1,0 +1,50 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-10",
+  "owner_instruction": "Owner screenshot 2026-10-10 17:26:31 mandates accurate automatic Client Home freshness. Postmerge PR #1152 Chrome run 38072884813 showed in-flight invalidation sometimes lost before previous source request settles. Follow-up V2 must coalesce pending invalidation, never show stale tenant and preserve all business data and visual invariants.",
+  "owner_instruction_ref": "OWNER_SCREENSHOT:20261010-172631; GITHUB:PR1152:MERGED:fced955d4e42290e7e5da71d330e6689bb1d4a80; GITHUB:POSTMERGE_CI:38072884813:RACE_FOUND",
+  "scope": "CLIENT_HOME_INFLIGHT_INVALIDATION_COALESCING_V2",
+  "decision": "SCOPED_TECHNICAL_RACE_CORRECTION_ONLY",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_HOME_INFLIGHT_INVALIDATION_COALESCING_V2",
+  "supersedes_scope": "CLIENT_HOME_LIVE_SOURCE_REFRESH_V1",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-home-command-center-v2.js"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-home-command-center-v2.js": {
+      "visual_freeze_baseline_blob_sha": "057b373152c534284ce6918eca21ed7c22e5232c",
+      "supersedes_authorized_post_blob_sha": "8b130d5782d50c4f2d3ea6cd2072df18c195e63f",
+      "authorized_post_blob_sha": "29f0b642e74ecedd3fc56d02699a42a7a1645827",
+      "required_marker": "20261010-client-home-pending-refresh-v2"
+    }
+  },
+  "requirements": {
+    "client_home_only": true,
+    "refresh_interval_unchanged_ms": 30000,
+    "only_visible_home_refresh": true,
+    "no_duplicate_network_refresh": true,
+    "inflight_invalidations_coalesced": true,
+    "stale_context_response_ignored": true,
+    "stale_context_error_ignored": true,
+    "source_error_fail_closed": true,
+    "one_canonical_home_owner": true,
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "exact_blob_enforcement": true,
+    "wildcard_exception": false,
+    "no_business_rule_changes": true,
+    "no_source_authority_changes": true,
+    "no_html_css_theme_changes": true,
+    "no_backend_changes": true,
+    "real_chromium_race_test_required": true,
+    "rollback_preserved": true
+  },
+  "rollback": {
+    "release_commit": "fced955d4e42290e7e5da71d330e6689bb1d4a80",
+    "previous_home_blob_sha": "8b130d5782d50c4f2d3ea6cd2072df18c195e63f",
+    "edge_version": 105,
+    "edge_pin": "c37b8215e308db72f37d6ad625d346b9778a7ea9",
+    "database": "NO_MUTATION"
+  },
+  "release_guard": "NO_MERGE_OR_DEPLOY_UNTIL_CHROMIUM_INFLIGHT_RACE_PROVEN_AND_VISUAL_FREEZE_GREEN"
+}
