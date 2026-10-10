@@ -225,13 +225,14 @@ function paintAuthorizedPrices(owner,selectedProduct){
   }
   // Change text ONLY inside existing frozen original headline, not its badge or DOM.
   const headline=box.querySelector('.an2-rona-head h2');
-  textIfDifferent(headline,filled
-    ?'Опубликованные цены RONA Trade · выбранный договор'
-    :'Возможные цены RONA Trade · нет текущего расчёта');
+  // Owner-approved v4.3.2 canonical label is fixed for every fuel and
+  // client/contract state. The populated values remain explicitly named
+  // PUBLISHED prices, NOT invented LOW/BASE/HIGH scenario quotations.
+  textIfDifferent(headline,'Возможные цены RONA Trade');
   const note=box.querySelector('.an2-model-note');
   if(note)textIfDifferent(note,filled
-    ?'Показаны только опубликованные цены выбранного договора. LOW/HIGH и прогнозные цены отсутствуют без подтверждённой рыночной публикации. Это не новая оферта.'
-    :'Опубликованные цены выбранного договора отсутствуют или не подтверждены. Прогнозные цены не рассчитываются.');
+    ?'Показанные значения — опубликованные цены выбранного договора, а не рассчитанные возможные цены. Для индикативного LOW / BASE / HIGH по базисам необходимы подтверждённые логистические, финансовые и коммерческие параметры RONA Trade. Прогноз рынка показан отдельно; настоящая карточка не создаёт новую оферту.'
+    :'Для расчёта возможной цены нет подтверждённой опубликованной цены выбранного договора. LOW / BASE / HIGH по базисам не рассчитываются без проверенных коммерческих параметров.');
   box.dataset.ronaClientPriceBridge=filled?'published-current-contract':'no-authorized-matching-price';
   box.dataset.ronaClientPriceAuthority=source?'SERVER_AUTHORITATIVE_PRICE_PROJECTION':'SOURCE_UNAVAILABLE';
   box.dataset.ronaClientPricePresentation=CLIENT_PRICE_PRESENTATION_V9;
@@ -296,7 +297,12 @@ function ensureSafeCanonicalState(owner,payload,reason){
       (chosen==='DT'?'ДТ':chosen==='LPG'?'СУГ / СПБТ':chosen==='AI95'?'АИ-95':'АИ-92')+
       ' · ежедневный ряд пока недоступен');
     delete owner.dataset.ronaChartKind;
-    for(const n of owner.querySelectorAll('.rona-market-chart-metric'))textIfDifferent(n,'—');
+    // Clearing an entire .rona-market-chart-metric destroyed its <span>
+    // label and <strong data-chart-metric> node. The approved chart engine
+    // retained references to detached nodes and could NEVER repaint metrics.
+    // Reset ONLY the leaf: preserve exact approved DOM and chart references.
+    for(const n of owner.querySelectorAll('.rona-market-chart-metric [data-chart-metric]'))
+      textIfDifferent(n,'—');
   }
   // Canonical legacy engine contains a baked historical LPG/Saryagash number
   // that does not depend on setPayload. Neutralize only that value.
