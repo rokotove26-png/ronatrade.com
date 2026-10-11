@@ -182,7 +182,7 @@ async function ronaOpsV10Refresh(reason='SYNC'){
       ronaOpsV10Snapshot=next;
       ronaOpsV10Error=null;
       window.__RONA_ADMIN_OPERATIONS_CURRENT_V2__=next;
-      window.__RONA_ADMIN_OPERATIONS_V2_STATUS__='READY';
+      window.__RONA_ADMIN_OPERATIONS_V2_STATUS__=String(next?.readiness?.state||'DEGRADED').toUpperCase();
       window.__RONA_ADMIN_OPERATIONS_V2_LAST_FETCH__={reason,at:Date.now(),generatedAt:next.generatedAt||null,signalVersion:Number(next.signalVersion||0)};
       window.dispatchEvent(new CustomEvent('rona:operations-current-v2',{detail:{reason,generatedAt:next.generatedAt||null,signalVersion:Number(next.signalVersion||0)}}));
       if(ronaOpsV10HomeVisible())renderAdminHome();
