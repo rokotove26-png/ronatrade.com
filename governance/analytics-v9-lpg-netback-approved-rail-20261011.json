@@ -1,0 +1,54 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "owner_instruction": "Earlier approved LPG possible price model: take sourced Platts forward quote as indicative netback and add currently approved RONA Trade transport tariffs, consistent with other Admin Analytics fuel sections.",
+  "authorized_at": "2026-10-11",
+  "scope": "ADMIN_ANALYTICS_LPG_PLATTS_NETBACK_PLUS_OWNER_CONFIRMED_RAIL_TARIFF_V9",
+  "role": "SYSTEM_ADMIN_TECHNICAL_IMPLEMENTATION",
+  "precedence": "OWNER_INSTRUCTION → SERVER_CANONICAL_TARIFF_MATRIX → FORECAST_SOURCE → UI_PROJECTION",
+  "decision": "RESTORE_ALREADY_AGREED_PRICE_MODEL_WITHOUT_CREATING_ANY_RATE",
+  "release_baseline": "8155eb939b22f316b6b1a7f0258dcf9eab8c8e94",
+  "source_locks": {
+    "admin_delivery_before": "47c2154659cc72a56fae6df74c2b0e0bbcf38f77",
+    "admin_delivery_after": "99c6e673cbe19022453a36882bafcca95394797f",
+    "migration_blob": "208013d33d462e105e23ba24d37813c6ed382827",
+    "owner_bootstrap_live_predecessor_md5": "973c775f6d984fe5b293510270dba9be",
+    "frozen_original_r4": "64903cd0f64acd1250c103456ea12104e81445e0",
+    "protected_r4_hydration": "a7407d85d8cffca79a44a43465c211ca858d37a0",
+    "client_v20_unchanged": "417bf3773613a54b0aa4420f0978cf94d4d04a02",
+    "v8_delivery": "47c2154659cc72a56fae6df74c2b0e0bbcf38f77"
+  },
+  "canon_sources": {
+    "market": "portal_private.market_intelligence_forecast_snapshots: RONA_FULL_PLATTS_CURVE_V1, product СУГ, target 2026-11, actual sourceRef and finite LOW/BASE/HIGH required",
+    "rail": "portal_private.owner_rail_tariff_matrix: LPG_SPBT, approved_at, status WORKING_CONFIRMED, nonexpired USD/т, exact CPT destination matching last route station, unambiguous matching route",
+    "quotes": "portal_private.owner_price_snapshots: current published basis labels projected via portal_private.market_intelligence_admin_canonical_payload_v1",
+    "role_gate": "public.owner_analytics_admin_bootstrap_core_v1 → portal_private.owner_r1_actor('ADMIN')",
+    "scope_boundary": "Do not expose owner rail tariff matrix in Client V20, no global/public read, no RLS changes"
+  },
+  "current_tariff_coverage": {
+    "basis": "CPT Сарыагаш",
+    "route": "Озинки → Сарыагаш",
+    "usd_t": 137.24,
+    "tariff_key": "LPG-KZH-OZINKI-SARYAGASH",
+    "status": "WORKING_CONFIRMED",
+    "approved_at": "2026-08-22T21:38:22Z",
+    "valid_to": null,
+    "source_refs": [
+      "OWNER_APPROVAL_2026-08-23_ORIENT_LOGISTIC_KZH_UTI"
+    ],
+    "other_cpt_bases": "No exact confirmed full route to CPT Озинки, CPT Турксиб, CPT Уртааул, CPT Маргилан; no fabricated zero tarif. Киргили cannot silently match Маргилан."
+  },
+  "calculation": "price_low/base/high_usd_t = sourced Platts next-month low/base/high + approved rail_tariff_usd_per_t of exact available source route. Other unverified transport legs, margin/commissions are NOT assumed zero and NOT added.",
+  "display": "Only exact source-matched tariffs are shown in existing cards, other bases remain blank with clear partial-input caveat; no new chart/svg owner; no historical Platts dates, no merchant prices changed.",
+  "tests": [
+    "Static SQL source locks, active status, source_refs, no expired/historical source",
+    "Chromium positive 725 +137.24 = 862.24 on CPT Сарыагаш, negative missing CPT Ozinki stays blank",
+    "Chrome legacy V7/V8 negative proof and R4 graph/tabs unaffected",
+    "Client V20 frozen",
+    "Postdeployment authenticated admin source-backed RPC smoke",
+    "Owner authenticated visual acceptance"
+  ],
+  "rollback": {
+    "prior_release_sha": "8155eb939b22f316b6b1a7f0258dcf9eab8c8e94",
+    "operations": "Restore source-locked original public.owner_analytics_admin_bootstrap, DROP new private overlay function, revert only Admin delivery wrapper; do not change Platts rows, rail tariff registry, prices, published market news, client source, or 30-day filters."
+  }
+}
