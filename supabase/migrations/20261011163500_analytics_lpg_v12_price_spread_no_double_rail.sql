@@ -239,7 +239,7 @@ BEGIN
  v_prices:=v_result #> '{canonicalAnalytics,products,LPG,rona,referenceSpreadV12,prices}';
  IF jsonb_typeof(v_prices) IS DISTINCT FROM 'object'
    OR (SELECT count(*) FROM jsonb_object_keys(v_prices))<>5
-   OR v_result #>> '{canonicalAnalytics,products,LPG,rona,referenceSpreadV12,marketDeltaUsdT}' <> '-50'
+   OR (v_result #>> '{canonicalAnalytics,products,LPG,rona,referenceSpreadV12,marketDeltaUsdT}')::numeric<>-50
    OR (v_prices #>> '{CPT Озинки,marketAdjustedPriceUsdT}')::numeric<>560
    OR (v_prices #>> '{CPT Сарыагаш,marketAdjustedPriceUsdT}')::numeric<>695
    OR (v_prices #>> '{CPT Турксиб,marketAdjustedPriceUsdT}')::numeric<>740
