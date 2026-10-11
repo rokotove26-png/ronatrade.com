@@ -190,54 +190,73 @@ try{
        publishedR12UsdT:790,novemberTariffApproved:false,fullCommercialPrice:false}
    }
  };
- const v11Page=await browser.newPage({viewport:{width:1480,height:920}});
- const v11Errors=[];v11Page.on('pageerror',e=>v11Errors.push(e.message));
+ // V12 MUST override deliberately wrong V11 rail scenarios (fixture above).
+ const r12Bases=payload.products.LPG.rona.bases;
+ payload.products.LPG.rona.referenceSpreadV12={
+   version:'RONA_LPG_PUBLISHED_CPT_PLUS_SAME_PLATTS_FORWARD_DELTA_V12',
+   forecastMonth:lpgForecast.month,marketSourceRef:lpgForecast.sourceRef,
+   marketAsOf:'07.10.2026',marketDeltaUsdT:-50,
+   tariffsReaddedUsdT:0,technicalProjectionOnly:true,commercialOffer:false,
+   publishedSourceReference:'RONA-PRICE-LIST-2026-09-R12',
+   prices:Object.fromEntries(r12Bases.map(([basis,reference])=>[basis,{
+     marketAdjustedPriceUsdT:reference-50,
+     publishedReferenceUsdT:reference,
+     marketDeltaUsdT:-50,marketAnchorUsdT:775,
+     forecastBaseUsdT:lpgForecast.base,
+     tariffsReaddedUsdT:0,officialPriceMutation:false
+   }]))
+ };
+ const v12Page=await browser.newPage({viewport:{width:1480,height:920}});
+ const v12Errors=[];v12Page.on('pageerror',e=>v12Errors.push(e.message));
  try{
-   await v11Page.goto('http://127.0.0.1:'+server.address().port+'/portal/admin',{waitUntil:'domcontentloaded'});
-   await v11Page.waitForFunction(()=>
+   await v12Page.goto('http://127.0.0.1:'+server.address().port+'/portal/admin',{waitUntil:'domcontentloaded'});
+   await v12Page.waitForFunction(()=>
      document.documentElement.dataset.ronaAnalyticsData==='canonical-daily-live-v3',
      null,{timeout:12000});
-   await v11Page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('LPG'));
-   await v11Page.waitForFunction(()=>
-     document.querySelector('#rona-analytics-v2')?.dataset?.ronaV11ScenarioCount==='4',
+   await v12Page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('LPG'));
+   await v12Page.waitForFunction(()=>
+     document.querySelector('#rona-analytics-v2')?.dataset?.ronaV12PriceCards==='5',
      null,{timeout:10000});
-   const actual=await v11Page.evaluate(()=>{
+   const actual=await v12Page.evaluate(()=>{
      const root=document.querySelector('#rona-analytics-v2');
-     return {count:root.dataset.ronaV11ScenarioCount,
-       reference:root.dataset.ronaV11ReferenceCount,
-       note:root.querySelector('.an2-model-note')?.textContent||'',
-       cards:[...root.querySelectorAll('.an2-price-card')].map(card=>({
-         basis:card.querySelector('h3')?.textContent?.trim()||'',
-         value:card.querySelector('.an2-price-base')?.textContent?.trim()||'',
-         range:card.querySelector('.an2-price-range')?.textContent?.trim()||'',
-         info:card.querySelector('.an2-price-current')?.textContent?.trim()||'',
-         mode:card.dataset.pricingMode||''
-       }))};
+     const note=root.querySelector('.an2-model-note');
+     return {count:root.dataset.ronaV12PriceCards,
+       doubleRail:root.dataset.ronaV12DoubleRail,
+       note:note?.textContent?.trim()||'',
+       noteHidden:!!note&&getComputedStyle(note).display==='none',
+       cards:[...root.querySelectorAll('.an2-price-card')].map(card=>{
+         const range=card.querySelector('.an2-price-range');
+         const info=card.querySelector('.an2-price-current');
+         return {basis:card.querySelector('h3')?.textContent?.trim()||'',
+           value:card.querySelector('.an2-price-base')?.textContent?.trim()||'',
+           range:range?.textContent?.trim()||'',
+           info:info?.textContent?.trim()||'',
+           rangeHidden:!!range&&getComputedStyle(range).display==='none',
+           infoHidden:!!info&&getComputedStyle(info).display==='none',
+           mode:card.dataset.pricingMode||''};
+       })};
    });
    const byBasis=Object.fromEntries(actual.cards.map(x=>[x.basis,x]));
    assert(actual.cards.length===5&&new Set(actual.cards.map(x=>x.basis)).size===5,
-     'V11 failed to render exactly five canonical CPT cards: '+JSON.stringify(actual));
+     'V12 must render five canonical CPT cards: '+JSON.stringify(actual));
    const normalized=x=>String(x).replace(/[^0-9,]/g,'');
-   for(const [basis,value] of [['CPT Озинки','872,59'],['CPT Сарыагаш','1009,83'],
-     ['CPT Уртааул','1042,92'],['CPT Маргилан','1057,98']]){
+   for(const [basis,value] of [['CPT Озинки','560,00'],['CPT Сарыагаш','695,00'],
+     ['CPT Турксиб','740,00'],['CPT Уртааул','730,00'],['CPT Маргилан','745,00']]){
      const card=byBasis[basis];
      assert(card&&normalized(card.value)===value&&
-       card.mode==='OCT_TARIFF_NOV_SCENARIO_V11'&&
-       card.info.includes('31.10.2026')&&card.info.includes('без маржи'),
-       'Bad V11 scenario for '+basis+': '+JSON.stringify(card));
+       card.mode==='PUBLISHED_R12_PLUS_PLATTS_DELTA_V12'&&
+       card.range===''&&card.info===''&&card.rangeHidden&&card.infoHidden,
+       'V12 doubled rail or unwanted under-price commentary: '+basis+' '+JSON.stringify(card));
    }
-   assert(normalized(byBasis['CPT Турксиб']?.value)==='790,00'&&
-     byBasis['CPT Турксиб']?.mode==='PUBLISHED_REFERENCE_ONLY_V11'&&
-     byBasis['CPT Турксиб']?.info.includes('НЕ прогноз на ноябрь')&&
-     actual.note.includes('Тарифы ноября не подтверждены')&&
-     actual.count==='4'&&actual.reference==='1'&&v11Errors.length===0,
-     'V11 R12 reference must not be misrepresented as November forecast: '+
-     JSON.stringify({actual,errors:v11Errors}));
-   await v11Page.screenshot({path:'.qa-artifacts/analytics-v11-five-source-cpt.png'});
-   console.log('ANALYTICS_V11_FIVE_CPT_OCT_ASSUMPTION_AND_R12_REFERENCE=PASS',
-     JSON.stringify(actual));
- }finally{await v11Page.close();}
+   assert(actual.count==='5'&&actual.doubleRail==='0'&&actual.note===''&&
+     actual.noteHidden&&v12Errors.length===0,
+     'V12 missing commentary guard or unexpected browser error: '+
+     JSON.stringify({actual,errors:v12Errors}));
+   await v12Page.screenshot({path:'.qa-artifacts/analytics-v12-five-cpt-no-double-rail.png'});
+   console.log('ANALYTICS_V12_FIVE_CPT_NO_DOUBLE_RAIL_NO_UNREQUESTED_NOTES=PASS',JSON.stringify(actual));
+ }finally{await v12Page.close();}
  delete payload.products.LPG.rona.octoberRateCarryForwardScenarioV11;
+ delete payload.products.LPG.rona.referenceSpreadV12;
  payload.products.LPG.rona.bases=[['CPT Озинки',610],['CPT Сарыагаш',745]];
  delete payload.products.LPG.rona.netbackTariffBridges;
  await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('AI92'));
