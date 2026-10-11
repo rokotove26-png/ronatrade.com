@@ -131,15 +131,30 @@ try{
    }
  };
  const positivePage=await browser.newPage({viewport:{width:1480,height:920}});
+ positivePage.on('pageerror',e=>console.log('ANALYTICS_V9_PAGEERROR',e.message));
+ positivePage.on('console',m=>{if(m.type()==='error')console.log('ANALYTICS_V9_BROWSER_CONSOLE',m.text())});
  try {
    await positivePage.goto('http://127.0.0.1:'+server.address().port+'/portal/admin',{waitUntil:'domcontentloaded'});
    await positivePage.waitForFunction(()=>
      document.documentElement.dataset.ronaAnalyticsData==='canonical-daily-live-v3',
      null,{timeout:12000});
    await positivePage.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('LPG'));
+   await positivePage.waitForTimeout(350);
+   const positivePrecheck=await positivePage.evaluate(async()=>{
+     const root=document.querySelector('#rona-analytics-v2');
+     const api=(await(await fetch('/portal/api/v1/admin/analytics',{cache:'no-store'})).json()).data.canonicalAnalytics.products.LPG;
+     return {currentState:document.documentElement.dataset.ronaAnalyticsData,
+       selectedProduct:window.RONA_ANALYTICS_VIEW.getState().product,
+       priceStatus:root?.dataset?.ronaPricingReadiness,
+       note:root?.querySelector('.an2-model-note')?.textContent,
+       bridge:api?.rona?.netbackTariffBridges,
+       forecast:api?.forecast,
+       labels:[...root.querySelectorAll('.an2-price-card h3')].map(n=>n.textContent)};
+   });
+   console.log('ANALYTICS_V9_POSITIVE_PRECHECK',JSON.stringify(positivePrecheck));
    await positivePage.waitForFunction(()=>
      document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='PLATTS_NETBACK_TARIFF_PARTIAL',
-     null,{timeout:8000});
+     null,{timeout:5000});
    const positive=await positivePage.evaluate(()=>{
      const root=document.querySelector('#rona-analytics-v2');
      return {note:root.querySelector('.an2-model-note')?.textContent||'',
