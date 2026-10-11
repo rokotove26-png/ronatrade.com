@@ -8,7 +8,7 @@
   "source_locks": {
     "admin_delivery_before": "77f3280c96fa1f2d12a7db761027561fd15eb60a",
     "admin_delivery_after": "1f760a3eb14d7d085b65f5d83daae008bfae3d1c",
-    "migration_blob": "9dfdf78c7c5ee0cf96be40e9e68c405e6b48ebb3",
+    "migration_blob": "60686b1bab6f4311658204bd5a82d46a77fdd5ba",
     "rollback_blob": "4e3882118a64137075f7f57766de992e6e295bb3",
     "admin_bootstrap_pg_md5": "3cc97a53ee493b6af6d5ae8ae17e9d29",
     "client_runtime_frozen_blob": "417bf3773613a54b0aa4420f0978cf94d4d04a02"
@@ -71,5 +71,6 @@
     "Rollback exact V11 bootstrap, no authoritative business write",
     "Postmerge deployment Cloudflare Pages+Worker and authenticated Owner screenshot acceptance"
   ],
-  "rollback": "supabase/rollbacks/20261011163500_analytics_lpg_v12_price_spread_no_double_rail_rollback.sql"
+  "rollback": "supabase/rollbacks/20261011163500_analytics_lpg_v12_price_spread_no_double_rail_rollback.sql",
+  "runtime_smoke_correction": "Initial protected V12 SQL apply rolled back on V12_REAL_SOURCE_FIVE_CPT_NO_DOUBLE_RAIL_SMOKE_FAILED: expected JSON numeric text '-50' but round(numeric,2) serializes '-50.00'. Read-only DB proof confirms -50.00; source R12 and Platts unchanged. Changed ONLY SQL smoke to numeric comparison ::numeric<>-50, no formula/business change."
 }
