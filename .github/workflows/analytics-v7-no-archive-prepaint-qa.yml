@@ -1,0 +1,85 @@
+name: Analytics V7 source-confirmed prepaint and no legacy archive flash
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/analytics-v2-approved-base.js'
+      - 'functions/portal/analytics-canonical-live-hydration.js'
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'portal-src/current/admin.html'
+      - 'assets/portal-runtime/client-market-intelligence-v1.js'
+      - 'governance/analytics-v7-source-confirmed-prepaint-20261011.json'
+      - 'tests/analytics-v7-source-only-prepaint.test.mjs'
+      - 'tests/analytics-v6-single-owner-retirement.test.mjs'
+      - 'scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs'
+      - '.github/workflows/analytics-v7-no-archive-prepaint-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/analytics-v2-approved-base.js'
+      - 'functions/portal/analytics-canonical-live-hydration.js'
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'portal-src/current/admin.html'
+      - 'assets/portal-runtime/client-market-intelligence-v1.js'
+      - 'governance/analytics-v7-source-confirmed-prepaint-20261011.json'
+      - 'tests/analytics-v7-source-only-prepaint.test.mjs'
+      - 'tests/analytics-v6-single-owner-retirement.test.mjs'
+      - 'scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs'
+      - '.github/workflows/analytics-v7-no-archive-prepaint-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  analytics-v7-no-historical-prepaint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Source locks and all preserved R4 V20 contracts
+        run: |
+          node --test tests/analytics-v7-source-only-prepaint.test.mjs \
+            tests/analytics-v6-single-owner-retirement.test.mjs \
+            tests/admin-analytics-exclusive-chart-r4.test.mjs \
+            tests/analytics-rolling-30-calendar-days-v2.test.mjs \
+            tests/analytics-r5-connect-sparse-confirmed-dates.test.mjs \
+            tests/client-analytics-buyer-facing-insight-v20.test.mjs
+      - name: Build both canonical portals without changing their visual assets
+        run: npm run build
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Actual browser delayed API and unavailable source must never show August archive
+        run: node scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs
+      - name: Existing Admin R4 source-visible and fail-closed browser contract
+        run: node scripts/qa-admin-analytics-source-clarity-browser-r3.mjs
+      - name: Existing Admin R5 four-year sparse line chart
+        run: node scripts/qa-admin-analytics-r5-connected-30d-browser.mjs
+      - name: Client V20 published visual preserved
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rona-analytics-v7-no-archive-source-failure
+          path: .qa-artifacts/analytics-v7-no-archived-fallback.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Verify exact Cloudflare activation on merged production
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/wait-cloudflare-commit.mjs
+          node scripts/verify-admin-current-only-production.mjs
+          curl -fsSL --retry 3 --max-time 30 "https://ronaoil.com/portal/analytics-v2-ui?v7=${GITHUB_SHA}" -o /tmp/rona-analytics-v7-production.js
+          grep -q 'source-only-v7' /tmp/rona-analytics-v7-production.js
+          ! grep -q 'source-observation-gaps-v13' /tmp/rona-analytics-v7-production.js
+          echo RONA_ANALYTICS_V7_PRODUCTION_SOURCE_ONLY=PASS

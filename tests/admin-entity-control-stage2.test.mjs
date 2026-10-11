@@ -61,8 +61,13 @@ for(const p of [
     // visual script loader removed; the security/access shell stays identical.
     const approval=JSON.parse(read('governance/analytics-v6-single-owner-retirement-20261011.json'));
     const retired='<script id="rona-admin-approved-analytics-v455-loader" src="/portal/admin-approved-analytics-v455-ui?v=20260827-v455" defer></script>\n';
-    assert.ok(base.includes(retired),'Legacy V455 source lock missing in release baseline');
-    assert.equal(read(p),base.replace(retired,''),'V6 must remove ONLY the retired Analytics visual script');
+    // Pre-V6 release contained the obsolete tag; post-V6 release has it
+    // physically removed. In BOTH cases allow only the exact V6 transition.
+    // Never require a retired script to exist in an already clean baseline.
+    assert.equal(read(p),base.includes(retired)?base.replace(retired,''):base,
+      'V6/V7 Admin HTML must equal current release minus only the retired Analytics visual script');
+    assert.ok(!read(p).includes('rona-admin-approved-analytics-v455-loader'),
+      'Old Analytics V455 loader resurfaced in protected Admin HTML');
     assert.equal(approval.source_locks.admin_html_pre,'5dc87d5a350d57a0fe70bb2371d0a2ab235a1b99');
     assert.equal(approval.source_locks.admin_html_post,'cca468590d2353f64d30300284a302479a2b972c');
   }else assert.equal(read(p),base,`${p} must remain unchanged from current release base`);

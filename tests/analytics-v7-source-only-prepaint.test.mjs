@@ -1,0 +1,41 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+const read=p=>readFileSync(p,'utf8');
+const hash=s=>createHash('sha1').update('blob '+Buffer.byteLength(s)+'\0'+s).digest('hex');
+const g=JSON.parse(read('governance/analytics-v7-source-confirmed-prepaint-20261011.json'));
+test('V7 only changes the delivery wrapper and keeps source-locked R4 and V20',()=>{
+  assert.equal(g.approval,'OWNER_IN_CHAT');
+  assert.equal(g.source_locks.before_analytics_delivery_blob,'802de714a8981eadae7f0de4b96ccfa9b462c69f');
+  assert.equal(hash(read('functions/portal/analytics-v2-ui.js')),g.source_locks.current_analytics_blob_sha);
+  assert.equal(hash(read('functions/portal/analytics-v2-approved-base.js')),g.source_locks.approved_compressed_base_unchanged);
+  assert.equal(hash(read('functions/portal/analytics-canonical-live-hydration.js')),g.source_locks.approved_admin_hydration_unchanged);
+  assert.equal(hash(read('assets/portal-runtime/client-market-intelligence-v1.js')),g.source_locks.client_v20_unchanged);
+  assert.equal(hash(read('functions/portal/admin-main-ui-current.js')),g.source_locks.main_admin_owner_v6_unchanged);
+});
+test('V7 prepaint is source-gated before frozen historical compressed R4',async()=>{
+  const module=await import('../functions/portal/analytics-v2-ui.js?source-only-v7');
+  const response=await module.onRequest({});
+  assert.equal(response.status,200);
+  const source=await response.text();
+  new Function(source);
+  const guard=source.indexOf("window.__RONA_ANALYTICS_CURRENT_SOURCE_PREPAINT_V7__='source-only-v7'");
+  const base=source.indexOf("const DATES=['03.08'");
+  const live=source.indexOf("window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__='source-safe-v4-observation-daily'");
+  assert.ok(guard>0&&base>guard&&live>base,'Prepaint must run before original August fixture');
+  assert.ok(source.includes('html:not([data-rona-analytics-data="canonical-daily-live-v3"]) body #page-analytics > #rona-analytics-v2'));
+  assert.ok(source.includes("state.ronaAnalyticsData='SOURCE_PENDING'"));
+  assert.ok(source.includes('Архивные значения скрыты'));
+  assert.ok(source.includes("document.documentElement.dataset.ronaAnalyticsData='canonical-daily-live-v3';return true"));
+  assert.equal((source.match(/function adminCompactChart\(root,product,key\)/g)||[]).length,1);
+});
+test('no second writer or shell HTML legacy module resurrected',()=>{
+  const script=read('functions/portal/admin-main-ui-current.js');
+  assert.ok(script.includes('patchRetiredAnalyticsOwner'));
+  const html=read('portal-src/current/admin.html');
+  assert.ok(!html.includes('rona-admin-approved-analytics-v455-loader'));
+  const v7=read('functions/portal/analytics-v2-ui.js');
+  assert.ok(!v7.includes('LPG_GAP_RUNTIME'));
+  assert.ok(v7.includes('ANALYTICS_V6_DUPLICATE_SVG_LAYER'));
+});
