@@ -16,7 +16,10 @@ test('V6 preserves approved Admin visual and frozen Client V20',()=>{
   ])assert.equal(sha(read(path)),g.source_locks[field],path);
   const next=JSON.parse(read('governance/analytics-v7-source-confirmed-prepaint-20261011.json'));
   assert.equal(next.source_locks.before_analytics_delivery_blob,g.source_locks.admin_analytics_post,'V6 original source lock must remain historical');
-  assert.equal(sha(read('functions/portal/analytics-v2-ui.js')),next.source_locks.current_analytics_blob_sha,'Only approved V7 source extension may supersede V6 code');
+  assert.equal(next.source_locks.current_analytics_blob_sha,
+    JSON.parse(read('governance/analytics-v8-pricing-source-readiness-20261011.json')).source_locks.before_delivery_sha,'V7 source lock preserved');
+  assert.equal(sha(read('functions/portal/analytics-v2-ui.js')),
+    JSON.parse(read('governance/analytics-v8-pricing-source-readiness-20261011.json')).source_locks.after_delivery_sha,'Only approved V8 successor may extend V7');
 });
 test('obsolete scripts really gone, canonical lazy load remains',()=>{
   for(const path of g.retired_paths)assert.equal(existsSync(path),false,path);
