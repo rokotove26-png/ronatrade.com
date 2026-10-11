@@ -1,0 +1,85 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_on": "2026-10-11",
+  "owner_instruction": "Audit Analytics and safely disable and delete old visual layers that repeatedly reappear; execute until technical completion.",
+  "scope": "ADMIN_CLIENT_ANALYTICS_SINGLE_OWNER_LEGACY_VISUAL_DECOMMISSION_V6",
+  "decision": "REMOVE_LEGACY_DOM_WRITERS_KEEP_CANONICAL_V4_AND_V20",
+  "baseline_release_sha": "112cfd7ce3f5d5c855128582d18d67bbd7437e3d",
+  "root_causes": [
+    {
+      "component": "owner-ui/chunk3+chunk4; materialized through admin-main-ui-current.js",
+      "problem": "Old renderAnalytics table function rewrites page-analytics during bootstrap, navigation, and Admin auth-refresh; source-level retirement required.",
+      "corrective": "patchRetiredAnalyticsOwner strips old function, startup call and route mapping after other canonical patch steps; preserves page navigation and dedicated analytics lazy loader"
+    },
+    {
+      "component": "admin-approved-analytics-v455-ui.js / portal-src/current/admin.html",
+      "problem": "Retired V455 visual DOM scrub script still loaded on every Admin page and listens to page-change",
+      "corrective": "Delete obsolete loader and its exclusively analytics endpoint"
+    },
+    {
+      "component": "lpg-observation-gap-runtime-v13.js / analytics-v2-ui.js",
+      "problem": "Dormant second SVG writer appended to Admin bundle, gated by pathname but potentially reactivated by reuse elsewhere",
+      "corrective": "Stop import/append and delete obsolete painter; keep existing R4 adminCompactChart"
+    }
+  ],
+  "preserved": [
+    "Admin canonical approved v4.3.2/base compressed visual",
+    "Admin R4 hydration and sole adminCompactChart painter",
+    "Client V20 source and HTML exact byte-lock",
+    "30-day Moscow source filter and sparse confirmed observation data",
+    "source backed calculations, pricing, currency, forecasts, published client scoping",
+    "Admin navigation, market news and radio sections",
+    "current auth and IAM, Supabase function, Edge v106",
+    "historical immutable R3/R4 approvals and rollback blobs"
+  ],
+  "retired_source_blobs": {
+    "legacy_lpg_v13": "6949ea79a293f5b36bee5b80239768063ce7ec20",
+    "legacy_admin_v455": "5afc399c97cfa388e2d183f4fc76482adec5391f"
+  },
+  "source_locks": {
+    "admin_main_pre": "91fae9a0be2139c362458bdde02997fa0f8fab31",
+    "admin_main_post": "f2e8b14931c7801af36f9b0f6652405b423720b1",
+    "admin_html_pre": "5dc87d5a350d57a0fe70bb2371d0a2ab235a1b99",
+    "admin_html_post": "cca468590d2353f64d30300284a302479a2b972c",
+    "admin_analytics_pre": "53a736bcd4df3a27741aa7471fb7f0edb7d1f707",
+    "admin_analytics_post": "802de714a8981eadae7f0de4b96ccfa9b462c69f",
+    "admin_hydration_unchanged": "a7407d85d8cffca79a44a43465c211ca858d37a0",
+    "client_v20_unchanged": "417bf3773613a54b0aa4420f0978cf94d4d04a02",
+    "supabase_monitor_md5": "5a0fdacc196efc889cb8c047f0164330",
+    "supabase_canonical_md5": "a7f0ff21a938e0554684b3ef90c9d005"
+  },
+  "retired_paths": [
+    "functions/portal/admin-approved-analytics-v455-ui.js",
+    "functions/portal/lpg-observation-gap-runtime-v13.js"
+  ],
+  "route_behavior": {
+    "analytics_navigate": "retained, routed to single current Admin Analytics lazy loader",
+    "legacy_owner_analytics_in_admin_main": "no function/render calls/route",
+    "old_v455_endpoint": "no deployed function route; 404",
+    "lpg_second_svg_writer": "not imported or executed",
+    "client": "exact V20 no source edits"
+  },
+  "non_goals": [
+    "rebuild frozen canonical base",
+    "erase historical Git records or governance",
+    "delete shared radio/newspaper components used by other pages",
+    "create synthetic points",
+    "change forecasts or business values"
+  ],
+  "rollback": {
+    "release_commit": "112cfd7ce3f5d5c855128582d18d67bbd7437e3d",
+    "old_files_git_blobs": "Use retired_source_blobs and source_locks .pre without restoring unrelated future release changes.",
+    "db": "NO_CHANGE",
+    "edge": "NO_CHANGE"
+  },
+  "release_gates": [
+    "remove all live legacy writers at SOURCE, not only CSS hide",
+    "compile generated Admin main JS to prove no function/route",
+    "admin nav + refresh event browser with captured old nodes =0",
+    "real Admin R4 chart browser, repeated product switch",
+    "Client V20 frozen HTML/runtime visual test",
+    "Admin/Client source-safety, 30d and no interpolation",
+    "production Cloudflare exact head and no old loader/retired endpoint",
+    "user visual acceptance pending only after release"
+  ]
+}
