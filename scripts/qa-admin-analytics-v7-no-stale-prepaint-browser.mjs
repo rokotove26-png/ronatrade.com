@@ -37,7 +37,12 @@ const server=http.createServer((req,res)=>{
    const marker='    // V9: previously approved LPG model';
    const probe=`    console.log('ANALYTICS_V9_DECORATE_TRACE',JSON.stringify({key,available:!!forecast,sourceState:document.documentElement.dataset.ronaAnalyticsData,fMonth:forecast?.month,fRef:forecast?.sourceRef,bridge:product?.rona?.netbackTariffBridges,bases:[...root.querySelectorAll('.an2-price-card h3')].map(x=>x.textContent?.trim()),cardCount:root.querySelectorAll('.an2-price-card').length,firstQuoteMatched:(()=>{const b=product?.rona?.netbackTariffBridges?.['CPT Сарыагаш'];return b?{model:b.model==='PLATTS_NETBACK_PLUS_CONFIRMED_RAIL_V1',status:b.tariffStatus==='WORKING_CONFIRMED',month:b.marketMonth===forecast?.month,reference:b.marketSourceRef===forecast?.sourceRef,rail:Number(b.railUsdT)>0,route:String(b.route).endsWith('Сарыагаш'),refs:Array.isArray(b.sourceRefs),approved:!!b.approvedAt}:null})()}));
 `;
-   return res.end(js.includes(marker)?js.replace(marker,probe+marker):js);}
+   const domNodes="if(!mainV9||!rangeV9||!railLineV9)continue;";
+   const domProbe="console.log('ANALYTICS_V9_NODES',JSON.stringify({basis:basisV9,main:!!mainV9,range:!!rangeV9,current:!!railLineV9,cardHTML:priceCardV9.outerHTML.slice(0,1100)}));";
+   const matched="if(matchedTariffCardsV9>0){";
+   const matchedProbe="console.log('ANALYTICS_V9_MATCHED',JSON.stringify({count:matchedTariffCardsV9,total:pricingCardsV9.length,state:document.documentElement.dataset.ronaAnalyticsData}));";
+   const source=js.replace(marker,probe+marker).replace(domNodes,domProbe+domNodes).replace(matched,matchedProbe+matched);
+   return res.end(source);}
  if(u.pathname==='/portal/api/v1/admin/analytics'){
    requests++;res.setHeader('content-type','application/json');
    if(mode==='DELAY')return setTimeout(()=>{res.statusCode=502;res.end(JSON.stringify({ok:false,code:'DELAYED_502'}))},1100);
@@ -136,7 +141,7 @@ try{
  };
  const positivePage=await browser.newPage({viewport:{width:1480,height:920}});
  positivePage.on('pageerror',e=>console.log('ANALYTICS_V9_PAGEERROR',e.message));
- positivePage.on('console',m=>{if(m.type()==='error'||m.text().includes('ANALYTICS_V9_DECORATE_TRACE'))console.log('ANALYTICS_V9_BROWSER_CONSOLE',m.text())});
+ positivePage.on('console',m=>{if(m.type()==='error'||m.text().includes('ANALYTICS_V9_'))console.log('ANALYTICS_V9_BROWSER_CONSOLE',m.text())});
  try {
    await positivePage.goto('http://127.0.0.1:'+server.address().port+'/portal/admin',{waitUntil:'domcontentloaded'});
    await positivePage.waitForFunction(()=>
