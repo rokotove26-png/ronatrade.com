@@ -60,7 +60,7 @@ for(const p of [
     // Explicit owner-approved Analytics V6 exception is exactly ONE obsolete
     // visual script loader removed; the security/access shell stays identical.
     const approval=JSON.parse(read('governance/analytics-v6-single-owner-retirement-20261011.json'));
-    const retired='<script id="rona-admin-approved-analytics-v455-loader" src="/portal/admin-approved-analytics-v455-ui?v=20260827-v455" defer></script>\\n';
+    const retired='<script id="rona-admin-approved-analytics-v455-loader" src="/portal/admin-approved-analytics-v455-ui?v=20260827-v455" defer></script>\n';
     assert.ok(base.includes(retired),'Legacy V455 source lock missing in release baseline');
     assert.equal(read(p),base.replace(retired,''),'V6 must remove ONLY the retired Analytics visual script');
     assert.equal(approval.source_locks.admin_html_pre,'5dc87d5a350d57a0fe70bb2371d0a2ab235a1b99');
