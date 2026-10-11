@@ -18,7 +18,16 @@ const product=(name,x)=>({name,dates,values:[x-12,x],forecast:fore(x),
   basis:'Platts verified physical USD/т',rona:{reference:x,bases:[['CPT Озинки',x+90]]}});
 const payload={version:'RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1',cutoff:dateNow,latestTradeDate:dateNow,
   products:{AI92:product('АИ-92',1280),AI95:product('АИ-95',1320),
-    DT:{name:'ДТ',dates:[],values:[]},LPG:{name:'СУГ',dates:[],values:[]}}};
+    DT:{name:'ДТ',dates:[],values:[]},
+    LPG:{...product('СУГ',725),rona:{reference:null,
+      bases:[['CPT Озинки',610],['CPT Сарыагаш',745]]},
+      dailyMonitor:{version:'RONA_MARKET_OBSERVED_DAILY_V1',granularity:'OBSERVATION_DATE',
+        sourceFamily:'PLATTS',sourceStatus:'CONFIRMED',noInterpolation:true,
+        notMonthlyMaturityCurve:true,observationCount:2,availableTotal:2,
+        observedDates:[prev.toISOString().slice(0,10),last.toISOString().slice(0,10)],
+        segmentIds:[0,0],segmentCount:1,
+        gapBeforeDays:[0,1],sourceGap:false,status:'VERIFIED_DAILY_OBSERVATIONS',
+        firstAsOf:format(prev),lastAsOf:format(last)}}}};
 const html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"></head><body><main class="page active" id="page-analytics"></main><script src="/analytics.js"></script></body></html>';
 const server=http.createServer((req,res)=>{
  const u=new URL(req.url,'http://127.0.0.1');
@@ -87,6 +96,24 @@ try{
    noProduct.forecast.includes('Прогноз недоступен')&&
    noProduct.conclusion.includes('Подтверждённый ряд котировок по ДТ недоступен'),
    'Missing-product selection revived stale archived fixtures: '+JSON.stringify(noProduct));
+ // V8: verified Platts forecast and CPT quote prices alone are not enough.
+ // Never substitute a different financial/physical/regional market benchmark
+ // into the missing market reference or show historical R4 derived prices.
+ await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('LPG'));
+ await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='MARKET_REFERENCE_NOT_CONFIRMED',
+   {timeout:10000});
+ const pricingGap=await page.evaluate(()=>{
+   const root=document.querySelector('#rona-analytics-v2');
+   return {state:root.dataset.ronaPricingReadiness,
+      note:root.querySelector('.an2-model-note')?.textContent||'',
+      cards:[...root.querySelectorAll('.an2-price-card')].map(card=>
+        [...card.querySelectorAll('.an2-price-base,.an2-price-range,.an2-price-current')].map(el=>el.textContent?.trim()))};
+ });
+ assert(pricingGap.note.includes('Котировки CPT имеются')&&
+    pricingGap.note.includes('отсутствует подтверждённый сопоставимый рыночный референс')&&
+    pricingGap.cards.length>0&&pricingGap.cards.every(card=>card.every(value=>value==='—')),
+    'V8 falsely calculated RONA pricing despite missing compatible reference: '+JSON.stringify(pricingGap));
+ console.log('ANALYTICS_V8_LPG_REFERENCE_MISSING_NO_FAKE_PRICE=PASS');
  await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('AI92'));
  await page.waitForFunction(month=>
    window.RONA_ANALYTICS_VIEW?.getState?.()?.product==='AI92'&&
