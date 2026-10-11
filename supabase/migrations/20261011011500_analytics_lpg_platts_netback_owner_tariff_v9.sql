@@ -34,7 +34,7 @@ BEGIN
      v_month<v_today_month OR
      nullif(btrim(v_forecast->>'sourceRef'),'') IS NULL OR
      EXISTS(SELECT 1 FROM (VALUES ('low'),('base'),('high')) AS f(field)
-       WHERE jsonb_typeof(v_forecast->f.field)<>'number') OR
+       WHERE jsonb_typeof(v_forecast->f.field) IS DISTINCT FROM 'number') OR
      jsonb_typeof(v_bases)<>'array' THEN
      RETURN p;
   END IF;
