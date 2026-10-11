@@ -7,7 +7,18 @@ const CLEAN_RUNTIME=String.raw`
 let ronaOpsV10Snapshot=null,ronaOpsV10Error=null,ronaOpsV10Promise=null,ronaOpsV10Timer=0,ronaOpsV10Started=false;
 const RONA_OPS_AUTO_REFRESH_MS=60000;
 function ronaOpsV10HomeVisible(){try{const p=page('home');return !!p&&getComputedStyle(p).display!=='none'}catch(_){return false}}
-function ronaOpsV10Ready(s=ronaOpsV10Snapshot){return !!s&&s.version==='OPERATIONS_CURRENT_V2'&&String(s?.readiness?.state||'').toUpperCase()==='READY'}
+function ronaOpsV10Ready(s=ronaOpsV10Snapshot){
+  const state=String(s?.readiness?.state||'').toUpperCase();
+  const received=Date.parse(String(s?.generatedAt||''));
+  return !!s&&s.version==='OPERATIONS_CURRENT_V2'&&
+    s?.readiness?.contract==='ADMIN_OPERATIONS_SOURCE_TRUTH_V11'&&
+    (state==='READY'||state==='DEGRADED')&&
+    Number.isFinite(received)&&Math.abs(Date.now()-received)<15*60*1000;
+}
+function ronaOpsV11ShortDate(value){
+  const v=Date.parse(String(value||''));
+  return Number.isFinite(v)?new Date(v).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'}):'нет подтверждения';
+}
 function ronaOpsV10Num(v){const n=Number(v);return Number.isFinite(n)?n:null}
 function ronaOpsV10PaymentTone(row){
   const due=Number(row?.dueNow||0),future=Number(row?.futureConditional||0),k=ronaFdV5Key(row?.financeStatus||'');
@@ -178,6 +189,10 @@ async function ronaOpsV10Refresh(reason='SYNC'){
       return next;
     }catch(err){
       ronaOpsV10Error=String(err?.name==='AbortError'?'OPERATIONS_CURRENT_V2_TIMEOUT':(err?.code||err?.message||err));
+      // A refresh error invalidates the previously successful business snapshot.
+      window.__RONA_ADMIN_OPERATIONS_PREVIOUS_SNAPSHOT__=ronaOpsV10Snapshot;
+      ronaOpsV10Snapshot=null;
+      window.__RONA_ADMIN_OPERATIONS_CURRENT_V2__=null;
       window.__RONA_ADMIN_OPERATIONS_V2_ERROR__=ronaOpsV10Error;
       window.__RONA_ADMIN_OPERATIONS_V2_STATUS__='ERROR';
       if(ronaOpsV10HomeVisible())renderAdminHome();
