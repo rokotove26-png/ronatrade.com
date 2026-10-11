@@ -72,7 +72,7 @@ test('UI keeps registry deals visible but masks stale real-time rail and payment
    "sourceGood('finance')","sourceFoot('documents')",
    "sourceGood('actions')","Статусы сохранены в реестре",
    "SOURCE VERIFICATION REQUIRED","SOURCE TRUTH V11",
-   "Последнее изменение","НЕТ АКТИВНОГО ЖД-МОНИТОРИНГА"])
+   "последнее изменение","НЕТ АКТИВНОГО ЖД-МОНИТОРИНГА"])
    assert.ok(ui.includes(mark),'unverified source UX missing '+mark);
  assert.ok(!ui.includes("'DATA BUS · '),'CURRENT STATE · '+String(stamp)"));
 });
