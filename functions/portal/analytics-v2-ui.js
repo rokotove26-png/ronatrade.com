@@ -314,7 +314,7 @@ const CANONICAL_LPG_NETBACK_TARIFF_UI_V9=String.raw`
           detailV11.title=detailV11.textContent;
           cardV11.dataset.pricingMode='OCT_TARIFF_NOV_SCENARIO_V11';
           whatIfV11++;
-        }else if(approvedReferenceV11!==null&&approvedReferenceV11!==undefined&&
+        }else if(modelReadyV11&&approvedReferenceV11!==null&&approvedReferenceV11!==undefined&&
                  Number.isFinite(Number(approvedReferenceV11))){
           priceV11.textContent=formatValue(Number(approvedReferenceV11))+' USD/т';
           rangeV11.textContent='ПОСЛЕДНИЙ ОПУБЛИКОВАННЫЙ ПРАЙС · R12 · до 31.10.2026';
