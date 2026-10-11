@@ -343,12 +343,18 @@ function renderAdminHome(){
   const system=(code,title,value,meta,target,tone)=>e('button',{class:'rona-fd-v5-system is-'+(tone||'cyan'),type:'button',onclick:()=>adminHomeNavigate(target)},e('div',{},e('div',{class:'rona-fd-v5-system__head'},e('span',{class:'rona-fd-v5-system__lamp'}),e('span',{class:'rona-fd-v5-system__code',text:code})),e('div',{class:'rona-fd-v5-system__title',text:title}),e('div',{class:'rona-fd-v5-system__meta',text:meta})),e('div',{class:'rona-fd-v5-system__value',text:String(value)}));
   const systemsBar=e('section',{class:'rona-fd-v5__systems'});
   systemsBar.append(
-    system('RAIL CONTROL','Онлайн ЖД',railN===null?'—':railN,ready?(String(railSys.attention||0)+' требуют проверки'):'Источник не готов','monitoring',ready&&Number(railSys.attention||0)>0?'amber':ready?'green':'cyan'),
-    system('FINANCE CONTROL','Платежи',paymentN===null?'—':paymentN,ready?('Finance V8 · к оплате сейчас: '+String(paymentN||0)):'Источник не готов','payments',ready&&(paymentN||0)>0?'amber':ready?'green':'cyan'),
-    system('DOCUMENT CONTROL','Документы',documentsN===null?'—':documentsN,ready?(String(documentsAttentionN||0)+' требуют контроля'):'Источник не готов','documents',ready&&(documentsAttentionN||0)>0?'amber':ready?'green':'cyan')
+    system('RAIL CONTROL','Онлайн ЖД',!sourceGood('rail')?'—':railN===null?'—':railN,ready?sourceFoot('rail'):'Источник не готов','monitoring',sourceGood('rail')?'green':'amber'),
+    system('FINANCE CONTROL','Платежи',!sourceGood('finance')?'—':paymentN===null?'—':paymentN,ready?sourceFoot('finance'):'Источник не готов','payments',sourceGood('finance')?'green':'amber'),
+    system('DOCUMENT CONTROL','Документы',documentsN===null?'—':documentsN,ready?sourceFoot('documents'):'Источник не готов','documents',sourceGood('documents')?'green':'amber')
   );
-  const stamp=ready?((snap?.freshness||{}).signalUpdatedAt||snap?.generatedAt||null):null;
-  const footer=e('footer',{class:'rona-fd-v5__footer'},e('span',{},'DATA BUS · ',e('strong',{text:'OPERATIONS CURRENT V2'}),' · SINGLE OWNER'),e('span',{text:stamp?('CURRENT STATE · '+String(stamp)):'CURRENT STATE · —'}));
+  const stamp=ready?snap?.generatedAt||null:null;
+  const footer=e('footer',{class:'rona-fd-v5__footer'},
+    e('span',{},'DATA BUS · ',e('strong',{text:'SOURCE TRUTH V11'}),' · Last change ≠ confirmation'),
+    e('span',{text:!ready?'ДАННЫЕ НЕ ПОЛУЧЕНЫ':
+      'Запрос '+ronaOpsV11ShortDate(stamp)+
+      ' · сделки '+ronaOpsV11ShortDate(opsSourceAsOf.deals)+
+      ' · финансы '+ronaOpsV11ShortDate(opsSourceAsOf.finance)+
+      ' · ЖД '+ronaOpsV11ShortDate(opsSourceAsOf.rail)}));
   root.append(top,instruments,workspace,systemsBar,footer);
   replacePage('home',root);
 }
