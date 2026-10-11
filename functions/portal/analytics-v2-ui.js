@@ -182,8 +182,45 @@ const CANONICAL_LPG_NETBACK_TARIFF_UI_V9=String.raw`
     // V9: previously approved LPG model — Platts netback plus only verified,
     // nonexpired owner-approved rail tariffs whose destination equals the
     // published CPT quote. Never imply that missing full-route costs are zero.
+    // V11 remove only synthetic source cards from a previous decoration pass.
+    for(const transientV11 of root.querySelectorAll('.an2-price-card[data-rona-source-card-v11="1"]'))
+      transientV11.remove();
     if(key==='LPG'&&forecast&&document.documentElement.dataset.ronaAnalyticsData!=='SOURCE_UNAVAILABLE'){
       const tariffBridgesV9=product?.rona?.netbackTariffBridges;
+      // Populate all CPT cards from the owner-authorized source, not frozen August DATA.
+      const sourceQuotesV11=Array.isArray(product?.rona?.bases)?product.rona.bases:[];
+      const quotedCptsV11=new Map(sourceQuotesV11.filter(x=>
+        Array.isArray(x)&&typeof x[0]==='string'&&x[0].startsWith('CPT ')));
+      const existingCptsV11=Array.from(root.querySelectorAll('.an2-price-card'));
+      const cardHostV11=existingCptsV11[0]?.parentElement;
+      if(cardHostV11&&quotedCptsV11.size){
+        const seenV11=new Set(existingCptsV11.map(c=>
+          String(c.querySelector('h3')?.textContent||'').trim()));
+        for(const [cptV11] of quotedCptsV11){
+          if(seenV11.has(cptV11))continue;
+          const cloneV11=existingCptsV11[0].cloneNode(true);
+          for(const nodeV11 of [cloneV11,...cloneV11.querySelectorAll('[id]')])
+            nodeV11.removeAttribute('id');
+          const titleV11=cloneV11.querySelector('h3');
+          const baseV11=cloneV11.querySelector('.an2-price-base');
+          const rangeV11=cloneV11.querySelector('.an2-price-range');
+          const lineV11=cloneV11.querySelector('.an2-price-current');
+          if(!titleV11||!baseV11||!rangeV11||!lineV11)continue;
+          titleV11.textContent=cptV11;
+          baseV11.textContent='—';rangeV11.textContent='—';lineV11.textContent='—';
+          cloneV11.removeAttribute('data-rona-current');
+          cloneV11.removeAttribute('data-pricing-mode');
+          cloneV11.dataset.ronaSourceCardV11='1';
+          cardHostV11.appendChild(cloneV11);
+          seenV11.add(cptV11);
+        }
+        if(Array.from(cardHostV11.children).every(c=>
+          c.classList.contains('an2-price-card'))){
+          cardHostV11.style.display='grid';
+          cardHostV11.style.gridTemplateColumns='repeat(auto-fit,minmax(min(210px,100%),1fr))';
+          cardHostV11.style.gap='10px';
+        }
+      }
       const pricingCardsV9=Array.from(root.querySelectorAll('.an2-price-card'));
       let matchedTariffCardsV9=0;
       const matchedCptV10=new Set();
