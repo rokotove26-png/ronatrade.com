@@ -1,0 +1,66 @@
+name: Analytics V11 canonical LPG five-CPT scenario QA
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'supabase/migrations/20261011100000_analytics_lpg_v11_canonical_drive_oct_scenario.sql'
+      - 'supabase/rollbacks/20261011100000_analytics_lpg_v11_canonical_drive_oct_scenario_rollback.sql'
+      - 'tests/analytics-v11-lpg-canonical-source.test.mjs'
+      - 'governance/analytics-v11-five-cpt-oct-rail-20261011.json'
+      - 'scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs'
+      - '.github/workflows/analytics-v11-canonical-five-cpt-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'tests/analytics-v11-lpg-canonical-source.test.mjs'
+      - 'scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs'
+      - '.github/workflows/analytics-v11-canonical-five-cpt-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  v11-five-cpt-source-and-whatif:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Source locked V6-V11 and frozen Client V20 contract tests
+        run: |
+          node --test tests/analytics-v11-lpg-canonical-source.test.mjs \
+            tests/analytics-v10-lpg-five-cpt-source-status.test.mjs \
+            tests/analytics-v9-lpg-netback-approved-tariff.test.mjs \
+            tests/analytics-v8-price-readiness.test.mjs \
+            tests/analytics-v7-source-only-prepaint.test.mjs \
+            tests/analytics-v6-single-owner-retirement.test.mjs \
+            tests/admin-analytics-exclusive-chart-r4.test.mjs \
+            tests/analytics-rolling-30-calendar-days-v2.test.mjs \
+            tests/analytics-r5-connect-sparse-confirmed-dates.test.mjs \
+            tests/client-analytics-buyer-facing-insight-v20.test.mjs
+      - name: Build authorized Admin and Client canonical assets
+        run: npm run build
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Chromium five-CPT source UI, R12 reference, missing source and no V7 archive
+        run: node scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs
+      - name: Four-fuel source clarity and single owner SVG QA
+        run: node scripts/qa-admin-analytics-source-clarity-browser-r3.mjs
+      - name: Real observed R5 connected thirty-day plots
+        run: node scripts/qa-admin-analytics-r5-connected-30d-browser.mjs
+      - name: Client V20 frozen and tenant safe
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - name: Production V11 JavaScript after rollout
+        if: github.event_name == 'push'
+        run: |
+          node scripts/wait-cloudflare-commit.mjs
+          curl -fsSL --retry 3 --max-time 30 "https://ronaoil.com/portal/analytics-v2-ui?v11=${GITHUB_SHA}" -o /tmp/analytics-v11.js
+          grep -q 'octoberRateCarryForwardScenarioV11' /tmp/analytics-v11.js
+          grep -q 'PUBLISHED_REFERENCE_ONLY_V11' /tmp/analytics-v11.js
+          grep -q 'source-only-v7' /tmp/analytics-v11.js
+          ! grep -q 'source-observation-gaps-v13' /tmp/analytics-v11.js

@@ -168,6 +168,76 @@ try{
  } finally {
    await positivePage.close();
  }
+ // V11 Chromium: new source-backed five-CPT Admin output (synthetic fixture only).
+ payload.products.LPG.rona.bases=[
+   ['CPT Озинки',610],['CPT Сарыагаш',745],['CPT Турксиб',790],
+   ['CPT Уртааул',780],['CPT Маргилан',795]];
+ const sourceFixtureV11=(base,rail,legs)=>({
+   mode:'OCTOBER_TARIFF_CARRY_FORWARD_SCENARIO_NOT_NOV_APPROVED',
+   railUsdT:rail,scenarioLowUsdT:base-26.5,scenarioBaseUsdT:base,
+   scenarioHighUsdT:base+50,novemberTariffApproved:false,legs});
+ payload.products.LPG.rona.octoberRateCarryForwardScenarioV11={
+   version:'LPG_SOURCE_LOCKED_SCENARIO_V11',
+   forecastMonth:lpgForecast.month,novemberTariffsConfirmed:false,
+   fxRubPerUsd:84.9048,fxAsOf:'2026-10-11',
+   scenarios:{
+     'CPT Озинки':sourceFixtureV11(872.59,147.5924,['RF_P03']),
+     'CPT Сарыагаш':sourceFixtureV11(1009.83,284.8324,['RF_P03','KZH']),
+     'CPT Уртааул':sourceFixtureV11(1042.92,317.9158,['RF_P03','KZH','UTI']),
+     'CPT Маргилан':sourceFixtureV11(1057.98,332.9793,['RF_P03','KZH','UTI']),
+     'CPT Турксиб':{mode:'PUBLISHED_R12_REFERENCE_ONLY',
+       publishedR12UsdT:790,novemberTariffApproved:false,fullCommercialPrice:false}
+   }
+ };
+ const v11Page=await browser.newPage({viewport:{width:1480,height:920}});
+ const v11Errors=[];v11Page.on('pageerror',e=>v11Errors.push(e.message));
+ try{
+   await v11Page.goto('http://127.0.0.1:'+server.address().port+'/portal/admin',{waitUntil:'domcontentloaded'});
+   await v11Page.waitForFunction(()=>
+     document.documentElement.dataset.ronaAnalyticsData==='canonical-daily-live-v3',
+     null,{timeout:12000});
+   await v11Page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('LPG'));
+   await v11Page.waitForFunction(()=>
+     document.querySelector('#rona-analytics-v2')?.dataset?.ronaV11ScenarioCount==='4',
+     null,{timeout:10000});
+   const actual=await v11Page.evaluate(()=>{
+     const root=document.querySelector('#rona-analytics-v2');
+     return {count:root.dataset.ronaV11ScenarioCount,
+       reference:root.dataset.ronaV11ReferenceCount,
+       note:root.querySelector('.an2-model-note')?.textContent||'',
+       cards:[...root.querySelectorAll('.an2-price-card')].map(card=>({
+         basis:card.querySelector('h3')?.textContent?.trim()||'',
+         value:card.querySelector('.an2-price-base')?.textContent?.trim()||'',
+         range:card.querySelector('.an2-price-range')?.textContent?.trim()||'',
+         info:card.querySelector('.an2-price-current')?.textContent?.trim()||'',
+         mode:card.dataset.pricingMode||''
+       }))};
+   });
+   const byBasis=Object.fromEntries(actual.cards.map(x=>[x.basis,x]));
+   assert(actual.cards.length===5&&new Set(actual.cards.map(x=>x.basis)).size===5,
+     'V11 failed to render exactly five canonical CPT cards: '+JSON.stringify(actual));
+   const normalized=x=>String(x).replace(/[^0-9,]/g,'');
+   for(const [basis,value] of [['CPT Озинки','872,59'],['CPT Сарыагаш','1009,83'],
+     ['CPT Уртааул','1042,92'],['CPT Маргилан','1057,98']]){
+     const card=byBasis[basis];
+     assert(card&&normalized(card.value)===value&&
+       card.mode==='OCT_TARIFF_NOV_SCENARIO_V11'&&
+       card.info.includes('31.10.2026')&&card.info.includes('без маржи'),
+       'Bad V11 scenario for '+basis+': '+JSON.stringify(card));
+   }
+   assert(normalized(byBasis['CPT Турксиб']?.value)==='790,00'&&
+     byBasis['CPT Турксиб']?.mode==='PUBLISHED_REFERENCE_ONLY_V11'&&
+     byBasis['CPT Турксиб']?.info.includes('НЕ прогноз на ноябрь')&&
+     actual.note.includes('Тарифы ноября не подтверждены')&&
+     actual.count==='4'&&actual.reference==='1'&&v11Errors.length===0,
+     'V11 R12 reference must not be misrepresented as November forecast: '+
+     JSON.stringify({actual,errors:v11Errors}));
+   await v11Page.screenshot({path:'.qa-artifacts/analytics-v11-five-source-cpt.png'});
+   console.log('ANALYTICS_V11_FIVE_CPT_OCT_ASSUMPTION_AND_R12_REFERENCE=PASS',
+     JSON.stringify(actual));
+ }finally{await v11Page.close();}
+ delete payload.products.LPG.rona.octoberRateCarryForwardScenarioV11;
+ payload.products.LPG.rona.bases=[['CPT Озинки',610],['CPT Сарыагаш',745]];
  delete payload.products.LPG.rona.netbackTariffBridges;
  await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('AI92'));
  await page.waitForFunction(month=>

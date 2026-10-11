@@ -1,0 +1,81 @@
+{
+  "owner_authority": "OWNER_IN_CHAT:2026-10-11:UPLOADED_UAT_SCREENSHOT_AND_EXPLICIT_TARIFF_EXISTS",
+  "authorization": "TECHNICAL_LAYER_ONLY",
+  "role": "SYSTEM_ADMIN",
+  "purpose": "Show all five LPG CPT cards from canonical published R12; expose source-locked Oct rail rates as explicit NOVEMBER carry-forward scenario, never firm Nov rail or a commercial quote.",
+  "predecessor": "Analytics V10 PR1168 merged",
+  "source_locks": {
+    "admin_delivery_before": "5d353dbdee44539dea3bc08a02e8adea1b2f30bd",
+    "admin_delivery_after": "77f3280c96fa1f2d12a7db761027561fd15eb60a",
+    "v11_migration_blob": "5cc1088389b35306bb89ca60b6f34ecd2f53928b",
+    "v11_rollback_blob": "901af940fa971b6c0aa9450d4e11272ef0f44f0a",
+    "bootstrap_live_md5_before": "e4635eefbfcbbd3e7b48110fbee5f75e",
+    "existing_v10_bridge_md5": "63438f0c5c0d5393699f61303afc7e94",
+    "client_unchanged_blob": "417bf3773613a54b0aa4420f0978cf94d4d04a02"
+  },
+  "canonical_sources": [
+    {
+      "id": "1RgtdbcYfEkwmNr1dJfXpnh47n5hUN_4xA6Od579tO5w",
+      "type": "OWNER_APPROVED_OCT1_CANONICAL_RAIL_MATRIX",
+      "url": "https://docs.google.com/spreadsheets/d/1RgtdbcYfEkwmNr1dJfXpnh47n5hUN_4xA6Od579tO5w/edit"
+    },
+    {
+      "id": "1MxCBLiMbSfN1qR_6NZdb67A4IqBxhi7O",
+      "type": "SIGNED_OCTOBER_2026_GARANT_LPG_RATE_PROTOCOL03",
+      "url": "https://drive.google.com/file/d/1MxCBLiMbSfN1qR_6NZdb67A4IqBxhi7O/view"
+    },
+    {
+      "id": "1eKW3RA1g6MpEWzekcOnD667Uq_SMvLDNjEdN5zC1rRs",
+      "type": "SUG_UTI_35T_OWNER_CONFIRMED_RAIL_REGISTER",
+      "url": "https://docs.google.com/spreadsheets/d/1eKW3RA1g6MpEWzekcOnD667Uq_SMvLDNjEdN5zC1rRs/edit"
+    },
+    {
+      "id": "SUPABASE:portal_private.owner_price_snapshots:RONA-PRICE-LIST-2026-09-R12",
+      "type": "FIVE_PUBLISHED_SUG_CPT_SALE_PRICES_TO_2026_10_31"
+    },
+    {
+      "id": "SUPABASE:market_intelligence_forecast_snapshots:RONA_FULL_PLATTS_CURVE_V1:2026-11",
+      "type": "NOVEMBER_PLATTS_LOW_BASE_HIGH"
+    },
+    {
+      "id": "CBR_DAILY:2026-10-11:84.9048_RUB_PER_USD",
+      "type": "FIXED_DATED_FX_SCENARIO_ONLY",
+      "url": "https://www.cbr.ru/currency_base/daily/"
+    }
+  ],
+  "scope_and_limits": {
+    "exact_origin": "Злынка эксп 201202",
+    "tariff_oct_2026": "12 531,30 RUB/t; SPBT ETСNG 226267; 39t/wagon; loaded and empty RF",
+    "source_date": "2026-10-01",
+    "valid_to": "2026-10-31",
+    "sug_uti_load": "35t/wagon",
+    "all_five": [
+      "CPT Озинки",
+      "CPT Сарыагаш",
+      "CPT Турксиб",
+      "CPT Уртааул",
+      "CPT Маргилан"
+    ],
+    "oct_rate_carry_forward": "HYPOTHETICAL_FOR_NOVEMBER_ONLY",
+    "turksib": "NO_EXACT_LPG_RAIL_ROUTE_TARIFF; DISPLAY_PREVIOUS_R12_790_USD_T_ONLY_AS_REFERENCE",
+    "commercial_terms": "MARGIN_OTHER_COSTS_NOT_INCLUDED; NOT_A_COMMERCIAL_OFFER",
+    "production_data_mutation": "ZERO_AUTHORITY_BUSINESS_FACT_CHANGES",
+    "permission": "TECHNICAL_MIRROR_TABLE_RLS_PRIVATE_AND_PRIVATE_BRIDGE_NONEXECUTABLE_BY_ANON_AUTH",
+    "client": "FROZEN_V20"
+  },
+  "gates": [
+    "V11 migration predecessor md5, SQL transaction runtime smoke all five bases",
+    "Git blob SHA exact source lock and V6-V10 predecessor preserved",
+    "five Admin cards source-driven not frozen two",
+    "no October rate mislabeled firm Nov; no public security leak",
+    "V6-V11 tests, browser no archive and 30d, R4/R5 and Client V20",
+    "source-locked rollback restoring pre-V11 bootstrap and dropping private mirror",
+    "Cloudflare Pages and Worker green + real production source + authenticated Owner UAT"
+  ],
+  "rollback": {
+    "sql": "supabase/rollbacks/20261011100000_analytics_lpg_v11_canonical_drive_oct_scenario_rollback.sql",
+    "ui_predecessor": "5d353dbdee44539dea3bc08a02e8adea1b2f30bd",
+    "pricing_business_data": "NO_BUSINESS_DATA_UPDATE"
+  },
+  "runtime_regression": "First Supabase apply attempt failed atomically with SQL syntax 42601 because generated pg_get_functiondef body ended at $function$ without a ;. Verified bootstrap MD5 unchanged and V11 table/function absent. Corrected migration and rollback with explicit $function$; statement terminators; no prod mutation on failed attempt."
+}

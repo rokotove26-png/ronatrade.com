@@ -14,7 +14,9 @@ test('V9 owner instruction and exact signed predecessor preserved: no new price/
   assert.equal(g.source_locks.admin_delivery_before,'47c2154659cc72a56fae6df74c2b0e0bbcf38f77');
   const v10=JSON.parse(read('governance/analytics-v10-lpg-five-cpt-source-coverage-20261011.json'));
   assert.equal(v10.source_locks.admin_delivery_before,g.source_locks.admin_delivery_after,'V9 immutable source lock');
-  assert.equal(gitHash(read('functions/portal/analytics-v2-ui.js')),v10.source_locks.admin_delivery_after);
+  const v11=JSON.parse(read('governance/analytics-v11-five-cpt-oct-rail-20261011.json'));
+  assert.equal(v11.source_locks.admin_delivery_before,v10.source_locks.admin_delivery_after,'V10 immutable source lock');
+  assert.equal(gitHash(read('functions/portal/analytics-v2-ui.js')),v11.source_locks.admin_delivery_after);
   assert.equal(gitHash(read('supabase/migrations/20261011011500_analytics_lpg_platts_netback_owner_tariff_v9.sql')),g.source_locks.migration_blob);
   assert.equal(gitHash(read('functions/portal/analytics-canonical-live-hydration.js')),g.source_locks.protected_r4_hydration);
   assert.equal(gitHash(read('functions/portal/analytics-v2-approved-base.js')),g.source_locks.frozen_original_r4);

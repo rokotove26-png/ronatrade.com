@@ -14,7 +14,9 @@ test('V7 only changes the delivery wrapper and keeps source-locked R4 and V20',(
   assert.equal(v9.source_locks.admin_delivery_before,successor.source_locks.after_delivery_sha,'V8 source immutably locked');
   const v10=JSON.parse(read('governance/analytics-v10-lpg-five-cpt-source-coverage-20261011.json'));
   assert.equal(v10.source_locks.admin_delivery_before,v9.source_locks.admin_delivery_after,'V9 historical source preserved');
-  assert.equal(hash(read('functions/portal/analytics-v2-ui.js')),v10.source_locks.admin_delivery_after,'V10 owner-authorized successor source lock');
+  const v11=JSON.parse(read('governance/analytics-v11-five-cpt-oct-rail-20261011.json'));
+  assert.equal(v11.source_locks.admin_delivery_before,v10.source_locks.admin_delivery_after,'V10 historical source preserved');
+  assert.equal(hash(read('functions/portal/analytics-v2-ui.js')),v11.source_locks.admin_delivery_after,'V11 owner-authorized successor source lock');
   assert.equal(hash(read('functions/portal/analytics-v2-approved-base.js')),g.source_locks.approved_compressed_base_unchanged);
   assert.equal(hash(read('functions/portal/analytics-canonical-live-hydration.js')),g.source_locks.approved_admin_hydration_unchanged);
   assert.equal(hash(read('assets/portal-runtime/client-market-intelligence-v1.js')),g.source_locks.client_v20_unchanged);
