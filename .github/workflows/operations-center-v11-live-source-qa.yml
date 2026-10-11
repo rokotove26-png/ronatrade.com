@@ -8,6 +8,7 @@ on:
       - 'supabase/rollbacks/20261011190000_admin_operations_source_truth_v11_rollback.sql'
       - 'tests/admin-operations-source-truth-v11.test.mjs'
       - 'governance/operations-center-v11-live-source-truth-20261011.json'
+      - 'scripts/qa-admin-operations-source-truth-v11-browser.mjs'
       - '.github/workflows/operations-center-v11-live-source-qa.yml'
   push:
     branches: [release/public-go-live-v1.1]
@@ -39,8 +40,8 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Admin portal real browser regression
-        run: node scripts/qa-admin-browser-runtime.mjs
+      - name: Chromium source-truth contract and failed refresh negative regression
+        run: node scripts/qa-admin-operations-source-truth-v11-browser.mjs
       - name: Source current compiled JS after deployment
         if: github.event_name == 'push'
         run: |
