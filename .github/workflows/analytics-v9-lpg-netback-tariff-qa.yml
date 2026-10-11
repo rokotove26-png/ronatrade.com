@@ -1,0 +1,67 @@
+name: Analytics V9 LPG Platts netback + approved owner tariff
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'supabase/migrations/20261011011500_analytics_lpg_platts_netback_owner_tariff_v9.sql'
+      - 'supabase/rollbacks/20261011011500_analytics_lpg_platts_netback_owner_tariff_v9_rollback.sql'
+      - 'tests/analytics-v9-lpg-netback-approved-tariff.test.mjs'
+      - 'governance/analytics-v9-lpg-netback-approved-rail-20261011.json'
+      - 'scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs'
+      - '.github/workflows/analytics-v9-lpg-netback-tariff-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'supabase/migrations/20261011011500_analytics_lpg_platts_netback_owner_tariff_v9.sql'
+      - 'tests/analytics-v9-lpg-netback-approved-tariff.test.mjs'
+      - 'governance/analytics-v9-lpg-netback-approved-rail-20261011.json'
+      - 'scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs'
+      - '.github/workflows/analytics-v9-lpg-netback-tariff-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  admin-lpg-netback-owner-confirmed-tariff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Exact source proof and previous V6/V7/V8, R4, 30d, client preserved contracts
+        run: |
+          node --test tests/analytics-v9-lpg-netback-approved-tariff.test.mjs \
+            tests/analytics-v8-price-readiness.test.mjs \
+            tests/analytics-v7-source-only-prepaint.test.mjs \
+            tests/analytics-v6-single-owner-retirement.test.mjs \
+            tests/admin-analytics-exclusive-chart-r4.test.mjs \
+            tests/analytics-rolling-30-calendar-days-v2.test.mjs \
+            tests/analytics-r5-connect-sparse-confirmed-dates.test.mjs \
+            tests/client-analytics-buyer-facing-insight-v20.test.mjs
+      - name: Canonical portal and Admin only build
+        run: npm run build
+      - name: Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Browser Platts netback plus Saryagash tariff, missing route negative, V7/8 no archive
+        run: node scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs
+      - name: Full R4 source-safe monthly forecasts and fuel tabs
+        run: node scripts/qa-admin-analytics-source-clarity-browser-r3.mjs
+      - name: R5 observed source no dates inserted
+        run: node scripts/qa-admin-analytics-r5-connected-30d-browser.mjs
+      - name: Client V20 visual still originally sourced and tenant-safe
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - name: Production deployed source and no double painter
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/wait-cloudflare-commit.mjs
+          curl -fsSL --retry 3 --max-time 30 "https://ronaoil.com/portal/analytics-v2-ui?v9=${GITHUB_SHA}" -o /tmp/rona-v9.js
+          grep -q 'PLATTS_NETBACK_PLUS_CONFIRMED_RAIL_V1' /tmp/rona-v9.js
+          grep -q 'source-only-v7' /tmp/rona-v9.js
+          ! grep -q 'source-observation-gaps-v13' /tmp/rona-v9.js
