@@ -26,7 +26,7 @@ test('Operations V11 source lock and scope — exact rollback, no authority expa
    'RECONFIRM_REQUIRED','NO_ACTIVE_MONITORING',
    'OBSERVATION_OUTDATED','AGED_OPEN_TASKS',
    'finance_last_authority','deals_last_record_change',
-   'open_tasks_last_changed','active_rail_targets',
+   'open_tasks_last_changed','rail_active_targets',
    'LIVE_QUERY_TTL_75_SECONDS'])
    assert.ok(sql.includes(mark),'missing source truth guard: '+mark);
  assert.ok(!/\b(?:INSERT|UPDATE|DELETE|TRUNCATE)\s+(?:INTO\s+|FROM\s+)?portal_private\./i.test(sql),'business table mutation forbidden');
