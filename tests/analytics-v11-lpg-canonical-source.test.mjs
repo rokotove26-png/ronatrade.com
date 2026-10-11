@@ -60,7 +60,7 @@ test('V11 source-driven five cards and explicit what-if/reference status render 
     'data-rona-source-card-v11',
     'OCT_TARIFF_NOV_SCENARIO_V11',
     'PUBLISHED_REFERENCE_ONLY_V11',
-    '31.10.2026','не подтверждения продления',
+    '31.10.2026','без подтверждения продления',
     'НЕ прогноз на ноябрь',
     'маржи',
     'source-only-v7']) {
