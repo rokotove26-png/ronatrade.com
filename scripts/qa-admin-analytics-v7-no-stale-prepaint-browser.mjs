@@ -114,9 +114,9 @@ try{
     pricingGap.cards.length>0&&pricingGap.cards.every(card=>card.every(value=>value==='—')),
     'V8 falsely calculated RONA pricing despite missing compatible reference: '+JSON.stringify(pricingGap));
  console.log('ANALYTICS_V8_LPG_REFERENCE_MISSING_NO_FAKE_PRICE=PASS');
- // V9 source transition: published Platts netback plus ONE matching, approved
- // and nonexpired tariff. The other published CPT price has no valid route;
- // its card must remain blank instead of assuming a zero tariff.
+ // Verify the REAL initial production condition in an isolated browser:
+ // approved bridge already supplied by secured Admin API before first render.
+ // Reusing a previously loaded view could legitimately show cached source.
  const lpgForecast=payload.products.LPG.forecast;
  payload.products.LPG.rona.netbackTariffBridges={
    'CPT Сарыагаш':{
@@ -130,46 +130,39 @@ try{
      commercialComponent:'NOT_INCLUDED'
    }
  };
- await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
- await page.waitForTimeout(1200);
- const dbg=await page.evaluate(async()=>{
-   const r=document.querySelector('#rona-analytics-v2');
-   const api=await(await fetch('/portal/api/v1/admin/analytics',{cache:'no-store'})).json();
-   const product=api?.data?.canonicalAnalytics?.products?.LPG;
-   const bridge=product?.rona?.netbackTariffBridges?.['CPT Сарыагаш'];
-   return {state:document.documentElement.dataset.ronaAnalyticsData,
-     pricing:r?.dataset?.ronaPricingReadiness,
-     product:window.RONA_ANALYTICS_VIEW?.getState?.()?.product,
-     forecast:product?.forecast,bridge,
-     note:r?.querySelector('.an2-model-note')?.textContent,
-     bases:[...r.querySelectorAll('.an2-price-card')].map(c=>c.querySelector('h3')?.textContent),
-     matchedBridge:!!bridge&&String(bridge.route).endsWith('Сарыагаш')&&
-       bridge.marketSourceRef===product?.forecast?.sourceRef&&
-       bridge.marketMonth===product?.forecast?.month};
- });
- console.log('ANALYTICS_V9_BROWSER_PRECHECK',JSON.stringify(dbg));
- await page.waitForFunction(()=>
-    document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='PLATTS_NETBACK_TARIFF_PARTIAL',
-    null,{timeout:3500});
- const positive=await page.evaluate(()=>{
-   const root=document.querySelector('#rona-analytics-v2');
-   return {note:root.querySelector('.an2-model-note')?.textContent||'',
-     prices:[...root.querySelectorAll('.an2-price-card')].map(card=>({
-       basis:card.querySelector('h3')?.textContent?.trim(),
-       base:card.querySelector('.an2-price-base')?.textContent?.trim(),
-       range:card.querySelector('.an2-price-range')?.textContent?.trim(),
-       rail:card.querySelector('.an2-price-current')?.textContent?.trim()
-     }))};
- });
- const target=positive.prices.find(x=>x.basis==='CPT Сарыагаш');
- const missing=positive.prices.find(x=>x.basis==='CPT Озинки');
- assert(target?.base?.includes('862,24')&&
-    target?.range?.includes('832,24')&&target?.range?.includes('892,24')&&
-    target?.rail?.includes('137,24')&&
-    missing?.base==='—'&&missing?.range==='—'&&missing?.rail==='—'&&
-    positive.note.includes('Platts')&&positive.note.includes('1 из 2'),
-    'V9 netback+tariff source projection must calculate only confirmed route: '+JSON.stringify(positive));
- console.log('ANALYTICS_V9_LPG_PLATTS_PLUS_CONFIRMED_RAIL=PASS',JSON.stringify(positive));
+ const positivePage=await browser.newPage({viewport:{width:1480,height:920}});
+ try {
+   await positivePage.goto('http://127.0.0.1:'+server.address().port+'/portal/admin',{waitUntil:'domcontentloaded'});
+   await positivePage.waitForFunction(()=>
+     document.documentElement.dataset.ronaAnalyticsData==='canonical-daily-live-v3',
+     null,{timeout:12000});
+   await positivePage.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('LPG'));
+   await positivePage.waitForFunction(()=>
+     document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='PLATTS_NETBACK_TARIFF_PARTIAL',
+     null,{timeout:8000});
+   const positive=await positivePage.evaluate(()=>{
+     const root=document.querySelector('#rona-analytics-v2');
+     return {note:root.querySelector('.an2-model-note')?.textContent||'',
+       prices:[...root.querySelectorAll('.an2-price-card')].map(card=>({
+         basis:card.querySelector('h3')?.textContent?.trim(),
+         base:card.querySelector('.an2-price-base')?.textContent?.trim(),
+         range:card.querySelector('.an2-price-range')?.textContent?.trim(),
+         rail:card.querySelector('.an2-price-current')?.textContent?.trim()
+       }))};
+   });
+   const target=positive.prices.find(x=>x.basis==='CPT Сарыагаш');
+   const missing=positive.prices.find(x=>x.basis==='CPT Озинки');
+   assert(target?.base?.includes('862,24')&&
+      target?.range?.includes('832,24')&&target?.range?.includes('892,24')&&
+      target?.rail?.includes('137,24')&&
+      missing?.base==='—'&&missing?.range==='—'&&missing?.rail==='—'&&
+      positive.note.includes('Platts')&&positive.note.includes('1 из 2'),
+      'V9 must calculate ONLY source-verified rail route: '+JSON.stringify(positive));
+   console.log('ANALYTICS_V9_LPG_PLATTS_PLUS_CONFIRMED_RAIL=PASS',JSON.stringify(positive));
+ } finally {
+   await positivePage.close();
+ }
+ delete payload.products.LPG.rona.netbackTariffBridges;
  await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('AI92'));
  await page.waitForFunction(month=>
    window.RONA_ANALYTICS_VIEW?.getState?.()?.product==='AI92'&&
