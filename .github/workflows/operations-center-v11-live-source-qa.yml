@@ -1,0 +1,53 @@
+name: Operations Center V11 source truth and live freshness QA
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-operations-command-center-v10-clean.js'
+      - 'supabase/migrations/20261011190000_admin_operations_source_truth_v11.sql'
+      - 'supabase/rollbacks/20261011190000_admin_operations_source_truth_v11_rollback.sql'
+      - 'tests/admin-operations-source-truth-v11.test.mjs'
+      - 'governance/operations-center-v11-live-source-truth-20261011.json'
+      - '.github/workflows/operations-center-v11-live-source-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-operations-command-center-v10-clean.js'
+      - 'tests/admin-operations-source-truth-v11.test.mjs'
+      - '.github/workflows/operations-center-v11-live-source-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  owner-ops-source-truth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Source lock, owner authorization, fail-closed stale-data and V2 compatibility
+        run: |
+          node --test tests/admin-operations-source-truth-v11.test.mjs \
+            tests/admin-operations-current-v2/single-owner-static.test.mjs
+      - name: Canonical Cloudflare Admin and Client builds
+        run: npm run build
+      - name: Verify strict Flightdeck visual ownership
+        run: |
+          node scripts/qa-admin-operations-flightdeck-layout-v1.mjs
+          node scripts/qa-admin-operations-flightdeck-readability-v1.mjs
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Admin portal real browser regression
+        run: node scripts/qa-admin-browser-runtime.mjs
+      - name: Source current compiled JS after deployment
+        if: github.event_name == 'push'
+        run: |
+          curl -fsSL --retry 4 --max-time 30 "https://ronaoil.com/portal/admin-main-ui-current?opsV11=${GITHUB_SHA}" -o /tmp/operations-v11-live.js
+          grep -q 'ADMIN_OPERATIONS_SOURCE_TRUTH_V11' /tmp/operations-v11-live.js
+          grep -q 'SOURCE RECONFIRMATION' /tmp/operations-v11-live.js
+          grep -q 'SOURCE TRUTH V11' /tmp/operations-v11-live.js
+          ! grep -q 'realtime:rona-admin-operations-current-v1' /tmp/operations-v11-live.js
