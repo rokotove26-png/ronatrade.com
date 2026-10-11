@@ -38,6 +38,9 @@ test('V10 source-locked SQL covers direct incoming and outgoing CPT routes, does
   assert.ok(sql.includes('FOR v_basis_row IN'));
   assert.ok(sql.includes('ARRAY[v_basis_row.basis]'));
   assert.ok(!sql.includes('  b record;'));
+  assert.ok(!/\bb\.basis\b/.test(sql),'No stale SQL reference to plpgsql alias b');
+  assert.ok(sql.includes('V10_LPG_RUNTIME_FIVE_CPT_COVERAGE_FAILED'), 'Run five-basis smoke inside SQL migration');
+  assert.ok(sql.includes('V10_SQL_RUNTIME_QA_ONLY'), 'Use transient QA fixture only, not commercial market facts');
   assert.ok(!sql.includes("t.route_text LIKE 'Озинки → %'"));
   assert.ok(!/\b(?:INSERT|UPDATE|DELETE)\s+(?:INTO\s+|FROM\s+)?portal_private\./i.test(sql));
   assert.ok(!sql.includes('GRANT EXECUTE'));
