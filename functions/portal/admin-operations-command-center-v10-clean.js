@@ -269,14 +269,14 @@ function renderAdminHome(){
   const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button','data-code':code,'aria-label':label+': '+String(value),onclick:()=>code==='CAUT-03'?ronaOpsV10OpenAttention():adminHomeNavigate(target)},e('div',{class:'rona-fd-v5-gauge__top'},e('span',{class:'rona-fd-v5-gauge__code',text:code}),e('span',{class:'rona-fd-v5-gauge__lamp'})),e('div',{class:'rona-fd-v5-gauge__label',text:label}),e('div',{class:'rona-fd-v5-gauge__value',text:String(value)}),e('div',{class:'rona-fd-v5-gauge__foot',text:foot}),e('div',{class:'rona-fd-v5-gauge__rail'},e('span'),e('span'),e('span'),e('span'),e('span')));
   const instruments=e('section',{class:'rona-fd-v5__instruments','aria-label':'Операционные показатели'});
   instruments.append(
-    gauge('FLT-01','Активные сделки',activeN===null?'—':activeN,ready?'Текущий портфель':'Источник не готов','deals','blue'),
-    gauge('FLT-02','В исполнении',executionN===null?'—':executionN,ready?'Фактический статус':'Источник не готов','deals','indigo'),
-    gauge('CAUT-03','Требует действия',unseenN===null?'—':unseenN,ready?(unseenN===null?('Статус просмотра недоступен · открыто: '+String(actionN||0)):('Непросмотренные · открыто всего: '+String(actionN||0))):'Источник не готов','home',ready&&(unseenN||0)>0?'amber':'green'),
-    gauge('RAIL-04','Вагоны на контроле',railN===null?'—':railN,ready?'TRUSTED позиции':'Источник не готов','monitoring',ready?'teal':'cyan'),
-    gauge('FIN-05','Платежи на контроле',paymentN===null?'—':paymentN,ready?'Finance V8 · срок наступил':'Источник не готов','payments',ready&&(paymentN||0)>0?'amber':'gold'),
-    gauge('WARN-06','Критические события',criticalN===null?'—':criticalN,ready?'Подтверждённые исключения':'Источник не готов','home',ready&&(criticalN||0)>0?'red':'green'),
-    gauge('NET-07','Клиенты в сети',clientsN===null?'—':clientsN,ready?'Активные подключения':'Presence не готов','access','emerald'),
-    gauge('NET-08','Агенты в сети',agentsN===null?'—':agentsN,ready?'Активные подключения':'Presence не готов','access','violet')
+    gauge('FLT-01','Сделки по реестру',activeN===null?'—':activeN,ready?sourceFoot('deals'):'Источник не готов','deals',sourceGood('deals')?'blue':'amber'),
+    gauge('FLT-02','В исполнении по реестру',executionN===null?'—':executionN,ready?sourceFoot('deals'):'Источник не готов','deals',sourceGood('deals')?'indigo':'amber'),
+    gauge('CAUT-03','Требует действия',unseenN===null?'—':unseenN,ready?(unseenN===null?('Статус просмотра недоступен · открыто: '+String(actionN||0)):('Непросмотренные · открыто всего: '+String(actionN||0)+(!sourceGood('actions')?' · СТАРЫЕ ЗАДАЧИ: '+Number(snap?.dataHealth?.agedOpenTasks||0):''))):'Источник не готов','home',ready&&(unseenN||0)>0?'amber':'green'),
+    gauge('RAIL-04','Вагоны на контроле',!sourceGood('rail')?'—':railN===null?'—':railN,ready?(opsSources.rail==='NO_ACTIVE_MONITORING'?'НЕТ АКТИВНОГО ЖД-МОНИТОРИНГА':sourceFoot('rail')):'Источник не готов','monitoring',sourceGood('rail')?'teal':'amber'),
+    gauge('FIN-05','Платежи на контроле',!sourceGood('finance')?'—':paymentN===null?'—':paymentN,ready?sourceFoot('finance'):'Источник не готов','payments',sourceGood('finance')?'gold':'amber'),
+    gauge('WARN-06','Критические события',criticalN===null?'—':criticalN,ready?(sourceGood('actions')?'Исключения по реестру':'СТАРЫЕ ОТКРЫТЫЕ ЗАДАЧИ'):'Источник не готов','home',ready&&(criticalN||0)>0?'red':'green'),
+    gauge('NET-07','Клиенты в сети',clientsN===null?'—':clientsN,ready?'Активные сессии · 75 сек.':'Presence не готов','access','emerald'),
+    gauge('NET-08','Агенты в сети',agentsN===null?'—':agentsN,ready?'Активные сессии · 75 сек.':'Presence не готов','access','violet')
   );
 
   const selectedRequested=String(window.__RONA_ADMIN_OPS_SELECTED_DEAL__||'');
