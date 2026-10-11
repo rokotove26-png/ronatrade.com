@@ -4,6 +4,12 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/analytics-v2-approved-base.js'
+      - 'functions/portal/analytics-canonical-live-hydration.js'
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'portal-src/current/admin.html'
+      - 'assets/portal-runtime/client-market-intelligence-v1.js'
       - 'governance/analytics-v7-source-confirmed-prepaint-20261011.json'
       - 'tests/analytics-v7-source-only-prepaint.test.mjs'
       - 'tests/analytics-v6-single-owner-retirement.test.mjs'
@@ -13,6 +19,12 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/analytics-v2-approved-base.js'
+      - 'functions/portal/analytics-canonical-live-hydration.js'
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'portal-src/current/admin.html'
+      - 'assets/portal-runtime/client-market-intelligence-v1.js'
       - 'governance/analytics-v7-source-confirmed-prepaint-20261011.json'
       - 'tests/analytics-v7-source-only-prepaint.test.mjs'
       - 'tests/analytics-v6-single-owner-retirement.test.mjs'
