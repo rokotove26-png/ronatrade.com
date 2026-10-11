@@ -1,0 +1,45 @@
+{
+  "owner_instruction": "2026-10-11 Operations Center must show source-current data and avoid false green on old records",
+  "actor": "AI-SYSTEM-ADMIN",
+  "authority": "TECHNICAL_ONLY_NO_BUSINESS_FACT_MUTATION",
+  "role_split": "SYSADMIN technische data health; OPERATIONS_DIRECTOR actual deal/task confirmation",
+  "source_lock": {
+    "previous_rpc_md5": "22291263e5f47bdc726d2aef273cb8a0",
+    "migration_blob": "6e7c0fbd905574cd200c774c62c2b0dc3c7040c7",
+    "rollback_blob": "60b5fe48a6cfced07dee9a4e61d40ad179e26ec3",
+    "ui_blob": "ca30b1cf4e1f21f1148d8eb7159da1deeed59714",
+    "admin_main_unchanged": "f2e8b14931c7801af36f9b0f6652405b423720b1"
+  },
+  "contract": "ADMIN_OPERATIONS_SOURCE_TRUTH_V11",
+  "source_notes": {
+    "generatedAt": "request time, not confirmation of business records",
+    "freshness": "last underlying record change, not verification",
+    "deals": "6 active registry entries, last changed 2026-09-16",
+    "finance": "latest authority 2026-09-25",
+    "rail": "latest position 2026-09-28, no active monitoring targets",
+    "staff_tasks": "16 open, 15 older than 7 days",
+    "documents": "latest record change 2026-10-05"
+  },
+  "age_warning_thresholds": {
+    "business_change_hours": 72,
+    "rail_observations_hours": 6,
+    "open_tasks_days": 7,
+    "browser_snapshot_minutes": 15
+  },
+  "gates": [
+    "predecessor MD5",
+    "rollback to original v2",
+    "no business mutation",
+    "preserve authenticated owner access / anon denied",
+    "UI source age and degraded status",
+    "source-missing no fake zero",
+    "network failure clears old snapshot",
+    "CI V2 and V11",
+    "Cloudflare deployment",
+    "Owner UAT"
+  ],
+  "rollback_path": "supabase/rollbacks/20261011190000_admin_operations_source_truth_v11_rollback.sql",
+  "browser_ci": "scripts/qa-admin-operations-source-truth-v11-browser.mjs",
+  "runtime_guard": "Global dashboard readiness status follows verified readiness.state DEGRADED / READY, not unconditional READY. Dedicated Chromium tests exercise real original CLEAN_RUNTIME and transport error.",
+  "mission_data_label": "When corresponding business-source last-updated age exceeds warning threshold, historical deal, payment, contract, rail and next-action values are not displayed as current; mark to reconfirm, preserve record and route to authoritative owners."
+}
