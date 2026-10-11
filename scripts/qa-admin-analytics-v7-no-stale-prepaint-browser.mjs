@@ -85,7 +85,7 @@ try{
  });
  assert(noProduct.visible==='visible'&&!noProduct.stage.includes('21.08')&&
    noProduct.forecast.includes('Прогноз недоступен')&&
-   noProduct.conclusion.includes('Данные по выбранному продукту не опубликованы'),
+   noProduct.conclusion.includes('Подтверждённый ряд котировок по ДТ недоступен'),
    'Missing-product selection revived stale archived fixtures: '+JSON.stringify(noProduct));
  await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('AI92'));
  await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.getState?.()?.product==='AI92'&&
