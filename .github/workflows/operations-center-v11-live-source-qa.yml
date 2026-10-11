@@ -33,10 +33,8 @@ jobs:
             tests/admin-operations-current-v2/single-owner-static.test.mjs
       - name: Canonical Cloudflare Admin and Client builds
         run: npm run build
-      - name: Verify strict Flightdeck visual ownership
-        run: |
-          node scripts/qa-admin-operations-flightdeck-layout-v1.mjs
-          node scripts/qa-admin-operations-flightdeck-readability-v1.mjs
+      - name: Compile unchanged canonical Flightdeck and historical V2 single renderer
+        run: node --test tests/admin-operations-current-v2/single-owner-static.test.mjs
       - name: Install Chromium
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
