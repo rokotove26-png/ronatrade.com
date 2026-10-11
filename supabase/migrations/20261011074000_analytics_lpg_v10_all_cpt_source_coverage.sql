@@ -110,7 +110,7 @@ BEGIN
       AND btrim(regexp_replace(t.route_text, '^.*→', ''))=substring(v_basis_row.basis from 5);
     v_coverage:=jsonb_set(v_coverage,ARRAY[v_basis_row.basis],jsonb_build_object(
       'matches',v_routes,
-      'hasEligibleCurrentSegment',v_bridges ? b.basis,
+      'hasEligibleCurrentSegment',v_bridges ? v_basis_row.basis,
       'scope','MATCHING_RAIL_SEGMENTS_ONLY',
       'priceAuthority','NOT_A_COMMERCIAL_OFFER'
     ),true);
@@ -125,3 +125,25 @@ $lpg_bridge$;
 
 REVOKE ALL ON FUNCTION portal_private.market_intelligence_admin_lpg_tariff_bridge_v1(jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION portal_private.market_intelligence_admin_lpg_tariff_bridge_v1(jsonb) FROM anon, authenticated;
+
+-- Source-safe runtime proof within this migration's transaction.
+-- This numeric fixture is strictly transient, never saved as a market or price fact.
+DO $v10_runtime_guard$
+DECLARE
+  v_arg jsonb := '{"canonicalAnalytics":{"products":{"LPG":{"forecast":{"month":"2099-12","low":1,"base":2,"high":3,"sourceRef":"V10_SQL_RUNTIME_QA_ONLY"},"rona":{"bases":[["CPT Озинки",1],["CPT Сарыагаш",1],["CPT Турксиб",1],["CPT Уртааул",1],["CPT Маргилан",1]]}}}}}'::jsonb;
+  v_out jsonb;
+  v_cov jsonb;
+BEGIN
+  v_arg := jsonb_set(v_arg,
+    '{canonicalAnalytics,products,LPG,forecast,month}',
+    to_jsonb(to_char(now() at time zone 'Europe/Moscow','YYYY-MM')),true);
+  v_out := portal_private.market_intelligence_admin_lpg_tariff_bridge_v1(v_arg);
+  v_cov := v_out #> '{canonicalAnalytics,products,LPG,rona,netbackTariffCoverage}';
+  IF jsonb_typeof(v_cov) IS DISTINCT FROM 'object'
+     OR NOT coalesce(v_cov ?& ARRAY[
+       'CPT Озинки','CPT Сарыагаш','CPT Турксиб','CPT Уртааул','CPT Маргилан'
+     ],false) THEN
+    RAISE EXCEPTION 'V10_LPG_RUNTIME_FIVE_CPT_COVERAGE_FAILED';
+  END IF;
+END
+$v10_runtime_guard$;
