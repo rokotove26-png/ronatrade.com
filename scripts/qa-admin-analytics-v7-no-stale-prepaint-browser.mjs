@@ -33,22 +33,7 @@ const server=http.createServer((req,res)=>{
  const u=new URL(req.url,'http://127.0.0.1');
  res.setHeader('cache-control','no-store');
  if(u.pathname==='/portal/admin'){res.setHeader('content-type','text/html; charset=utf-8');return res.end(html);}
- if(u.pathname==='/analytics.js'){res.setHeader('content-type','application/javascript; charset=utf-8');
-   const marker='    // V9: previously approved LPG model';
-   const probe=`    console.log('ANALYTICS_V9_DECORATE_TRACE',JSON.stringify({key,available:!!forecast,sourceState:document.documentElement.dataset.ronaAnalyticsData,fMonth:forecast?.month,fRef:forecast?.sourceRef,bridge:product?.rona?.netbackTariffBridges,bases:[...root.querySelectorAll('.an2-price-card h3')].map(x=>x.textContent?.trim()),cardCount:root.querySelectorAll('.an2-price-card').length,firstQuoteMatched:(()=>{const b=product?.rona?.netbackTariffBridges?.['CPT Сарыагаш'];return b?{model:b.model==='PLATTS_NETBACK_PLUS_CONFIRMED_RAIL_V1',status:b.tariffStatus==='WORKING_CONFIRMED',month:b.marketMonth===forecast?.month,reference:b.marketSourceRef===forecast?.sourceRef,rail:Number(b.railUsdT)>0,route:String(b.route).endsWith('Сарыагаш'),refs:Array.isArray(b.sourceRefs),approved:!!b.approvedAt}:null})()}));
-`;
-   const domNodes="if(!mainV9||!rangeV9||!railLineV9)continue;";
-   const domProbe="console.log('ANALYTICS_V9_NODES',JSON.stringify({basis:basisV9,main:!!mainV9,range:!!rangeV9,current:!!railLineV9,cardHTML:priceCardV9.outerHTML.slice(0,1100)}));";
-   const matched="if(matchedTariffCardsV9>0){";
-   const matchedProbe="console.log('ANALYTICS_V9_MATCHED',JSON.stringify({count:matchedTariffCardsV9,total:pricingCardsV9.length,state:document.documentElement.dataset.ronaAnalyticsData}));";
-   const basisKey="const bV9=tariffBridgesV9[basisV9];";
-   const basisProbe="console.log('ANALYTICS_V9_BASIS',JSON.stringify({basis:basisV9,b:!!bV9,keys:Object.keys(tariffBridgesV9),sourceRef:forecast.sourceRef,values:[forecast.low,forecast.base,forecast.high],rawCard:priceCardV9.outerHTML.slice(0,550)}));";
-   const rateKey="const railV9=Number(bV9.tariffUsdT);";
-   const rateProbe="console.log('ANALYTICS_V9_AFTER_GUARDS',JSON.stringify({basis:basisV9,rate:bV9.tariffUsdT}));";
-   const source=js.replace(marker,probe+marker).replace(basisKey,basisKey+basisProbe)
-     .replace(rateKey,rateProbe+rateKey).replace(domNodes,domProbe+domNodes)
-     .replace(matched,matchedProbe+matched);
-   return res.end(source);}
+ if(u.pathname==='/analytics.js'){res.setHeader('content-type','application/javascript; charset=utf-8');return res.end(js);}
  if(u.pathname==='/portal/api/v1/admin/analytics'){
    requests++;res.setHeader('content-type','application/json');
    if(mode==='DELAY')return setTimeout(()=>{res.statusCode=502;res.end(JSON.stringify({ok:false,code:'DELAYED_502'}))},1100);
@@ -146,27 +131,13 @@ try{
    }
  };
  const positivePage=await browser.newPage({viewport:{width:1480,height:920}});
- positivePage.on('pageerror',e=>console.log('ANALYTICS_V9_PAGEERROR',e.message));
- positivePage.on('console',m=>{if(m.type()==='error'||m.text().includes('ANALYTICS_V9_'))console.log('ANALYTICS_V9_BROWSER_CONSOLE',m.text())});
+ const positiveErrors=[];positivePage.on('pageerror',e=>positiveErrors.push(e.message));
  try {
    await positivePage.goto('http://127.0.0.1:'+server.address().port+'/portal/admin',{waitUntil:'domcontentloaded'});
    await positivePage.waitForFunction(()=>
      document.documentElement.dataset.ronaAnalyticsData==='canonical-daily-live-v3',
      null,{timeout:12000});
    await positivePage.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('LPG'));
-   await positivePage.waitForTimeout(350);
-   const positivePrecheck=await positivePage.evaluate(async()=>{
-     const root=document.querySelector('#rona-analytics-v2');
-     const api=(await(await fetch('/portal/api/v1/admin/analytics',{cache:'no-store'})).json()).data.canonicalAnalytics.products.LPG;
-     return {currentState:document.documentElement.dataset.ronaAnalyticsData,
-       selectedProduct:window.RONA_ANALYTICS_VIEW.getState().product,
-       priceStatus:root?.dataset?.ronaPricingReadiness,
-       note:root?.querySelector('.an2-model-note')?.textContent,
-       bridge:api?.rona?.netbackTariffBridges,
-       forecast:api?.forecast,
-       labels:[...root.querySelectorAll('.an2-price-card h3')].map(n=>n.textContent)};
-   });
-   console.log('ANALYTICS_V9_POSITIVE_PRECHECK',JSON.stringify(positivePrecheck));
    await positivePage.waitForFunction(()=>
      document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='PLATTS_NETBACK_TARIFF_PARTIAL',
      null,{timeout:5000});
@@ -188,6 +159,7 @@ try{
       missing?.base==='—'&&missing?.range==='—'&&missing?.rail==='—'&&
       positive.note.includes('Platts')&&positive.note.includes('1 из 2'),
       'V9 must calculate ONLY source-verified rail route: '+JSON.stringify(positive));
+   assert(positiveErrors.length===0,'Unexpected browser execution errors: '+positiveErrors.join('; '));
    console.log('ANALYTICS_V9_LPG_PLATTS_PLUS_CONFIRMED_RAIL=PASS',JSON.stringify(positive));
  } finally {
    await positivePage.close();
