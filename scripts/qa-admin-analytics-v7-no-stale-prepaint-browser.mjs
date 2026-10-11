@@ -131,6 +131,16 @@ try{
    }
  };
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await page.waitForTimeout(1200);
+ const dbg=await page.evaluate(()=>{
+   const r=document.querySelector('#rona-analytics-v2');
+   return {state:document.documentElement.dataset.ronaAnalyticsData,
+     pricing:r?.dataset?.ronaPricingReadiness,
+     product:window.RONA_ANALYTICS_VIEW?.getState?.()?.product,
+     note:r?.querySelector('.an2-model-note')?.textContent,
+     bases:[...r.querySelectorAll('.an2-price-card')].map(c=>c.querySelector('h3')?.textContent)};
+ });
+ console.log('ANALYTICS_V9_BROWSER_PRECHECK',JSON.stringify(dbg));
  await page.waitForFunction(()=>
     document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='PLATTS_NETBACK_TARIFF_PARTIAL',
     {timeout:10000});
