@@ -178,6 +178,56 @@ const CANONICAL_PRICING_BRIDGE_RUNTIME=String.raw`
 })();
 `;
 
+const CANONICAL_LPG_NETBACK_TARIFF_UI_V9=String.raw`
+    // V9: previously approved LPG model — Platts netback plus only verified,
+    // nonexpired owner-approved rail tariffs whose destination equals the
+    // published CPT quote. Never imply that missing full-route costs are zero.
+    if(key==='LPG'&&forecast&&document.documentElement.dataset.ronaAnalyticsData!=='SOURCE_UNAVAILABLE'){
+      const tariffBridgesV9=product?.rona?.netbackTariffBridges;
+      const pricingCardsV9=Array.from(root.querySelectorAll('.an2-price-card'));
+      let matchedTariffCardsV9=0;
+      if(tariffBridgesV9&&typeof tariffBridgesV9==='object'){
+        for(const priceCardV9 of pricingCardsV9){
+          const basisV9=String(priceCardV9.querySelector('h3')?.textContent||'').trim();
+          const bV9=tariffBridgesV9[basisV9];
+          if(!bV9||bV9.model!=='PLATTS_NETBACK_PLUS_CONFIRMED_RAIL_V1'||
+             bV9.tariffStatus!=='WORKING_CONFIRMED'||
+             bV9.marketMonth!==forecast.month||
+             bV9.marketSourceRef!==forecast.sourceRef||
+             !String(bV9.tariffKey||'').trim()||
+             !String(bV9.route||'').endsWith(basisV9.slice(4))||
+             !Array.isArray(bV9.sourceRefs)||!bV9.sourceRefs.length||
+             !bV9.approvedAt||
+             bV9.railUsdT===null||bV9.railUsdT===undefined||
+             !(Number(bV9.railUsdT)>0&&Number.isFinite(Number(bV9.railUsdT))))continue;
+          const railV9=Number(bV9.railUsdT);
+          const lowV9=Number(forecast.low)+railV9;
+          const baseV9=Number(forecast.base)+railV9;
+          const highV9=Number(forecast.high)+railV9;
+          if(![lowV9,baseV9,highV9].every(Number.isFinite))continue;
+          const mainV9=priceCardV9.querySelector('.an2-price-base');
+          const rangeV9=priceCardV9.querySelector('.an2-price-range');
+          const railLineV9=priceCardV9.querySelector('.an2-price-current');
+          if(!mainV9||!rangeV9||!railLineV9)continue;
+          mainV9.textContent=formatValue(baseV9)+' USD/т';
+          rangeV9.textContent='LOW '+formatValue(lowV9)+' · HIGH '+formatValue(highV9);
+          railLineV9.textContent='ЖД тариф '+formatValue(railV9)+' USD/т · '+String(bV9.route);
+          priceCardV9.dataset.pricingMode='PLATTS_NETBACK_PLUS_CONFIRMED_RAIL_V1';
+          matchedTariffCardsV9++;
+        }
+      }
+      if(matchedTariffCardsV9>0){
+        root.dataset.ronaPricingReadiness=matchedTariffCardsV9===pricingCardsV9.length
+          ?'PLATTS_NETBACK_TARIFF_FULL':'PLATTS_NETBACK_TARIFF_PARTIAL';
+        const modelNoteV9=root.querySelector('.an2-model-note');
+        if(modelNoteV9)modelNoteV9.textContent='СУГ: Platts '+forecast.month+
+          ' как прогнозный нетбек + утверждённый действующий ЖД тариф по совпадающему CPT-маршруту. Рассчитано '+
+          matchedTariffCardsV9+' из '+pricingCardsV9.length+
+          ' направлений. Для остальных нет подтверждённых полных тарифных плеч; они скрыты. Неучтённые расходы и коммерческая маржа не приравниваются к нулю. Индикативно, не коммерческая оферта.';
+      }
+    }
+`;
+
 function canonicalizeV432(source){
   let out=CANONICAL_SOURCE_ONLY_PREPAINT_V7+source;
   out=out.replaceAll("document.documentElement.dataset.ronaAnalyticsLocal='v4.3.1'","document.documentElement.dataset.ronaAnalyticsLocal='v4.3.2'");
@@ -212,6 +262,14 @@ function canonicalizeV432(source){
   if(out.split(priceGuard).length!==2)
     throw new Error('ANALYTICS_V8_PRICING_STATUS_SOURCE_LOCK_MISMATCH');
   out=out.replace(priceGuard,"    root.dataset.ronaPricingReadiness=forecast&&hasPriceBase(product)?'CALCULATED':'UNAVAILABLE';\n"+priceGuard);
+
+  // V9 plugs the existing R4 price-card contract AFTER R3/R4 source-safe
+  // decoration. It uses the approved Admin-only LPG tariff projection, never
+  // changes compressed original visuals and never invents an absent tariff.
+  const lpgVerifiedDecorationAnchor="    if(key==='LPG'&&cards[0]&&series&&!term&&!confirmedDaily){";
+  if(out.split(lpgVerifiedDecorationAnchor).length!==2)
+    throw new Error('ANALYTICS_V9_LPG_TARIFF_DECORATION_SOURCE_LOCK_MISMATCH');
+  out=out.replace(lpgVerifiedDecorationAnchor,CANONICAL_LPG_NETBACK_TARIFF_UI_V9+'\n'+lpgVerifiedDecorationAnchor);
 
   // A pagechange hides the frozen August bootstrap while fresh data is
   // revalidated. A same-signature confirmed response must unhide it again.
