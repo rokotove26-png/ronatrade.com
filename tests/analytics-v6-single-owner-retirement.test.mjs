@@ -23,7 +23,9 @@ test('V6 preserves approved Admin visual and frozen Client V20',()=>{
   assert.equal(v8.source_locks.after_delivery_sha,v9.source_locks.admin_delivery_before,'V8 predecessor remains immutable');
   const v10=JSON.parse(read('governance/analytics-v10-lpg-five-cpt-source-coverage-20261011.json'));
   assert.equal(v10.source_locks.admin_delivery_before,v9.source_locks.admin_delivery_after,'V9 historical source preserved');
-  assert.equal(sha(read('functions/portal/analytics-v2-ui.js')),v10.source_locks.admin_delivery_after,'V10 owner-authorized successor source lock');
+  const v11=JSON.parse(read('governance/analytics-v11-five-cpt-oct-rail-20261011.json'));
+  assert.equal(v11.source_locks.admin_delivery_before,v10.source_locks.admin_delivery_after,'V10 historical source preserved');
+  assert.equal(sha(read('functions/portal/analytics-v2-ui.js')),v11.source_locks.admin_delivery_after,'V11 owner-authorized successor source lock');
 });
 test('obsolete scripts really gone, canonical lazy load remains',()=>{
   for(const path of g.retired_paths)assert.equal(existsSync(path),false,path);
