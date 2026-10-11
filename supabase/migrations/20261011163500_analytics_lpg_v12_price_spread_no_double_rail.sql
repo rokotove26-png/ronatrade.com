@@ -238,7 +238,7 @@ BEGIN
  v_result:=portal_private.market_intelligence_admin_lpg_relative_price_v12(v_test);
  v_prices:=v_result #> '{canonicalAnalytics,products,LPG,rona,referenceSpreadV12,prices}';
  IF jsonb_typeof(v_prices) IS DISTINCT FROM 'object'
-   OR jsonb_object_length(v_prices)<>5
+   OR (SELECT count(*) FROM jsonb_object_keys(v_prices))<>5
    OR v_result #>> '{canonicalAnalytics,products,LPG,rona,referenceSpreadV12,marketDeltaUsdT}' <> '-50'
    OR (v_prices #>> '{CPT Озинки,marketAdjustedPriceUsdT}')::numeric<>560
    OR (v_prices #>> '{CPT Сарыагаш,marketAdjustedPriceUsdT}')::numeric<>695
