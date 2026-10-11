@@ -198,9 +198,9 @@ const CANONICAL_LPG_NETBACK_TARIFF_UI_V9=String.raw`
              !String(bV9.route||'').endsWith(basisV9.slice(4))||
              !Array.isArray(bV9.sourceRefs)||!bV9.sourceRefs.length||
              !bV9.approvedAt||
-             bV9.tariffUsdT===null||bV9.tariffUsdT===undefined||
-             !(Number(bV9.tariffUsdT)>0&&Number.isFinite(Number(bV9.tariffUsdT))))continue;
-          const railV9=Number(bV9.tariffUsdT);
+             bV9.railUsdT===null||bV9.railUsdT===undefined||
+             !(Number(bV9.railUsdT)>0&&Number.isFinite(Number(bV9.railUsdT))))continue;
+          const railV9=Number(bV9.railUsdT);
           const lowV9=Number(forecast.low)+railV9;
           const baseV9=Number(forecast.base)+railV9;
           const highV9=Number(forecast.high)+railV9;
