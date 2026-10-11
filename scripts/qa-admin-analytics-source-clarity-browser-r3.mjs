@@ -205,10 +205,22 @@ try{
   mode='ERROR';
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='SOURCE_UNAVAILABLE',{timeout:8000});
-  const failureText=await page.locator('#rona-analytics-v2 .an2-market-forecast').innerText();
-  assert(failureText.includes('Прогноз недоступен'),'Outage must never fall back to stale September forecast');
-  const failedInsight=await page.locator('#rona-analytics-v2 .an2-comment').innerText();
-  assert(failedInsight.includes('Аналитический вывод недоступен'),'Stale conclusion visible after source failure: '+failedInsight);
+  // V7 intentionally hides the old approved visual while the live source is
+  // unavailable. HTMLElement.innerText is empty under visibility:hidden;
+  // verify the actual cleared DOM text AND that the legacy layer is invisible.
+  const failedUi=await page.evaluate(()=>{
+    const root=document.querySelector('#rona-analytics-v2');
+    return {visibility:root?getComputedStyle(root).visibility:'MISSING',
+      forecast:root?.querySelector('.an2-market-forecast')?.textContent||'',
+      insight:root?.querySelector('.an2-comment')?.textContent||'',
+      dataset:document.documentElement.dataset.ronaAnalyticsData};
+  });
+  assert(failedUi.dataset==='SOURCE_UNAVAILABLE'&&failedUi.visibility==='hidden',
+    'Source outage exposed old analytics visual: '+JSON.stringify(failedUi));
+  assert(failedUi.forecast.includes('Прогноз недоступен'),
+    'Outage must never fall back to stale September forecast: '+JSON.stringify(failedUi));
+  assert(failedUi.insight.includes('Аналитический вывод недоступен'),
+    'Stale conclusion stored after source failure: '+JSON.stringify(failedUi));
   mode='OK';
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='canonical-daily-live-v3'&&document.querySelectorAll('#rona-analytics-v2 circle.rmc-point').length===15,{timeout:10000});
