@@ -227,7 +227,7 @@ BEGIN
   END LOOP;
   RETURN portal_private.market_intelligence_admin_lpg_scenario_v11(portal_private.market_intelligence_admin_lpg_tariff_bridge_v1(v));
 END
-$function$
+$function$;
 
 -- SQL runtime smoke executes the actual PLpgSQL function with all five CPT bases,
 -- but writes no forecast, tariff, FX or commercial record.
