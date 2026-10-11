@@ -15,8 +15,10 @@ test('owner-approved V8 pricing change contains no new formula, market data, CSS
   const v10=JSON.parse(read('governance/analytics-v10-lpg-five-cpt-source-coverage-20261011.json'));
   assert.equal(v10.source_locks.admin_delivery_before,v9.source_locks.admin_delivery_after,'V9 historically locked');
   const v11=JSON.parse(read('governance/analytics-v11-five-cpt-oct-rail-20261011.json'));
+  const v12=JSON.parse(read('governance/analytics-v12-lpg-cpt-spread-20261011.json'));
+  assert.equal(v12.source_locks.admin_delivery_before,v11.source_locks.admin_delivery_after,'V11 immutable source predecessor to V12');
   assert.equal(v11.source_locks.admin_delivery_before,v10.source_locks.admin_delivery_after,'V10 historical source preserved');
-  assert.equal(hash(read('functions/portal/analytics-v2-ui.js')),v11.source_locks.admin_delivery_after);
+  assert.equal(hash(read('functions/portal/analytics-v2-ui.js')),v12.source_locks.admin_delivery_after);
   assert.equal(hash(read('functions/portal/analytics-canonical-live-hydration.js')),governance.source_locks.admin_r4_hydration_unchanged);
   assert.equal(hash(read('functions/portal/analytics-v2-approved-base.js')),governance.source_locks.admin_compressed_r4_unchanged);
   assert.equal(hash(read('assets/portal-runtime/client-market-intelligence-v1.js')),governance.source_locks.client_v20_runtime_unchanged);
