@@ -1,0 +1,44 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "owner_instruction": "Comprehensive Analytics audit and safe permanent removal/disable of old recurring visual layers; finish technical release until owner visual acceptance.",
+  "decision": "FAIL_CLOSED_BEFORE_VERIFIED_LIVE_ANALYTICS_RENDER_V7",
+  "reason": "Even after V6 deleted competing writers, immutable compressed approved Admin R4 visual has August 2026 demo dataset and its own immediate render() on module load/pagechange. This can transiently show pre-30d historic values until async authenticated canonical hydration validates current source.",
+  "scope": "NO_STALE_ARCHIVE_PREPAINT_ADMIN_ANALYTICS_ONLY",
+  "source_locks": {
+    "prior_release_sha": "d9d96c210aca79b42157040b42b778c7a6edb685",
+    "before_analytics_delivery_blob": "802de714a8981eadae7f0de4b96ccfa9b462c69f",
+    "current_analytics_blob_sha": "63189ac1d6d502b985272486833e791986f0f257",
+    "approved_compressed_base_unchanged": "64903cd0f64acd1250c103456ea12104e81445e0",
+    "approved_admin_hydration_unchanged": "a7407d85d8cffca79a44a43465c211ca858d37a0",
+    "client_v20_unchanged": "417bf3773613a54b0aa4420f0978cf94d4d04a02",
+    "main_admin_owner_v6_unchanged": "f2e8b14931c7801af36f9b0f6652405b423720b1",
+    "supabase_canonical_function_md5": "a7f0ff21a938e0554684b3ef90c9d005",
+    "supabase_daily_monitor_function_md5": "5a0fdacc196efc889cb8c047f0164330",
+    "edge_version_unchanged": 106
+  },
+  "render_semantics": {
+    "first_byte": "An early inline style guards any R4 historical bootstrap chart before original script executes",
+    "incomplete_or_pending": "R4 root visually unavailable, source-independent accurate loading text",
+    "unavailable": "No historical chart shown, no source-less price/forecast; explicit source-unavailable text",
+    "server_confirmed": "Existing unchanged canonical R4 visual becomes visible after legitimate 30d data projection",
+    "same_signature_nav_refetch": "Revalidates live response and resets canonical-daily-live-v3 status to release view",
+    "unauthenticated": "No visible historical fallback",
+    "source_data_mutation": "NONE",
+    "new_painter_or_observer": "NONE",
+    "immutable_original_demo_source": "PRESENT ONLY AS INERT CODE WITHIN ORIGINAL FROZEN APPROVED BASE; never displayed without server-confirmed live override",
+    "client": "Client V20 unchanged"
+  },
+  "release_gates": [
+    "V7 same source-blob exact invariant",
+    "new browser test demonstrating August fixtures never visible while 502/delayed",
+    "successful actual 30d source unlock unchanged rendering",
+    "re-navigation and source outage regression",
+    "V6 old writers absent",
+    "existing R4, Client V20, 30d and Cloudflare QA",
+    "owner visual acceptance only after release"
+  ],
+  "rollback": {
+    "sha": "d9d96c210aca79b42157040b42b778c7a6edb685",
+    "scope": "Revert only functions/portal/analytics-v2-ui.js and focused V7 tests/governance, not Admin/Client DB or Edge, and never revive obsolete V455/V13 writers."
+  }
+}
