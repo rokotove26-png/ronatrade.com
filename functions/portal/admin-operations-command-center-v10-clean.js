@@ -233,6 +233,21 @@ function renderAdminHome(){
   const snap=window.__RONA_ADMIN_OPERATIONS_CURRENT_V2__||ronaOpsV10Snapshot;
   const ready=ronaOpsV10Ready(snap);
   const k=ready?(snap.kpis||{}):{};
+  const opsTruth=ready&&snap?.dataHealth?.contract==='ADMIN_OPERATIONS_SOURCE_TRUTH_V11';
+  const opsSources=opsTruth?(snap.readiness.sources||{}):{};
+  const opsSourceAsOf=opsTruth?(snap.dataHealth.recordsAsOf||{}):{};
+  const opsDegraded=opsTruth&&snap?.readiness?.state==='DEGRADED';
+  const sourceGood=name=>({
+    deals:['RECENT_RECORD_CHANGE','NO_ACTIVE_RECORDS'],
+    finance:['RECENT_AUTHORITY_DATE'],rail:['RECENT_OBSERVATION'],
+    documents:['RECENT_RECORD_CHANGE','NO_DOCUMENT_RECORDS'],
+    contracts:['RECENT_RECORD_CHANGE'],
+    actions:['RECENT_OPEN_TASKS','NO_OPEN_TASKS'],
+    presence:['LIVE_QUERY_TTL_75_SECONDS']
+  }[name]||[]).includes(String(opsSources[name]||''));
+  const sourceFoot=name=>!opsTruth?'Источник не подтверждён':
+    sourceGood(name)?('Изменено '+ronaOpsV11ShortDate(opsSourceAsOf[name])):
+    ('ТРЕБУЕТ СВЕРКИ · '+ronaOpsV11ShortDate(opsSourceAsOf[name]));
   const deals=ready&&Array.isArray(snap.deals)?snap.deals:[];
   const actions=ready&&Array.isArray(snap.actions)?snap.actions:[];
   const systems=ready?(snap.systems||{}):{};
@@ -240,9 +255,14 @@ function renderAdminHome(){
   const num=name=>{const n=ready?ronaOpsV10Num(k?.[name]):null;return n===null?null:n};
   const activeN=num('activeDeals'),executionN=num('executionDeals'),actionN=num('actionsRequired'),unseenN=unseenActions===null?null:unseenActions.length,railN=num('trustedWagons'),paymentN=num('paymentsDue'),criticalN=num('criticalEvents'),clientsN=num('clientsOnline'),agentsN=num('agentsOnline'),documentsN=num('documentsTotal'),documentsAttentionN=num('documentsAttention');
   window.__RONA_ADMIN_OPERATIONS_ATTENTION_UNSEEN__={ready:unseenN!==null,unseen:unseenN,total:actionN,at:Date.now()};
-  const stateTone=!ready?(ronaOpsV10Error?'amber':'cyan'):(criticalN||0)>0?'red':(actionN||0)>0?'amber':'green';
-  const stateCode=!ready?(ronaOpsV10Error?'DATA DEGRADED':'DATA SYNC'):(criticalN||0)>0?'MASTER WARNING':(actionN||0)>0?'MASTER CAUTION':'SYSTEM NORMAL';
-  const stateText=!ready?(ronaOpsV10Error?('Ошибка Operations V2: '+ronaOpsV10Error):'Синхронизация единого операционного снимка…'):(criticalN||0)>0?('Критические события: '+criticalN):(actionN||0)>0?('Открыто действий: '+actionN+' · новых: '+(unseenN===null?'—':unseenN)):'Контур стабилен';
+  const stateTone=!ready?(ronaOpsV10Error?'amber':'cyan'):opsDegraded?'amber':(criticalN||0)>0?'red':(actionN||0)>0?'amber':'green';
+  const stateCode=!ready?(ronaOpsV10Error?'DATA DEGRADED':'DATA SYNC'):opsDegraded?'SOURCE RECONFIRMATION':(criticalN||0)>0?'MASTER WARNING':(actionN||0)>0?'MASTER CAUTION':'SYSTEM NORMAL';
+  const stateText=!ready?(ronaOpsV10Error?('Ошибка Operations V2: '+ronaOpsV10Error):'Ожидаются подтверждённые данные…'):opsDegraded?
+    ('Проверка: сделки '+ronaOpsV11ShortDate(opsSourceAsOf.deals)+
+    ' · финансы '+ronaOpsV11ShortDate(opsSourceAsOf.finance)+
+    ' · ЖД '+(opsSources.rail==='NO_ACTIVE_MONITORING'?'нет мониторинга':ronaOpsV11ShortDate(opsSourceAsOf.rail))):
+    (criticalN||0)>0?('Критические события: '+criticalN):(actionN||0)>0?
+    ('Открыто действий: '+actionN+' · новых: '+(unseenN===null?'—':unseenN)):'Источники доступны';
   const root=e('div',{class:'rona-flightdeck-v5','data-rona-operations-command-center':'v10','data-rona-color-network':'v6','data-rona-single-owner':'true','data-rona-flightdeck':'v5-full-rebuild','data-rona-source':'OPERATIONS_CURRENT_V2'});
   const top=e('header',{class:'rona-fd-v5__overhead'},e('div',{class:'rona-fd-v5__identity'},e('div',{class:'rona-fd-v5__overline',text:'RONA TRADE · OPERATIONS FLIGHTDECK'}),e('h1',{class:'rona-ops-v4__title',text:'Операционный центр'}),e('div',{class:'rona-fd-v5__subtitle'},e('span',{class:'rona-fd-v5__bus-dot'}),e('span',{text:'OPERATIONS CURRENT V2'}),e('span',{text:'·'}),e('span',{text:'FACTUAL STATE ONLY'}))),e('div',{class:'rona-fd-v5__top-controls'},e('div',{class:'rona-fd-v5__annunciator is-'+stateTone},e('span',{class:'rona-fd-v5__ann-lamp'}),e('div',{},e('div',{class:'rona-fd-v5__ann-label',text:stateCode}),e('div',{class:'rona-fd-v5__ann-value',text:stateText}))),e('button',{class:'rona-fd-v5__refresh',type:'button',onclick:()=>ronaOpsV10Refresh('MANUAL')},e('span',{text:'↻'}),e('span',{text:'Refresh'}))));
 
