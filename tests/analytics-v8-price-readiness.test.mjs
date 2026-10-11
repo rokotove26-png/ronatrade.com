@@ -41,5 +41,5 @@ test('missing LPG market reference is not silently substituted with a daily quot
   assert.ok(!source.includes('forecast.reference=0'));
   assert.ok(!source.includes('product.rona.reference='));
   assert.ok(!source.includes('Petromarket'));
-  assert.ok(!source.includes('calculateRonaScenario({forecast,rona:model},basis,current);'),"Only protected original approved existing model is used");
+  assert.ok(source.includes('calculateRonaScenario({forecast,rona:model},basis,current);'),"Preserve original protected R4 calculation, do not invent new formula");
 });
