@@ -1,0 +1,75 @@
+{
+  "contract": "RONA_ANALYTICS_V12_OWNER_DOUBLE_RAIL_CORRECTION",
+  "owner_instruction": "2026-10-11 screenshot: remove unrequested scenario comments beneath each five prices; tariffs double counted; execute exact correction",
+  "actor": "AI-SYSTEM-ADMIN",
+  "scope": "ADMIN_ANALYTICS_LPG_ONLY_NO_BUSINESS_FACT_MUTATION",
+  "model": "R12_CPT_PUBLISHED_REFERENCE_PLUS_MATCHING_PLATTS_FORWARD_DELTA",
+  "predecessor": "V11 MERGED SHA 6c660e676779a49d59707c1da82881d454b3171c",
+  "source_locks": {
+    "admin_delivery_before": "77f3280c96fa1f2d12a7db761027561fd15eb60a",
+    "admin_delivery_after": "1f760a3eb14d7d085b65f5d83daae008bfae3d1c",
+    "migration_blob": "9dfdf78c7c5ee0cf96be40e9e68c405e6b48ebb3",
+    "rollback_blob": "4e3882118a64137075f7f57766de992e6e295bb3",
+    "admin_bootstrap_pg_md5": "3cc97a53ee493b6af6d5ae8ae17e9d29",
+    "client_runtime_frozen_blob": "417bf3773613a54b0aa4420f0978cf94d4d04a02"
+  },
+  "commercial_model": {
+    "record": "SUPABASE:ai_coordination_records:5697e762-4cdc-47a8-972c-eeb4a2a67c8f",
+    "record_status": "PROPOSED",
+    "operations_record": "b295fe31-92ca-4702-8e5c-4a199699fb30",
+    "operations_status": "APPROVE_FOR_NEXT_STAGE",
+    "preexisting_formula": "indicative_basis_price = CURRENT_PUBLISHED_RONA_BASIS_PRICE + (TARGET_BASE_FORWARD - LATEST_CURRENT_MARKET_VALUE_FOR_SELECTED_PRODUCT)",
+    "explicit_2026_10_11_owner_correction": "remove duplicated full-route rail and per-card scenario narratives",
+    "not_a_new_official_price": true
+  },
+  "evidence": {
+    "price_list": "SUPABASE:portal_private.owner_price_snapshots:RONA-PRICE-LIST-2026-09-R12",
+    "source_status": "PUBLISHED;publish_client=true;valid_for_shipments_2026-09-01_TO_2026-10-31",
+    "published_reference_usd_t": {
+      "CPT Озинки": 610,
+      "CPT Сарыагаш": 745,
+      "CPT Турксиб": 790,
+      "CPT Уртааул": 780,
+      "CPT Маргилан": 795
+    },
+    "market_series": "portal_private.market_intelligence_daily_monitor_v1('СУГ','2026-10-07')",
+    "same_instrument": "LPG_PLATTS_PROPANE_CIF_NWE_FINANCIAL_FIXED_DELIVERY",
+    "as_of": "2026-10-07",
+    "source_ref": "https://t.me/platts_digits/7510",
+    "current_observed_platts_m1_usd_t": 775,
+    "forecast_platts_nov_m2_usd_t": 725,
+    "source": "SUPABASE:portal_private.market_intelligence_forecast_snapshots:RONA_FULL_PLATTS_CURVE_V1",
+    "forecast_month": "2026-11",
+    "delta_usd_t": -50,
+    "indicative_usd_t": {
+      "CPT Озинки": 560,
+      "CPT Сарыагаш": 695,
+      "CPT Турксиб": 740,
+      "CPT Уртааул": 730,
+      "CPT Маргилан": 745
+    },
+    "rail_newly_added": 0
+  },
+  "presentation": {
+    "admin_only": true,
+    "five_cpt_cards": true,
+    "show_only": "CPT title and one USD/t number",
+    "hide_under_card": "LOW/HIGH scenario range, raw tariff amounts, status explanatory paragraphs, all under-price commentary",
+    "hide_lpg_model_note": true,
+    "other_fuel_tabs": "UNCHANGED",
+    "client_v20": "UNCHANGED",
+    "analytic_chart": "UNCHANGED"
+  },
+  "gates": [
+    "pg_get_functiondef owner_bootstrap exact predecessor source lock",
+    "SQL runtime smoke real R12 and verified M1/M2 same source, five numbers 560 695 740 730 745",
+    "Wrong market source or rate fails closed: never revive V11 or V9 duplicated Platts+rail",
+    "No owner_price_snapshots/owner_rail_tariff_matrix mutations and no public/anon/auth direct access",
+    "UI 5 clean CPT cards, zero prose beneath prices, chart and all four fuels unaffected",
+    "Historic V6-V11 source chain and Client V20 preserved, new V12 SHA",
+    "Chromium source-positive and source-missing/legacy negative plus R4/R5",
+    "Rollback exact V11 bootstrap, no authoritative business write",
+    "Postmerge deployment Cloudflare Pages+Worker and authenticated Owner screenshot acceptance"
+  ],
+  "rollback": "supabase/rollbacks/20261011163500_analytics_lpg_v12_price_spread_no_double_rail_rollback.sql"
+}
