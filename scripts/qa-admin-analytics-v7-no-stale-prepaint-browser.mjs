@@ -41,7 +41,13 @@ const server=http.createServer((req,res)=>{
    const domProbe="console.log('ANALYTICS_V9_NODES',JSON.stringify({basis:basisV9,main:!!mainV9,range:!!rangeV9,current:!!railLineV9,cardHTML:priceCardV9.outerHTML.slice(0,1100)}));";
    const matched="if(matchedTariffCardsV9>0){";
    const matchedProbe="console.log('ANALYTICS_V9_MATCHED',JSON.stringify({count:matchedTariffCardsV9,total:pricingCardsV9.length,state:document.documentElement.dataset.ronaAnalyticsData}));";
-   const source=js.replace(marker,probe+marker).replace(domNodes,domProbe+domNodes).replace(matched,matchedProbe+matched);
+   const basisKey="const bV9=tariffBridgesV9[basisV9];";
+   const basisProbe="console.log('ANALYTICS_V9_BASIS',JSON.stringify({basis:basisV9,b:!!bV9,keys:Object.keys(tariffBridgesV9),sourceRef:forecast.sourceRef,values:[forecast.low,forecast.base,forecast.high],rawCard:priceCardV9.outerHTML.slice(0,550)}));";
+   const rateKey="const railV9=Number(bV9.tariffUsdT);";
+   const rateProbe="console.log('ANALYTICS_V9_AFTER_GUARDS',JSON.stringify({basis:basisV9,rate:bV9.tariffUsdT}));";
+   const source=js.replace(marker,probe+marker).replace(basisKey,basisKey+basisProbe)
+     .replace(rateKey,rateProbe+rateKey).replace(domNodes,domProbe+domNodes)
+     .replace(matched,matchedProbe+matched);
    return res.end(source);}
  if(u.pathname==='/portal/api/v1/admin/analytics'){
    requests++;res.setHeader('content-type','application/json');
