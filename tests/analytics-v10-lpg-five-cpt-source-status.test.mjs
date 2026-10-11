@@ -12,8 +12,10 @@ test('V10 authorized successor preserves V9 and frozen client with exact source 
   assert.equal(v10.approval,'OWNER_IN_CHAT');
   assert.equal(v10.source_locks.admin_delivery_before,v9.source_locks.admin_delivery_after);
   const v11=JSON.parse(read('governance/analytics-v11-five-cpt-oct-rail-20261011.json'));
+  const v12=JSON.parse(read('governance/analytics-v12-lpg-cpt-spread-20261011.json'));
+  assert.equal(v12.source_locks.admin_delivery_before,v11.source_locks.admin_delivery_after,'V11 immutable source predecessor to V12');
   assert.equal(v11.source_locks.admin_delivery_before,v10.source_locks.admin_delivery_after,'V10 immutable source lock');
-  assert.equal(hash(read('functions/portal/analytics-v2-ui.js')),v11.source_locks.admin_delivery_after);
+  assert.equal(hash(read('functions/portal/analytics-v2-ui.js')),v12.source_locks.admin_delivery_after);
   assert.equal(hash(read('supabase/migrations/20261011074000_analytics_lpg_v10_all_cpt_source_coverage.sql')),v10.source_locks.v10_migration_blob);
   assert.equal(hash(read('supabase/rollbacks/20261011074000_analytics_lpg_v10_all_cpt_source_coverage_rollback.sql')),v10.source_locks.v10_rollback_blob);
   assert.equal(hash(read('assets/portal-runtime/client-market-intelligence-v1.js')),v10.source_locks.client_v20_unchanged);
