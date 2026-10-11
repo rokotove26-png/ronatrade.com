@@ -21,7 +21,7 @@ DECLARE
   v_bridges jsonb:='{}'::jsonb;
   v_coverage jsonb:='{}'::jsonb;
   v_routes jsonb;
-  b record;
+  v_basis_row record;
   v_month text;
   v_today_month text:=to_char((now() at time zone 'Europe/Moscow')::date,'YYYY-MM');
   r record;
@@ -92,7 +92,7 @@ BEGIN
       ),true);
   END LOOP;
   -- V10 owner-only diagnostics: historical/TO_VERIFY rows never qualify for current price.
-  FOR b IN
+  FOR v_basis_row IN
     SELECT j.item->>0 AS basis FROM jsonb_array_elements(v_bases) AS j(item)
     WHERE jsonb_typeof(j.item)='array' AND jsonb_array_length(j.item)=2
       AND j.item->>0 LIKE 'CPT %'
@@ -107,8 +107,8 @@ BEGIN
     FROM portal_private.owner_rail_tariff_matrix AS t
     WHERE t.product_group='LPG_SPBT'
       AND t.route_text ~ '^[^→]+→[^→]+$'
-      AND btrim(regexp_replace(t.route_text, '^.*→', ''))=substring(b.basis from 5);
-    v_coverage:=jsonb_set(v_coverage,ARRAY[b.basis],jsonb_build_object(
+      AND btrim(regexp_replace(t.route_text, '^.*→', ''))=substring(v_basis_row.basis from 5);
+    v_coverage:=jsonb_set(v_coverage,ARRAY[v_basis_row.basis],jsonb_build_object(
       'matches',v_routes,
       'hasEligibleCurrentSegment',v_bridges ? b.basis,
       'scope','MATCHING_RAIL_SEGMENTS_ONLY',
