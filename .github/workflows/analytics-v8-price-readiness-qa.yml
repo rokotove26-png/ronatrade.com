@@ -1,0 +1,65 @@
+name: Analytics V8 pricing source readiness
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'tests/analytics-v8-price-readiness.test.mjs'
+      - 'governance/analytics-v8-pricing-source-readiness-20261011.json'
+      - 'tests/analytics-v7-source-only-prepaint.test.mjs'
+      - 'tests/analytics-v6-single-owner-retirement.test.mjs'
+      - '.github/workflows/analytics-v8-price-readiness-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'tests/analytics-v8-price-readiness.test.mjs'
+      - 'governance/analytics-v8-pricing-source-readiness-20261011.json'
+      - 'tests/analytics-v7-source-only-prepaint.test.mjs'
+      - 'tests/analytics-v6-single-owner-retirement.test.mjs'
+      - '.github/workflows/analytics-v8-price-readiness-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  admin-analytics-v8-pricing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: V8 pricing source negative and V6 V7 exact source lock tests
+        run: |
+          node --test tests/analytics-v8-price-readiness.test.mjs \
+            tests/analytics-v7-source-only-prepaint.test.mjs \
+            tests/analytics-v6-single-owner-retirement.test.mjs \
+            tests/admin-analytics-exclusive-chart-r4.test.mjs \
+            tests/analytics-rolling-30-calendar-days-v2.test.mjs \
+            tests/analytics-r5-connect-sparse-confirmed-dates.test.mjs \
+            tests/client-analytics-buyer-facing-insight-v20.test.mjs
+      - name: Freeze approved Admin and Client builds
+        run: npm run build
+      - name: Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Source absent, verified return and same payload recovery
+        run: node scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs
+      - name: Admin R4 price/forecast, no stale source and all four product tabs
+        run: node scripts/qa-admin-analytics-source-clarity-browser-r3.mjs
+      - name: Admin R5 verified sparse chart
+        run: node scripts/qa-admin-analytics-r5-connected-30d-browser.mjs
+      - name: Client V20 immutable authorized scope
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - name: Production SHA and no old overlay
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/wait-cloudflare-commit.mjs
+          curl -fsSL --max-time 30 --retry 3 "https://ronaoil.com/portal/analytics-v2-ui?v8=${GITHUB_SHA}" -o /tmp/analytics-v8-live.js
+          grep -q 'MARKET_REFERENCE_NOT_CONFIRMED' /tmp/analytics-v8-live.js
+          grep -q 'source-only-v7' /tmp/analytics-v8-live.js
+          ! grep -q 'source-observation-gaps-v13' /tmp/analytics-v8-live.js
