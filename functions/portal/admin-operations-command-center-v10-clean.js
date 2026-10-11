@@ -284,7 +284,10 @@ function renderAdminHome(){
   if(selected?.dealId)window.__RONA_ADMIN_OPS_SELECTED_DEAL__=String(selected.dealId);
 
   const dealList=e('div',{});
-  dealList.append(e('div',{class:'rona-fd-v5-list-head'},e('span',{text:'Flight / Deal'}),e('span',{text:'Execution state'}),e('span',{text:'Telemetry'})));
+  dealList.append(e('div',{class:'rona-fd-v5-list-head'},e('span',{text:'Flight / Deal'}),e('span',{text:sourceGood('deals')?'Execution state':'Требует сверки'}),e('span',{text:'Telemetry'})));
+  if(ready&&!sourceGood('deals'))dealList.append(
+    e('div',{class:'rona-fd-v5__source-warning',text:'Сделки: последнее изменение '+ronaOpsV11ShortDate(opsSourceAsOf.deals)+
+    '. Статусы сохранены в реестре, но их актуальность не подтверждена.'}));
   const dealScroll=e('div',{class:'rona-fd-v5-list'});
   if(!ready){
     dealScroll.append(ronaFdV5Empty(ronaOpsV10Error?'DATA DEGRADED':'DATA SYNC',ronaOpsV10Error?'Не удалось подтвердить единый операционный снимок.':'Ожидаю Operations Current V2.'));
@@ -310,7 +313,7 @@ function renderAdminHome(){
   if(!ready){
     mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'},e('div',{class:'rona-fd-v5-screen__head'},e('div',{},e('div',{class:'rona-fd-v5-screen__code',text:'EXECUTION VECTOR'}),e('div',{class:'rona-fd-v5-screen__title',text:'Контур исполнения'}))),ronaFdV5Empty(ronaOpsV10Error?'DATA DEGRADED':'DATA SYNC','Контур исполнения ожидает единый снимок.'));
   }else if(selected){
-    const id=String(selected?.dealId||''),stage=String(selected?.stage||selected?.businessStatus||'—'),payment=Number(selected?.dueNow||0)>0?('К оплате '+String(selected.dueNow)+' '+String(selected?.currency||'')):String(selected?.financeStatus||'—'),paymentTone=ronaOpsV10PaymentTone(selected),contractStatus=String(selected?.contractStatus||'—'),contractSigned=selected?.contractSigned===true,contractTone=ronaOpsV10ContractTone(selected),contractValue=contractSigned?'ПОДПИСАН':(contractStatus==='PENDING_SIGNATURE'?'ОЖИДАЕТ ПОДПИСИ':ronaFdV5Text(contractStatus)),rail=Number(selected?.trustedWagons||0),docs=Number(selected?.documentCount||0),nextAction=String(selected?.nextAction||'Контроль исполнения сделки');
+    const id=String(selected?.dealId||''),stage=String(selected?.stage||selected?.businessStatus||'—'),payment=Number(selected?.dueNow||0)>0?('К оплате '+String(selected.dueNow)+' '+String(selected?.currency||'')):String(selected?.financeStatus||'—'),paymentTone=ronaOpsV10PaymentTone(selected),contractStatus=String(selected?.contractStatus||'—'),contractSigned=selected?.contractSigned===true,contractTone=ronaOpsV10ContractTone(selected),contractValue=contractSigned?'ПОДПИСАН':(contractStatus==='PENDING_SIGNATURE'?'ОЖИДАЕТ ПОДПИСИ':ronaFdV5Text(contractStatus)),rail=Number(selected?.trustedWagons||0),docs=Number(selected?.documentCount||0),nextAction=sourceGood('deals')?String(selected?.nextAction||'Контроль исполнения сделки'):'СВЕРИТЬ СТАТУС · '+String(selected?.nextAction||'Контроль исполнения сделки');
     const steps=[['Ресурс','—','cyan'],['Договор',contractValue,contractTone],['Оплата',ronaFdV5Text(payment),paymentTone],['ЖД',rail?String(rail)+' вагонов':'—','teal'],['Доставка',ronaFdV5Text(stage),ronaFdV5Tone(stage)],['Документы',String(docs)+' документов','violet'],['Закрытие',ronaFdV5Text(selected?.businessStatus||'—'),ronaFdV5Tone(selected?.businessStatus||'—')]];
     const vector=e('div',{class:'rona-fd-v5__vector'});
     for(const step of steps)vector.append(e('div',{class:'rona-fd-v5-stage','data-tone':step[2]},e('span',{class:'rona-fd-v5-stage__lamp'}),e('div',{class:'rona-fd-v5-stage__label',text:step[0]}),e('div',{class:'rona-fd-v5-stage__value',text:step[1]})));
@@ -331,7 +334,7 @@ function renderAdminHome(){
   const queue=e('div',{class:'rona-fd-v5-queue'});
   if(!ready)queue.append(ronaFdV5Empty(ronaOpsV10Error?'DATA DEGRADED':'DATA SYNC',ronaOpsV10Error?'Не удалось подтвердить единый операционный снимок.':'Ожидаю Operations Current V2. Нулевые показатели не подставляются.'));
   else if(actions.length){for(const row of actions){const tone=String(row?.severity||'ATTENTION').toUpperCase()==='CRITICAL'?'red':'amber';queue.append(e('div',{class:'rona-fd-v5-event'},e('span',{class:'rona-fd-v5-event__signal is-'+tone}),e('div',{},e('div',{class:'rona-fd-v5-event__name',text:String(row?.title||'Требуется действие')}),e('div',{class:'rona-fd-v5-event__meta',text:String(row?.meta||'')})),e('button',{class:'rona-fd-v5-event__open',type:'button','aria-label':'Открыть действие',onclick:()=>ronaOpsV10Open(row),text:'›'})))}}
-  else queue.append(ronaFdV5Empty('ALL SYSTEMS NORMAL','Operations Current V2 подтверждает отсутствие действий, требующих вмешательства.'));
+  else queue.append(ronaFdV5Empty(opsDegraded?'SOURCE VERIFICATION REQUIRED':'ALL SYSTEMS NORMAL',opsDegraded?'Отсутствие новых событий не подтверждает актуальность старых данных.':'Operations Current V2 подтверждает отсутствие действий, требующих вмешательства.'));
   masterBody.append(queue);
   const masterScreen=ronaFdV5Screen('EXCEPTION CONTROL','Master caution / warning',ready?actions.length:'—',masterBody,'rona-fd-v5__master');
   const workspace=e('section',{class:'rona-fd-v5__workspace'},dealsScreen,mission,masterScreen);
