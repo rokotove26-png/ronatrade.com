@@ -100,22 +100,29 @@ try{
  // Never substitute a different financial/physical/regional market benchmark
  // into the missing market reference or show historical R4 derived prices.
  await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('LPG'));
- await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='MARKET_REFERENCE_NOT_CONFIRMED',
+ await page.waitForFunction(()=>document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='V12_REFERENCE_UNVERIFIED',
    {timeout:10000});
  const pricingGap=await page.evaluate(()=>{
    const root=document.querySelector('#rona-analytics-v2');
+   const note=root.querySelector('.an2-model-note');
    return {state:root.dataset.ronaPricingReadiness,
-      note:root.querySelector('.an2-model-note')?.textContent||'',
-      cards:[...root.querySelectorAll('.an2-price-card')].map(card=>
-        [...card.querySelectorAll('.an2-price-base,.an2-price-range,.an2-price-current')].map(el=>el.textContent?.trim()))};
+      note:note?.textContent||'',
+      noteHidden:!!note&&getComputedStyle(note).display==='none',
+      cards:[...root.querySelectorAll('.an2-price-card')].map(card=>{
+        const range=card.querySelector('.an2-price-range');
+        const info=card.querySelector('.an2-price-current');
+        return {value:card.querySelector('.an2-price-base')?.textContent?.trim(),
+          range:range?.textContent?.trim(),text:info?.textContent?.trim(),
+          rangeHidden:!!range&&getComputedStyle(range).display==='none',
+          textHidden:!!info&&getComputedStyle(info).display==='none'};
+      })};
  });
- assert(pricingGap.note.includes('Котировки CPT имеются')&&
-    pricingGap.note.includes('отсутствует подтверждённый сопоставимый рыночный референс')&&
-    pricingGap.cards.length>0&&pricingGap.cards.every(card=>card[0]==='Не рассчитана'&&
-       card[1]?.includes('недостаточно текущих тарифных данных')&&
-       card[2]?.includes('нет точного подтверждённого тарифного плеча')),
-    'V8 falsely calculated RONA pricing despite missing compatible reference: '+JSON.stringify(pricingGap));
- console.log('ANALYTICS_V8_LPG_REFERENCE_MISSING_NO_FAKE_PRICE=PASS');
+ assert(pricingGap.state==='V12_REFERENCE_UNVERIFIED'&&pricingGap.note===''&&
+   pricingGap.noteHidden&&pricingGap.cards.length>0&&
+   pricingGap.cards.every(card=>card.value==='—'&&card.range===''&&card.text===''&&
+     card.rangeHidden&&card.textHidden),
+   'V12 must mask stale rail or under-price comment without matching source: '+JSON.stringify(pricingGap));
+ console.log('ANALYTICS_V12_UNVERIFIED_NEVER_SHOW_DOUBLE_RAIL_OR_NARRATIVE=PASS');
  // Verify the REAL initial production condition in an isolated browser:
  // approved bridge already supplied by secured Admin API before first render.
  // Reusing a previously loaded view could legitimately show cached source.
@@ -155,16 +162,10 @@ try{
    });
    const target=positive.prices.find(x=>x.basis==='CPT Сарыагаш');
    const missing=positive.prices.find(x=>x.basis==='CPT Озинки');
-   assert(target?.base?.includes('862,24')&&
-      target?.range?.includes('832,24')&&target?.range?.includes('892,24')&&
-      target?.rail?.includes('137,24')&&
-      missing?.base==='Не рассчитана'&&
-       missing?.range?.includes('недостаточно текущих тарифных данных')&&
-       missing?.rail?.includes('нет точного подтверждённого тарифного плеча')&&
-      positive.note.includes('Platts')&&positive.note.includes('1 из 2'),
-      'V9 must calculate ONLY source-verified rail route: '+JSON.stringify(positive));
+   assert(target?.base==='—'&&missing?.base==='—'&&positive.note==='',
+     'V12 must not revive V9 Platts + KZH tariff when same-source market delta is missing: '+JSON.stringify(positive));
    assert(positiveErrors.length===0,'Unexpected browser execution errors: '+positiveErrors.join('; '));
-   console.log('ANALYTICS_V9_LPG_PLATTS_PLUS_CONFIRMED_RAIL=PASS',JSON.stringify(positive));
+   console.log('ANALYTICS_V12_SUPERSEDES_V9_DOUBLE_RAIL_ON_MISSING_SPREAD=PASS',JSON.stringify(positive));
  } finally {
    await positivePage.close();
  }
