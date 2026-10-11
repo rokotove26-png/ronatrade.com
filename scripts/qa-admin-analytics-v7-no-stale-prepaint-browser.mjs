@@ -114,6 +114,45 @@ try{
     pricingGap.cards.length>0&&pricingGap.cards.every(card=>card.every(value=>value==='—')),
     'V8 falsely calculated RONA pricing despite missing compatible reference: '+JSON.stringify(pricingGap));
  console.log('ANALYTICS_V8_LPG_REFERENCE_MISSING_NO_FAKE_PRICE=PASS');
+ // V9 source transition: published Platts netback plus ONE matching, approved
+ // and nonexpired tariff. The other published CPT price has no valid route;
+ // its card must remain blank instead of assuming a zero tariff.
+ const lpgForecast=payload.products.LPG.forecast;
+ payload.products.LPG.rona.netbackTariffBridges={
+   'CPT Сарыагаш':{
+     model:'PLATTS_NETBACK_PLUS_CONFIRMED_RAIL_V1',
+     railUsdT:137.24,route:'Озинки → Сарыагаш',
+     tariffKey:'LPG-KZH-OZINKI-SARYAGASH',
+     sourceProvider:'ТОО Orient Logistic',
+     sourceRefs:['OWNER_APPROVAL_2026-08-23_ORIENT_LOGISTIC_KZH_UTI'],
+     tariffStatus:'WORKING_CONFIRMED',approvedAt:'2026-08-22T21:38:22Z',
+     marketSourceRef:lpgForecast.sourceRef,marketMonth:lpgForecast.month,
+     commercialComponent:'NOT_INCLUDED'
+   }
+ };
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await page.waitForFunction(()=>
+    document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='PLATTS_NETBACK_TARIFF_PARTIAL',
+    {timeout:10000});
+ const positive=await page.evaluate(()=>{
+   const root=document.querySelector('#rona-analytics-v2');
+   return {note:root.querySelector('.an2-model-note')?.textContent||'',
+     prices:[...root.querySelectorAll('.an2-price-card')].map(card=>({
+       basis:card.querySelector('h3')?.textContent?.trim(),
+       base:card.querySelector('.an2-price-base')?.textContent?.trim(),
+       range:card.querySelector('.an2-price-range')?.textContent?.trim(),
+       rail:card.querySelector('.an2-price-current')?.textContent?.trim()
+     }))};
+ });
+ const target=positive.prices.find(x=>x.basis==='CPT Сарыагаш');
+ const missing=positive.prices.find(x=>x.basis==='CPT Озинки');
+ assert(target?.base?.includes('862,24')&&
+    target?.range?.includes('832,24')&&target?.range?.includes('892,24')&&
+    target?.rail?.includes('137,24')&&
+    missing?.base==='—'&&missing?.range==='—'&&missing?.rail==='—'&&
+    positive.note.includes('Platts')&&positive.note.includes('1 из 2'),
+    'V9 netback+tariff source projection must calculate only confirmed route: '+JSON.stringify(positive));
+ console.log('ANALYTICS_V9_LPG_PLATTS_PLUS_CONFIRMED_RAIL=PASS',JSON.stringify(positive));
  await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('AI92'));
  await page.waitForFunction(month=>
    window.RONA_ANALYTICS_VIEW?.getState?.()?.product==='AI92'&&
