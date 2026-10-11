@@ -45,9 +45,9 @@ test('V11 Oct canonical rates are documentary with expiration and no authoritati
   assert.ok(sql.includes('REVOKE ALL ON FUNCTION portal_private.market_intelligence_admin_lpg_scenario_v11(jsonb)'));
   assert.ok(!sql.includes('GRANT EXECUTE'));
   assert.ok(!sql.includes('CREATE OR REPLACE FUNCTION public.owner_analytics_client_feed'));
-  assert.ok(sql.includes('END\\n$function$;\\n\\n-- SQL runtime smoke'),'Replaced owner function must end before SQL runtime smoke');
+  assert.ok(sql.includes('END\n$function$;\n\n-- SQL runtime smoke'),'Replaced owner function must end before SQL runtime smoke');
   const rollback=read('supabase/rollbacks/20261011100000_analytics_lpg_v11_canonical_drive_oct_scenario_rollback.sql');
-  assert.ok(rollback.includes('END\\n$function$;\\nDROP FUNCTION'),'Rollback restored owner function must be terminated');
+  assert.ok(rollback.includes('END\n$function$;\nDROP FUNCTION'),'Rollback restored owner function must be terminated');
   assert.ok(sql.includes('84.9048'));
   assert.ok(sql.includes("to_char(") || sql.includes('2026-11'));
 });
