@@ -7,13 +7,15 @@ import {onRequest} from '../functions/portal/analytics-v2-ui.js';
 const read=(path)=>readFileSync(path,'utf8');
 const sha=(s)=>createHash('sha1').update('blob '+Buffer.byteLength(s)+'\0'+s).digest('hex');
 const g=JSON.parse(read('governance/analytics-v11-five-cpt-oct-rail-20261011.json'));
+const v12=JSON.parse(read('governance/analytics-v12-lpg-cpt-spread-20261011.json'));
 const v10=JSON.parse(read('governance/analytics-v10-lpg-five-cpt-source-coverage-20261011.json'));
 const sql=read('supabase/migrations/20261011100000_analytics_lpg_v11_canonical_drive_oct_scenario.sql');
 
 test('V11 source locks preserve V10, Admin renderer and frozen Client V20',()=>{
   assert.equal(g.authorization,'TECHNICAL_LAYER_ONLY');
   assert.equal(g.source_locks.admin_delivery_before,v10.source_locks.admin_delivery_after);
-  assert.equal(sha(read('functions/portal/analytics-v2-ui.js')),g.source_locks.admin_delivery_after);
+  assert.equal(v12.source_locks.admin_delivery_before,g.source_locks.admin_delivery_after,'V11 historical source preserved');
+  assert.equal(sha(read('functions/portal/analytics-v2-ui.js')),v12.source_locks.admin_delivery_after);
   assert.equal(sha(sql),g.source_locks.v11_migration_blob);
   assert.equal(sha(read('supabase/rollbacks/20261011100000_analytics_lpg_v11_canonical_drive_oct_scenario_rollback.sql')),g.source_locks.v11_rollback_blob);
   assert.equal(sha(read('assets/portal-runtime/client-market-intelligence-v1.js')),g.source_locks.client_unchanged_blob);
