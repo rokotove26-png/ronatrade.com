@@ -353,6 +353,72 @@ const CANONICAL_LPG_NETBACK_TARIFF_UI_V9=String.raw`
             'Тарифы ноября не подтверждены; перенос октября — только допущение. '+
             'Маржа и прочие расходы НЕ включены; это не коммерческая оферта.';
       }
+      // V12 Owner correction: all five values are the already-published R12
+      // CPT price + the same-instrument Platts forward movement. The source
+      // projection must confirm that tariffs have NOT been added again.
+      const sourceV12=product?.rona?.referenceSpreadV12;
+      const validV12=sourceV12?.version==='RONA_LPG_PUBLISHED_CPT_PLUS_SAME_PLATTS_FORWARD_DELTA_V12'&&
+        sourceV12.forecastMonth===forecast.month&&
+        sourceV12.marketSourceRef===forecast.sourceRef&&
+        sourceV12.tariffsReaddedUsdT===0&&
+        sourceV12.technicalProjectionOnly===true&&
+        sourceV12.commercialOffer===false&&
+        sourceV12.prices&&typeof sourceV12.prices==='object';
+      let renderedV12=0;
+      for(const cardV12 of pricingCardsV9){
+        const basisV12=String(cardV12.querySelector('h3')?.textContent||'').trim();
+        if(!basisV12.startsWith('CPT '))continue;
+        const priceElV12=cardV12.querySelector('.an2-price-base');
+        const rangeElV12=cardV12.querySelector('.an2-price-range');
+        const detailsElV12=cardV12.querySelector('.an2-price-current');
+        const candidateV12=validV12?sourceV12.prices[basisV12]:null;
+        const rawReferenceV12=quotedCptsV11.get(basisV12);
+        const numericV12=Number(candidateV12?.marketAdjustedPriceUsdT);
+        const fromPublishedV12=Number(candidateV12?.publishedReferenceUsdT);
+        const isTrustedV12=candidateV12&&
+          Number.isFinite(numericV12)&&numericV12>0&&
+          Number.isFinite(Number(rawReferenceV12))&&
+          fromPublishedV12===Number(rawReferenceV12)&&
+          candidateV12.tariffsReaddedUsdT===0&&
+          Number(candidateV12.forecastBaseUsdT)===Number(forecast.base)&&
+          Number(candidateV12.marketDeltaUsdT)===Number(sourceV12.marketDeltaUsdT)&&
+          numericV12===Math.round((fromPublishedV12+
+            Number(sourceV12.marketDeltaUsdT))*100)/100;
+        if(priceElV12)priceElV12.textContent=isTrustedV12
+          ?formatValue(numericV12)+' USD/т':'—';
+        for(const underPriceV12 of [rangeElV12,detailsElV12]){
+          if(!underPriceV12)continue;
+          underPriceV12.textContent='';
+          underPriceV12.removeAttribute('title');
+          underPriceV12.dataset.ronaV12Hidden='1';
+          underPriceV12.style.setProperty('display','none','important');
+        }
+        cardV12.style.setProperty('min-height','0','important');
+        cardV12.dataset.pricingMode=isTrustedV12
+          ?'PUBLISHED_R12_PLUS_PLATTS_DELTA_V12':'V12_SOURCE_UNVERIFIED';
+        if(isTrustedV12)renderedV12++;
+      }
+      const noteV12=root.querySelector('.an2-model-note');
+      if(noteV12){
+        noteV12.textContent='';
+        noteV12.dataset.ronaV12Hidden='1';
+        noteV12.style.setProperty('display','none','important');
+      }
+      root.dataset.ronaV12PriceCards=String(renderedV12);
+      root.dataset.ronaV12DoubleRail=String(0);
+      root.dataset.ronaPricingReadiness=renderedV12===quotedCptsV11.size&&
+        renderedV12===5?'VERIFIED_SAME_PLATTS_DELTA_V12':'V12_REFERENCE_UNVERIFIED';
+    }
+    // When switching to other fuel tabs, restore untouched original R4 note/range.
+    if(key!=='LPG'){
+      for(const restoredV12 of root.querySelectorAll('[data-rona-v12-hidden="1"]')){
+        restoredV12.style.removeProperty('display');
+        delete restoredV12.dataset.ronaV12Hidden;
+      }
+      for(const previousLpgCardV12 of root.querySelectorAll('.an2-price-card'))
+        previousLpgCardV12.style.removeProperty('min-height');
+      delete root.dataset.ronaV12PriceCards;
+      delete root.dataset.ronaV12DoubleRail;
     }
 `;
 
