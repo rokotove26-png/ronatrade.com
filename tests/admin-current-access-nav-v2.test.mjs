@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 const source=fs.readFileSync('functions/portal/clients-agents-current-ui.js','utf8');
 const polish=fs.readFileSync('functions/portal/admin-approved-polish-ui.js','utf8');
-const analyticsCompat=fs.readFileSync('functions/portal/admin-approved-analytics-v455-ui.js','utf8');
+const analyticsCompatRetired=!fs.existsSync('functions/portal/admin-approved-analytics-v455-ui.js');
 const shell=fs.readFileSync('portal-src/current/admin.html','utf8');
 const fastShell=fs.readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
 const watchdog=fs.readFileSync('assets/portal-admin-runtime-watchdog-v1.js','utf8');
@@ -37,8 +37,8 @@ assert(source.includes("'x-rona-shell-mutation':'none'"),'No-global-shell-mutati
 for(const stale of ['openCanonicalAccessModal','installCanonicalAccessCreate','approved-canonical-v3.4.13','admin-canonical-create-access-v441-ui','rona-approved-access-mask','rona-canonical-access-mask'])assert(!source.includes(stale),'Competing access runtime marker remains: '+stale);
 assert(!polish.includes('installCanonicalAccessCreate')&&!polish.includes('openCanonicalAccessModal'),'Polish runtime must not own access creation');
 assert(polish.includes("'x-rona-access-create-owner':'none'"),'Polish runtime must explicitly declare no access owner');
-assert(!analyticsCompat.includes('loadCanonicalAccess')&&!analyticsCompat.includes('admin-canonical-create-access-v441-ui'),'Analytics compatibility runtime must not load access UI');
-assert(analyticsCompat.includes("'x-rona-access-loader':'none'"),'Analytics compatibility runtime must explicitly declare no access loader');
+assert(analyticsCompatRetired,'Retired Analytics V455 must be physically absent under approved V6');
+assert(!shell.includes('rona-admin-approved-analytics-v455-loader'),'V455 must not be loaded on Admin navigation');
 assert(!source.includes('installNavigationStability'),'Access page must not install a second navigation owner');
 assert(!source.includes('installShellParity'),'Access page must not restyle the global shell');
 assert(shell.includes("window.__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'"),'Navigation must be owned by current shell');

@@ -125,6 +125,33 @@ function patchOperationsFunctionalRuntime(script){
 }
 
 
+// Analytics V6. Permanently retire the old Admin table renderer. This writer
+// lived in owner-ui chunks and replaced canonical Analytics on refresh/nav.
+function patchRetiredAnalyticsOwner(source){
+  let patched=String(source||'');
+  const begin=patched.indexOf('function renderAnalytics(){');
+  const end=begin<0?-1:patched.indexOf('function appendAgentAssignment(){',begin);
+  if(begin<0||end<=begin||patched.indexOf('function renderAnalytics(){',begin+1)>=0)
+    throw new Error('ANALYTICS_V6_LEGACY_RENDERER_SOURCE_LOCK_MISMATCH');
+  if(!patched.slice(begin,end).includes("replacePage('analytics',c)"))
+    throw new Error('ANALYTICS_V6_LEGACY_CHART_OWNER_MISMATCH');
+  patched=patched.slice(0,begin)+patched.slice(end);
+  const route=',analytics:renderAnalytics';
+  const startup='renderRadio();renderAnalytics();appendAgentAssignment();';
+  if(patched.split(route).length!==2||patched.split(startup).length!==2)
+    throw new Error('ANALYTICS_V6_LEGACY_ROUTE_SOURCE_LOCK_MISMATCH');
+  patched=patched.replace(route,'').replace(startup,'renderRadio();appendAgentAssignment();');
+  // Retain analytics in OWNER_ADMIN_PAGES: the current shell's lazy loader
+  // must still receive navigation and refresh. No second writer is allowed.
+  if(!patched.includes("OWNER_ADMIN_PAGES=new Set(['home'")||
+     !patched.includes("'analytics','access'])")||
+     patched.includes('renderAnalytics()')||
+     patched.includes("replacePage('analytics'")||
+     patched.includes('analytics:renderAnalytics'))
+    throw new Error('ANALYTICS_V6_MULTIPLE_WRITERS_STILL_PRESENT');
+  return "window.__RONA_ADMIN_ANALYTICS_LEGACY_OWNER_RETIRED__='20261011-v6-single-canonical-owner';\n"+patched;
+}
+
 function patchAdminBootstrapTelemetry(script){
   let patched=String(script||'');
   const refreshOld="async function refreshAdmin(){adminData=await call('/admin/bootstrap');window.__RONA_OWNER_ADMIN_SNAPSHOT__=adminData;window.__RONA_OWNER_ADMIN_SOURCE_SIGNATURE__=ownerAdminSnapshotSignature(adminData);renderAdmin();return adminData}";
@@ -142,7 +169,7 @@ function patchAdminBootstrapTelemetry(script){
   if(!patched.includes(bootOld))throw new Error('ADMIN_MAIN_BOOTSTRAP_TELEMETRY_BOOT_SOURCE_MISMATCH');
   patched=patched.replace(bootOld,bootNew);
 
-  return "window.__RONA_ADMIN_BOOTSTRAP_TELEMETRY__='ADMIN_BOOTSTRAP_RESIDUAL_V1';\n"+patched;
+  return "window.__RONA_ADMIN_BOOTSTRAP_TELEMETRY__='ADMIN_BOOTSTRAP_RESIDUAL_V1';\n"+patchRetiredAnalyticsOwner(patched);
 }
 
 function patchDealsCurrentOnlyNoFlash(script){

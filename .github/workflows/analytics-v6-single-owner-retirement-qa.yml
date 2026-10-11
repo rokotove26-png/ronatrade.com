@@ -1,0 +1,84 @@
+name: Analytics V6 single-owner retirement QA
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/owner-ui-chunks/**'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'functions/portal/remaining-sections-ui.js'
+      - 'assets/portal-runtime/client-market-intelligence-v1.js'
+      - 'portal-src/current/client/**'
+      - 'scripts/attach-client-market-intelligence-v1.mjs'
+      - 'scripts/build-pages-direct-canonical.mjs'
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'portal-src/current/admin.html'
+      - 'functions/portal/admin-approved-analytics-v455-ui.js'
+      - 'functions/portal/lpg-observation-gap-runtime-v13.js'
+      - 'tests/analytics-v6-single-owner-retirement.test.mjs'
+      - 'governance/analytics-v6-single-owner-retirement-20261011.json'
+      - '.github/workflows/analytics-v6-single-owner-retirement-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/owner-ui-chunks/**'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'functions/portal/remaining-sections-ui.js'
+      - 'assets/portal-runtime/client-market-intelligence-v1.js'
+      - 'portal-src/current/client/**'
+      - 'scripts/attach-client-market-intelligence-v1.mjs'
+      - 'scripts/build-pages-direct-canonical.mjs'
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'portal-src/current/admin.html'
+      - 'functions/portal/admin-approved-analytics-v455-ui.js'
+      - 'functions/portal/lpg-observation-gap-runtime-v13.js'
+      - 'tests/analytics-v6-single-owner-retirement.test.mjs'
+      - 'governance/analytics-v6-single-owner-retirement-20261011.json'
+      - '.github/workflows/analytics-v6-single-owner-retirement-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  analytics-v6-owner-and-visual-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: V6 exact source-lock, retired writer absence, and prior source contract
+        run: |
+          node --test tests/analytics-v6-single-owner-retirement.test.mjs \
+            tests/admin-analytics-exclusive-chart-r4.test.mjs \
+            tests/analytics-dual-portal-functional-launch-v1.test.mjs \
+            tests/analytics-r5-connect-sparse-confirmed-dates.test.mjs \
+            tests/analytics-rolling-30-calendar-days-v2.test.mjs \
+            tests/client-analytics-buyer-facing-insight-v20.test.mjs
+      - name: Build frozen canonical portals and verify obsolete assets absent
+        run: |
+          npm run build
+          test ! -e dist/portal/admin-approved-analytics-v455-ui
+          test ! -e dist/portal/lpg-observation-gap-runtime-v13
+          if grep -q 'rona-admin-approved-analytics-v455-loader' dist/portal/admin.html; then exit 1; fi
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Admin canonical R4 repeated navigation and source-safe chart regression
+        run: node scripts/qa-admin-analytics-source-clarity-browser-r3.mjs
+      - name: Admin 30d chart R5 no visual regression
+        run: node scripts/qa-admin-analytics-r5-connected-30d-browser.mjs
+      - name: Client native canonical visual and cross-role restriction
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - name: Client published source-safe chart gate
+        run: node scripts/qa-client-analytics-source-safe-browser-v3.mjs
+      - name: Verify exact production release after merge
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/wait-cloudflare-commit.mjs
+          node scripts/verify-admin-current-only-production.mjs
+          echo ANALYTICS_V6_SINGLE_OWNER_PRODUCTION=PASS

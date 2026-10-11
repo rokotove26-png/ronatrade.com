@@ -26,7 +26,7 @@ jobs:
           node --test tests/analytics-hydration-source-safe-v1.test.mjs
           node --test tests/admin-analytics-exclusive-chart-r4.test.mjs
           node --check functions/portal/analytics-v2-approved-base.js
-          node --check functions/portal/admin-approved-analytics-v455-ui.js
+          test ! -e functions/portal/admin-approved-analytics-v455-ui.js
           node --check functions/portal/remaining-sections-ui.js
           node --check functions/portal/remaining-sections-r2-base.js
           node --input-type=module <<'NODE'
@@ -45,11 +45,18 @@ jobs:
           if (response.headers.get('x-rona-analytics-source-file') !== 'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html') throw new Error('current source-file header missing');
           if (response.headers.get('x-rona-analytics-visual') !== 'approved-hero-v432-pricing-bridge') throw new Error('current visual header missing');
           if (response.headers.get('x-rona-analytics-chart') !== 'designer-v3-shared-gasoline-axis') throw new Error('current chart header missing');
-          const shim = await import('./functions/portal/admin-approved-analytics-v455-ui.js?qa='+Date.now());
-          const shimSource = await (await shim.onRequest({})).text();
-          new Function(shimSource);
-          if (!shimSource.includes('retired-compat-guard-v5')) throw new Error('old v455 overlay is not retired');
-          if (shimSource.includes('makeSvg(') || shimSource.includes('A92.map(x=>x+40)')) throw new Error('old v455 renderer still active');
+          const fs = await import('node:fs');
+          const main = await import('./functions/portal/admin-main-ui-current.js?qa='+Date.now());
+          const mainSource = await (await main.onRequest({})).text();
+          new Function(mainSource);
+          for (const forbidden of ['function renderAnalytics(){',"replacePage('analytics'",'analytics:renderAnalytics','renderAnalytics();'])
+            if (mainSource.includes(forbidden)) throw new Error('OLD_OWNER_ANALYTICS_DOM_WRITER_ACTIVE:'+forbidden);
+          if (!mainSource.includes('__RONA_ADMIN_ANALYTICS_LEGACY_OWNER_RETIRED__')) throw new Error('V6_SOURCE_PATCH_NOT_ACTIVE');
+          const adminHtml=fs.readFileSync('portal-src/current/admin.html','utf8');
+          if(adminHtml.includes('rona-admin-approved-analytics-v455-loader'))throw new Error('RETIRED_V455_SCRIPT_STILL_IN_ADMIN');
+          if(fs.existsSync('functions/portal/admin-approved-analytics-v455-ui.js')||
+             fs.existsSync('functions/portal/lpg-observation-gap-runtime-v13.js'))
+             throw new Error('RETIRED_VISUAL_SOURCE_FILE_SHIPPED');
           NODE
       - name: Build authoritative current artifact
         run: npm run build

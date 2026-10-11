@@ -55,7 +55,17 @@ for(const p of [
   'assets/portal-admin-shell-fast-v1.js',
   'assets/portal-admin-runtime-watchdog-v1.js'
 ]){
-  assert.equal(read(p),showRelease(p),`${p} must remain unchanged from current release base`);
+  const base=showRelease(p);
+  if(p==='portal-src/current/admin.html'){
+    // Explicit owner-approved Analytics V6 exception is exactly ONE obsolete
+    // visual script loader removed; the security/access shell stays identical.
+    const approval=JSON.parse(read('governance/analytics-v6-single-owner-retirement-20261011.json'));
+    const retired='<script id="rona-admin-approved-analytics-v455-loader" src="/portal/admin-approved-analytics-v455-ui?v=20260827-v455" defer></script>\n';
+    assert.ok(base.includes(retired),'Legacy V455 source lock missing in release baseline');
+    assert.equal(read(p),base.replace(retired,''),'V6 must remove ONLY the retired Analytics visual script');
+    assert.equal(approval.source_locks.admin_html_pre,'5dc87d5a350d57a0fe70bb2371d0a2ab235a1b99');
+    assert.equal(approval.source_locks.admin_html_post,'cca468590d2353f64d30300284a302479a2b972c');
+  }else assert.equal(read(p),base,`${p} must remain unchanged from current release base`);
 }
 
 // Only the canonical .ca-head receives the compact Options control.

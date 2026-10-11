@@ -6,7 +6,7 @@ const shell=read('assets/portal-admin-shell-fast-v1.js');
 const watchdog=read('assets/portal-admin-runtime-watchdog-v1.js');
 const access=read('functions/portal/clients-agents-current-ui.js');
 const polish=read('functions/portal/admin-approved-polish-ui.js');
-const analyticsCompat=read('functions/portal/admin-approved-analytics-v455-ui.js');
+const analyticsRetired=fs.existsSync('functions/portal/admin-approved-analytics-v455-ui.js');
 const remaining=read('functions/portal/remaining-sections-ui.js');
 const ownerApi=read('functions/portal/owner-api.js');
 const portalApi=read('functions/portal/api/[[path]].js');
@@ -179,7 +179,8 @@ need(has(access,"'x-rona-shell-mutation':'none'")&&has(access,"'x-rona-access-cr
 need(has(polish,"__RONA_ADMIN_APPROVED_POLISH__='20260918-access-applications-visual-v5'"),'Approved polish current visual marker is missing');
 need(has(polish,"window.RONA_ADMIN_DIALOGS=Object.freeze({message,notify:message,confirm,password})"),'In-app Admin dialog service is missing');
 need(has(polish,"'x-rona-access-create-owner':'none'")&&!has(polish,'installCanonicalAccessCreate')&&!has(polish,'openCanonicalAccessModal'),'Polish runtime still owns access creation');
-need(has(analyticsCompat,"'x-rona-access-loader':'none'")&&!has(analyticsCompat,'loadCanonicalAccess')&&!has(analyticsCompat,'admin-canonical-create-access-v441-ui'),'Analytics compatibility runtime still loads access UI');
+need(!analyticsRetired&&!has(admin,'rona-admin-approved-analytics-v455-loader'),'Retired V455 Analytics writer/loader still deployed');
+need(has(mainUi,'patchRetiredAnalyticsOwner(source)')&&has(mainUi,'ANALYTICS_V6_LEGACY_RENDERER_SOURCE_LOCK_MISMATCH'),'Admin legacy table owner not removed at source');
 for(const path of ['functions/portal/admin-canonical-create-access-v441-ui.js','functions/portal/admin-canonical-create-access-v441-password-hotfix-ui.js','functions/portal/admin-access-ui.js','functions/portal/clients-agents-v4-ui.js','functions/portal/clients-agents-canonical-guard-ui.js'])need(!fs.existsSync(path),'Obsolete access runtime still exists: '+path);
 
 need(has(ownerApi,"path==='/admin/access-workspace'")&&has(ownerApi,"'owner_access_workspace_bootstrap'"),'Owner API access-workspace RPC route is missing');

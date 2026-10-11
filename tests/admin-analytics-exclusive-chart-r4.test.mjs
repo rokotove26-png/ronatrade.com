@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 
 const runtimePath='functions/portal/analytics-canonical-live-hydration.js';
 const legacyPath='functions/portal/lpg-observation-gap-runtime-v13.js';
 const hydrated=readFileSync(runtimePath,'utf8');
-const compatibility=readFileSync(legacyPath,'utf8');
+const successor=JSON.parse(readFileSync('governance/analytics-v6-single-owner-retirement-20261011.json','utf8'));
 const v3=JSON.parse(readFileSync('governance/admin-analytics-source-clarity-r3-owner-scope-20261010.json','utf8'));
 const v4=JSON.parse(readFileSync('governance/admin-analytics-exclusive-chart-r4-20261010.json','utf8'));
 const blobHash=s=>createHash('sha1').update('blob '+Buffer.byteLength(s)+'\0'+s).digest('hex');
@@ -21,7 +21,10 @@ test('Admin R4 is exact R3 successor and keeps protected unchanged business code
   assert.equal(v4.requirements.canonical_base_runtime_untouched,true);
   assert.equal(v4.requirements.pricing_math_and_authority_untouched,true);
   for(const path of v4.approved_protected_files){
-    assert.equal(blobHash(readFileSync(path,'utf8')),v4.exact_post_blobs[path].authorized_post_blob_sha,'source changed outside R4 SHA '+path);
+    if(path===legacyPath){
+      assert.equal(existsSync(path),false,'V6 retired graph runtime must not remain');
+      assert.equal(v4.exact_post_blobs[path].authorized_post_blob_sha,successor.retired_source_blobs.legacy_lpg_v13);
+    }else assert.equal(blobHash(readFileSync(path,'utf8')),v4.exact_post_blobs[path].authorized_post_blob_sha,'source changed outside R4 SHA '+path);
   }
   assert.equal(v4.exact_post_blobs[runtimePath].supersedes_authorized_post_blob_sha,v3.exact_post_blob_sha);
   assert.equal(v4.exact_post_blobs[legacyPath].supersedes_authorized_post_blob_sha,v4.rollback.previous_blobs[legacyPath]);
@@ -50,7 +53,9 @@ test('only adminCompactChart writes Admin LPG/DT points and paths',()=>{
   assert.ok(hydrated.includes('if(Number(ids[i])!==Number(ids[i-1]))continue'));
   assert.ok(hydrated.includes("window.addEventListener('rona:analytics-price-model'"));
   assert.ok(hydrated.includes("document.documentElement.dataset.ronaAnalyticsData!=='canonical-daily-live-v3'"));
-  assert.ok(compatibility.includes("if(String(window.location?.pathname||'').startsWith('/portal/admin'))return"));
-  assert.ok(compatibility.includes('const mo=new MutationObserver(schedule)'),'non-admin painter must remain available');
-  assert.ok(compatibility.includes("window.__RONA_LPG_OBSERVATION_GAPS_V13__='source-observation-gaps-v13'"));
+  assert.equal(existsSync(legacyPath),false);
+  const current=readFileSync('functions/portal/analytics-v2-ui.js','utf8');
+  assert.ok(!current.includes('LPG_GAP_RUNTIME'));
+  assert.ok(current.includes('ANALYTICS_V6_DUPLICATE_SVG_LAYER'));
+  assert.equal(successor.decision,'REMOVE_LEGACY_DOM_WRITERS_KEEP_CANONICAL_V4_AND_V20');
 });
