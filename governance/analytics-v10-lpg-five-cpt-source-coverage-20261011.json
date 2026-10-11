@@ -10,7 +10,7 @@
     "admin_delivery_before": "80b715196dac48363e313e017cff5b525d31a275",
     "admin_delivery_after": "5d353dbdee44539dea3bc08a02e8adea1b2f30bd",
     "v9_bridge_live_predecessor_pg_md5": "70f34dee304fdb71ca58e245ccb6330b",
-    "v10_migration_blob": "4cacc9f2363320f3edbec1e54141d30eae98727c",
+    "v10_migration_blob": "849a20acb311271f26661aac6731bbf0797d9d20",
     "v10_rollback_blob": "5ac1c17a91ee5beeef1dce8bf57a9e7a9df9e812",
     "client_v20_unchanged": "417bf3773613a54b0aa4420f0978cf94d4d04a02"
   },
@@ -40,5 +40,6 @@
     "sql": "supabase/rollbacks/20261011074000_analytics_lpg_v10_all_cpt_source_coverage_rollback.sql",
     "ui_blob_sha": "80b715196dac48363e313e017cff5b525d31a275",
     "business_mutation": "NONE"
-  }
+  },
+  "runtime_regression": "PLPGSQL record alias must not shadow b(item) SQL alias. Production trial V10 (original) runtime ERROR 55000; V9 restored under guarded rollback. Revised V10 source uses v_basis_row."
 }
