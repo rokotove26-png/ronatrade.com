@@ -1,0 +1,70 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "owner_instruction": "Repair unexplained blank RONA Trade November 2026 indicative pricing until technical completion; do not invent missing market or commercial pricing inputs.",
+  "scope": "ADMIN_ANALYTICS_INDICATIVE_PRICING_SOURCE_READINESS_V8",
+  "role": "SYSTEM_ADMIN",
+  "competence": "LK_TECHNICAL ONLY; Commercial Director is authoritative for PRICE_INPUT and Platts source / price basis compatibility",
+  "decision": "SOURCE_SAFE_PRICE_DIAGNOSTIC_NO_PRICE_FABRICATION",
+  "release_baseline": "149fcb2fa262743e15785f07459ad2deb28bd361",
+  "source_locks": {
+    "before_delivery_sha": "63189ac1d6d502b985272486833e791986f0f257",
+    "after_delivery_sha": "47c2154659cc72a56fae6df74c2b0e0bbcf38f77",
+    "admin_r4_hydration_unchanged": "a7407d85d8cffca79a44a43465c211ca858d37a0",
+    "admin_compressed_r4_unchanged": "64903cd0f64acd1250c103456ea12104e81445e0",
+    "client_v20_runtime_unchanged": "417bf3773613a54b0aa4420f0978cf94d4d04a02",
+    "supabase_canonical_md5_unchanged": "a7f0ff21a938e0554684b3ef90c9d005",
+    "supabase_daily_monitor_md5_unchanged": "5a0fdacc196efc889cb8c047f0164330"
+  },
+  "live_evidence": {
+    "observed_at": "2026-10-11",
+    "canonical_rpc": "portal_private.market_intelligence_admin_canonical_payload_v1",
+    "LPG": {
+      "rona_reference": null,
+      "rona_cpt_quotes_count": 5,
+      "legacy_regional_price_reference": null,
+      "legacy_forecast_base": null,
+      "legacy_forecast_low": null,
+      "legacy_forecast_high": null
+    },
+    "market_snapshot": {
+      "model_version": "RONA_FULL_PLATTS_CURVE_V1",
+      "target_month": "2026-11",
+      "data_status": "INDICATIVE",
+      "source_ref_present": true,
+      "low_base_high_present": true,
+      "commercial_base_present": false,
+      "rona_margin_present": false,
+      "margin_policy_version": null
+    },
+    "wrapper": "public.owner_analytics_admin_bootstrap overlays approved full Platts forecast and dedicated daily observations on base canonical; LPG quote market reference is intentionally NOT auto-overridden by daily financial series to prevent basis mismatch."
+  },
+  "correct_behavior": {
+    "forecast_available": "Forecast ONLY if source-backed and YYYY-MM validated by existing source contract",
+    "forecast_not_price": "Market indicative Platts price is not CPT RONA price",
+    "CPT_quote_without_reference": "Shown as uncomputable with explicit reason; not estimated using stale Petromarket or a mismatched financial/physical observation",
+    "source_absent": "Show source-specific unavailable text and dashes, not 0 and not historical UI",
+    "complete_approved_price_input": "Existing authorised R4 pricing behavior unchanged, no new formula or tariff/margin introduced",
+    "colors_layout": "No new HTML, DOM nodes, painter, JavaScript listeners or CSS",
+    "client": "unchanged",
+    "DB": "no write",
+    "Edge": "no change"
+  },
+  "role_handoff": {
+    "target": "COMMERCIAL_DIRECTOR",
+    "state": "UNAVAILABLE",
+    "reason": "Audited SYSTEM_ADMIN handoff request returned HTTP 403 TARGET_NOT_FOUND_OR_OUT_OF_SCOPE; technical role must not create commercial forecast/source metadata."
+  },
+  "rollback": {
+    "prior_release_sha": "149fcb2fa262743e15785f07459ad2deb28bd361",
+    "revert_file": "functions/portal/analytics-v2-ui.js only",
+    "no_data_rollback": true
+  },
+  "release_gates": [
+    "new V8 pricing source state regression",
+    "existing V7 unverified fixture fail closed and R4 browser",
+    "exact visual R4 and client V20 frozen",
+    "source 30d",
+    "production Cloudflare and auth smoke",
+    "owner visual acceptance before task closure"
+  ]
+}
