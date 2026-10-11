@@ -67,6 +67,29 @@ try{
  const live=await inspect();
  assert(live.visibility==='visible'&&live.state==='canonical-daily-live-v3','Current source cannot unlock R4 visual: '+JSON.stringify(live));
  assert(!live.source.includes('21.08')&&!live.source.includes('24.08'),'Old August fixture still on live chart');
+ // Partial authoritative replies must not revive the old August fixture for
+ // a product whose verified observations/forecast are absent.
+ await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('DT'));
+ await page.waitForFunction(()=>{
+   const r=document.querySelector('#rona-analytics-v2');
+   return window.RONA_ANALYTICS_VIEW?.getState()?.product==='DT'&&
+     r?.querySelector('[data-chart-stage]')?.textContent?.includes('Нет актуального подтверждённого ряда')&&
+     r?.querySelector('.an2-market-forecast')?.textContent?.includes('Прогноз недоступен');
+ },{timeout:10000});
+ const noProduct=await page.evaluate(()=>{
+   const r=document.querySelector('#rona-analytics-v2');
+   return {visible:getComputedStyle(r).visibility,
+     stage:r.querySelector('[data-chart-stage]')?.textContent,
+     forecast:r.querySelector('.an2-market-forecast')?.textContent,
+     conclusion:r.querySelector('.an2-comment')?.textContent};
+ });
+ assert(noProduct.visible==='visible'&&!noProduct.stage.includes('21.08')&&
+   noProduct.forecast.includes('Прогноз недоступен')&&
+   noProduct.conclusion.includes('Данные по выбранному продукту не опубликованы'),
+   'Missing-product selection revived stale archived fixtures: '+JSON.stringify(noProduct));
+ await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('AI92'));
+ await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.getState?.()?.product==='AI92'&&
+   document.querySelector('#rona-analytics-v2 [data-chart-stage]')?.textContent?.includes('USD'),{timeout:10000});
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('rona:admin-pagechange',{detail:{page:'analytics'}})));
  // The capture-phase V7 listener hides original frozen rendering while
  // same-signature authenticated source is being revalidated.
