@@ -6,6 +6,39 @@ const CANONICAL_ANALYTICS_MARKER='approved-v4.3.2-pricing-bridge-single-owner';
 const CANONICAL_PROVENANCE=`\n/* canonical-analytics-source: ${CANONICAL_ANALYTICS_SOURCE}; canonical-runtime: v4.3.2; single-owner */\n`;
 const APPROVED_DATA_VALIDATION='\n/* approved-data-contract: AI95 first=1075.25 last=1226.75; differential=AI92+40 USD/t; live-payload=RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1 */\n';
 
+// Source-only prepaint V7. The immutable approved R4 visual base contains a
+// historical August demo fixture, used only as layout scaffolding. It must
+// never become visible until the server returns CURRENT source-backed data.
+const CANONICAL_SOURCE_ONLY_PREPAINT_V7=String.raw`
+;(()=>{
+  const state=document.documentElement.dataset;
+  const root=()=>document.querySelector('#page-analytics > #rona-analytics-v2');
+  if(!root()&&state.ronaAnalyticsData==='canonical-daily-live-v3')
+    state.ronaAnalyticsData='SOURCE_PENDING';
+  if(window.__RONA_ANALYTICS_CURRENT_SOURCE_PREPAINT_V7__)return;
+  window.__RONA_ANALYTICS_CURRENT_SOURCE_PREPAINT_V7__='source-only-v7';
+  if(state.ronaAnalyticsData!=='canonical-daily-live-v3')
+    state.ronaAnalyticsData='SOURCE_PENDING';
+  const id='rona-analytics-source-only-prepaint-v7';
+  if(!document.getElementById(id)){
+    const style=document.createElement('style');
+    style.id=id;
+    style.textContent=[
+      'html:not([data-rona-analytics-data="canonical-daily-live-v3"]) body #page-analytics > #rona-analytics-v2{visibility:hidden!important;opacity:0!important;pointer-events:none!important}',
+      'html:not([data-rona-analytics-data="canonical-daily-live-v3"]) body #page-analytics.page.active::before{content:"Загрузка подтверждённых котировок за последние 30 дней…";display:block;margin:18px auto;padding:20px 24px;max-width:850px;box-sizing:border-box;border:1px solid rgba(111,198,235,.22);border-radius:14px;background:rgba(9,24,40,.86);color:#c6eaff;font:600 14px/1.55 Segoe UI,Arial,sans-serif}',
+      'html[data-rona-analytics-data="SOURCE_UNAVAILABLE"] body #page-analytics.page.active::before{content:"Подтверждённые данные недоступны. Архивные значения скрыты."}'
+    ].join('');
+    (document.head||document.documentElement).appendChild(style);
+  }
+  // Capture comes before the frozen R4 raw demo's own pagechange renderer.
+  // Hide the old samples until the next authenticated response is validated.
+  window.addEventListener('rona:admin-pagechange',event=>{
+    if(String(event?.detail?.page||'')==='analytics')
+      document.documentElement.dataset.ronaAnalyticsData='SOURCE_PENDING';
+  },true);
+})();
+`;
+
 const CANONICAL_PRICING_BRIDGE_RUNTIME=String.raw`
 ;(()=>{
   if(window.__RONA_ANALYTICS_PRICING_BRIDGE_V432__==='canonical-v4.3.2')return;
@@ -146,11 +179,17 @@ const CANONICAL_PRICING_BRIDGE_RUNTIME=String.raw`
 `;
 
 function canonicalizeV432(source){
-  let out=source;
+  let out=CANONICAL_SOURCE_ONLY_PREPAINT_V7+source;
   out=out.replaceAll("document.documentElement.dataset.ronaAnalyticsLocal='v4.3.1'","document.documentElement.dataset.ronaAnalyticsLocal='v4.3.2'");
   out=out.replaceAll("version:'functional-v4.3.1'","version:'functional-v4.3.2'");
   out=out.replaceAll('approved-v4.3.1-single-owner',CANONICAL_ANALYTICS_MARKER);
   out+=CANONICAL_PRICING_BRIDGE_RUNTIME+CANONICAL_LIVE_HYDRATION_RUNTIME+APPROVED_DATA_VALIDATION;
+  // A pagechange hides the frozen August bootstrap while fresh data is
+  // revalidated. A same-signature confirmed response must unhide it again.
+  const unchanged="if(sig===lastApplied){decorate(lastSource);return true}";
+  if(out.split(unchanged).length!==2)
+    throw new Error('ANALYTICS_V7_LIVE_CACHE_REVALIDATION_SOURCE_LOCK_MISMATCH');
+  out=out.replace(unchanged,"if(sig===lastApplied){decorate(lastSource);document.documentElement.dataset.ronaAnalyticsData='canonical-daily-live-v3';return true}");
   // Dedicated Admin R4 painter is the only SVG writer. No V13 competing
   // observer/repaint runtime may be shipped in this canonical endpoint.
   for(const stale of ['__RONA_LPG_OBSERVATION_GAPS_V13__','source-observation-gaps-v13','svg.dataset.ronaLpgHistoryV13=sig'])
