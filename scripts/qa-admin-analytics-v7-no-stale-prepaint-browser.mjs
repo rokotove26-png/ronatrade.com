@@ -88,8 +88,10 @@ try{
    noProduct.conclusion.includes('Подтверждённый ряд котировок по ДТ недоступен'),
    'Missing-product selection revived stale archived fixtures: '+JSON.stringify(noProduct));
  await page.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('AI92'));
- await page.waitForFunction(()=>window.RONA_ANALYTICS_VIEW?.getState?.()?.product==='AI92'&&
-   document.querySelector('#rona-analytics-v2 [data-chart-stage]')?.textContent?.includes('USD'),{timeout:10000});
+ await page.waitForFunction(month=>
+   window.RONA_ANALYTICS_VIEW?.getState?.()?.product==='AI92'&&
+   document.querySelector('#rona-analytics-v2 .an2-market-forecast')?.textContent?.includes(month),
+   payload.products.AI92.forecast.month,{timeout:10000});
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('rona:admin-pagechange',{detail:{page:'analytics'}})));
  // The capture-phase V7 listener hides original frozen rendering while
  // same-signature authenticated source is being revalidated.
