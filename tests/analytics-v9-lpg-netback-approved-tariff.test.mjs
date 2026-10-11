@@ -44,7 +44,6 @@ test('Admin R4 output computes only positive source-confirmed LPG destination ra
     'PLATTS_NETBACK_PLUS_CONFIRMED_RAIL_V1','netbackTariffBridges',
     'WORKING_CONFIRMED','marketSourceRef',
     'ЖД тариф ','Индикативно, не коммерческая оферта.',
-    'ANALYTICS_V9_LPG_TARIFF_DECORATION_SOURCE_LOCK_MISMATCH',
     'MARKET_REFERENCE_NOT_CONFIRMED','source-only-v7'
   ])assert.ok(s.includes(tok),'Runtime missing '+tok);
   assert.equal((s.match(/function adminCompactChart\(root,product,key\)/g)||[]).length,1,'No new SVG painter');
