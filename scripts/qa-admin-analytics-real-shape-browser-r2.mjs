@@ -131,8 +131,17 @@ try{
   mode='ERROR';
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await page.waitForFunction(()=>document.documentElement.dataset.ronaAnalyticsData==='SOURCE_UNAVAILABLE',{timeout:8000});
-  const failureText=await page.locator('#rona-analytics-v2 .an2-market-forecast').innerText();
-  assert(failureText.includes('Прогноз недоступен'),'Outage must never fall back to stale September forecast');
+  // V7 hides the entire historical frame on source outage. Native
+  // innerText on visibility:hidden may be empty: read textContent and assert
+  // BOTH that stale values were removed from the DOM and cannot be seen.
+  const failure=await page.evaluate(()=>{
+    const root=document.querySelector('#rona-analytics-v2');
+    return {state:document.documentElement.dataset.ronaAnalyticsData,
+      visibility:root?getComputedStyle(root).visibility:'MISSING',
+      forecast:root?.querySelector('.an2-market-forecast')?.textContent||''};
+  });
+  assert(failure.state==='SOURCE_UNAVAILABLE'&&failure.visibility==='hidden'&&failure.forecast.includes('Прогноз недоступен'),
+    'Outage must never fall back to stale September forecast: '+JSON.stringify(failure));
   assert(errors.length===0,'Uncaught browser errors: '+errors.join('; '));
   console.log(JSON.stringify({result:'PASS',browser:'chromium',real_ui_response:true,dt_month:'2026-11',dt_base:1370,dt_chart:'OBSERVATION_DAILY_DT',dt_owner_prices:'SOURCE_LOCKED',lpg_month:'2026-11',lpg_base:725,lpg_petromarket:'STALE_HIDDEN',lpg_chart:'OBSERVATION_DAILY_LPG',api_failure:'FAIL_CLOSED',pageerrors:errors.length,requests}));
 }finally{
