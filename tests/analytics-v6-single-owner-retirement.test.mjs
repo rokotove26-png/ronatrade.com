@@ -18,8 +18,10 @@ test('V6 preserves approved Admin visual and frozen Client V20',()=>{
   assert.equal(next.source_locks.before_analytics_delivery_blob,g.source_locks.admin_analytics_post,'V6 original source lock must remain historical');
   assert.equal(next.source_locks.current_analytics_blob_sha,
     JSON.parse(read('governance/analytics-v8-pricing-source-readiness-20261011.json')).source_locks.before_delivery_sha,'V7 source lock preserved');
-  assert.equal(sha(read('functions/portal/analytics-v2-ui.js')),
-    JSON.parse(read('governance/analytics-v8-pricing-source-readiness-20261011.json')).source_locks.after_delivery_sha,'Only approved V8 successor may extend V7');
+  const v8=JSON.parse(read('governance/analytics-v8-pricing-source-readiness-20261011.json'));
+  const v9=JSON.parse(read('governance/analytics-v9-lpg-netback-approved-rail-20261011.json'));
+  assert.equal(v8.source_locks.after_delivery_sha,v9.source_locks.admin_delivery_before,'V8 predecessor remains immutable');
+  assert.equal(sha(read('functions/portal/analytics-v2-ui.js')),v9.source_locks.admin_delivery_after,'V9 authorized successor source lock');
 });
 test('obsolete scripts really gone, canonical lazy load remains',()=>{
   for(const path of g.retired_paths)assert.equal(existsSync(path),false,path);
