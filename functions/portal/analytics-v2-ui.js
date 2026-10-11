@@ -153,7 +153,7 @@ function canonicalizeV432(source){
   out+=CANONICAL_PRICING_BRIDGE_RUNTIME+CANONICAL_LIVE_HYDRATION_RUNTIME+APPROVED_DATA_VALIDATION;
   // Dedicated Admin R4 painter is the only SVG writer. No V13 competing
   // observer/repaint runtime may be shipped in this canonical endpoint.
-  for(const stale of ['__RONA_LPG_OBSERVATION_GAPS_V13__','ronaLpgHistoryV13','rmc-line-depth'])
+  for(const stale of ['__RONA_LPG_OBSERVATION_GAPS_V13__','source-observation-gaps-v13','svg.dataset.ronaLpgHistoryV13=sig'])
     if(out.includes(stale))throw new Error('ANALYTICS_V6_DUPLICATE_SVG_LAYER:'+stale);
   const required=['RONA TRADE · ANALYTICS','Внутренний аналитический контур','Базовая котировка','Возможные цены RONA Trade','Аналитический вывод','function pricingBridgeFor','function calculateRonaScenario',"version:'functional-v4.3.2'",'setPricingBridge','rona:analytics-price-model','RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1','canonical-daily-live','1075.25','1226.75'];
   for(const token of required)if(!out.includes(token))throw new Error(`CANONICAL_ANALYTICS_V432_MISSING:${token}`);
