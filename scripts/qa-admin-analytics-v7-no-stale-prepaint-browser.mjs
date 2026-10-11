@@ -132,18 +132,25 @@ try{
  };
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  await page.waitForTimeout(1200);
- const dbg=await page.evaluate(()=>{
+ const dbg=await page.evaluate(async()=>{
    const r=document.querySelector('#rona-analytics-v2');
+   const api=await(await fetch('/portal/api/v1/admin/analytics',{cache:'no-store'})).json();
+   const product=api?.data?.canonicalAnalytics?.products?.LPG;
+   const bridge=product?.rona?.netbackTariffBridges?.['CPT Сарыагаш'];
    return {state:document.documentElement.dataset.ronaAnalyticsData,
      pricing:r?.dataset?.ronaPricingReadiness,
      product:window.RONA_ANALYTICS_VIEW?.getState?.()?.product,
+     forecast:product?.forecast,bridge,
      note:r?.querySelector('.an2-model-note')?.textContent,
-     bases:[...r.querySelectorAll('.an2-price-card')].map(c=>c.querySelector('h3')?.textContent)};
+     bases:[...r.querySelectorAll('.an2-price-card')].map(c=>c.querySelector('h3')?.textContent),
+     matchedBridge:!!bridge&&String(bridge.route).endsWith('Сарыагаш')&&
+       bridge.marketSourceRef===product?.forecast?.sourceRef&&
+       bridge.marketMonth===product?.forecast?.month};
  });
  console.log('ANALYTICS_V9_BROWSER_PRECHECK',JSON.stringify(dbg));
  await page.waitForFunction(()=>
     document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='PLATTS_NETBACK_TARIFF_PARTIAL',
-    {timeout:10000});
+    null,{timeout:3500});
  const positive=await page.evaluate(()=>{
    const root=document.querySelector('#rona-analytics-v2');
    return {note:root.querySelector('.an2-model-note')?.textContent||'',
