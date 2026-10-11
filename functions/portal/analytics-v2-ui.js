@@ -216,6 +216,22 @@ const CANONICAL_LPG_NETBACK_TARIFF_UI_V9=String.raw`
           matchedTariffCardsV9++;
         }
       }
+      // V10: every published CPT basis gets a truthful source-readiness status.
+      // The server-provided V9 bridge is the only authority for a Nov price.
+      // Unmatched bases retain NO projected price (never reuse published R12).
+      for(const priceCardV10 of pricingCardsV9){
+        if(priceCardV10.dataset.pricingMode==='PLATTS_NETBACK_PLUS_CONFIRMED_RAIL_V1')continue;
+        const basisV10=String(priceCardV10.querySelector('h3')?.textContent||'').trim();
+        const mainV10=priceCardV10.querySelector('.an2-price-base');
+        const rangeV10=priceCardV10.querySelector('.an2-price-range');
+        const lineV10=priceCardV10.querySelector('.an2-price-current');
+        if(!basisV10.startsWith('CPT ')||!mainV10||!rangeV10||!lineV10)continue;
+        mainV10.textContent='Не рассчитана';
+        rangeV10.textContent='Ноябрь '+forecast.month+' · тарифный источник не подтверждён';
+        lineV10.textContent='Нет допущенного к расчёту полного ЖД тарифа по '+basisV10;
+        priceCardV10.dataset.pricingMode='MISSING_CONFIRMED_ROUTE_TARIFF';
+      }
+      root.dataset.ronaPricingCardsReviewed=String(pricingCardsV9.length);
       if(matchedTariffCardsV9>0){
         root.dataset.ronaPricingReadiness=matchedTariffCardsV9===pricingCardsV9.length
           ?'PLATTS_NETBACK_TARIFF_FULL':'PLATTS_NETBACK_TARIFF_PARTIAL';
