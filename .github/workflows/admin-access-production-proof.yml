@@ -25,7 +25,7 @@ jobs:
           set -euo pipefail
           node --check functions/portal/clients-agents-current-ui.js
           node --check functions/portal/admin-approved-polish-ui.js
-          node --check functions/portal/admin-approved-analytics-v455-ui.js
+          test ! -e functions/portal/admin-approved-analytics-v455-ui.js
           grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'" functions/portal/clients-agents-current-ui.js
           grep -q "window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'" functions/portal/clients-agents-current-ui.js
           grep -q "window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-impersonation-json-v8-20260920'" functions/portal/clients-agents-current-ui.js
@@ -47,7 +47,7 @@ jobs:
           node tests/admin-impersonation-json-handoff.test.mjs
           node tests/admin-client-impersonation-early-bridge.test.mjs
           grep -q "x-rona-access-create-owner':'none" functions/portal/admin-approved-polish-ui.js
-          grep -q "x-rona-access-loader':'none" functions/portal/admin-approved-analytics-v455-ui.js
+          ! grep -q 'rona-admin-approved-analytics-v455-loader' portal-src/current/admin.html
           test ! -e functions/portal/admin-canonical-create-access-v441-ui.js
           test ! -e functions/portal/admin-access-ui.js
           test ! -e functions/portal/clients-agents-v4-ui.js
