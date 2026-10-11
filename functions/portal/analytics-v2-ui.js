@@ -184,6 +184,35 @@ function canonicalizeV432(source){
   out=out.replaceAll("version:'functional-v4.3.1'","version:'functional-v4.3.2'");
   out=out.replaceAll('approved-v4.3.1-single-owner',CANONICAL_ANALYTICS_MARKER);
   out+=CANONICAL_PRICING_BRIDGE_RUNTIME+CANONICAL_LIVE_HYDRATION_RUNTIME+APPROVED_DATA_VALIDATION;
+  // V8: show the *exact missing pricing component* in the existing R4 note.
+  // This changes neither the R4 painter nor a value or commercial formula.
+  // Keep the already approved fail-closed behavior of the PRICE cards.
+  const priceMissingNote="      if(note)note.textContent='Нет полного актуального базиса для расчёта индикативной цены. Исторические цены скрыты.';";
+  if(out.split(priceMissingNote).length!==2)
+    throw new Error('ANALYTICS_V8_PRICE_GUARD_SOURCE_LOCK_MISMATCH');
+  out=out.replace(priceMissingNote,
+    "      const quote=product?.rona;"+
+    "      const bases=Array.isArray(quote?.bases)?quote.bases:[];"+
+    "      const reference=quote?.reference;"+
+    "      const reason=!forecast?'SOURCE_FORECAST_UNVERIFIED':"+
+    "        !bases.length?'RONA_CPT_QUOTATIONS_MISSING':"+
+    "        reference===null||reference===undefined||!Number.isFinite(Number(reference))?"+
+    "          'MARKET_REFERENCE_NOT_CONFIRMED':"+
+    "          'INCOMPLETE_PRICE_BASIS';"+
+    "      root.dataset.ronaPricingReadiness=reason;"+
+    "      if(note)note.textContent="+
+    "        reason==='SOURCE_FORECAST_UNVERIFIED'"+
+    "          ?'Нет подтверждённого прогноза LOW / BASE / HIGH на выбранный месяц с проверяемым источником. Расчёт возможных цен RONA Trade не выполняется.'"+
+    "        : reason==='RONA_CPT_QUOTATIONS_MISSING'"+
+    "          ?'Нет актуальных подтверждённых цен RONA Trade по базисам CPT. Нельзя рассчитать возможные цены без исходных котировок.'"+
+    "        : reason==='MARKET_REFERENCE_NOT_CONFIRMED'"+
+    "          ?'Котировки CPT имеются, но отсутствует подтверждённый сопоставимый рыночный референс для пересчёта на месяц прогноза. Исторические или несопоставимые значения не используются.'"+
+    "          :'Недостаточно подтверждённых компонентов для индикативного расчёта цены. Исторические значения исключены.';");
+  const priceGuard="    if(!forecast||!hasPriceBase(product)){";
+  if(out.split(priceGuard).length!==2)
+    throw new Error('ANALYTICS_V8_PRICING_STATUS_SOURCE_LOCK_MISMATCH');
+  out=out.replace(priceGuard,"    root.dataset.ronaPricingReadiness=forecast&&hasPriceBase(product)?'CALCULATED':'UNAVAILABLE';\n"+priceGuard);
+
   // A pagechange hides the frozen August bootstrap while fresh data is
   // revalidated. A same-signature confirmed response must unhide it again.
   const unchanged="if(sig===lastApplied){decorate(lastSource);return true}";
