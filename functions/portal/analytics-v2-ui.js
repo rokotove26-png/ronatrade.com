@@ -282,7 +282,62 @@ const CANONICAL_LPG_NETBACK_TARIFF_UI_V9=String.raw`
         lineV10.style.overflowWrap='anywhere';
         priceCardV10.dataset.pricingMode='MISSING_CONFIRMED_ROUTE_TARIFF';
       }
+      // V11: source-backed OCTOBER rail carry-forward is a NOVEMBER scenario
+      // only. An existing published R12 price is a REFERENCE, never a forecast.
+      const modelV11=product?.rona?.octoberRateCarryForwardScenarioV11;
+      const modelReadyV11=modelV11?.version==='LPG_SOURCE_LOCKED_SCENARIO_V11'&&
+        modelV11?.forecastMonth===forecast.month&&
+        modelV11?.novemberTariffsConfirmed===false&&
+        Number(modelV11?.fxRubPerUsd)>0;
+      let whatIfV11=0,referenceOnlyV11=0;
+      for(const cardV11 of pricingCardsV9){
+        const cptV11=String(cardV11.querySelector('h3')?.textContent||'').trim();
+        const priceV11=cardV11.querySelector('.an2-price-base');
+        const rangeV11=cardV11.querySelector('.an2-price-range');
+        const detailV11=cardV11.querySelector('.an2-price-current');
+        if(!priceV11||!rangeV11||!detailV11)continue;
+        const approvedReferenceV11=quotedCptsV11.get(cptV11);
+        const scenarioV11=modelReadyV11?modelV11.scenarios?.[cptV11]:null;
+        if(scenarioV11?.mode==='OCTOBER_TARIFF_CARRY_FORWARD_SCENARIO_NOT_NOV_APPROVED'&&
+           scenarioV11.novemberTariffApproved===false&&
+           Number.isFinite(Number(scenarioV11.scenarioBaseUsdT))&&
+           Array.isArray(scenarioV11.legs)&&scenarioV11.legs.length){
+          priceV11.textContent=formatValue(Number(scenarioV11.scenarioBaseUsdT))+' USD/т';
+          rangeV11.textContent='LOW '+formatValue(Number(scenarioV11.scenarioLowUsdT))+
+            ' · HIGH '+formatValue(Number(scenarioV11.scenarioHighUsdT));
+          detailV11.textContent='СЦЕНАРИЙ НА НОЯБРЬ: ставки октября без подтверждения продления · '+
+            'ЖД '+formatValue(Number(scenarioV11.railUsdT))+' USD/т · РФ до 31.10.2026 · '+
+            'USD/RUB '+formatValue(Number(modelV11.fxRubPerUsd))+
+            ' на '+String(modelV11.fxAsOf)+' · без маржи и неучтённых расходов';
+          detailV11.style.whiteSpace='normal';
+          detailV11.style.overflowWrap='anywhere';
+          detailV11.title=detailV11.textContent;
+          cardV11.dataset.pricingMode='OCT_TARIFF_NOV_SCENARIO_V11';
+          whatIfV11++;
+        }else if(approvedReferenceV11!==null&&approvedReferenceV11!==undefined&&
+                 Number.isFinite(Number(approvedReferenceV11))){
+          priceV11.textContent=formatValue(Number(approvedReferenceV11))+' USD/т';
+          rangeV11.textContent='ПОСЛЕДНИЙ ОПУБЛИКОВАННЫЙ ПРАЙС · R12 · до 31.10.2026';
+          detailV11.textContent='Справочная утверждённая цена за сентябрь–октябрь. '+
+            'Это НЕ прогноз на ноябрь; для нового сценария нужен точный маршрутный ЖД тариф.';
+          detailV11.style.whiteSpace='normal';
+          detailV11.style.overflowWrap='anywhere';
+          detailV11.title=detailV11.textContent;
+          cardV11.dataset.pricingMode='PUBLISHED_REFERENCE_ONLY_V11';
+          referenceOnlyV11++;
+        }
+      }
+      root.dataset.ronaV11ScenarioCount=String(whatIfV11);
+      root.dataset.ronaV11ReferenceCount=String(referenceOnlyV11);
       root.dataset.ronaPricingCardsReviewed=String(pricingCardsV9.length);
+      if(whatIfV11||referenceOnlyV11){
+        const warningV11=root.querySelector('.an2-model-note');
+        if(warningV11)warningV11.textContent='СУГ '+forecast.month+': '+
+          whatIfV11+' условных сценария по документальным тарифам октября (РФ до 31.10.2026), '+
+          referenceOnlyV11+' справочных цен из опубликованного R12. '+
+          'Перенос октябрьских ставок на ноябрь является допущением, не подтверждением тарифа; '+
+          'маржа и другие затраты не включены, это не коммерческая оферта.';
+      }
       if(matchedTariffCardsV9>0){
         root.dataset.ronaPricingReadiness=matchedTariffCardsV9===pricingCardsV9.length
           ?'PLATTS_NETBACK_TARIFF_FULL':'PLATTS_NETBACK_TARIFF_PARTIAL';
@@ -291,6 +346,12 @@ const CANONICAL_LPG_NETBACK_TARIFF_UI_V9=String.raw`
           ' как прогнозный нетбек + утверждённый действующий ЖД тариф по совпадающему CPT-маршруту. Рассчитано '+
           matchedTariffCardsV9+' из '+pricingCardsV9.length+
           ' направлений. Остальные карточки показывают отсутствующие и исторические тарифные данные без подмены их ноябрьской ценой. Неучтённые расходы и коммерческая маржа не приравниваются к нулю. Индикативно, не коммерческая оферта.';
+        if(whatIfV11||referenceOnlyV11)
+          modelNoteV9.textContent='СУГ '+forecast.month+': '+
+            whatIfV11+' условных сценария Platts + документальные тарифы октября (РФ до 31.10.2026), '+
+            referenceOnlyV11+' справочных цен R12. '+
+            'Тарифы ноября не подтверждены; перенос октября — только допущение. '+
+            'Маржа и прочие расходы НЕ включены; это не коммерческая оферта.';
       }
     }
 `;
