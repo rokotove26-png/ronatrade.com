@@ -8,7 +8,9 @@ const g=JSON.parse(read('governance/analytics-v7-source-confirmed-prepaint-20261
 test('V7 only changes the delivery wrapper and keeps source-locked R4 and V20',()=>{
   assert.equal(g.approval,'OWNER_IN_CHAT');
   assert.equal(g.source_locks.before_analytics_delivery_blob,'802de714a8981eadae7f0de4b96ccfa9b462c69f');
-  assert.equal(hash(read('functions/portal/analytics-v2-ui.js')),g.source_locks.current_analytics_blob_sha);
+  const successor=JSON.parse(read('governance/analytics-v8-pricing-source-readiness-20261011.json'));
+  assert.equal(successor.source_locks.before_delivery_sha,g.source_locks.current_analytics_blob_sha,'V7 historical source locked');
+  assert.equal(hash(read('functions/portal/analytics-v2-ui.js')),successor.source_locks.after_delivery_sha,'Only owner-authorized V8 addition');
   assert.equal(hash(read('functions/portal/analytics-v2-approved-base.js')),g.source_locks.approved_compressed_base_unchanged);
   assert.equal(hash(read('functions/portal/analytics-canonical-live-hydration.js')),g.source_locks.approved_admin_hydration_unchanged);
   assert.equal(hash(read('assets/portal-runtime/client-market-intelligence-v1.js')),g.source_locks.client_v20_unchanged);
