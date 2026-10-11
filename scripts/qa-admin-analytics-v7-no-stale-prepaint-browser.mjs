@@ -51,7 +51,7 @@ try{
      prepaint:window.__RONA_ANALYTICS_CURRENT_SOURCE_PREPAINT_V7__,
      style:!!document.getElementById('rona-analytics-source-only-prepaint-v7'),
      marker:window.__RONA_ANALYTICS_CANONICAL_DAILY_LIVE__,
-     oldFixtureInJS:!!window.RONA_ANALYTICS_VIEW}};
+     oldFixtureInJS:!!window.RONA_ANALYTICS_VIEW};});
  const pending=await inspect();
  assert(pending.state==='SOURCE_PENDING','Initial render did not fail closed: '+JSON.stringify(pending));
  assert(pending.visibility==='hidden','Static August old chart became visible before source:'+JSON.stringify(pending));
