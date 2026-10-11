@@ -87,7 +87,7 @@ BEGIN
   END LOOP;
   RETURN portal_private.market_intelligence_admin_lpg_tariff_bridge_v1(v);
 END
-$function$
+$function$;
 DROP FUNCTION portal_private.market_intelligence_admin_lpg_scenario_v11(jsonb);
 DROP TABLE portal_private.analytics_lpg_rail_evidence_v11;
 -- Authoritative owner_price_snapshots and owner_rail_tariff_matrix never changed.
