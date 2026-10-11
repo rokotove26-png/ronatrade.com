@@ -79,5 +79,7 @@ jobs:
         run: |
           node scripts/wait-cloudflare-commit.mjs
           node scripts/verify-admin-current-only-production.mjs
-          curl -fsSL --retry 3 "https://ronaoil.com/portal/analytics-v2-ui?v7=${GITHUB_SHA}" | grep -q 'source-only-v7'
+          curl -fsSL --retry 3 --max-time 30 "https://ronaoil.com/portal/analytics-v2-ui?v7=${GITHUB_SHA}" -o /tmp/rona-analytics-v7-production.js
+          grep -q 'source-only-v7' /tmp/rona-analytics-v7-production.js
+          ! grep -q 'source-observation-gaps-v13' /tmp/rona-analytics-v7-production.js
           echo RONA_ANALYTICS_V7_PRODUCTION_SOURCE_ONLY=PASS
