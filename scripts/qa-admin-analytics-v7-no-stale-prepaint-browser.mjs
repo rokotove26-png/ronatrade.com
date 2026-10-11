@@ -40,7 +40,7 @@ try{
  const page=await browser.newPage({viewport:{width:1480,height:920}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:'+server.address().port+'/portal/admin',{waitUntil:'domcontentloaded'});
- await page.waitForSelector('#page-analytics > #rona-analytics-v2',{timeout:10000});
+ await page.waitForSelector('#page-analytics > #rona-analytics-v2',{state:'attached',timeout:10000});
  const inspect=()=>page.evaluate(()=>{
    const root=document.querySelector('#page-analytics > #rona-analytics-v2');
    const page=document.querySelector('#page-analytics');
