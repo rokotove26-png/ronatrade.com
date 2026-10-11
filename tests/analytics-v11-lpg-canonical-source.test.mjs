@@ -66,6 +66,9 @@ test('V11 source-driven five cards and explicit what-if/reference status render 
     'source-only-v7']) {
     assert.ok(js.includes(token),'Missing V11 UI guard '+token);
   }
+  assert.ok(js.includes("cardHostV11.appendChild(cloneV11)"),'V11 must add missing CPT cards, not just relabel two');
+  assert.ok(js.includes("else if(modelReadyV11&&approvedReferenceV11"),'R12 previous-price fallback requires authenticated V11 model');
+  assert.ok(js.includes("sourceQuotesV11=Array.isArray(product?.rona?.bases)"),'CPT list must come from live canonical source');
   assert.equal((js.match(/function adminCompactChart\(root,product,key\)/g)||[]).length,1);
   assert.ok(!js.includes('source-observation-gaps-v13'));
   assert.ok(!js.includes('function renderAnalytics(){'));
