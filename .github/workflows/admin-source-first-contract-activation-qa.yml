@@ -28,7 +28,7 @@ jobs:
           grep -q 'data-rona-admin-shell="current-only-v2"' dist/portal/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
           grep -q 'data-page="agent-settlements"' dist/portal/admin.html
-          grep -q 'data-page="claims"' dist/portal/admin.html
+          ! grep -q 'data-page="claims"' dist/portal/admin.html
           ! grep -q 'v3.4.13' dist/portal/admin.html
           node --check functions/portal/clients-agents-current-ui.js
           node --check 'functions/portal/admin-authority/[[path]].js'
