@@ -33,7 +33,10 @@ const server=http.createServer((req,res)=>{
  const u=new URL(req.url,'http://127.0.0.1');
  res.setHeader('cache-control','no-store');
  if(u.pathname==='/portal/admin'){res.setHeader('content-type','text/html; charset=utf-8');return res.end(html);}
- if(u.pathname==='/analytics.js'){res.setHeader('content-type','application/javascript; charset=utf-8');return res.end(js);}
+ if(u.pathname==='/analytics.js'){res.setHeader('content-type','application/javascript; charset=utf-8');
+   const marker='    // V9: previously approved LPG model';
+   const probe="    console.log('ANALYTICS_V9_DECORATE_TRACE',JSON.stringify({key,available:!!forecast,sourceState:document.documentElement.dataset.ronaAnalyticsData,bridge:product?.rona?.netbackTariffBridges,cardCount:root.querySelectorAll('.an2-price-card').length}));\\n";
+   return res.end(js.includes(marker)?js.replace(marker,probe.replace('\\n','\\n')+marker):js);}
  if(u.pathname==='/portal/api/v1/admin/analytics'){
    requests++;res.setHeader('content-type','application/json');
    if(mode==='DELAY')return setTimeout(()=>{res.statusCode=502;res.end(JSON.stringify({ok:false,code:'DELAYED_502'}))},1100);
@@ -132,7 +135,7 @@ try{
  };
  const positivePage=await browser.newPage({viewport:{width:1480,height:920}});
  positivePage.on('pageerror',e=>console.log('ANALYTICS_V9_PAGEERROR',e.message));
- positivePage.on('console',m=>{if(m.type()==='error')console.log('ANALYTICS_V9_BROWSER_CONSOLE',m.text())});
+ positivePage.on('console',m=>{if(m.type()==='error'||m.text().includes('ANALYTICS_V9_DECORATE_TRACE'))console.log('ANALYTICS_V9_BROWSER_CONSOLE',m.text())});
  try {
    await positivePage.goto('http://127.0.0.1:'+server.address().port+'/portal/admin',{waitUntil:'domcontentloaded'});
    await positivePage.waitForFunction(()=>
