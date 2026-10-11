@@ -148,7 +148,7 @@ try{
      null,{timeout:12000});
    await positivePage.evaluate(()=>window.RONA_ANALYTICS_VIEW.setProduct('LPG'));
    await positivePage.waitForFunction(()=>
-     document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='PLATTS_NETBACK_TARIFF_PARTIAL',
+     document.querySelector('#rona-analytics-v2')?.dataset?.ronaPricingReadiness==='V12_REFERENCE_UNVERIFIED',
      null,{timeout:5000});
    const positive=await positivePage.evaluate(()=>{
      const root=document.querySelector('#rona-analytics-v2');
