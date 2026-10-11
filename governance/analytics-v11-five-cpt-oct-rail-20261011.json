@@ -7,8 +7,8 @@
   "source_locks": {
     "admin_delivery_before": "5d353dbdee44539dea3bc08a02e8adea1b2f30bd",
     "admin_delivery_after": "77f3280c96fa1f2d12a7db761027561fd15eb60a",
-    "v11_migration_blob": "6e510579b91597bdc5b9b611dd341501ee51740d",
-    "v11_rollback_blob": "6749fe560c684378f1b8972f9936b602286bee55",
+    "v11_migration_blob": "5cc1088389b35306bb89ca60b6f34ecd2f53928b",
+    "v11_rollback_blob": "901af940fa971b6c0aa9450d4e11272ef0f44f0a",
     "bootstrap_live_md5_before": "e4635eefbfcbbd3e7b48110fbee5f75e",
     "existing_v10_bridge_md5": "63438f0c5c0d5393699f61303afc7e94",
     "client_unchanged_blob": "417bf3773613a54b0aa4420f0978cf94d4d04a02"
@@ -76,5 +76,6 @@
     "sql": "supabase/rollbacks/20261011100000_analytics_lpg_v11_canonical_drive_oct_scenario_rollback.sql",
     "ui_predecessor": "5d353dbdee44539dea3bc08a02e8adea1b2f30bd",
     "pricing_business_data": "NO_BUSINESS_DATA_UPDATE"
-  }
+  },
+  "runtime_regression": "First Supabase apply attempt failed atomically with SQL syntax 42601 because generated pg_get_functiondef body ended at $function$ without a ;. Verified bootstrap MD5 unchanged and V11 table/function absent. Corrected migration and rollback with explicit $function$; statement terminators; no prod mutation on failed attempt."
 }
