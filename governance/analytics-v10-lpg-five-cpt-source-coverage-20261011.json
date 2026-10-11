@@ -1,0 +1,45 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "owner_instruction": "Complete all five LPG CPT basis information in RONA Admin Analytics; inspect and repair source matching/UI end-to-end without fabricating rates or changing business authority.",
+  "authorized_at": "2026-10-11",
+  "scope": "ADMIN_ANALYTICS_LPG_FIVE_CPT_SOURCE_COVERAGE_V10",
+  "role": "SYSTEM_ADMIN_TECHNICAL_IMPLEMENTATION",
+  "decision": "DISPLAY_ALL_FIVE_CPT_SOURCE_STATUS_AND_ALLOW_ONLY_WORKING_CONFIRMED_EXACT_ROUTE_RAIL_PRICES",
+  "predecessor": "V9",
+  "source_locks": {
+    "admin_delivery_before": "80b715196dac48363e313e017cff5b525d31a275",
+    "admin_delivery_after": "5d353dbdee44539dea3bc08a02e8adea1b2f30bd",
+    "v9_bridge_live_predecessor_pg_md5": "70f34dee304fdb71ca58e245ccb6330b",
+    "v10_migration_blob": "cbb4a6a4cc7d5defb5126fb8728bab55b2114d7e",
+    "v10_rollback_blob": "5ac1c17a91ee5beeef1dce8bf57a9e7a9df9e812",
+    "client_v20_unchanged": "417bf3773613a54b0aa4420f0978cf94d4d04a02"
+  },
+  "source_scope": {
+    "tariff": "portal_private.owner_rail_tariff_matrix; all LPG_SPBT direct matching routes; only status WORKING_CONFIRMED + required sources may enter price bridge",
+    "forecast": "2026-11 source-backed Platts LOW/BASE/HIGH unchanged",
+    "published_price": "Sep 2026 R12 owner price snapshots informational historical only, not November",
+    "client": "NO_CHANGE",
+    "registration": "V9 numeric rail segment and new V10 per-CPT readiness metadata are separate from full delivered price"
+  },
+  "known_status_as_of_2026_10_11": {
+    "CPT Озинки": "historical segment Злынка→Озинки 141.11 USD/t + TO_VERIFY Красное→Озинки; no current qualified rail",
+    "CPT Сарыагаш": "Озинки→Сарыагаш 137.24 USD/t WORKING_CONFIRMED single segment; indicative Platts 725+137.24=862.24 USD/t",
+    "CPT Турксиб": "exact currently qualified rail route missing",
+    "CPT Уртааул": "exact currently qualified rail route missing",
+    "CPT Маргилан": "exact qualified destination rail missing; Киргили is not automatically Маргилан"
+  },
+  "gates": [
+    "V6/V7/V8/V9 predecessor hashes preserved through V10 successor lock",
+    "SQL predecessor PG MD5 guard; check no data updates and no public grants",
+    "V10 browser test per basis and source loss negative test",
+    "R4 one painter, 30d observations, V20 client visual freeze",
+    "No production deploy on red scoped CI",
+    "Owner logged-in UAT after verified production"
+  ],
+  "rollback": {
+    "sql": "supabase/rollbacks/20261011074000_analytics_lpg_v10_all_cpt_source_coverage_rollback.sql",
+    "ui_blob_sha": "80b715196dac48363e313e017cff5b525d31a275",
+    "business_mutation": "NONE"
+  },
+  "runtime_regression": "Production V10 trials triggered 55000 (record variable b shadows b(item) SQL alias) and 42P01 (stray b.basis); both guarded rollbacks restored V9 MD5 70f34dee304fdb71ca58e245ccb6330b. V10 fixed uses v_basis_row consistently; migration now includes transaction-scoped actual PLpgSQL five-basis self-smoke and no business writes."
+}

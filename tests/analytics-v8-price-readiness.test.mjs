@@ -12,7 +12,9 @@ test('owner-approved V8 pricing change contains no new formula, market data, CSS
   assert.equal(governance.approval,'OWNER_IN_CHAT');
   const v9=JSON.parse(read('governance/analytics-v9-lpg-netback-approved-rail-20261011.json'));
   assert.equal(v9.source_locks.admin_delivery_before,governance.source_locks.after_delivery_sha,'V8 historical source preserved');
-  assert.equal(hash(read('functions/portal/analytics-v2-ui.js')),v9.source_locks.admin_delivery_after);
+  const v10=JSON.parse(read('governance/analytics-v10-lpg-five-cpt-source-coverage-20261011.json'));
+  assert.equal(v10.source_locks.admin_delivery_before,v9.source_locks.admin_delivery_after,'V9 historically locked');
+  assert.equal(hash(read('functions/portal/analytics-v2-ui.js')),v10.source_locks.admin_delivery_after);
   assert.equal(hash(read('functions/portal/analytics-canonical-live-hydration.js')),governance.source_locks.admin_r4_hydration_unchanged);
   assert.equal(hash(read('functions/portal/analytics-v2-approved-base.js')),governance.source_locks.admin_compressed_r4_unchanged);
   assert.equal(hash(read('assets/portal-runtime/client-market-intelligence-v1.js')),governance.source_locks.client_v20_runtime_unchanged);

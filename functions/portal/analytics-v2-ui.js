@@ -186,6 +186,7 @@ const CANONICAL_LPG_NETBACK_TARIFF_UI_V9=String.raw`
       const tariffBridgesV9=product?.rona?.netbackTariffBridges;
       const pricingCardsV9=Array.from(root.querySelectorAll('.an2-price-card'));
       let matchedTariffCardsV9=0;
+      const matchedCptV10=new Set();
       if(tariffBridgesV9&&typeof tariffBridgesV9==='object'){
         for(const priceCardV9 of pricingCardsV9){
           const basisV9=String(priceCardV9.querySelector('h3')?.textContent||'').trim();
@@ -211,11 +212,40 @@ const CANONICAL_LPG_NETBACK_TARIFF_UI_V9=String.raw`
           if(!mainV9||!rangeV9||!railLineV9)continue;
           mainV9.textContent=formatValue(baseV9)+' USD/т';
           rangeV9.textContent='LOW '+formatValue(lowV9)+' · HIGH '+formatValue(highV9);
-          railLineV9.textContent='ЖД тариф '+formatValue(railV9)+' USD/т · '+String(bV9.route);
+          railLineV9.textContent='ЖД тариф '+formatValue(railV9)+' USD/т · '+String(bV9.route)+' · подтверждённый участок, не полная логистика';
           priceCardV9.dataset.pricingMode='PLATTS_NETBACK_PLUS_CONFIRMED_RAIL_V1';
+          matchedCptV10.add(basisV9);
           matchedTariffCardsV9++;
         }
       }
+      // V10: every published CPT basis gets a truthful source-readiness status.
+      // The server-provided V9 bridge is the only authority for a Nov price.
+      // Unmatched bases retain NO projected price (never reuse published R12).
+      for(const priceCardV10 of pricingCardsV9){
+        const basisV10=String(priceCardV10.querySelector('h3')?.textContent||'').trim();
+        if(matchedCptV10.has(basisV10))continue;
+        const mainV10=priceCardV10.querySelector('.an2-price-base');
+        const rangeV10=priceCardV10.querySelector('.an2-price-range');
+        const lineV10=priceCardV10.querySelector('.an2-price-current');
+        if(!basisV10.startsWith('CPT ')||!mainV10||!rangeV10||!lineV10)continue;
+        const coverageV10=product?.rona?.netbackTariffCoverage?.[basisV10];
+        const routesV10=Array.isArray(coverageV10?.matches)?coverageV10.matches:[];
+        const linesV10=routesV10.map(route=>{
+          const value=route.railUsdT;
+          const rate=value===null||value===undefined||!Number.isFinite(Number(value))
+            ?'ставка отсутствует':formatValue(Number(value))+' USD/т';
+          return String(route.route||'Маршрут')+': '+rate+' · '+String(route.tariffStatus||'TO_VERIFY');
+        });
+        mainV10.textContent='Не рассчитана';
+        rangeV10.textContent='Прогноз '+forecast.month+' · недостаточно текущих тарифных данных';
+        lineV10.textContent=linesV10.length?linesV10.join(' | '):
+          'Для '+basisV10+' нет точного подтверждённого тарифного плеча';
+        lineV10.title=lineV10.textContent;
+        lineV10.style.whiteSpace='normal';
+        lineV10.style.overflowWrap='anywhere';
+        priceCardV10.dataset.pricingMode='MISSING_CONFIRMED_ROUTE_TARIFF';
+      }
+      root.dataset.ronaPricingCardsReviewed=String(pricingCardsV9.length);
       if(matchedTariffCardsV9>0){
         root.dataset.ronaPricingReadiness=matchedTariffCardsV9===pricingCardsV9.length
           ?'PLATTS_NETBACK_TARIFF_FULL':'PLATTS_NETBACK_TARIFF_PARTIAL';
@@ -223,7 +253,7 @@ const CANONICAL_LPG_NETBACK_TARIFF_UI_V9=String.raw`
         if(modelNoteV9)modelNoteV9.textContent='СУГ: Platts '+forecast.month+
           ' как прогнозный нетбек + утверждённый действующий ЖД тариф по совпадающему CPT-маршруту. Рассчитано '+
           matchedTariffCardsV9+' из '+pricingCardsV9.length+
-          ' направлений. Для остальных нет подтверждённых полных тарифных плеч; они скрыты. Неучтённые расходы и коммерческая маржа не приравниваются к нулю. Индикативно, не коммерческая оферта.';
+          ' направлений. Остальные карточки показывают отсутствующие и исторические тарифные данные без подмены их ноябрьской ценой. Неучтённые расходы и коммерческая маржа не приравниваются к нулю. Индикативно, не коммерческая оферта.';
       }
     }
 `;

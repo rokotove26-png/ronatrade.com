@@ -111,7 +111,9 @@ try{
  });
  assert(pricingGap.note.includes('Котировки CPT имеются')&&
     pricingGap.note.includes('отсутствует подтверждённый сопоставимый рыночный референс')&&
-    pricingGap.cards.length>0&&pricingGap.cards.every(card=>card.every(value=>value==='—')),
+    pricingGap.cards.length>0&&pricingGap.cards.every(card=>card[0]==='Не рассчитана'&&
+       card[1]?.includes('недостаточно текущих тарифных данных')&&
+       card[2]?.includes('нет точного подтверждённого тарифного плеча')),
     'V8 falsely calculated RONA pricing despite missing compatible reference: '+JSON.stringify(pricingGap));
  console.log('ANALYTICS_V8_LPG_REFERENCE_MISSING_NO_FAKE_PRICE=PASS');
  // Verify the REAL initial production condition in an isolated browser:
@@ -156,7 +158,9 @@ try{
    assert(target?.base?.includes('862,24')&&
       target?.range?.includes('832,24')&&target?.range?.includes('892,24')&&
       target?.rail?.includes('137,24')&&
-      missing?.base==='—'&&missing?.range==='—'&&missing?.rail==='—'&&
+      missing?.base==='Не рассчитана'&&
+       missing?.range?.includes('недостаточно текущих тарифных данных')&&
+       missing?.rail?.includes('нет точного подтверждённого тарифного плеча')&&
       positive.note.includes('Platts')&&positive.note.includes('1 из 2'),
       'V9 must calculate ONLY source-verified rail route: '+JSON.stringify(positive));
    assert(positiveErrors.length===0,'Unexpected browser execution errors: '+positiveErrors.join('; '));

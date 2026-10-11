@@ -1,0 +1,62 @@
+name: Analytics V10 LPG five CPT source coverage
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'supabase/migrations/20261011074000_analytics_lpg_v10_all_cpt_source_coverage.sql'
+      - 'supabase/rollbacks/20261011074000_analytics_lpg_v10_all_cpt_source_coverage_rollback.sql'
+      - 'tests/analytics-v10-lpg-five-cpt-source-status.test.mjs'
+      - 'governance/analytics-v10-lpg-five-cpt-source-coverage-20261011.json'
+      - '.github/workflows/analytics-v10-five-cpt-source-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'tests/analytics-v10-lpg-five-cpt-source-status.test.mjs'
+      - '.github/workflows/analytics-v10-five-cpt-source-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  admin-lpg-five-cpt-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Exact source version chain V6 to V10, no invented market or transport facts
+        run: |
+          node --test tests/analytics-v10-lpg-five-cpt-source-status.test.mjs \
+            tests/analytics-v9-lpg-netback-approved-tariff.test.mjs \
+            tests/analytics-v8-price-readiness.test.mjs \
+            tests/analytics-v7-source-only-prepaint.test.mjs \
+            tests/analytics-v6-single-owner-retirement.test.mjs \
+            tests/admin-analytics-exclusive-chart-r4.test.mjs \
+            tests/analytics-rolling-30-calendar-days-v2.test.mjs \
+            tests/analytics-r5-connect-sparse-confirmed-dates.test.mjs \
+            tests/client-analytics-buyer-facing-insight-v20.test.mjs
+      - name: Build authorized canonical Admin and Client
+        run: npm run build
+      - name: Install Chromium test dependencies
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Source-locked live fetch and stale source fail-closed visual QA
+        run: node scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs
+      - name: Four-fuel source clarity and single renderer QA
+        run: node scripts/qa-admin-analytics-source-clarity-browser-r3.mjs
+      - name: Observed 30d no fabricated dates
+        run: node scripts/qa-admin-analytics-r5-connected-30d-browser.mjs
+      - name: Client V20 unchanged
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - name: Production source after branch activation
+        if: github.event_name == 'push'
+        run: |
+          curl -fsSL --retry 3 --max-time 30 "https://ronaoil.com/portal/analytics-v2-ui?v10=${GITHUB_SHA}" -o /tmp/rona-v10.js
+          grep -q 'netbackTariffCoverage' /tmp/rona-v10.js
+          grep -q 'MISSING_CONFIRMED_ROUTE_TARIFF' /tmp/rona-v10.js
+          grep -q 'source-only-v7' /tmp/rona-v10.js
+          ! grep -q 'source-observation-gaps-v13' /tmp/rona-v10.js
