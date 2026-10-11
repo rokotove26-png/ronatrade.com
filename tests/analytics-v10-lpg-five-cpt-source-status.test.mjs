@@ -29,6 +29,8 @@ test('V10 source-locked SQL covers direct incoming and outgoing CPT routes, does
     'netbackTariffCoverage',
     "'hasEligibleCurrentSegment'",
     "'MATCHING_RAIL_SEGMENTS_ONLY'",
+    "'priceAuthority','NOT_A_COMMERCIAL_OFFER'",
+    "'commercialComponent','NOT_INCLUDED'",
     'jsonb_agg(jsonb_build_object'])
     assert.ok(sql.includes(x),x);
   // SQL alias b(item) in the original V9 query must never be shadowed by PLpgSQL record b.
