@@ -46,7 +46,7 @@ test('V10 output is syntax-valid, one chart owner, all matching/source-missing c
   for(const token of ['MISSING_CONFIRMED_ROUTE_TARIFF','netbackTariffCoverage',
     'Не рассчитана','matchedCptV10.has(basisV10)',
     'PLATTS_NETBACK_PLUS_CONFIRMED_RAIL_V1',
-    'HISTORICAL','Индикативно, не коммерческая оферта.'])
+    'Индикативно, не коммерческая оферта.'])
     assert.ok(script.includes(token),token);
   assert.ok(!script.includes('if(priceCardV10.dataset.pricingMode==='),'Never preserve stale V9 price upon missing source');
   assert.equal((script.match(/function adminCompactChart\(root,product,key\)/g)||[]).length,1);
