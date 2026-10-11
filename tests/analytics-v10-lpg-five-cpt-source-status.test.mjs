@@ -41,6 +41,9 @@ test('V10 source-locked SQL covers direct incoming and outgoing CPT routes, does
   assert.ok(!/\bb\.basis\b/.test(sql),'No stale SQL reference to plpgsql alias b');
   assert.ok(sql.includes('V10_LPG_RUNTIME_FIVE_CPT_COVERAGE_FAILED'), 'Run five-basis smoke inside SQL migration');
   assert.ok(sql.includes('V10_SQL_RUNTIME_QA_ONLY'), 'Use transient QA fixture only, not commercial market facts');
+  assert.ok(sql.includes("v_cov := v_out #> '{canonicalAnalytics,products,LPG,rona,netbackTariffCoverage}'"));
+  assert.ok(sql.includes("to_char(now() at time zone 'Europe/Moscow','YYYY-MM')"));
+  assert.ok(sql.includes("v_bridges ? v_basis_row.basis"), 'No unresolved PLpgSQL alias in coverage membership');
   assert.ok(!sql.includes("t.route_text LIKE 'Озинки → %'"));
   assert.ok(!/\b(?:INSERT|UPDATE|DELETE)\s+(?:INTO\s+|FROM\s+)?portal_private\./i.test(sql));
   assert.ok(!sql.includes('GRANT EXECUTE'));
