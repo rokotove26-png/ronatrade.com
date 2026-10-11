@@ -1,0 +1,67 @@
+name: Analytics V12 LPG CPT source-spread no double rail QA
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'supabase/migrations/20261011163500_analytics_lpg_v12_price_spread_no_double_rail.sql'
+      - 'supabase/rollbacks/20261011163500_analytics_lpg_v12_price_spread_no_double_rail_rollback.sql'
+      - 'governance/analytics-v12-lpg-cpt-spread-20261011.json'
+      - 'tests/analytics-v12-lpg-source-spread-no-double-rail.test.mjs'
+      - 'scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs'
+      - '.github/workflows/analytics-v12-no-double-rail-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'tests/analytics-v12-lpg-source-spread-no-double-rail.test.mjs'
+      - 'scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs'
+      - '.github/workflows/analytics-v12-no-double-rail-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  admin-lpg-five-cpt-no-double-rail:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Exact source locks V6 through V12 and frozen client
+        run: |
+          node --test tests/analytics-v12-lpg-source-spread-no-double-rail.test.mjs \
+            tests/analytics-v11-lpg-canonical-source.test.mjs \
+            tests/analytics-v10-lpg-five-cpt-source-status.test.mjs \
+            tests/analytics-v9-lpg-netback-approved-tariff.test.mjs \
+            tests/analytics-v8-price-readiness.test.mjs \
+            tests/analytics-v7-source-only-prepaint.test.mjs \
+            tests/analytics-v6-single-owner-retirement.test.mjs \
+            tests/admin-analytics-exclusive-chart-r4.test.mjs \
+            tests/analytics-rolling-30-calendar-days-v2.test.mjs \
+            tests/analytics-r5-connect-sparse-confirmed-dates.test.mjs \
+            tests/client-analytics-buyer-facing-insight-v20.test.mjs
+      - name: Build canonical Admin and untouched Client bundles
+        run: npm run build
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Browser five corrected CPTs and zero under-price comments
+        run: node scripts/qa-admin-analytics-v7-no-stale-prepaint-browser.mjs
+      - name: Source clarity and single R4 chart owner
+        run: node scripts/qa-admin-analytics-source-clarity-browser-r3.mjs
+      - name: R5 real rolling-30-day source graph
+        run: node scripts/qa-admin-analytics-r5-connected-30d-browser.mjs
+      - name: Frozen client visual source QA
+        run: node scripts/qa-client-analytics-canonical-real-page-v4.mjs
+      - name: Verify V12 production source after merge
+        if: github.event_name == 'push'
+        run: |
+          curl -fsSL --retry 3 --max-time 30 "https://ronaoil.com/portal/analytics-v2-ui?v12=${GITHUB_SHA}" -o /tmp/rona-analytics-v12.js
+          grep -q 'referenceSpreadV12' /tmp/rona-analytics-v12.js
+          grep -q 'PUBLISHED_R12_PLUS_PLATTS_DELTA_V12' /tmp/rona-analytics-v12.js
+          grep -q 'ronaV12DoubleRail' /tmp/rona-analytics-v12.js
+          grep -q 'source-only-v7' /tmp/rona-analytics-v12.js
+          ! grep -q 'source-observation-gaps-v13' /tmp/rona-analytics-v12.js
