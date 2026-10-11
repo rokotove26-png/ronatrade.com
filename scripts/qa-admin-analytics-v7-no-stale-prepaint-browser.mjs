@@ -35,7 +35,7 @@ const server=http.createServer((req,res)=>{
  if(u.pathname==='/portal/admin'){res.setHeader('content-type','text/html; charset=utf-8');return res.end(html);}
  if(u.pathname==='/analytics.js'){res.setHeader('content-type','application/javascript; charset=utf-8');
    const marker='    // V9: previously approved LPG model';
-   const probe=`    console.log('ANALYTICS_V9_DECORATE_TRACE',JSON.stringify({key,available:!!forecast,sourceState:document.documentElement.dataset.ronaAnalyticsData,bridge:product?.rona?.netbackTariffBridges,cardCount:root.querySelectorAll('.an2-price-card').length}));
+   const probe=`    console.log('ANALYTICS_V9_DECORATE_TRACE',JSON.stringify({key,available:!!forecast,sourceState:document.documentElement.dataset.ronaAnalyticsData,fMonth:forecast?.month,fRef:forecast?.sourceRef,bridge:product?.rona?.netbackTariffBridges,bases:[...root.querySelectorAll('.an2-price-card h3')].map(x=>x.textContent?.trim()),cardCount:root.querySelectorAll('.an2-price-card').length,firstQuoteMatched:(()=>{const b=product?.rona?.netbackTariffBridges?.['CPT Сарыагаш'];return b?{model:b.model==='PLATTS_NETBACK_PLUS_CONFIRMED_RAIL_V1',status:b.tariffStatus==='WORKING_CONFIRMED',month:b.marketMonth===forecast?.month,reference:b.marketSourceRef===forecast?.sourceRef,rail:Number(b.railUsdT)>0,route:String(b.route).endsWith('Сарыагаш'),refs:Array.isArray(b.sourceRefs),approved:!!b.approvedAt}:null})()}));
 `;
    return res.end(js.includes(marker)?js.replace(marker,probe+marker):js);}
  if(u.pathname==='/portal/api/v1/admin/analytics'){
