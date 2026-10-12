@@ -8,6 +8,7 @@ const dealDocumentsPath='dist/assets/portal-runtime/client-deal-documents-v5.js'
 const PRIOR_MARK='ISSUE432_CONTEXT_SWITCH_RELOAD_QUEUE_V1';
 const MARK='ISSUE432_CONTEXT_AUTHORITY_CONSUMER_V2';
 const APPLICATIONS_MARK='ISSUE432_APPLICATIONS_CENTRAL_PROJECTION_V1';
+const APPLICATIONS_LOAD_MARK='ISSUE432_APPLICATIONS_RELOAD_QUEUE_V1';
 const CONTRACT_MARK='ISSUE432_CONTRACT_DIRECTORY_CENTRAL_PROJECTION_V1';
 const PAYMENTS_MARK='ISSUE432_PAYMENTS_CENTRAL_PROJECTION_V1';
 const DEAL_DOCUMENTS_MARK='ISSUE432_DEAL_DOCUMENTS_CENTRAL_PROJECTION_V1';
@@ -39,7 +40,17 @@ if(!applications.includes(APPLICATIONS_MARK)){
   applications=replaceOnce(applications,"const state={apps:[],contextKey:'',loading:false,lastLoad:0,timer:0,unsubscribe:null};",`const ${APPLICATIONS_MARK}='${APPLICATIONS_MARK}';\nconst state={apps:[],contextKey:'',loading:false,lastLoad:0,timer:0,unsubscribe:null};`,'ISSUE432_APPLICATIONS_MARK');
   applications=replaceOnce(applications,"const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));","const a=authority();if(!a?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');const projected=await a.whenCurrentProjection('client-applications-live-render-v1');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};",'ISSUE432_APPLICATIONS_CONTEXT_READ');
 }
-await validateAndWrite(applications,applicationsPath,'ISSUE432_APPLICATIONS',[APPLICATIONS_MARK,"a.whenCurrentProjection('client-applications-live-render-v1')",'REFRESH_MS=30000'],"request('/v1/client/context?clientId='");
+if(!applications.includes(APPLICATIONS_LOAD_MARK)){
+  const stateFrom="const "+APPLICATIONS_MARK+"='"+APPLICATIONS_MARK+"';\nconst state={apps:[],contextKey:'',loading:false,lastLoad:0,timer:0,unsubscribe:null};";
+  const stateTo="const "+APPLICATIONS_MARK+"='"+APPLICATIONS_MARK+"';\nconst "+APPLICATIONS_LOAD_MARK+"='"+APPLICATIONS_LOAD_MARK+"';\nconst state={apps:[],contextKey:'',loading:false,lastLoad:0,timer:0,unsubscribe:null,reloadRequested:false};";
+  applications=replaceOnce(applications,stateFrom,stateTo,'ISSUE432_APPLICATIONS_RELOAD_QUEUE_STATE');
+  const loadStart=applications.indexOf('async function load(force=false){');
+  const loadEnd=applications.indexOf('\nfunction start(){',loadStart);
+  if(loadStart<0||loadEnd<=loadStart||applications.indexOf('async function load(force=false){',loadStart+1)>=0)throw new Error('ISSUE432_APPLICATIONS_LOAD_BLOCK_NOT_UNIQUE');
+  const loadTo="async function load(force=false){\n  if(state.loading){if(force)state.reloadRequested=true;return}\n  state.loading=true;\n  let key='';\n  try{\n    const ctx=await currentContext().catch(()=>null);\n    if(!ctx)return;\n    key=contextKey(ctx);\n    if(!key||key==='|')return;\n    if(!force&&state.contextKey===key&&Date.now()-state.lastLoad<REFRESH_MS){render();return}\n    const a=authority();\n    if(!a?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');\n    const projected=await a.whenCurrentProjection('client-applications-live-render-v1');\n    if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');\n    const detail={data:projected};\n    if(contextKey(a.getCurrentContext?.())!==key){state.reloadRequested=true;return}\n    state.apps=Array.isArray(detail?.data?.applications)?detail.data.applications:[];\n    state.contextKey=key;state.lastLoad=Date.now();\n    render();\n  }catch(error){\n    const message=String(error?.message||error);\n    if(message.includes('CLIENT_CONTEXT_PROJECTION_STALE_RESPONSE')||message.includes('CLIENT_CONTEXT_CHANGED_DURING_PROJECTION'))state.reloadRequested=true;\n    else{console.error('RONA client live applications render',error);const r=root();if(r)r.setAttribute('data-rona-applications-live-render','error')}\n  }finally{\n    state.loading=false;\n    const latestKey=contextKey(authority()?.getCurrentContext?.());\n    const pending=state.reloadRequested||Boolean(key&&latestKey&&latestKey!=='|'&&latestKey!==key);\n    state.reloadRequested=false;\n    if(pending)queueMicrotask(()=>load(true));\n  }\n}";
+  applications=applications.slice(0,loadStart)+loadTo+applications.slice(loadEnd);
+}
+await validateAndWrite(applications,applicationsPath,'ISSUE432_APPLICATIONS',[APPLICATIONS_MARK,APPLICATIONS_LOAD_MARK,"a.whenCurrentProjection('client-applications-live-render-v1')",'state.reloadRequested=true','queueMicrotask(()=>load(true))','REFRESH_MS=30000'],"request('/v1/client/context?clientId='");
 
 let contract=await readFile(contractPath,'utf8');
 if(!contract.includes(CONTRACT_MARK)){
