@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { patchCanonicalApplicationsRuntime } from './client-applications-context-race-v2.mjs';
 const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const approvalPath='governance/client-portal-visual-freeze.json';
@@ -23,6 +24,7 @@ const newSubmit="window.addEventListener('rona:client-application-submitted',()=
 if(!sourceRuntime.includes(ghost))throw new Error('CLIENT_APPLICATIONS_GHOST_ENDPOINT_TARGET_MISSING');
 if(!sourceRuntime.includes(oldSubmit))throw new Error('CLIENT_APPLICATIONS_SUBMIT_INVALIDATION_TARGET_MISSING');
 let runtime=sourceRuntime.replace(`const MARK='${sourceMarker}';`,`const MARK='${marker}';`).replace(ghost,live).replace(oldSubmit,newSubmit);
+runtime=patchCanonicalApplicationsRuntime(runtime);
 if(runtime.includes('applications-projection'))throw new Error('CLIENT_APPLICATIONS_GHOST_ENDPOINT_NOT_REMOVED');
 for(const required of [marker,'whenCurrentProjection','invalidateCurrentProjection','state.timer=setInterval(()=>load(false),REFRESH_MS)',"window.addEventListener('pageshow',()=>{load(true)"])if(!runtime.includes(required))throw new Error(`CLIENT_APPLICATIONS_CURRENT_PROJECTION_CONTRACT_MISSING: ${required}`);
 
