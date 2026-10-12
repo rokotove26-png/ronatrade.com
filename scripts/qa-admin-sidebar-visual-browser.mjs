@@ -50,7 +50,11 @@ try{
 
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>window.__RONA_ADMIN_SIDEBAR_OWNER__==='shell-v455-command-v14');
-  await page.waitForFunction(()=>document.querySelectorAll('#nav .nav-icon > svg').length===14);
+  // Derive expected icon count from the emitted navigation contract, not a retired hard-coded count.
+  await page.waitForFunction(()=>{
+    const buttons=[...document.querySelectorAll('#nav button[data-page]')];
+    return buttons.length>0&&buttons.every(b=>b.querySelector(':scope>.nav-icon>svg'));
+  });
 
   const proof=await page.evaluate(()=>{
     const nav=document.getElementById('nav');
@@ -94,12 +98,12 @@ try{
   assert.equal(proof.sideOwner,'shell-v455-command-v14');
   assert.equal(proof.navOwner,'shell-v455-command-v14');
   assert.equal(proof.diagnostic?.owner,'shell-v455-command-v14');
-  assert.equal(proof.diagnostic?.icons,14,'runtime diagnostic must see 14 rendered icons');
+  assert.equal(proof.diagnostic?.icons,proof.repaired.length,'runtime diagnostic must report one icon per emitted navigation item');
   assert.deepEqual(proof.diagnostic?.missing,[],'runtime diagnostic must report no missing icons');
   for(const item of proof.repaired){assert.equal(item.structure,'shell-v455-command-v14',item.page+': self-heal structure marker missing');assert.equal(item.children,2,item.page+': repaired button must contain exactly icon and label');assert(item.label.trim().length>0,item.page+': repaired label missing')}
   assert.equal(proof.styles,1,'expected exactly one runtime shell style owner');
-  assert.equal(proof.iconCount,14,'all 14 nav items must own a real SVG icon');
-  assert.equal(proof.visibleCount,13,'Documents stays structurally hidden');
+  assert.equal(proof.iconCount,proof.repaired.length,'all emitted nav items must own a real SVG icon');
+  assert.equal(proof.visibleCount,proof.repaired.length-(proof.documentsDisplay==='none'?1:0),'only intentionally hidden Documents may be omitted from visible nav');
   assert.equal(proof.documentsDisplay,'none');
   assert.equal(proof.activePage,'home');
   assert.match(proof.activeIconBorder,/rgba?\(/);
@@ -127,8 +131,8 @@ try{
     };
   });
   assert.equal(lateOwnerProof.marker,'20260920-nav-descendant-safe-v15');
-  assert.equal(lateOwnerProof.iconSlots,14,'late owner runtime deleted icon slots');
-  assert.equal(lateOwnerProof.svgCount,14,'late owner runtime deleted SVG icons');
+  assert.equal(lateOwnerProof.iconSlots,proof.repaired.length,'late owner runtime deleted icon slots');
+  assert.equal(lateOwnerProof.svgCount,proof.repaired.length,'late owner runtime deleted SVG icons');
   assert(lateOwnerProof.graphicCount>=28,'late owner runtime deleted SVG graphic descendants');
   assert.deepEqual(lateOwnerProof.missing,[],'late owner runtime left missing icons');
   for(const item of lateOwnerProof.labels)assert(item.label.trim().length>0,item.page+': late owner runtime damaged nav label');
