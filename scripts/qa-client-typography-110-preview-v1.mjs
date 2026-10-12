@@ -29,6 +29,15 @@ const patched=prefix+piece.replace(oldBaseline,newBaseline)+suffix;
 if(patched===before||!patched.includes(newBaseline)||before.replace(prefix+piece+suffix,'')!=='')throw Error('QA_PREVIEW_NOOP');
 if(patched.replace(newBaseline,oldBaseline)!==before)throw Error('QA_PREVIEW_NONATOMIC_CHANGE');
 await writeFile(EMITTED,patched,'utf8');
+
+const clientHtmlPath='dist/portal/client.html',htmlBefore=await readFile(clientHtmlPath,'utf8');
+const navCss='<style id="rona-qa-nav-padding-fit-v1">#nav button[data-rona-owner-typo-scaled="1.10"]{padding-top:1px!important;padding-bottom:1px!important}</style>';
+const headClose=htmlBefore.toLowerCase().lastIndexOf('</head>');
+if(headClose<0||htmlBefore.includes('rona-qa-nav-padding-fit-v1'))throw Error('QA_PREVIEW_NAV_HTML_ANCHOR');
+const htmlAfter=htmlBefore.slice(0,headClose)+navCss+htmlBefore.slice(headClose);
+if(htmlAfter.replace(navCss,'')!==htmlBefore)throw Error('QA_PREVIEW_NAV_NONATOMIC_CHANGE');
+await writeFile(clientHtmlPath,htmlAfter,'utf8');
+console.log('QA_TYPOGRAPHY_NAV_PADDING_PREVIEW=PASS',JSON.stringify({clientHtml:'disposable_dist_only',navigation:'padding-block 5px to 1px',font_size:'unchanged',overflow_rule:'unchanged',html_before_sha256:sha256(Buffer.from(htmlBefore)),html_after_sha256:sha256(Buffer.from(htmlAfter))}));
 const srcAfter=await readFile(SOURCE);
 if(!srcAfter.equals(frozen)||gitBlob(srcAfter)!==EXPECTED_SOURCE_GIT_BLOB)throw Error('QA_PREVIEW_SOURCE_MUTATED');
 const changed=execFileSync('git',['status','--porcelain','--',SOURCE,'scripts/qa-client-portal-visual-freeze.mjs','governance/client-portal-visual-freeze.json'],{encoding:'utf8'});
