@@ -12,6 +12,11 @@ on:
       - '.github/workflows/client-admin-cross-cutting-audit-qa.yml'
       - '.github/workflows/admin-interactivity-qa.yml'
       - '.github/workflows/admin-shell-resilience-qa.yml'
+      - '.github/workflows/issue430-owner-authorized-browser-qa.yml'
+      - '.github/workflows/issue430-resource-company-corrective-qa.yml'
+      - '.github/workflows/client-multiclient-parity-430-qa.yml'
+      - '.github/workflows/ai-read-only-contour-qa.yml'
+      - '.github/workflows/admin-entity-control-stage2-qa.yml'
   workflow_dispatch:
 
 permissions:
