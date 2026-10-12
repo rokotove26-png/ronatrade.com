@@ -34,19 +34,19 @@ const apiGrantSql=await readFile('supabase/migrations/20261012173000_revoke_unne
 const apiGrantRollback=await readFile('docs/audits/rollback/20261012173000_revoke_unneeded_public_api_grants_v1.sql','utf8');
 
 test('raw market-news tables and ADMIN rail RPCs deny unused anonymous API grants',()=>{
-  assert.match(apiGrantSql,/REVOKE ALL PRIVILEGES ON TABLE public\\.rona_market_news FROM PUBLIC, anon, authenticated/i);
-  assert.match(apiGrantSql,/REVOKE ALL PRIVILEGES ON TABLE public\\.rona_market_news_sync_state FROM PUBLIC, anon, authenticated/i);
-  assert.match(apiGrantSql,/REVOKE EXECUTE ON FUNCTION public\\.rona_admin_rail_monitoring_complete_v1\\(text\\) FROM PUBLIC, anon/i);
-  assert.match(apiGrantSql,/REVOKE EXECUTE ON FUNCTION public\\.rona_admin_rail_monitoring_lifecycle_v1\\(\\) FROM PUBLIC, anon/i);
+  assert.match(apiGrantSql,/REVOKE ALL PRIVILEGES ON TABLE public\.rona_market_news FROM PUBLIC, anon, authenticated/i);
+  assert.match(apiGrantSql,/REVOKE ALL PRIVILEGES ON TABLE public\.rona_market_news_sync_state FROM PUBLIC, anon, authenticated/i);
+  assert.match(apiGrantSql,/REVOKE EXECUTE ON FUNCTION public\.rona_admin_rail_monitoring_complete_v1\(text\) FROM PUBLIC, anon/i);
+  assert.match(apiGrantSql,/REVOKE EXECUTE ON FUNCTION public\.rona_admin_rail_monitoring_lifecycle_v1\(\) FROM PUBLIC, anon/i);
   assert.match(apiGrantSql,/application_owner_admin_actor_v2/);
-  assert.doesNotMatch(apiGrantSql,/\\bGRANT\\s+(ALL|SELECT|EXECUTE)\\b/i);
-  assert.doesNotMatch(apiGrantSql,/\\b(DROP|TRUNCATE)\\b/i);
+  assert.doesNotMatch(apiGrantSql,/\bGRANT\s+(ALL|SELECT|EXECUTE)\b/i);
+  assert.doesNotMatch(apiGrantSql,/\b(DROP|TRUNCATE)\b/i);
 });
 
 test('API grant hardening has a bounded, explicit rollback',()=>{
-  assert.match(apiGrantRollback,/GRANT SELECT ON TABLE public\\.rona_market_news TO anon, authenticated/i);
-  assert.match(apiGrantRollback,/GRANT ALL PRIVILEGES ON TABLE public\\.rona_market_news_sync_state TO anon, authenticated/i);
-  assert.match(apiGrantRollback,/GRANT EXECUTE ON FUNCTION public\\.rona_admin_rail_monitoring_complete_v1\\(text\\) TO anon/i);
-  assert.match(apiGrantRollback,/GRANT EXECUTE ON FUNCTION public\\.rona_admin_rail_monitoring_lifecycle_v1\\(\\) TO anon/i);
+  assert.match(apiGrantRollback,/GRANT SELECT ON TABLE public\.rona_market_news TO anon, authenticated/i);
+  assert.match(apiGrantRollback,/GRANT ALL PRIVILEGES ON TABLE public\.rona_market_news_sync_state TO anon, authenticated/i);
+  assert.match(apiGrantRollback,/GRANT EXECUTE ON FUNCTION public\.rona_admin_rail_monitoring_complete_v1\(text\) TO anon/i);
+  assert.match(apiGrantRollback,/GRANT EXECUTE ON FUNCTION public\.rona_admin_rail_monitoring_lifecycle_v1\(\) TO anon/i);
   assert.match(apiGrantRollback,/RESET search_path/i);
 });
