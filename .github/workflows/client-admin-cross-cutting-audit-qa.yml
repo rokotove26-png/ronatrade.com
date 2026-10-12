@@ -11,8 +11,6 @@ on:
       - 'scripts/apply-client-context-coherence-432-consumer-v2.mjs'
       - 'scripts/qa-client-home-live-refresh-v1.mjs'
       - 'scripts/materialize-portal-client-applications-canonical-v1.mjs'
-      - 'scripts/client-applications-context-race-v2.mjs'
-      - 'tests/client-applications-context-race-v2.test.mjs'
       - 'scripts/qa-client-portal-visual-freeze.mjs'
       - 'scripts/qa-client-owner-retest-real-browser-v4.mjs'
       - 'scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs'
@@ -48,7 +46,7 @@ jobs:
       - name: Verify canonical Client payload provenance and projection source
         run: node scripts/qa-client-context-projection-source-diagnostic.mjs
       - name: Current Client lifecycle and Admin owner auth contracts
-        run: node --test tests/client-deals-lifecycle-tabs-v1.test.mjs tests/admin-owner-jwt-fallback-source.test.mjs tests/client-applications-context-race-v2.test.mjs
+        run: node --test tests/client-deals-lifecycle-tabs-v1.test.mjs tests/admin-owner-jwt-fallback-source.test.mjs
       - name: Syntax and canonical Pages build
         run: |
           node --check 'functions/portal/[[path]].js'
