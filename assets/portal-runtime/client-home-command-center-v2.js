@@ -339,6 +339,9 @@ function refreshVisible(reason='timer'){
   if(!visibleHome())return;
   if(state.loading){if(reason!=='timer')state.refreshPending=true;return;}
   if(reason==='timer'&&state.lastLoad&&Date.now()-state.lastLoad<SOURCE_REFRESH_MS)return;
+  // Returning to Home should reuse the central projection while it is within its freshness window.
+  // The context authority performs TTL revalidation; only an expired projection needs a network read.
+  if(reason==='navigation'&&state.lastLoad&&Date.now()-state.lastLoad<SOURCE_REFRESH_MS){void load(false);return}
   void load(true);
 }
 function isHomeNavigation(target){const explicit=target?.closest?.('[data-page="home"],[data-page-link="home"]');if(explicit)return true;const el=target?.closest?.('a,button,[role="tab"],[role="menuitem"]');return /^Главная$/iu.test(norm(el?.textContent))}
