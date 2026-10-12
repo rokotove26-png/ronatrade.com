@@ -4,6 +4,23 @@ on:
   pull_request:
     branches:
       - 'release/public-go-live-v1.1'
+    paths:
+      - 'portal-src/current/admin.html'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'assets/portal-admin-runtime-watchdog-v1.js'
+      - 'functions/portal/admin.js'
+      - 'functions/portal/_middleware.js'
+      - 'functions/portal/clients-agents-current-ui.js'
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/rail-safe-fallback-ui.js'
+      - 'functions/portal/remaining-sections-ui.js'
+      - 'functions/portal/deals-r1-r11-ui.js'
+      - 'functions/portal/claims-r2-ui.js'
+      - 'functions/portal/prices-current-ui.js'
+      - 'functions/portal/rail-current-v81-maplibre-ui.js'
+      - 'scripts/build-pages-direct-canonical.mjs'
+      - 'tests/admin-shell-resilience.test.mjs'
+      - '.github/workflows/admin-shell-resilience-qa.yml'
   workflow_dispatch:
 
 jobs:
@@ -70,7 +87,10 @@ jobs:
           grep -q 'font-size:14.5px' dist/portal/admin.html
           grep -q 'data-action="create-access">Создать доступ</button>' dist/portal/admin.html
           grep -q 'data-page="agent-settlements"' dist/portal/admin.html
-          grep -q 'data-page="claims"' dist/portal/admin.html
+          ! grep -q 'data-page="claims"' dist/portal/admin.html
+          ! grep -q 'id="page-claims"' dist/portal/admin.html
+          ! grep -q '/portal/claims-r2-ui' dist/assets/portal-admin-shell-fast-v1.js
+          ! grep -q 'MODULES.claims' dist/assets/portal-admin-shell-fast-v1.js
           grep -q 'data-page="market-news"' dist/portal/admin.html
           grep -q 'portal-admin-shell-fast-v1.js' dist/portal/admin.html
           grep -q 'portal-admin-runtime-watchdog-v1.js' dist/portal/admin.html
