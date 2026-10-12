@@ -4,6 +4,21 @@ on:
   pull_request:
     branches:
       - release/public-go-live-v1.1
+    # Stage 2 is an exact-parent admin-impersonation gate; run it only for its owned surfaces.
+    paths:
+      - 'functions/portal/[[path]].js'
+      - 'functions/portal/owner-api.js'
+      - 'functions/portal/logout.js'
+      - 'functions/portal/admin-authority/**'
+      - 'functions/portal/clients-agents-current-ui.js'
+      - 'supabase/functions/rona-admin-control-plane/**'
+      - 'supabase/functions/rona-owner-acceptance/**'
+      - 'supabase/functions/rona-portal-api/**'
+      - 'supabase/functions/_shared/admin-impersonation-authority-v1.ts'
+      - 'supabase/functions/_shared/client-application-business-v2/**'
+      - 'supabase/migrations/*admin_impersonation*'
+      - 'tests/admin-*impersonation*.test.mjs'
+      - 'tests/admin-entity-control-stage2.test.mjs'
 
 permissions:
   contents: read
