@@ -17,6 +17,7 @@ on:
       - 'governance/client-home-navigation-fresh-projection-v4-20261012.json'
       - 'scripts/qa-client-context-projection-source-diagnostic.mjs'
       - 'tests/client-deals-lifecycle-tabs-v1.test.mjs'
+      - 'tests/security/client-deal-documents-read-boundary-v1.test.mjs'
       - 'tests/security/portal-private-rls-hardening-v2.test.mjs'
       - 'supabase/migrations/20261012173000_revoke_unneeded_public_api_grants_v1.sql'
       - 'docs/audits/rollback/20261012173000_revoke_unneeded_public_api_grants_v1.sql'
@@ -46,7 +47,7 @@ jobs:
       - name: Verify canonical Client payload provenance and projection source
         run: node scripts/qa-client-context-projection-source-diagnostic.mjs
       - name: Current Client lifecycle and Admin owner auth contracts
-        run: node --test tests/client-deals-lifecycle-tabs-v1.test.mjs tests/admin-owner-jwt-fallback-source.test.mjs
+        run: node --test tests/client-deals-lifecycle-tabs-v1.test.mjs tests/admin-owner-jwt-fallback-source.test.mjs tests/security/client-deal-documents-read-boundary-v1.test.mjs
       - name: Syntax and canonical Pages build
         run: |
           node --check 'functions/portal/[[path]].js'
