@@ -95,13 +95,20 @@ jobs:
           grep -F 'ASSERTION_FAILED DEALS_CARD_FIRST_PAINT_SEMANTIC' "$log"
           grep -F 'DEALS_FIRST_PAINT_PARITY_RESULT=FAIL' "$log"
           echo 'DEALS_FIRST_PAINT_PRE_EXPECTED_RED=PASS'
-      - name: Prove exact candidate passes semantic regression
+      - name: Prove candidate Owner Business V2 browser regression and strict nav bounds
         shell: bash
         run: |
           set -euo pipefail
           log="$GITHUB_WORKSPACE/owner-retest-candidate.log"
           cd "$OWNER_CANDIDATE_ROOT"
-          RONA_OWNER_RETEST_LABEL="CANDIDATE_${OWNER_CANDIDATE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs" | tee "$log"
+          node "$GITHUB_WORKSPACE/scripts/qa-client-typography-110-preview-v1.mjs" --apply-dist-only
+          node --check dist/assets/portal-runtime/client-contract-download-v3.js
+          RONA_NAV_SCREENSHOT_PATH="$GITHUB_WORKSPACE/owner-nav-visual-preview.png" node "$GITHUB_WORKSPACE/scripts/qa-client-typography-nav-geometry-v1.mjs" | tee "$GITHUB_WORKSPACE/owner-nav-geometry.log"
+          grep -F "QA_CLIENT_NAV_TEXT_BOUNDS=PASS" "$GITHUB_WORKSPACE/owner-nav-geometry.log"
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL="CANDIDATE_${OWNER_CANDIDATE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-canonical-business-fixture-v6.mjs" | tee "$log"
+          grep -F "QA_V6_PROTECTED_SOURCE_LOCK=PASS" "$log"
+          grep -F "QA_NAV_V7_TEXT_BOUNDARY_SOURCE_LOCK=PASS" "$log"
+          grep -F "QA_V6_CANONICAL_BROWSER_E2E=PASS" "$log"
           grep -F 'OWNER_RETEST_QA_FIXTURE_ADAPTER_CURRENT=AUTHORITATIVE_COMPANY_DIRECTORY_CENTRAL_SWITCH_V4_IDENTITY_ONLY' "$log"
           grep -F 'MY_COMPANIES_MISSING_METRICS_NEUTRAL_PROOF' "$log"
           grep -F 'MY_COMPANIES_AUTHORITATIVE_METRICS_PROOF' "$log"
@@ -128,4 +135,6 @@ jobs:
             owner-retest-*.log
             owner-deals-*.log
             owner-deals-*.png
+            owner-nav-geometry.log
+            owner-nav-visual-preview.png
           if-no-files-found: error
