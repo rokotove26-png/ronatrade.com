@@ -24,6 +24,9 @@ try{
   await page.goto('http://127.0.0.1:'+port+'/portal/client',{waitUntil:'domcontentloaded',timeout:30000});
   await page.waitForFunction(()=>Boolean(document.documentElement.dataset.ronaClientOwnerTypography),{timeout:9000}).catch(()=>{});
   await page.waitForTimeout(700);
+  for(const viewportWidth of [1366,1920,1440]){
+    await page.setViewportSize({width:viewportWidth,height:1000});
+    await page.waitForTimeout(400);
   const result=await page.evaluate(()=>{
     const nav=document.querySelector('#nav');
     const visible=el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0};
@@ -45,7 +48,7 @@ try{
     return{marker:document.documentElement.dataset.ronaClientOwnerTypography||'',navFound:!!nav,
       navHeight:nav?.getBoundingClientRect().height??null,buttons};
   });
-  console.log('QA_CLIENT_NAV_GEOMETRY_READ_ONLY',JSON.stringify(result));
+  console.log('QA_CLIENT_NAV_GEOMETRY_READ_ONLY',JSON.stringify({viewportWidth,...result}));
   if(!result.marker||result.buttons.length<5)throw Error('QA_NAV_GEOMETRY_NO_RUNTIME_OR_BUTTONS');
 
   const textOut=result.buttons.filter(b=>!b.contentRect||b.contentRect.top<-.5||b.contentRect.bottom>b.rectHeight+.5||b.contentRect.left<-.5||b.contentRect.right>b.rectWidth+.5);
@@ -53,9 +56,10 @@ try{
   const decorated=scrollFlagged.filter(b=>b.pseudo.some(p=>p.which==='::after'&&p.position==='absolute'&&p.content!=='none'&&Number.parseFloat(p.height)>b.rectHeight));
   if(textOut.length)throw Error('QA_NAV_TEXT_REAL_CLIPPING '+JSON.stringify(textOut.map(b=>b.text)));
   if(scrollFlagged.length!==decorated.length)throw Error('QA_NAV_SCROLL_OVERFLOW_CAUSE_UNVERIFIED');
-  console.log('QA_CLIENT_NAV_TEXT_BOUNDS=PASS',JSON.stringify({buttons:result.buttons.length,textFullyVisible:result.buttons.length,naiveScrollClipFlags:scrollFlagged.length,absolutePseudoDecorations:decorated.length,overflowRuleNotModified:true,fontSizeNotModified:true}));
+  console.log('QA_CLIENT_NAV_TEXT_BOUNDS=PASS',JSON.stringify({viewportWidth,buttons:result.buttons.length,textFullyVisible:result.buttons.length,naiveScrollClipFlags:scrollFlagged.length,absolutePseudoDecorations:decorated.length,overflowRuleNotModified:true,fontSizeNotModified:true}));
 
-  if(process.env.RONA_NAV_SCREENSHOT_PATH)await page.screenshot({path:process.env.RONA_NAV_SCREENSHOT_PATH,fullPage:false});
+  if(viewportWidth===1440&&process.env.RONA_NAV_SCREENSHOT_PATH)await page.screenshot({path:process.env.RONA_NAV_SCREENSHOT_PATH,fullPage:false});
+  }
 }finally{
   if(browser)await browser.close();
   await new Promise(ok=>server.close(ok));
