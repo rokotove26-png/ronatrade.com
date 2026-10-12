@@ -55,5 +55,6 @@ jobs:
           node --check functions/portal/api/v1/client/context.js
           node --check assets/portal-runtime/client-context-selection-authority-v1.js
           npm run build
+          node --check dist/assets/portal-runtime/portal-client-applications-canonical-v1.js || { nl -ba dist/assets/portal-runtime/portal-client-applications-canonical-v1.js | sed -n '270,305p'; exit 1; }
       - name: Verify current Admin single-owner contract
         run: node scripts/qa-admin-single-owner.mjs
