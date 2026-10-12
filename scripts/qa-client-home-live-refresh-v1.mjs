@@ -9,6 +9,7 @@ for(const token of [
   "HOME_LIVE_FRESHNESS_V1='20261010-client-home-live-freshness-v1'",
   "HOME_PENDING_REFRESH_V2='20261010-client-home-pending-refresh-v2'",
   "if(state.loading){if(reason!=='timer')state.refreshPending=true;return;}",
+  "if(reason==='navigation'&&state.lastLoad&&Date.now()-state.lastLoad<SOURCE_REFRESH_MS){void load(false);return}",
   "if(pending&&visibleHome())queueMicrotask(()=>refreshVisible('pending'))", 
   'SOURCE_REFRESH_MS=30000',
   "authority.invalidateCurrentProjection()",
