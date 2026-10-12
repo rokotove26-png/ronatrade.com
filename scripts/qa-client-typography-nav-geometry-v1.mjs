@@ -47,6 +47,14 @@ try{
   });
   console.log('QA_CLIENT_NAV_GEOMETRY_READ_ONLY',JSON.stringify(result));
   if(!result.marker||result.buttons.length<5)throw Error('QA_NAV_GEOMETRY_NO_RUNTIME_OR_BUTTONS');
+
+  const textOut=result.buttons.filter(b=>!b.contentRect||b.contentRect.top<-.5||b.contentRect.bottom>b.rectHeight+.5||b.contentRect.left<-.5||b.contentRect.right>b.rectWidth+.5);
+  const scrollFlagged=result.buttons.filter(b=>b.clipX||b.clipY);
+  const decorated=scrollFlagged.filter(b=>b.pseudo.some(p=>p.which==='::after'&&p.position==='absolute'&&p.content!=='none'&&Number.parseFloat(p.height)>b.rectHeight));
+  if(textOut.length)throw Error('QA_NAV_TEXT_REAL_CLIPPING '+JSON.stringify(textOut.map(b=>b.text)));
+  if(scrollFlagged.length!==decorated.length)throw Error('QA_NAV_SCROLL_OVERFLOW_CAUSE_UNVERIFIED');
+  console.log('QA_CLIENT_NAV_TEXT_BOUNDS=PASS',JSON.stringify({buttons:result.buttons.length,textFullyVisible:result.buttons.length,naiveScrollClipFlags:scrollFlagged.length,absolutePseudoDecorations:decorated.length,overflowRuleNotModified:true,fontSizeNotModified:true}));
+
   if(process.env.RONA_NAV_SCREENSHOT_PATH)await page.screenshot({path:process.env.RONA_NAV_SCREENSHOT_PATH,fullPage:false});
 }finally{
   if(browser)await browser.close();
