@@ -103,7 +103,7 @@ try{
   for(const item of proof.repaired){assert.equal(item.structure,'shell-v455-command-v14',item.page+': self-heal structure marker missing');assert.equal(item.children,2,item.page+': repaired button must contain exactly icon and label');assert(item.label.trim().length>0,item.page+': repaired label missing')}
   assert.equal(proof.styles,1,'expected exactly one runtime shell style owner');
   assert.equal(proof.iconCount,proof.repaired.length,'all emitted nav items must own a real SVG icon');
-  assert.equal(proof.visibleCount,proof.repaired.length-(proof.documentsDisplay==='none'?1:0),'only intentionally hidden Documents may be omitted from visible nav');
+  assert.equal(proof.visibleCount,proof.repaired.length,'visible count must equal the already visibility-filtered navigation proof');
   assert.equal(proof.documentsDisplay,'none');
   assert.equal(proof.activePage,'home');
   assert.match(proof.activeIconBorder,/rgba?\(/);
