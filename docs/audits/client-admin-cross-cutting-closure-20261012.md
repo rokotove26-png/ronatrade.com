@@ -1,0 +1,79 @@
+# RONA Trade — Admin + Client LK: cross-cutting closure audit
+
+**Audit date:** 2026-10-12 (Europe/Moscow)  
+**Actor:** AI-SYSTEM-ADMIN, technical scope; business authority remains with domain owners.  
+**Status:** **STAGE 1 VERIFIED / STAGE 2 REMEDIATION IN REVIEW / FULL ACCEPTANCE NOT YET GRANTED**  
+**Production source lock:** `release/public-go-live-v1.1` @ `f8f0233a33b321e8fc54a7e404cd85e3eff21718` (merged PR #1171, 2026-10-11).  
+**Nonproduction branch:** `audit/client-admin-closure-20261012`. No production database mutations, live code changes, business record changes, deletion, or release are authorized by this audit alone.
+
+## 1. Tested scope and evidence method
+
+Verified live metadata/source using GitHub branch, workflow, files, and PR APIs; Supabase production project `sxawrwzeobaqwwmlkzws` current schema, grants, RLS, RPC definitions, security/performance advisors, deployed Edge function inventory and last-24h logs. Examined current Admin HTML and Client canonical manifest, actual Pages routing and specialized Client API handlers. Consulted existing focused Analytics V6 cleanup and earlier Client systemic audit only for lineage; historical conclusions were not silently promoted to current facts.
+
+**Not yet tested:** authenticated real-browser Admin + real Client + Agent navigation, normal Client vs Admin impersonation E2E with valid owned identities, user-visible 360/768/1440 responsive acceptance, 120-second zero-unnecessary-network benchmark, failure injection, negative authorization test in staging. No attempt to claim these steps have passed.
+
+## 2. Baseline and findings
+
+| ID | Severity | Verified observation | Consequence and recommended disposition |
+|---|---|---|---|
+| CI-01 | **P0, release gate** | Production HEAD had **32 GitHub Actions workflow runs: 26 success, 6 failure**. Failed: Client sidebar #38161098160; Admin sidebar #38161098228; Client Rail #38161096730; Client Deals lifecycle #38161096123; Client canonical deal state #38161095478; Client Analytics real-page boot #38161094803. | Not eligible for a blanket all-green release assertion. Distinguish stale test contracts, startup failures and genuine runtime regressions, rerun focused mandatory gates. |
+| CI-02 | **P1, confirmed stale assertions** | Client Deals renderer uses exact current marker `20261005-client-deals-authoritative-closeout-v14`, attachment runtime uses `20261005-authoritative-v17-client-closeout`; old test asserts `v13` and `v16`. Admin HTML has 13 `data-page` nav buttons (Documents hidden), but browser QA hardcodes 14 SVG icons and 13 visible. | Test-only patch may align the assertions to current source with strong behavioral checks intact. No actual menu defect confirmed by those errors. Admin QA should assert a dynamically derived exact button count plus hidden Documents. |
+| AUTH-01 | **P1, confirmed path inconsistency** | `functions/portal/api/v1/client/deal-documents/state.js` calls `rona-temp-upload-order-20260816` and `rona-portal-api` with ordinary Bearer JWT, without browser-impersonation helper. Other specialized Client routes already apply it. The deployed temp function explicitly requires `CLIENT` role. | Admin→Client read-only preview of document state may fail. Do **not** simply forward impersonation headers to the temp function. Introduce an effective-client read-only adapter behind canonical authority, preserve strict Client-only write/upload and tenant boundaries; prove with authenticated E2E. |
+| DEPLOY-01 | **P0, reproducibility / P1 runtime** | Supabase has **103 deployed Edge functions**, 26 with `verify_jwt=false`. Current release directory has 27 deployable function folders; only 26 names match current deployments. **77 deployed functions have no same-name folder in release**, and `rona-client-deal-documents` checked-in folder is not deployed under that name. | Source/deployment inventory and exact runtime configuration reconciliation required. False JWT flag does NOT by itself prove open access: inspect custom authentication/endpoint reachability. No bulk disable. |
+| DEPLOY-02 | **P1, active legacy dependency** | Production Pages `deal-documents/state.js` calls Edge `rona-temp-upload-order-20260816` (active, JWT on). Its deployed v13 source differs from checked-in `rona-client-deal-documents/index.ts` for resource decision/status logic. | Classify temp function **KEEP / CRITICAL DEPENDENCY** until canonical source parity, compatibility bridge, owner acceptance, shadow comparison and rollback are proven. Existing last-24h empty hit count is insufficient to declare it unused. |
+| SQL-01 | **P0, source lineage** | Current DB reports **562 applied migrations**; release folder contains 215 migrations; only **40 version IDs intersect**. Thus 522 applied migration version IDs cannot be found in this one release folder; 175 local version IDs not present in deployed version list. | Restore authoritative migration lineage across all historical sources and backups, inventory schema/function definitions+hashes; no destructive SQL retirement before reproducibility proof. Version-match numbers alone do not establish invalid deployment. |
+| SEC-01 | **P1, excess grants for review** | Supabase advisor flags 2 `public` `SECURITY DEFINER` RPCs EXECUTABLE by `anon`: `rona_admin_rail_monitoring_complete_v1` and `rona_admin_rail_monitoring_lifecycle_v1`. Both call `application_owner_admin_actor_v2`, which enforces verified ADMIN + session; no anonymous privilege bypass established. Advisor also notes 66 `authenticated` `SECURITY DEFINER` functions. | Negative auth tests; staged `REVOKE EXECUTE ... FROM anon` on the two Admin RPCs if no legitimate anonymous caller; no mass revocation of authenticated functions. Verify authorization **inside** each RPC, including legacy versions. |
+| SEC-02 | **P2, policy hygiene** | RLS on **226/226 tables** in `public` and `portal_private`. 148 RLS/no-policy advisor INFO entries (primarily isolated private tables). Public `rona_market_news_sync_state` has broad anon table grants but no RLS policy (therefore current RLS denies ordinary direct access). `pg_net` installed in public; one search-path WARN on invoker function `portal_private.mi_curve_code_value_v1`; compromised-password check disabled. | RLS/no-policy is not independently a leak. Least-privilege GRANT review, search-path hardening and extension/Auth settings in separate minimal migrations/settings changes following dependency tests. |
+| PERF-01 | **P2, investigation** | Supabase advisor: 240 unindexed foreign-key notices, 139 unused-index notices, 448 no-PK notices (many in isolated emergency backup schemas). | Prioritize by query plans/live latency; never drop indexes or backup tables from advisor counts. |
+| GIT-01 | **P1 maintainability / P2 cleanup** | **739 Git branches**; 59 open PRs (44 target release, 7 target main; 22 draft; 43 with no updates since before 2026-09-28). Five open alternative Client Analytics PRs #1139–#1143; #836 remains HOLD. Main and release diverged: compare reports main ahead 402 and behind 6388 commits relative to release. Both current branch metadata show `protected=false`. | Freeze branch deletion; build exact dependency classification and preserve rollback tags; close/supersede stale PRs with explanations only after owner/maintainer review. Set production branch protections with required CURRENT gates after evaluating environment. Never merge `main` wholesale. |
+| UI-01 | **P2, historical visual debt** | Admin current HTML retains a hidden Documents button, while other sections are routed current-only. `functions/portal` retains generations of Operations v4–v10 modules. Prior Analytics V6 work already retired competing R4/V13/V455 Analytics writers; canonical Admin R4 and Client V20 must be preserved. Client claims section uses a dedicated retirement overlay; older scripts still mention Claims. | Keep intentional compatibility layers until emitted-bundle/route-usage proof. Remove hidden/legacy shell markup only after single-owner visual/browser tests and explicit owner approval, preserving exact frozen visual contracts. |
+| CLIENT-01 | **P1 pending runtime recheck** | Historical audit #814 documented multiple Client 30-second refresh loops, broad DOM observers and overlapping read owners. Some subsequent routes were corrected (market intelligence and applications impersonation). | Re-scan **actual emitted production JS** and capture authenticated 120-second idle-network trace before claiming any old polling still exists. Enforce one read owner per section, section/context invalidation, no hidden-section GET loops. |
+
+### Confirmed constraints
+
+- Existing successful checks include Client tenant isolation, current build, Operations Center V11 source-truth smoke, Analytics current single-owner, Deals current-only. Success on a subset does not cancel the six failures.
+- `portal_private.application_owner_admin_actor_v2` checks `auth.uid()`, session JWT ID, `auth.sessions`, and resolved ADMIN authority. Findings SEC-01 are **excess exposure/least-privilege issues**, not proof of anonymous data access.
+- Historical business facts, contracts, deal/finance/rail state, Audit/Legal records and migrations must be preserved. Existing unverified operational statuses stay `TO_VERIFY`; an interface timestamp is not proof of fresh business evidence.
+- Client/Agent must never see raw internal P&L, confidential Finance, Legal source lineage, token/secret/QA diagnostics. Access tests must test real tenant isolation.
+
+## 3. Safe remediation sequence
+
+**Gate 0 — freeze and rollback point (before behavioral changes).** Pin current release SHA, DB schema/SQL hashes, deployed Edge versions, Cloudflare Pages deployment, source assets and branch/PR inventory. Preserve rollback for each domain. No `main`→`release` shortcut and no emergency bulk cleanup.
+
+**Gate 1 — repair broken release QA.** For each of the six failed runs: archive logs/annotation, classify `STALE_ASSERTION` vs `WORKFLOW_STARTUP` vs `RUNTIME_DEFECT`, patch ONLY verified stale test expectations without relaxing real behavior, re-run relevant release+browser+tenant tests. Four workflows with no returned job records remain `UNRESOLVED` until their check-suite/startup reason is obtained.
+
+**Gate 2 — Client document authority.** Extract document read model from the temporary legacy endpoint into a read-only, effective-client-scoped canonical API with strict session/tab/tenant verification; keep Client upload/write authority untouched. Test normal Client, Admin→Client read-only, cross-tenant/cross-contract, expired/replayed impersonation and absence of mutation. Switch Pages to new route behind reversible release toggle; keep legacy until parity is proven.
+
+**Gate 3 — deployment/source reconciliation.** Categorize 103 Edge functions: `ACTIVE_CURRENT`, `ACTIVE_LEGACY_DEPENDENCY`, `QA_WITH_AUTH`, `CANDIDATE`, `ORPHAN_UNVERIFIED`, `RETIRED`. For each record name/version/JWT/custom-auth/callers/cron/webhook/last-use/source-hash/retention/rollback. Restore deployed-only critical source to auditable repository before retiring any function. Recover all 562 migration provenance IDs from historical sources and authoritative DB catalog.
+
+**Gate 4 — least privilege.** Validate two anon rail Admin RPCs reject missing/foreign sessions before any ACL change, check callers and staged regressions, then revoke unnecessary anon EXECUTE in small reversible migration; audit 66 authenticated RPCs individually. Verify Client/Agent/Admin/anonymous scenarios; run Supabase advisor again. Test Custom Auth on JWT-off functions, starting with probes/QA endpoints, before restricting them.
+
+**Gate 5 — UI and runtime single-owner cleanup.** Derive the *emitted* script/style/route manifest, live dependency graph, DOM watcher/network-owner inventory and actual Cloudflare bundle. Retire only proven unused visual writers, timers, old handler aliases and dead Pages routes; keep historical source in Git/audit. Use feature-disable/no-import first, measure and verify, then delete artifacts after agreed retention when references zero. Preserve frozen Admin Analytics R4, Client Analytics V20, Prices V12, Operations Center V11, and licensed-source boundaries.
+
+**Gate 6 — Git and CI cleanup.** Close obsolete PRs as `SUPERSEDED` with links, keep nonmerged work/data. Convert old exact-SHA QA into historical workflow or update to approved current contract; maintain current independent mandatory checks. Delete branches only after merged/abandoned decision, reachability analysis, dependency scan, immutable tag/checkpoint and owner approval; no branch/PR mass deletion.
+
+**Gate 7 — authenticated acceptance and final sign-off.** E2E across Client and Admin: login/logout/refresh, access and impersonation, company/contract context switching, applications, deals lifecycle, client documents, finance/payments, rail, pricing and analytics, news/messages. Validate mobile/tablet/desktop, accessibility and first paint; negative auth boundary; 120s idle/no redundant GET, single-flight invalidation and fail-closed stale data; no console errors. Require release CI zero unresolved, reproducible deploy provenance, DB/Edge source mapping, domain-owner conclusions, Owner visual UAT. Issue final `PASS` only after these gates.
+
+## 4. Decision registry for proposed deletions / blocking
+
+| Component | Current decision | Removal prerequisites |
+|---|---|---|
+| `rona-temp-upload-order-20260816` | **KEEP — LIVE DEPENDENCY** | Canonical documents read migration + parity/rollback; confirmed zero callers beyond retirement window. |
+| Old Admin Operations v4–v9, legacy visual chunks | **HOLD / COMPATIBILITY** | Emitted/current route owner and dependency graph, zero runtime callers, browser R11 parity. |
+| Analytics V13/V455 retired writers | **ALREADY RETIRED IN V6** | Do not resurrect or rework without new defect signal; retain Git lineage. |
+| 2 anon Admin rail RPC grants | **STAGED RESTRICTION CANDIDATE** | Auth-negative tests and downstream caller check; reversible ACL migration. |
+| QA/probe Edge functions with JWT-off | **REVIEW ACCESS / TEMP QUARANTINE CANDIDATE** | Per-function custom auth, last use, CI reference and cleanup owner. |
+| Backup, rollback, diagnostic and temporary branches | **HOLD / INVENTORY** | PR+release reachability+rollback refs+dependency+owner approval; create immutable tags where needed. |
+| Historical business/audit/legal/finance data and SQL history | **RETAIN / ARCHIVE** | Never hard-delete as generic technical cleanup. |
+
+## 5. Required evidence for closure
+
+Produce an append-only, per-item closure ledger with `id, severity, exact source/ref/SHA, active runtime evidence, affected clients/roles, owner, patch/PR, migration/deploy version, negative tests, rollback reference, current state, remaining risk, sign-off`. Publish final `GREEN` only after no unresolved P0/P1 production impact, mandatory CI PASS, role-safe UAT and Owner visual acceptance. Keep any unproven finding labeled `TO_VERIFY`, not `CONFIRMED`.
+
+### Sources used
+
+- [Production PR #1171](https://github.com/rokotove26-png/ronatrade.com/pull/1171) and [release commit](https://github.com/rokotove26-png/ronatrade.com/commit/f8f0233a33b321e8fc54a7e404cd85e3eff21718)
+- [Client systemic audit PR #814](https://github.com/rokotove26-png/ronatrade.com/pull/814)
+- [V6 Analytics visual-owner audit](https://github.com/rokotove26-png/ronatrade.com/blob/release/public-go-live-v1.1/docs/analytics-v6-legacy-visual-owners-audit-20261011.md)
+- [Failed Client sidebar run](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38161098160) and [Admin sidebar run](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38161098228)
+- Supabase live RLS/GRANT/RPC definition and security advisor checked 2026-10-12. No sensitive credentials or session records stored here.
