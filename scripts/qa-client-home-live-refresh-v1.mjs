@@ -5,7 +5,9 @@ import {chromium} from 'playwright';
 
 const home=readFileSync('assets/portal-runtime/client-home-command-center-v2.js','utf8');
 const freeze=JSON.parse(readFileSync('governance/client-home-live-source-refresh-v1-20261010.json','utf8'));
+const navigationApproval=JSON.parse(readFileSync('governance/client-home-navigation-fresh-projection-v4-20261012.json','utf8'));
 for(const token of [
+  "HOME_NAVIGATION_FRESH_PROJECTION_V4='20261012-client-home-navigation-fresh-projection-v4'",
   "HOME_LIVE_FRESHNESS_V1='20261010-client-home-live-freshness-v1'",
   "HOME_PENDING_REFRESH_V2='20261010-client-home-pending-refresh-v2'",
   "if(state.loading){if(reason!=='timer')state.refreshPending=true;return;}",
@@ -24,6 +26,11 @@ for(const forbidden of ['RONA-C001','UNIVERSAL SOLYARIS','DEAL-2026-004'])assert
 assert.equal(freeze.requirements.no_business_calculation_changes,true);
 assert.equal(freeze.requirements.exact_blob_enforcement,true);
 assert.equal(freeze.requirements.wildcard_exception,false);
+assert.equal(navigationApproval.scope,'CLIENT_HOME_NAVIGATION_FRESH_PROJECTION_V4');
+assert.equal(navigationApproval.requirements.navigation_reuses_projection_within_refresh_window,true);
+assert.equal(navigationApproval.requirements.central_authority_ttl_remains_source_of_freshness,true);
+assert.equal(navigationApproval.requirements.explicit_invalidation_still_forces_refresh,true);
+assert.equal(navigationApproval.requirements.no_visual_theme_change,true);
 
 const browser=await chromium.launch({headless:true,channel:'chrome'});
 const page=await browser.newPage({viewport:{width:1320,height:860}});
