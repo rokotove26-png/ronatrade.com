@@ -1,0 +1,74 @@
+name: Client Owner Business V2 Fixture V6 (Read-Only)
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'scripts/qa-client-owner-canonical-business-fixture-v6.mjs'
+      - '.github/workflows/client-owner-business-v2-fixture-v6-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  owner-business-v2-browser-v6:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prove isolated V6 test syntax and original protected fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/qa-client-owner-canonical-business-fixture-v6.mjs
+          git diff --exit-code -- scripts/qa-client-owner-retest-real-browser-v4.mjs scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs scripts/materialize-portal-client-applications-canonical-v1.mjs
+      - name: Install headless Chromium for browser acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install chromium
+      - name: Build exact release baseline and candidate in disposable worktrees
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=/tmp/rona-owner-v6-baseline
+          candidate=/tmp/rona-owner-v6-candidate
+          rm -rf "$baseline" "$candidate"
+          git worktree add --detach "$baseline" 4e07ad9f2591c6135e6de651bdaa06bb80a82e78
+          git worktree add --detach "$candidate" "${{ github.event.pull_request.head.sha || github.sha }}"
+          (cd "$baseline" && npm run build)
+          (cd "$candidate" && npm run build)
+          {
+            echo "RONA_OWNER_V6_BASE_ROOT=$baseline"
+            echo "RONA_OWNER_V6_CANDIDATE_ROOT=$candidate"
+            echo "RONA_OWNER_V6_SHA=${{ github.event.pull_request.head.sha || github.sha }}"
+          } >> "$GITHUB_ENV"
+      - name: Validate canonical Business V2 synthetic fixtures and real Chromium paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RONA_OWNER_V6_CANDIDATE_ROOT"
+          RONA_OWNER_BASE_ROOT="$RONA_OWNER_V6_BASE_ROOT" RONA_OWNER_RETEST_LABEL="CANONICAL_V6_${RONA_OWNER_V6_SHA}" \
+            node "$GITHUB_WORKSPACE/scripts/qa-client-owner-canonical-business-fixture-v6.mjs" \
+            | tee "$GITHUB_WORKSPACE/owner-business-v2-fixture-v6.log"
+          grep -F 'QA_V6_PROTECTED_SOURCE_LOCK=PASS' "$GITHUB_WORKSPACE/owner-business-v2-fixture-v6.log"
+          grep -F 'QA_V6_CANONICAL_BUSINESS_FIXTURE=READY' "$GITHUB_WORKSPACE/owner-business-v2-fixture-v6.log"
+          grep -F 'BUG2_B_APPLICATION_PROJECTION_DOM_PROOF' "$GITHUB_WORKSPACE/owner-business-v2-fixture-v6.log"
+          grep -F 'BUG2_APPLICATION_OPEN_REFRESH_ROW_SURVIVES_PROOF' "$GITHUB_WORKSPACE/owner-business-v2-fixture-v6.log"
+          grep -F 'PRODUCTION_PASSPORT_LINEAGE_PROOF' "$GITHUB_WORKSPACE/owner-business-v2-fixture-v6.log"
+          grep -F 'OWNER_RETEST_ASSERTION_SET=PASS' "$GITHUB_WORKSPACE/owner-business-v2-fixture-v6.log"
+          grep -F 'QA_V6_CANONICAL_BROWSER_E2E=PASS' "$GITHUB_WORKSPACE/owner-business-v2-fixture-v6.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-owner-business-v2-fixture-v6-${{ github.run_id }}
+          path: owner-business-v2-fixture-v6.log
+          if-no-files-found: warn
