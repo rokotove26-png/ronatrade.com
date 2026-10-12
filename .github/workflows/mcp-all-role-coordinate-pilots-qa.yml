@@ -7,6 +7,24 @@ on:
   pull_request:
     branches:
       - release/public-go-live-v1.1
+    paths:
+      - 'functions/_mcp_transport.js'
+      - 'functions/_mcp_role_entry.js'
+      - 'functions/_mcp_consent_bridge.js'
+      - 'functions/_mcp_oauth_token_bridge.js'
+      - 'functions/operations-pilot/**'
+      - 'functions/finance-pilot/**'
+      - 'functions/legal-pilot/**'
+      - 'functions/market-analyst-pilot/**'
+      - 'functions/rail-logistics-pilot/**'
+      - 'functions/.well-known/**'
+      - 'supabase/functions/rona-mcp-gateway/**'
+      - 'supabase/functions/rona-mcp-oauth-token/**'
+      - 'supabase/functions/rona-mcp-consent-bridge/**'
+      - 'supabase/migrations/*coordinate*pilot*'
+      - 'supabase/migrations/*commercial*director*runtime*'
+      - '_routes.json'
+      - '.github/workflows/mcp-all-role-coordinate-pilots-qa.yml'
   workflow_dispatch:
 
 permissions:
