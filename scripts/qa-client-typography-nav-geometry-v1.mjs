@@ -36,6 +36,9 @@ try{
         minHeight:css.minHeight,maxHeight:css.maxHeight,height:css.height,boxSizing:css.boxSizing,
         labelWidth:label?.clientWidth??null,labelScrollWidth:label?.scrollWidth??null,
         labelFont:spanCss?.fontSize??null,labelLineHeight:spanCss?.lineHeight??null,labelWhiteSpace:spanCss?.whiteSpace??null,
+        contentRect:label?(()=>{const range=document.createRange();range.selectNodeContents(label);const q=range.getBoundingClientRect();return{top:q.top-rect.top,bottom:q.bottom-rect.top,left:q.left-rect.left,right:q.right-rect.left,height:q.height}})():null,
+        children:[...el.children].map(node=>{const c=getComputedStyle(node),r=node.getBoundingClientRect();return{tag:node.tagName,cls:String(node.className||''),position:c.position,display:c.display,overflow:c.overflow,top:r.top-rect.top,bottom:r.bottom-rect.top,height:r.height,transform:c.transform,scrollHeight:node.scrollHeight,clientHeight:node.clientHeight}}),
+        pseudo:['::before','::after'].map(which=>{const c=getComputedStyle(el,which);return{which,content:c.content,position:c.position,top:c.top,bottom:c.bottom,height:c.height,transform:c.transform,overflow:c.overflow,display:c.display}}),
         clipX:['hidden','clip'].includes(css.overflowX)&&el.scrollWidth>el.clientWidth+1,
         clipY:['hidden','clip'].includes(css.overflowY)&&el.scrollHeight>el.clientHeight+1};
     });
