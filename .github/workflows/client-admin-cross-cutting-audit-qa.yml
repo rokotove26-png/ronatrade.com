@@ -1,0 +1,40 @@
+name: Client and Admin cross-cutting audit focused QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'docs/audits/client-admin-cross-cutting-closure-20261012.md'
+      - 'scripts/qa-admin-sidebar-visual-browser.mjs'
+      - 'scripts/qa-client-context-projection-source-diagnostic.mjs'
+      - 'tests/client-deals-lifecycle-tabs-v1.test.mjs'
+      - 'tests/admin-owner-jwt-fallback-source.test.mjs'
+      - '.github/workflows/client-admin-cross-cutting-audit-qa.yml'
+      - '.github/workflows/admin-interactivity-qa.yml'
+      - '.github/workflows/admin-shell-resilience-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused-audit-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify canonical Client payload provenance and projection source
+        run: node scripts/qa-client-context-projection-source-diagnostic.mjs
+      - name: Current Client lifecycle and Admin owner auth contracts
+        run: node --test tests/client-deals-lifecycle-tabs-v1.test.mjs tests/admin-owner-jwt-fallback-source.test.mjs
+      - name: Syntax and canonical Pages build
+        run: |
+          node --check 'functions/portal/[[path]].js'
+          node --check functions/portal/api/v1/client/context.js
+          node --check assets/portal-runtime/client-context-selection-authority-v1.js
+          npm run build
+      - name: Verify current Admin single-owner contract
+        run: node scripts/qa-admin-single-owner.mjs
