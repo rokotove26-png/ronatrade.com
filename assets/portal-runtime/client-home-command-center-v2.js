@@ -3,6 +3,7 @@ const MARK='20260902-client-home-command-center-v3-current-context';
 const HOME_LIVE_FRESHNESS_V1='20261010-client-home-live-freshness-v1';
 const HOME_PENDING_REFRESH_V2='20261010-client-home-pending-refresh-v2';
 const HOME_SERVER_CLOSEOUT_V3='20261010-client-home-server-closeout-attention-v3';
+const HOME_NAVIGATION_FRESH_PROJECTION_V4='20261012-client-home-navigation-fresh-projection-v4';
 const SOURCE_REFRESH_MS=30000;
 if(window.__RONA_CLIENT_HOME_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_HOME_RUNTIME__=MARK;
