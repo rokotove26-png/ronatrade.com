@@ -38,4 +38,14 @@ The OIDC change is a separate Edge Function deployment and is **NOT implied by a
 
 ## Status
 
-Database quarantine **APPLIED / VERIFIED**. GitHub and OIDC source prevention follows separate focused CI and controlled deployment. Existing P0 Admin session-fallback PR #1179 and LK cleanup PR #1180 remain independently gated.
+Database quarantine **APPLIED / VERIFIED**. Legacy PR462 OIDC Edge prevention **DEPLOYED / VERIFIED** as version 127, preserving independent Issue430/Radio OIDC checks. Source PR #1181 remains DRAFT because unrelated release CI is still red. Existing P0 Admin session-fallback PR #1179 and LK cleanup PR #1180 remain independently gated.
+
+## Production OIDC Edge postflight
+
+- Exact connected Supabase deployment: `rona-g82-github-oidc-browser-qa-20260816` **version 127**, `status=ACTIVE`, `verify_jwt=false` (unchanged verified GitHub-signed OIDC design). Server deployment reported import map from `deno.json`.
+- Re-read deployed `index.ts` and compared with GitHub PR #1181 candidate: **identical**. `LEGACY` branch returns `410 PR462_LEGACY_QA_ADMIN_ISSUANCE_RETIRED`, and no caller invokes `issueLegacy(claims)`.
+- `ISSUE430`, `RADIO_STAGE2A`, including 2B and 2C1, JWT RS256/JWKS, repository/ref/audience guard and revoke handlers are present.
+- [Focused CI run 38385583626](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38385583626) **SUCCESS**, 3 source/security tests; [Client visual-freeze run 38385583634](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38385583634) **SUCCESS**. Other full PR checks remain incomplete/red and are not waived.
+- Network sandbox did not resolve the Supabase public hostname, so unauthenticated live HTTP POST 401 and signed OIDC 410 **were not externally exercised**. Code-level and deployment-source verification are confirmed; no fake external E2E acceptance.
+- Subsequent read-only QA-cohort scan identified 3 lingering **ACTIVE ADMIN role rows attached to REVOKED Radio Stage2A QA users with no linked auth_user_id or live session**. This is a low-exposure stale-permission inconsistency, **not** a valid active Admin login. Other historical suspended QA identities retain some non-expired auth sessions but their portal roles are REVOKED. Treat as a separate narrowly-scoped IAM hygiene item; do not bulk mutate the real ADMIN_PORTAL population without proven fixture lineage.
+- Do not restore old PR462 Admin creation as a fallback; compensate any QA test need with a new, properly authorized short-lived QA identity and mandatory teardown.
