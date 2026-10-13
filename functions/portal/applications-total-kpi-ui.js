@@ -139,6 +139,7 @@ function enhanceActions(page){
    b.classList.add('rona-app-action--'+tone)
  })
 }
+function appCountLabel(n){const two=Math.abs(n)%100,one=two%10;return String(n)+' '+(two>=11&&two<=14?'заявок':one===1?'заявка':one>=2&&one<=4?'заявки':'заявок')}
 function apply(){
  const page=q('#page-applications'),grid=q('#page-applications .rona-app-kpi-grid');
  if(!page||!grid)return;
@@ -166,7 +167,7 @@ function apply(){
    const oldContext=q('[data-rona-app-queue-context]',queue);if(oldContext)oldContext.remove();
    const context=document.createElement('div');context.className='rona-app-queue-context';
    context.dataset.ronaAppQueueContext='1';context.setAttribute('role','status');
-   context.textContent='Открыт статус: '+filter.label+' · '+(hasRows?String(visible.length)+' заявок':'данные загружаются');
+   context.textContent='Открыт статус: '+filter.label+' · '+(hasRows?appCountLabel(visible.length):'данные загружаются');
    const title=q('h2',queue);if(title)title.insertAdjacentElement('afterend',context);else queue.prepend(context);
    const empty=q(':scope > .rona-owner-muted',queue);
    if(empty&&String(empty.textContent||'').includes('По выбранному фильтру заявок нет.'))
