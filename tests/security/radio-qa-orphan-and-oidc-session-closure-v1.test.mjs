@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 
 const sql=readFileSync('supabase/migrations/20261013113500_radio_qa_orphan_admin_and_suspended_oidc_session_closure_v1.sql','utf8');
+assert.equal(createHash('md5').update(sql).digest('hex'),'06ab0896148867026dfb3f0ccdcb226e','APPLIED_QA_IAM_SQL_SOURCE_DRIFT');
 
 test('limit Radio cleanup to 3 archived, unlinked QA-only user role pairs',()=>{
   assert.match(sql,/source_system='QA_GITHUB_OIDC_RADIO_STAGE2A'/);
