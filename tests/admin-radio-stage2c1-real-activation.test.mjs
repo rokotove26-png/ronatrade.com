@@ -174,3 +174,21 @@ test('Client notification read receipt migration is durable and scoped by portal
   assert.match(owner,/insert into portal_private\.owner_radio_notification_reads/);
   assert.match(owner,/on conflict\(viewer_user_id,viewer_client_key,radio_item_id\)/);
 });
+
+
+test('Live Radio QA selects lazy-loaded messages before waiting for remaining module',()=>{
+  const cases=[
+    ['Stage2C1','scripts/qa-admin-radio-stage2c1-production.mjs','async function adminComposer(','async function uiPublish('],
+    ['Stage2A','scripts/qa-admin-radio-stage2a-operational-main.mjs','async function loadAdminReady(','async function cleanupFailure(']
+  ];
+  const navigation='await page.locator(\'#nav button[data-page="messages"]\').first().click();';
+  for(const [name,path,begin,end] of cases){
+    const source=read(path),start=source.indexOf(begin),stop=source.indexOf(end,start);
+    assert.ok(start>=0&&stop>start,name+': QA function missing');
+    const helper=source.slice(start,stop);
+    const ownerReady=helper.indexOf('OWNER_READY');
+    const activate=helper.indexOf(navigation);
+    const remainingReady=helper.indexOf('REMAINING_READY');
+    assert.ok(ownerReady>=0&&activate>ownerReady&&remainingReady>activate,name+': lazy messages must be activated between owner and remaining readiness');
+  }
+});
