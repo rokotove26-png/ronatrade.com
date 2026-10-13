@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --test tests/security/admin-session-backed-fallback-v1.test.mjs | tee admin-session-negative.log
+          node --test --test-reporter=tap tests/security/admin-session-backed-fallback-v1.test.mjs | tee admin-session-negative.log
           grep -Fq '# fail 0' admin-session-negative.log
       - uses: actions/upload-artifact@v4
         if: always()
