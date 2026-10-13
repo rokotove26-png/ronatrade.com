@@ -10,7 +10,7 @@ on:
       - 'scripts/attach-portal-canonical-button-hover-v1.mjs'
       - 'scripts/qa-client-deals-lifecycle-tabs-v1.mjs'
       - 'scripts/qa-client-sidebar-command-nav-v1.mjs'
-      - 'functions/portal/api/[[path]].js'
+      - 'functions/portal/api/*path*.js'
       - 'supabase/functions/rona-portal-api/index.ts'
       - 'tests/client-deals-lifecycle-tabs-v1.test.mjs'
       - '.github/workflows/client-deals-lifecycle-tabs-v1.yml'
