@@ -94,8 +94,9 @@ async function refreshRadioPages(...pages){
 }
 async function adminComposer(page){
   await waitUntil(()=>page.evaluate(()=>window.__RONA_OWNER_ADMIN_READY__===true),'ADMIN_OWNER_READY',60000,300);
+  // The Admin shell lazily loads the radio module after activating messages.
+  await page.locator('#nav button[data-page="messages"]').first().click();
   await waitUntil(()=>page.evaluate(()=>Boolean(window.__RONA_REMAINING_SECTIONS_READY__)||window.__RONA_ADMIN_MODULES__?.remaining?.status==='READY'),'ADMIN_REMAINING_READY',90000,300);
-  await page.locator('[data-page="messages"]').first().click();
   const root=page.locator('#page-messages > .rona-rs-root[data-kind="radio"]');await root.waitFor({state:'visible',timeout:30000});
   await waitUntil(()=>page.evaluate(()=>window.__RONA_ADMIN_RADIO_BROADCAST_BRIDGE__==='STAGE_2B_NOTIFICATION_ANNOUNCEMENT_V1_STATIC_OWNER'),'ADMIN_RADIO_OWNER',30000,300);
   return root;
