@@ -2,7 +2,7 @@ const ADMIN_APPLICATIONS_PASSPORT_ACTION_V2=String.raw`
 (()=>{'use strict';
 if(window.__RONA_ADMIN_APPLICATIONS_PASSPORT_ACTION_V2__)return;
 if(location.pathname!=='/portal/admin')return;
-window.__RONA_ADMIN_APPLICATIONS_PASSPORT_ACTION_V2__='20261013-v5-open-separate-decision-row';
+window.__RONA_ADMIN_APPLICATIONS_PASSPORT_ACTION_V2__='20260916-v4-open-inline-currency';
 const text=v=>String(v??'').replace(/\s+/g,' ').trim();
 const norm=v=>text(v).toLocaleLowerCase('ru-RU');
 const STYLE_ID='ronaAdminApplicationsPassportActionV2InlineStyle';
@@ -13,7 +13,13 @@ function installStyle(){
   s.id=STYLE_ID;
   s.textContent='html.rona-applications-premium-pass3 #page-applications .rona-app-currency-open-inline{display:inline-flex!important;align-items:center!important;gap:7px!important;flex:0 0 auto!important;flex-wrap:nowrap!important;white-space:nowrap!important;vertical-align:middle!important}html.rona-applications-premium-pass3 #page-applications .rona-app-currency-open-inline>select,html.rona-applications-premium-pass3 #page-applications .rona-app-currency-open-inline>label{flex:0 0 auto!important;margin:0!important}html.rona-applications-premium-pass3 #page-applications .rona-app-currency-open-inline>button[data-rona-app-passport-open]{flex:0 0 auto!important;margin:0!important}';
 
-  // Decision controls are laid out independently using inline-important styles.
+  // The supplier decision has three independent, sibling controls. The historical
+  // two-column grid and the narrow Open button rule must not overlap their hit areas.
+  s.textContent += [
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-table .rona-owner-table td:last-child .rona-owner-actions.rona-app-actions[data-rona-app-independent-actions="3"]{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 83px!important;gap:7px!important;width:277px!important;min-width:277px!important;max-width:277px!important;align-items:stretch!important;justify-content:center!important;flex-wrap:nowrap!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-table .rona-owner-table td:last-child .rona-owner-actions.rona-app-actions[data-rona-app-independent-actions="3"]>button{position:static!important;grid-column:auto!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;height:43px!important;min-height:43px!important;margin:0!important;padding:4px 5px!important;font-size:11px!important;line-height:1.15!important;white-space:normal!important;overflow-wrap:normal!important;flex:0 0 auto!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-table .rona-owner-table td:last-child .rona-owner-actions.rona-app-actions[data-rona-app-independent-actions="3"]>button[data-rona-app-passport-open]{grid-column:auto!important;width:100%!important;min-width:0!important;max-width:100%!important;flex:0 0 auto!important}'
+  ].join('');
   document.head.appendChild(s);
 }
 function headerIndex(table,kind){
@@ -60,42 +66,18 @@ function ensureInlinePair(cell,button){
   group.append(anchor,button);
   return true;
 }
-// The first two supplier controls remain untouched DOM buttons in their own grid.
-// Place "Open" as a sibling BELOW that grid, not inside it. Inline-important
-// placement beats every legacy visual overlay and preserves click handlers.
-function placeIndependentOpenRow(cell,host,button){
-  // Also correct a previously nested Open control already present in the host.
-  if(button.parentElement!==cell||cell.lastElementChild!==button)cell.append(button);
-  const original=Array.from(host.children).filter(node=>node.tagName==='BUTTON');
-  if(!original.length)return false;
-  cell.setAttribute('data-rona-app-independent-actions',String(original.length+1));
-  const css=(node,styles)=>{for(const [key,value]of Object.entries(styles))node.style.setProperty(key,value,'important')};
-  css(cell,{'min-width':'256px','width':'256px','white-space':'normal','overflow':'visible'});
-  css(host,{
-    'display':'grid','grid-template-columns':original.length>=2?'repeat(2,minmax(0,1fr))':'minmax(0,1fr)',
-    'align-items':'stretch','justify-content':'stretch','gap':'7px','width':'100%',
-    'min-width':'0','max-width':'100%','height':'auto','position':'static'
-  });
-  for(const control of original)css(control,{
-    'grid-column':'auto','grid-row':'auto','position':'static','display':'flex',
-    'align-items':'center','justify-content':'center','width':'100%','min-width':'0',
-    'max-width':'100%','min-height':'36px','height':'36px','padding':'4px 6px',
-    'font-size':'11px','line-height':'1.1','white-space':'normal','box-sizing':'border-box',
-    'margin':'0'
-  });
-  css(button,{
-    'grid-column':'auto','grid-row':'auto','position':'static','display':'flex',
-    'align-items':'center','justify-content':'center','width':'100%','min-width':'0',
-    'max-width':'100%','min-height':'36px','height':'36px','padding':'4px 9px',
-    'font-size':'12px','line-height':'1.1','white-space':'normal','box-sizing':'border-box',
-    'margin':'7px 0 0'
-  });
-  return true;
-}
 function placeButton(cell,button){
   const host=actionHost(cell);if(!host)return;
-  if(host.classList.contains('rona-app-actions')&&placeIndependentOpenRow(cell,host,button))return;
-  // Preserve the existing currency / Open inline pair for other application states.
+  // Decision actions have no currency selector. Mount Open directly alongside
+  // Approve and Deny, never inside either button or in an overlay wrapper.
+  if(host.classList.contains('rona-app-actions')){
+    if(button.parentElement!==host||host.lastElementChild!==button)host.append(button);
+    const direct=Array.from(host.children).filter(node=>node.tagName==='BUTTON');
+    if(direct.length===3&&direct[2]===button)host.setAttribute('data-rona-app-independent-actions','3');
+    else host.removeAttribute('data-rona-app-independent-actions');
+    return;
+  }
+  // Keep the established currency/Open pairing for other application states.
   if(ensureInlinePair(cell,button))return;
   if(button.parentElement!==host||host.lastElementChild!==button)host.append(button);
 }
