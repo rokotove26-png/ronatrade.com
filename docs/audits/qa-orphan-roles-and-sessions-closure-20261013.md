@@ -25,4 +25,16 @@ Only update: 3 `portal_user_roles` status/reason/timestamps to REVOKED; 3 `staff
 - The counts and source status of `ADMIN_PORTAL`, `QA_PHASE5C` and real Owner, Client and Agent roles must not change.
 - Supabase-generated migration history version may differ from the source filename. Record both and exact SQL hash; never replay by blindly applying a duplicate migration.
 
-**Initial status:** SQL and source-contract prepared. Database write only after exact focused checks.
+**Postflight status:** exact SQL APPLIED in production and independently verified; source PR remains DRAFT, with no release branch merge or visual change.
+
+## Production application, source equality and verification
+
+- Dedicated [focused CI run 38387944832](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38387944832): SUCCESS (3 source-contract tests / 0 failures). [Client Portal visual freeze run 38387944843](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38387944843): SUCCESS.
+- Supported Supabase apply_migration returned `success:true`; live migration history `version=20261013110724`, `name=radio_qa_orphan_admin_and_suspended_oidc_session_closure_v1`.
+- Read-only PostgreSQL equality test compared full source SQL to `supabase_migrations.schema_migrations.statements[1]`: `exact_source_match=true`; both **8671 characters**, MD5 `06ab0896148867026dfb3f0ccdcb226e`. Dedicated security test now hash-locks this SQL; never change it after deployment.
+- Postflight found precisely 3 Radio QA ADMIN role rows with `reason='POST_ACCEPTANCE_RADIO_QA_ORPHAN_ADMIN_ROLE_RETIREMENT'` and `status='REVOKED'` plus 3 QA-only OPERATIONS_DIRECTOR staff rows with the corresponding retirement reason and `status='REVOKED'`.
+- Suspended Issue430 QA: 6/6 sessions expired, zero unexpired; suspended PR462 QA: 1/1 expired, zero unexpired.
+- **Global orphan check** over all current portal roles and staff roles found **zero ACTIVE grants attached to non-ACTIVE/non-ACTIVE lifecycle users or accounts without Auth links**. This is broader than the targeted 3+3 records.
+- Unverified groups were not altered: `QA_PHASE5C` one non-expiring session remains; `ADMIN_PORTAL` suspended cohort has 130 users/116 non-expired session records (the earlier 53 count was a narrower QA-name subset). No role grants ACTIVE in these two suspended populations.
+- Live migration history version `20261013110724` differs from source filename prefix `20261013113500`. This is only a version-lineage mismatch, not a SQL content mismatch. An authorized supported Supabase migration repair is required before automatic replay / `db push`. Database migration must not be executed again.
+- Source PR #1182 remains DRAFT due other unrelated full-suite release failures; the IAM-only changes were applied separately through authorized migration tooling. Accepted UI and active business data remain unchanged.
