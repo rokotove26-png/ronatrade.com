@@ -71,6 +71,7 @@ try{
     calls:window.__race.calls,
     selected:window.RONA_CLIENT_CONTEXT.getCurrentContext()
   }));
+  console.log('QA_DOCUMENTS_CONTEXT_RACE_TRACE '+JSON.stringify(result));
   assert.equal(result.B,true);
   assert.equal(result.BInvoice,true);
   assert.equal(result.A,false,'stale A document DOM remained under current B');
