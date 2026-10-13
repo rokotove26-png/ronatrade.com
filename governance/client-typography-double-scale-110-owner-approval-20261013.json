@@ -16,9 +16,7 @@
   "exact_approved_files": [
     "assets/portal-runtime/client-contract-download-v3.js",
     "governance/client-typography-double-scale-110-owner-approval-20261013.json",
-    "scripts/qa-client-portal-visual-freeze.mjs",
-    "scripts/qa-client-typography-110-correction-v1.mjs",
-    ".github/workflows/client-typography-110-owner-gate-v1.yml"
+    "scripts/qa-client-portal-visual-freeze.mjs"
   ],
   "requirements": {
     "visual_freeze_remains_enabled": true,
