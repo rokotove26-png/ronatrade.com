@@ -15,12 +15,12 @@ assert.ok(!/RONA-C\d+|DEAL-2026-|PORTAL-EVT-[0-9a-f]{8}/i.test(actionRuntime),'r
 assert.ok(!/\bpost\s*\(|\/admin\/applications\//.test(actionRuntime),'passport action overlay must not mutate application business state');
 
 
-assert.match(actionRuntime,/host\\.classList\\.contains\\('rona-app-actions'\\)/,'supplier actions must use the dedicated three-button host');
-assert.match(actionRuntime,/direct\\.length===3&&direct\\[2\\]===button/,'Approve, Deny, Open must be direct button siblings in that order');
+assert.match(actionRuntime,/host\.classList\.contains\('rona-app-actions'\)/,'supplier actions must use the dedicated three-button host');
+assert.match(actionRuntime,/direct\.length===3&&direct\[2\]===button/,'Approve, Deny, Open must be direct button siblings in that order');
 assert.match(actionRuntime,/data-rona-app-independent-actions/,'three-button action layout must be scoped to decision rows');
-assert.match(actionRuntime,/grid-template-columns:minmax\\(0,1fr\\) minmax\\(0,1fr\\) 83px/,'three non-overlapping columns are required');
-assert.match(actionRuntime,/>button\\{position:static!important;grid-column:auto!important/,'individual action buttons must not span or overlap other controls');
-assert.match(actionRuntime,/button\\[data-rona-app-passport-open\\]\\{grid-column:auto!important/,'Open must occupy its own third column');
+assert.match(actionRuntime,/grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\) 83px/,'three non-overlapping columns are required');
+assert.match(actionRuntime,/>button\{position:static!important;grid-column:auto!important/,'individual action buttons must not span or overlap other controls');
+assert.match(actionRuntime,/button\[data-rona-app-passport-open\]\{grid-column:auto!important/,'Open must occupy its own third column');
 
 const composer=await readFile('functions/portal/main-ui/application-passport-runtime.js','utf8');
 assert.match(composer,/admin-applications-passport-action-v2\.js/,'passport action runtime must be mounted');
