@@ -6,7 +6,7 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'functions/portal/admin.js'
-      - 'functions/portal/[[path]].js'
+      - 'functions/portal/*path*.js'
       - 'tests/security/admin-session-backed-fallback-v1.test.mjs'
       - 'tests/admin-auth-session-convergence-639.test.mjs'
       - 'tests/admin-shell-resilience.test.mjs'
@@ -18,7 +18,7 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'functions/portal/admin.js'
-      - 'functions/portal/[[path]].js'
+      - 'functions/portal/*path*.js'
       - 'tests/security/admin-session-backed-fallback-v1.test.mjs'
       - 'tests/admin-auth-session-convergence-639.test.mjs'
       - 'tests/admin-shell-resilience.test.mjs'
