@@ -50,6 +50,7 @@ jobs:
           grep -Fq 'QA_DOCUMENT_WORKFLOW_DENIAL_RECOVERY=PASS' browser-denial.log
           node scripts/qa-client-documents-context-race-browser-v1.mjs | tee browser-context-race.log
           grep -Fq 'QA_DOCUMENTS_PENDING_A_TO_B_CONTEXT_RACE=PASS' browser-context-race.log
+          grep -Fq 'QA_DOCUMENTS_A_B_A_CONTEXT_ISOLATION=PASS' browser-context-race.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
