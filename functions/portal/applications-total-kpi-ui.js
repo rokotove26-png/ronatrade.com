@@ -124,6 +124,26 @@ function ensureStyle(){
  '@media(max-width:1120px){#page-applications .rona-app-kpi-grid>.rona-app-kpi:not(.rona-app-total-kpi){grid-column:span 6!important}}',
  '@media(max-width:740px){#page-applications .rona-app-kpi-grid>.rona-app-total-kpi{grid-column:span 6!important}#page-applications .rona-app-kpi-grid>.rona-app-total-kpi--selected-amount{grid-column:span 12!important}}',
  '@media(max-width:570px){#page-applications .rona-app-kpi-grid>.rona-app-total-kpi,#page-applications .rona-app-kpi-grid>.rona-app-kpi:not(.rona-app-total-kpi){grid-column:span 12!important}}',
+ '#page-applications .rona-app-flow{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important;padding:10px!important;border:1px solid rgba(74,158,229,.35)!important;border-radius:15px!important;background:linear-gradient(155deg,rgba(5,22,41,.93),rgba(11,36,62,.88))!important;margin:5px 0 17px!important}',
+ '#page-applications .rona-app-flow-step{position:relative!important;min-height:68px!important;padding:12px 15px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:12px!important;font-size:14px!important;font-weight:870!important;letter-spacing:.015em!important;background:linear-gradient(160deg,rgba(18,49,81,.94),rgba(6,24,45,.96))!important;border:2px solid rgba(89,169,220,.56)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 6px 17px rgba(0,0,0,.27)!important;text-align:center!important}',
+ '#page-applications .rona-app-flow-step:nth-child(1){border-color:#3d9ef0!important;background:linear-gradient(160deg,rgba(23,87,163,.8),rgba(8,38,75,.98))!important;color:#e1f1ff!important}',
+ '#page-applications .rona-app-flow-step:nth-child(2){border-color:#20d3da!important;background:linear-gradient(160deg,rgba(6,100,116,.8),rgba(5,44,61,.98))!important;color:#d6ffff!important}',
+ '#page-applications .rona-app-flow-step:nth-child(3){border-color:#ffbc58!important;background:linear-gradient(160deg,rgba(139,83,19,.85),rgba(68,41,17,.98))!important;color:#fff1cf!important}',
+ '#page-applications .rona-app-flow-step:nth-child(4){border-color:#30e3a1!important;background:linear-gradient(160deg,rgba(9,115,77,.81),rgba(5,58,50,.98))!important;color:#deffef!important}',
+ '#page-applications .rona-app-flow-step:before{opacity:1!important;height:5px!important;left:12px!important;right:12px!important;bottom:0!important;top:auto!important;box-shadow:0 0 14px currentColor!important}',
+ '#page-applications .rona-app-filter{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px!important;padding:13px!important;border:1px solid rgba(100,175,224,.4)!important;border-radius:15px!important;background:linear-gradient(150deg,rgba(7,29,51,.94),rgba(4,19,36,.97))!important;margin:2px 0 17px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 24px rgba(0,0,0,.19)!important}',
+ '#page-applications .rona-app-filter button{min-width:0!important;min-height:53px!important;padding:12px 10px!important;border-width:2px!important;border-radius:12px!important;font-size:14px!important;font-weight:880!important;line-height:1.25!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.21),0 6px 15px rgba(0,0,0,.34)!important;letter-spacing:.025em!important}',
+ '#page-applications .rona-app-filter button[aria-pressed=true]{outline:3px solid rgba(255,255,255,.95)!important;outline-offset:2px!important;box-shadow:0 0 0 2px rgba(255,255,255,.23),0 9px 26px rgba(0,0,0,.4),0 0 24px currentColor!important;transform:translateY(-2px)!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:last-child button,#page-applications .rona-app-table .rona-owner-actions button{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:43px!important;min-width:100px!important;padding:10px 14px!important;background:linear-gradient(155deg,#1777d1,#0b4b95)!important;color:#fff!important;font-weight:850!important;border:2px solid #79c9ff!important;border-radius:10px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 6px 16px rgba(0,0,0,.28)!important;white-space:normal!important;cursor:pointer!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:last-child button.rona-app-action--approve,#page-applications .rona-app-table .rona-owner-actions button.rona-app-action--approve{background:linear-gradient(155deg,#119a65,#07754e)!important;border-color:#68ffc4!important;color:#fff!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:last-child button.rona-app-action--reject,#page-applications .rona-app-table .rona-owner-actions button.rona-app-action--reject{background:linear-gradient(155deg,#c33552,#8e1f3c)!important;border-color:#ff9bad!important;color:#fff!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:last-child button.rona-app-action--offer,#page-applications .rona-app-table .rona-owner-actions button.rona-app-action--offer{background:linear-gradient(155deg,#c08722,#875313)!important;border-color:#ffda8b!important;color:#fff!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:last-child button:hover:not(:disabled){filter:brightness(1.23)!important;transform:translateY(-2px)!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:last-child button:focus-visible{outline:3px solid #fff!important;outline-offset:2px!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:last-child button:disabled{opacity:.5!important;cursor:not-allowed!important}',
+ '@media(max-width:1060px){#page-applications .rona-app-flow,#page-applications .rona-app-filter{grid-template-columns:repeat(2,minmax(0,1fr))!important}}',
+ '@media(max-width:600px){#page-applications .rona-app-flow,#page-applications .rona-app-filter{grid-template-columns:1fr!important}}',
+ '@media(prefers-reduced-motion:reduce){#page-applications .rona-app-filter button,#page-applications .rona-app-table .rona-owner-table td:last-child button{transition:none!important;transform:none!important}}',
  '@media(prefers-reduced-motion:reduce){#page-applications .rona-app-filter button,#page-applications .rona-app-table .rona-owner-actions button{transition:none!important;transform:none!important}}',
  '@media(prefers-reduced-motion:reduce){#page-applications .rona-app-filter button,#page-applications .rona-app-kpi-grid>.rona-owner-card{transition:none!important;transform:none!important}}'
  ].join('');
@@ -147,7 +167,7 @@ function currentBucket(){
 // Exact bucket predicate used by the deployed /portal/main-ui application2BBucket patch.
 function applicationBucket(a){
  const owner=upper(a?.owner_status),app=upper(a?.status),deal=upper(a?.deal_status);
- if(owner==='REJECTED'||owner==='CANCELLED'||owner==='DEAL'||app==='CANCELLED'||(app==='DEAL_REGISTERED'&&deal!=='SUPPLIER_PENDING'))return'COMPLETED';
+ if(owner==='REJECTED'||owner==='CANCELLED'||owner==='SUPPLIER_APPROVED'||owner==='DEAL'||app==='CANCELLED'||(app==='DEAL_REGISTERED'&&deal!=='SUPPLIER_PENDING'))return'COMPLETED';
  if(owner==='COUNTER_OFFERED'||owner==='SUPPLIER_PENDING'||deal==='SUPPLIER_PENDING')return'DECISION';
  if(owner==='NEW'||!owner)return'NEW';
  return'WORK'
@@ -178,7 +198,7 @@ function makeRegistryNote(snapshot){
  return note
 }
 function enhanceActions(page){
- qa('.rona-app-table .rona-owner-actions button',page).forEach(b=>{
+ qa('.rona-app-table button',page).forEach(b=>{
    const label=String(b.textContent||'').trim();
    const tone=['Принять','Ресурс одобрен','Ресурс подтвержден','Отправить в сделки'].includes(label)?'approve':
      ['Отклонить','В ресурсе отказано'].includes(label)?'reject':
@@ -191,7 +211,7 @@ function appCountLabel(n){const two=Math.abs(n)%100,one=two%10;return String(n)+
 // application_price is the canonical effective price. It may be unagreed; NEVER present it as a booked/signed amount.
 const moneyFmt=v=>new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
 function selectedAmount(rows,sourceValid){
- if(!sourceValid)return{state:'UNAVAILABLE',lines:[],caption:'Источник стоимости не подтверждён'};
+ if(!sourceValid)return{state:'UNAVAILABLE',lines:[],caption:'Ожидается подтверждённая запись заявки для расчёта суммы'};
  if(rows.length===0)return{state:'EMPTY',lines:[],caption:'В выбранной категории заявок нет'};
  const sums=new Map();let estimated=0,missing=0,blocked=0;
  for(const a of rows){
@@ -229,7 +249,10 @@ function apply(){
  ensureStyle();
  const filter=FILTERS[bucket],snapshot=window.__RONA_OWNER_ADMIN_SNAPSHOT__;
  const hasRows=Array.isArray(snapshot?.applications),rows=hasRows?snapshot.applications:[];
- const canonical=hasRows&&snapshot?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'&&snapshot?.application_kpi?.source==='RONA_APPLICATION_BUSINESS_V2';
+ // The selected category is independently verifiable from canonical row provenance;
+ // whole-register KPI readiness must not block a fully verified category.
+ const canonical=hasRows&&(snapshot?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'||rows.every(a=>a?.business_contract==='RONA_APPLICATION_BUSINESS_V2'&&a?.record_kind==='CLIENT_APPLICATION'));
+ const registryComplete=hasRows&&snapshot?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'&&snapshot?.application_kpi?.source==='RONA_APPLICATION_BUSINESS_V2';
  const visible=rows.filter(a=>applicationBucket(a)===bucket);
  const quantities=visible.map(a=>a?.quantity_tonnes);
  const complete=quantities.every(v=>finite(v)&&Number(v)>=0);
@@ -244,7 +267,7 @@ function apply(){
  grid.style.setProperty('--rona-app-current-accent',filter.tone);
  grid.prepend(count,ton,sum);
  const old=q('[data-rona-app-registry-note]',page);if(old)old.remove();
- grid.insertAdjacentElement('afterend',makeRegistryNote(snapshot));
+ grid.insertAdjacentElement('afterend',makeRegistryNote(registryComplete?snapshot:{...snapshot,application_business_contract:null}));
  const queue=q('.rona-app-table',page);
  if(queue){
    queue.style.setProperty('--rona-app-current-accent',filter.tone);
