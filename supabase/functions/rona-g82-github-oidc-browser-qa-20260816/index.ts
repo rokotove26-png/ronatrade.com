@@ -22,7 +22,6 @@ const pvt=table=>service.schema("portal_private").from(table);
 const REPO="rokotove26-png/ronatrade.com";
 const LEGACY_REF="refs/heads/feat/admin-payments-final-owner-screen-passport-v1";
 const LEGACY_AUD="rona-pr462-live-preview";
-const LEGACY_SOURCE="QA_GITHUB_OIDC_PR462";
 const ISSUE430_AUD="rona-issue430-owner-uat-browser-v2";
 const ISSUE430_SOURCE="QA_GITHUB_OIDC_ISSUE430";
 const ISSUE430_WORKFLOW="issue430 owner authorized browser QA";
@@ -296,36 +295,6 @@ async function radioStage2ARetireDirect(portalId,authId,reason){
     await sql`update portal_private.portal_users set login_name=case when login_name like 'qa_radio_stage2a_%' and login_name not like '%__archived_%' then login_name||'__archived_'||left(replace(id::text,'-',''),12) else login_name end,status='REVOKED',lifecycle_state='ARCHIVED',revoked_at=${ts}::timestamptz,suspended_at=null,auth_user_id=null,updated_at=${ts}::timestamptz where id=${portalId}::uuid and source_system=${RADIO_STAGE2A_SOURCE} and status='ACTIVE'`;
   });
   await deleteAuthUser(authId);
-}
-
-async function issueLegacy(claims){
-  const runId=String(claims.run_id||"");
-  if(!/^\d{5,20}$/.test(runId)) throw Object.assign(new Error("OIDC_RUN_ID_INVALID"),{status:403});
-  await cleanupByRun(LEGACY_SOURCE,runId,"");
-  const nonce=crypto.randomUUID().replaceAll("-","").slice(0,12);
-  const login="qa_pr462_"+runId+"_"+nonce;
-  const email="qa-pr462-"+runId+"-"+nonce+"@example.invalid";
-  const auth=await createAuth(login,email,"RONA PR462 GitHub OIDC QA Admin",{rona_qa_head:String(claims.sha)});
-  const portalId=crypto.randomUUID();
-  const ts=nowIso();
-  try{
-    const u=await pvt("portal_users").insert({
-      id:portalId,auth_user_id:auth.authId,login_name:login,display_name:"RONA PR462 GitHub OIDC QA Admin",
-      status:"ACTIVE",source_system:LEGACY_SOURCE,source_version:"RUN_"+runId,source_timestamp:ts,
-      authority_state:"CONFIRMED",lifecycle_state:"ACTIVE",auth_linked_at:ts,activated_at:ts,
-      last_auth_verified_at:ts,must_change_password:false,password_changed_at:ts
-    });
-    if(u.error) throw u.error;
-    const r=await pvt("portal_user_roles").insert({
-      user_id:portalId,role:"ADMIN",status:"ACTIVE",granted_by:null,reason:"Temporary PR462 GitHub OIDC QA",
-      granted_at:ts,created_at:ts,updated_at:ts
-    });
-    if(r.error) throw r.error;
-    return {portal_id:portalId,auth_user_id:auth.authId,session:auth.session};
-  }catch(error){
-    await retireUser(portalId,auth.authId,LEGACY_SOURCE,"PR462 failed issuance cleanup").catch(()=>{});
-    throw error;
-  }
 }
 
 async function issue430(claims,sourcePortalId){
