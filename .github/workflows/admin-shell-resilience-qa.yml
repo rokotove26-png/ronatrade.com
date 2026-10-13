@@ -43,6 +43,34 @@ jobs:
             console.log('ADMIN_OWNER_JWT_GATEWAY_LIVE_FAIL_CLOSED=PASS');
           }finally{clearTimeout(timer)}
           NODE
+      - name: Live public Admin route must deny missing or fabricated session
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint='https://ronaoil.com/portal/admin'
+          for mode in no-cookie forged-cookie; do
+            header_file="admin-negative-$mode.headers"
+            body_file="admin-negative-$mode.body"
+            if [ "$mode" = 'forged-cookie' ]; then
+              status=$(curl --silent --show-error --max-time 25 --output "$body_file" \
+                --dump-header "$header_file" --write-out '%{http_code}' \
+                --cookie 'rona_portal_at=synthetic-invalid-owner-claims' "$endpoint")
+            else
+              status=$(curl --silent --show-error --max-time 25 --output "$body_file" \
+                --dump-header "$header_file" --write-out '%{http_code}' "$endpoint")
+            fi
+            test "$status" = 302
+            node --input-type=module - "$header_file" "$body_file" <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          const headers=readFileSync(process.argv[2],'utf8').toLowerCase();
+          const body=readFileSync(process.argv[3],'utf8');
+          assert.match(headers,/location:\s*https?:\/\/[^\r\n]*\/portal\/login(?:[?\r\n]|$)/i);
+          assert.match(headers,/cache-control:\s*no-store/i);
+          assert.doesNotMatch(body,/rona-server-authenticated-admin-bootstrap|__RONA_ADMIN_AUTH_CONTEXT__|admin-shell-fast/i);
+          console.log('RONA_LIVE_ADMIN_NO_SESSION_DENIED=PASS');
+          NODE
+          done
       - name: Run Admin current-only regression guards
         run: |
           node tests/admin-shell-resilience.test.mjs
