@@ -108,7 +108,7 @@ try{
   async function activateProductionControl(kind){return page.evaluate(kind=>{
     const norm=v=>String(v??'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
     const visible=n=>{if(!n||!n.isConnected||n.hidden)return false;const s=getComputedStyle(n),r=n.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0};
-    const specs=kind==='prices'?{ids:['navPrices','nav-prices'],tokens:['цены','прайс']}:{ids:['navDeals','nav-deals'],tokens:['сделки']};
+    const specs=kind==='home'?{ids:['navHome','nav-home'],tokens:['главная','домой']}:(kind==='prices'?{ids:['navPrices','nav-prices'],tokens:['цены','прайс']}:{ids:['navDeals','nav-deals'],tokens:['сделки']});
     const all=[...document.querySelectorAll('button,a,[role="button"],[role="tab"],[role="menuitem"]')];
     const target=specs.ids.map(id=>document.getElementById(id)).find(visible)||all.find(n=>visible(n)&&specs.tokens.some(t=>[norm(n.textContent),norm(n.getAttribute('aria-label')),norm(n.getAttribute('title'))].some(x=>x===t||x.includes(t))));
     const candidates=all.filter(visible).map(n=>({tag:n.tagName,id:n.id||'',text:String(n.textContent||'').replace(/\s+/g,' ').trim().slice(0,90),aria:n.getAttribute('aria-label')||'',role:n.getAttribute('role')||'',data_page:n.getAttribute('data-page')||''})).filter(x=>x.text||x.aria).slice(0,80);
@@ -141,7 +141,7 @@ try{
     const bound=await page.waitForFunction(({c,k,d,binding})=>[...document.querySelectorAll('.rona-deal-command-center-v3,[data-rona-deal-passport]')].some(r=>{const s=getComputedStyle(r),q=r.getBoundingClientRect();return !r.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&q.width>0&&q.height>0&&r.dataset.ronaAuthoritativeBinding===binding&&r.dataset.ronaAuthoritativeClientId===c&&r.dataset.ronaAuthoritativeContractId===k&&r.dataset.ronaAuthoritativeDealId===d}),{c:f.client_id,k:f.contract_id,d:f.deal_id,binding:CURRENT_HEAD?'canonical-deal-state-binding':'authoritative-binding'},{timeout}).then(()=>true).catch(()=>false);
     const lifecycle=await page.waitForFunction(({c,k,d,source,owner})=>{const t=window.__RONA_STRICT_TRACE__?.events||[];const hit=t.some(e=>e.type==='rona:client:deal-authoritative-detail'&&e.detail?.dealId===d&&e.detail?.client_id===c&&e.detail?.contract_id===k&&e.detail?.realization_status?.source===source&&e.detail?.realization_status?.current_stage_key==='resource');const drawer=[...document.querySelectorAll('.rona-deal-command-center-v3,[data-rona-deal-passport]')].find(r=>r.dataset.ronaAuthoritativeDealId===d&&r.dataset.ronaAuthoritativeClientId===c&&r.dataset.ronaAuthoritativeContractId===k);const flow=drawer?.querySelector?.('#rona-deal-realization-flow-v3');return hit&&flow?.dataset?.ronaRealizationOwner===owner},{c:f.client_id,k:f.contract_id,d:f.deal_id,source:CURRENT_HEAD?'CLIENT_DEAL_STATE_V1':'SERVER_AUTHORITATIVE_REALIZATION_V1',owner:CURRENT_HEAD?'client-deal-state-v1':'server-authoritative-v6-strict-context'},{timeout:2500}).then(()=>true).catch(()=>false);
     const drawer=await page.evaluate(({c,k,d})=>{const visible=n=>{if(!n||!n.isConnected||n.hidden)return false;const s=getComputedStyle(n),r=n.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0};const r=[...document.querySelectorAll('.rona-deal-command-center-v3,[data-rona-deal-passport]')].find(visible);if(!r)return null;const flow=r.querySelector('#rona-deal-realization-flow-v3');return{binding:r.dataset.ronaAuthoritativeBinding||'',deal_id:r.dataset.ronaAuthoritativeDealId||'',client_id:r.dataset.ronaAuthoritativeClientId||'',contract_id:r.dataset.ronaAuthoritativeContractId||'',context:r.dataset.ronaAuthoritativeContext||'',passport_marker:r.dataset.ronaDealPassport||'',lifecycle_owner:flow?.dataset?.ronaRealizationOwner||'',text:String(r.innerText||'').replace(/\s+/g,' ').trim().slice(0,600),expected:c+'|'+k+'|'+d}},{c:f.client_id,k:f.contract_id,d:f.deal_id});
-    return{visible:!!drawer,bound:bound&&drawer?.binding==='authoritative-binding'&&drawer?.deal_id===f.deal_id&&drawer?.client_id===f.client_id&&drawer?.contract_id===f.contract_id,lifecycle,representative:true,reason:bound&&lifecycle?'READY':'NATIVE_DRAWER_BIND_OR_LIFECYCLE_FAILED',ms:Math.round(performance.now()-start),deals_action:dealsAction,target,drawer,runtime};
+    return{visible:!!drawer,bound:bound&&drawer?.binding===(CURRENT_HEAD?'canonical-deal-state-binding':'authoritative-binding')&&drawer?.deal_id===f.deal_id&&drawer?.client_id===f.client_id&&drawer?.contract_id===f.contract_id,lifecycle,representative:true,reason:bound&&lifecycle?'READY':'NATIVE_DRAWER_BIND_OR_LIFECYCLE_FAILED',ms:Math.round(performance.now()-start),deals_action:dealsAction,target,drawer,runtime};
   }
   async function latePriorProbe(name){
     const cur=FIXTURES[name],prior=FIXTURES[name==='B'?'A':'B'];const before=await snapshot(`${name}:late-prior-before`);
@@ -184,7 +184,33 @@ try{
 
   await setPhase('A');await waitProjection(FIXTURES.A);const A=await switchTo('A');const B=await switchTo('B');const A2=await switchTo('A');
   const event_probes=[];for(const type of ['focus','pageshow','visibilitychange'])event_probes.push(await eventProbe(type));
-  await waitRequestQuiescence();const idleBefore={requests:requests.length,dom:await page.locator('*').count()};await page.waitForTimeout(32000);const idleAfter={requests:requests.length,dom:await page.locator('*').count()};const idle={request_delta:idleAfter.requests-idleBefore.requests,dom_delta:idleAfter.dom-idleBefore.dom};await snapshot('A:idle-stable');
+  // Current Client runtime intentionally refreshes the active Deals/Applications workspace every 30s.
+  // Prove this is bounded and same-scope, then separately demand ZERO network growth on passive Home.
+  let idle,operational=null;
+  if(CURRENT_HEAD){
+    await waitRequestQuiescence();
+    const activeStart={requests:requests.length,dom:await page.locator('*').count()};
+    await page.waitForTimeout(32000);
+    const activeRequests=requests.slice(activeStart.requests);
+    const refreshContext=activeRequests.filter(r=>r.path==='/portal/api/v1/client/context'&&r.source==='client-context-selection-authority-v1:client-application-lifecycle-v1'&&r.client_id===FIXTURES.A.client_id&&r.contract_id===FIXTURES.A.contract_id&&r.status===200);
+    const refreshDocuments=activeRequests.filter(r=>r.path==='/portal/api/v1/client/deal-documents/state'&&r.source==='client-deal-documents-v5'&&r.client_id===FIXTURES.A.client_id&&r.contract_id===FIXTURES.A.contract_id&&r.status===200);
+    const allowed=new Set([...refreshContext,...refreshDocuments]);
+    operational={request_delta:activeRequests.length,context_refresh_count:refreshContext.length,documents_refresh_count:refreshDocuments.length,unexpected:activeRequests.filter(r=>!allowed.has(r)),dom_delta:(await page.locator('*').count())-activeStart.dom};
+    const homeAction=await activateProductionControl('home');
+    if(!homeAction.ok)throw new Error('CURRENT_HEAD_PASSIVE_HOME_ACTION_UNAVAILABLE:'+JSON.stringify(homeAction.candidates||[]));
+    await waitRequestQuiescence(750,6500);
+    const idleBefore={requests:requests.length,dom:await page.locator('*').count()};
+    await page.waitForTimeout(32000);
+    const idleAfter={requests:requests.length,dom:await page.locator('*').count()};
+    idle={request_delta:idleAfter.requests-idleBefore.requests,dom_delta:idleAfter.dom-idleBefore.dom,mode:'PASSIVE_HOME'};
+  }else{
+    await waitRequestQuiescence();
+    const idleBefore={requests:requests.length,dom:await page.locator('*').count()};
+    await page.waitForTimeout(32000);
+    const idleAfter={requests:requests.length,dom:await page.locator('*').count()};
+    idle={request_delta:idleAfter.requests-idleBefore.requests,dom_delta:idleAfter.dom-idleBefore.dom};
+  }
+  await snapshot('A:idle-stable');
 
   const trace=await page.evaluate(()=>window.__RONA_STRICT_TRACE__);
   const failures=[];let first=null;
@@ -205,6 +231,7 @@ try{
   const realContext=requests.filter(r=>r.path==='/portal/api/v1/client/context'&&!r.source.startsWith('diagnostic-'));for(const r of realContext){if(!r.source.startsWith('client-context-selection-authority-v1:'))failures.push({code:'UNAPPROVED_CONTEXT_OWNER',request:r});if(r.client_id!==r.response_client_id||r.contract_id!==r.response_contract_id)failures.push({code:'CONTEXT_RESPONSE_SCOPE_MISMATCH',request:r})}
   const alwaysForbidden=requests.filter(r=>['/portal/api/v1/client/shipments','/portal/api/v1/client/rail','/portal/api/v1/client/messages','/portal/api/v1/client/archive'].includes(r.path));if(alwaysForbidden.length)failures.push({code:'UNAPPROVED_BACKGROUND_FANOUT',requests:alwaysForbidden});
   const eventFailures=[];for(const probe of event_probes){const causal=probe.causal_requests.filter(r=>r.path.startsWith('/portal/api/v1/client/'));const approved=causal.filter(r=>r.path==='/portal/api/v1/client/deal-documents/state'&&r.source==='client-deal-lifecycle-v1'&&r.client_id===FIXTURES.A.client_id&&r.contract_id===FIXTURES.A.contract_id);const disallowed=causal.filter(r=>!approved.includes(r));const byOwner=new Map();for(const r of causal.filter(r=>r.path==='/portal/api/v1/client/context')){const key=`${r.path}|${r.client_id}|${r.contract_id}`;byOwner.set(key,(byOwner.get(key)||0)+1)}const duplicate_context=[...byOwner].filter(([,n])=>n>1);if(disallowed.length||duplicate_context.length)eventFailures.push({event:probe.type,causal_requests:causal,disallowed,duplicate_context,ambient_requests:probe.ambient_requests})}if(eventFailures.length)failures.push({code:'FOCUS_PAGESHOW_VISIBILITY_FANOUT',events:eventFailures});
+  if(operational&&(operational.unexpected.length>0||operational.context_refresh_count>1||operational.documents_refresh_count>1||operational.dom_delta>5))failures.push({code:'ACTIVE_OPERATIONAL_REFRESH_UNBOUNDED_OR_CROSS_SCOPE',operational});
   if(idle.request_delta!==0)failures.push({code:'IDLE_REQUEST_GROWTH',idle});if(idle.dom_delta>5)failures.push({code:'WHOLE_DOCUMENT_FEEDBACK_GROWTH',idle});
 
   const counts={};for(const r of requests){const key=`${r.path}|${r.source}`;counts[key]=(counts[key]||0)+1}
@@ -215,7 +242,7 @@ try{
   console.log('PERFORMANCE_TRACE',JSON.stringify({A:{projection_ms:A.projection_ms,home_ms:A.home_ms,prices_ms:A.prices.ms,deals_ms:A.deals_ms,passport_ms:A.passport.ms},B:{projection_ms:B.projection_ms,home_ms:B.home_ms,prices_ms:B.prices.ms,deals_ms:B.deals_ms,passport_ms:B.passport.ms},A2:{projection_ms:A2.projection_ms,home_ms:A2.home_ms,prices_ms:A2.prices.ms,deals_ms:A2.deals_ms,passport_ms:A2.passport.ms}}));
   console.log('REAL_PRICES_PROOF',JSON.stringify(priceProof));console.log('REAL_PASSPORT_PROOF',JSON.stringify(passportProof));console.log('LATE_PRIOR_COMMIT_PROOF',JSON.stringify(cycles.map(c=>({cycle:c.name,probe:c.late_prior}))));
   for(const r of requests)console.log('TRACE_REQUEST',JSON.stringify(r));
-  console.log('REQUEST_CALLER_MAP',JSON.stringify(counts));console.log('EVENT_REQUEST_MAP',JSON.stringify(event_probes));console.log('IDLE_STABILITY',JSON.stringify(idle));console.log('PAGE_ERRORS',JSON.stringify(pageErrors));
+  console.log('REQUEST_CALLER_MAP',JSON.stringify(counts));console.log('EVENT_REQUEST_MAP',JSON.stringify(event_probes));if(operational)console.log('CURRENT_HEAD_OPERATIONAL_REFRESH_PROOF',JSON.stringify(operational));console.log('IDLE_STABILITY',JSON.stringify(idle));console.log('PAGE_ERRORS',JSON.stringify(pageErrors));
   if(!first&&TARGET_LABEL==='POST_FIX')console.log('POST_FIX_DIVERGENCE=NONE');
   const uniqueFailures=[...new Set(failures.map(x=>x.code))];console.log('ROOT_CAUSE_TRACE_COMPLETE',JSON.stringify({target:TARGET_LABEL,failures:uniqueFailures,requests:requests.length,events:trace.events.length}));
   if(failures.length){console.error('ASSERTION_FAILED',JSON.stringify(failures[0]));throw new Error(`ASSERTION_FAILED:${failures[0].code}`)}
