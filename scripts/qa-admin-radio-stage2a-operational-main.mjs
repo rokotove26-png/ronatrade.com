@@ -50,6 +50,8 @@ async function loadAdminReady(page,c,label,{navigate=true}={}){
       if(navigate)await page.goto(ORIGIN+'/portal/admin?_qa_radio_stage2a_operational='+HEAD+'&_ready_attempt='+attempt,{waitUntil:'domcontentloaded',timeout:30000});
       else await page.reload({waitUntil:'domcontentloaded',timeout:30000});
       await wait(()=>page.evaluate(()=>window.__RONA_OWNER_ADMIN_READY__===true),label+'_OWNER_READY',45000,500);
+      // The radio module is lazily initialized after the messages page is selected.
+      await page.locator('#nav button[data-page="messages"]').first().click();
       await wait(()=>page.evaluate(()=>Boolean(window.__RONA_REMAINING_SECTIONS_READY__)||window.__RONA_ADMIN_MODULES__?.remaining?.status==='READY'),label+'_REMAINING_READY',60000,500);
       attempts.push({attempt,backendStatus:health.status,pageErrors,ready:true});
       proof.adminRuntimeAttempts=(proof.adminRuntimeAttempts||[]).concat(attempts);
