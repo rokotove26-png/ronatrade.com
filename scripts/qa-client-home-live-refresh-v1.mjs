@@ -207,7 +207,7 @@ if(failed.status==='error'){
   assert.equal(failed.status,'ready','unexpected source state '+JSON.stringify(failed));
   assert.equal(failed.markers?.client_id,'QA-CLIENT-B','recovery crossed client boundary');
   assert.ok(!failed.labels.some(x=>x.includes('420')),'previous tenant data leaked');
-  assert.ok(afterRace.networkCalls>=beforeRace+2,'ready state lacked fresh authorization');
+  assert.ok(failed.counters.networkCalls>=beforeRace+2,'ready state lacked fresh authorization');
 }
 console.log('HOME_V1_ERROR_FAIL_CLOSED=PASS',JSON.stringify({observedError:true,finalState:failed.status}));
 await page.evaluate(()=>window.__QA_HOME.setReceived(110));
