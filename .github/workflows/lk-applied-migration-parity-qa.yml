@@ -1,0 +1,57 @@
+name: LK applied migration source parity QA
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/migrations/20261013093143_lk_rail_anon_execute_and_parser_path_v1.sql'
+      - 'supabase/migrations/20261013104046_quarantine_stale_pr462_qa_admin_v1.sql'
+      - 'supabase/migrations/20261013110724_radio_qa_orphan_admin_and_suspended_oidc_session_closure_v1.sql'
+      - 'supabase/migrations/20261013112823_expire_single_suspended_phase5c_qa_session_v1.sql'
+      - 'tests/security/lk-applied-migration-source-parity-v1.test.mjs'
+      - '.github/workflows/lk-applied-migration-parity-qa.yml'
+      - 'docs/audits/lk-applied-migration-source-parity-20261013.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  four-applied-migration-sql-history:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify exact production release base and strictly nonvisual/DB-source-only delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='f8f0233a33b321e8fc54a7e404cd85e3eff21718'
+          git fetch origin release/public-go-live-v1.1
+          test "$(git merge-base HEAD origin/release/public-go-live-v1.1)" = "$base"
+          git diff --name-only "$base"...HEAD > applied-source-delta.txt
+          if grep -Ev '^(supabase/migrations/20261013093143_lk_rail_anon_execute_and_parser_path_v1\.sql|supabase/migrations/20261013104046_quarantine_stale_pr462_qa_admin_v1\.sql|supabase/migrations/20261013110724_radio_qa_orphan_admin_and_suspended_oidc_session_closure_v1\.sql|supabase/migrations/20261013112823_expire_single_suspended_phase5c_qa_session_v1\.sql|tests/security/lk-applied-migration-source-parity-v1\.test\.mjs|\.github/workflows/lk-applied-migration-parity-qa\.yml|docs/audits/lk-applied-migration-source-parity-20261013\.md)$' applied-source-delta.txt; then
+            echo 'OUT_OF_SCOPE_LK_SOURCE_DELTA'
+            exit 1
+          fi
+      - name: Verify four exact production-applied SQL versions and MD5s
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/security/lk-applied-migration-source-parity-v1.test.mjs
+          node --test --test-reporter=tap tests/security/lk-applied-migration-source-parity-v1.test.mjs | tee applied-source-parity.log
+          grep -Fq '# tests 2' applied-source-parity.log
+          grep -Fq '# pass 2' applied-source-parity.log
+          grep -Fq '# fail 0' applied-source-parity.log
+          test "$(grep -c 'LIVE_SOURCE_HISTORY_PARITY=PASS' applied-source-parity.log)" = 4
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lk-applied-migration-source-parity
+          path: |
+            applied-source-delta.txt
+            applied-source-parity.log
+          if-no-files-found: ignore
