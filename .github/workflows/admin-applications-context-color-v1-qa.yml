@@ -49,6 +49,14 @@ jobs:
           node --check assets/portal-admin-shell-fast-v1.js
       - name: Execute selected-filter data and visual contract tests
         run: node --test --test-reporter=tap tests/admin-applications-context-color-v1.test.mjs
+      - name: Prepare real Chromium for isolated Applications button geometry QA
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Verify three independent hit targets under actual layered CSS
+        env:
+          RONA_APPLICATIONS_GEOMETRY_QA: '1'
+        run: node --test --test-reporter=tap tests/admin-applications-context-color-v1.test.mjs
       - name: Preserve immutable canonical Client/Admin assets
         run: |
           node scripts/build-pages-direct-canonical.mjs
