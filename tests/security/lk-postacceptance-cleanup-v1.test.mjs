@@ -70,6 +70,9 @@ test('preserve current Admin/Client canonical visuals and live source dependency
 test('Rail RPC hardening revokes only explicit anon EXECUTE and preserves authenticated callers',()=>{
   const sql=readFileSync('supabase/migrations/20261013093500_lk_rail_anon_execute_and_parser_path_v1.sql','utf8');
   const rb=readFileSync('supabase/rollbacks/20261013093500_lk_rail_anon_execute_and_parser_path_v1_rollback.sql','utf8');
+  // Exact SQL already applied in Supabase under server-generated version 20261013093143.
+  // Never silently repurpose this migration filename to different executable SQL.
+  assert.equal(createHash('md5').update(sql).digest('hex'),'5c99d0beee7ce0cfff675e11ff1fd680','APPLIED_MIGRATION_SQL_SOURCE_DRIFT');
   for(const fn of ['rona_admin_rail_monitoring_complete_v1(text)','rona_admin_rail_monitoring_lifecycle_v1()']){
     assert.ok(sql.includes('REVOKE EXECUTE ON FUNCTION public.'+fn+' FROM anon;'),'missing exact anon REVOKE for '+fn);
     assert.ok(sql.includes("has_function_privilege('authenticated','public."+fn+"','EXECUTE')"),'authenticated caller guard missing for '+fn);
