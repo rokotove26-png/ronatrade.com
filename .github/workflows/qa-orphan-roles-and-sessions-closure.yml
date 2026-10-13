@@ -1,0 +1,54 @@
+name: RONA IAM QA orphan roles and sessions P1
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/migrations/20261013113500_radio_qa_orphan_admin_and_suspended_oidc_session_closure_v1.sql'
+      - 'tests/security/radio-qa-orphan-and-oidc-session-closure-v1.test.mjs'
+      - '.github/workflows/qa-orphan-roles-and-sessions-closure.yml'
+      - 'docs/audits/qa-orphan-roles-and-sessions-closure-20261013.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-qa-iam-scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify exact release ancestry and narrow nonvisual scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_lock='f8f0233a33b321e8fc54a7e404cd85e3eff21718'
+          git fetch origin release/public-go-live-v1.1
+          test "$(git merge-base HEAD origin/release/public-go-live-v1.1)" = "$source_lock"
+          git diff --name-only "$source_lock"...HEAD > qa-iam-files.txt
+          if grep -Ev '^(supabase/migrations/20261013113500_radio_qa_orphan_admin_and_suspended_oidc_session_closure_v1\.sql|tests/security/radio-qa-orphan-and-oidc-session-closure-v1\.test\.mjs|\.github/workflows/qa-orphan-roles-and-sessions-closure\.yml|docs/audits/qa-orphan-roles-and-sessions-closure-20261013\.md)$' qa-iam-files.txt; then
+            echo 'QA_IAM_OUT_OF_SCOPE_DELTA'
+            exit 1
+          fi
+      - name: Prove exact 3+3+7 QA IAM source and no business data changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/security/radio-qa-orphan-and-oidc-session-closure-v1.test.mjs
+          node --test --test-reporter=tap tests/security/radio-qa-orphan-and-oidc-session-closure-v1.test.mjs | tee qa-iam-security.log
+          grep -Fq '# pass 3' qa-iam-security.log
+          grep -Fq '# fail 0' qa-iam-security.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-iam-exact-scope
+          path: |
+            qa-iam-files.txt
+            qa-iam-security.log
+          if-no-files-found: ignore
