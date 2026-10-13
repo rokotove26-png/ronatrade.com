@@ -141,7 +141,7 @@ test('Real filter switch recalculates context cards without inventing metrics, a
  p.select('is-completed');window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot(fixture);
  assert.equal(summary().count,'2');
  assert.equal(summary().ton,'100 т');
- assert.match(p.queue.querySelector('[data-rona-app-queue-context]').textContent,/Завершённые · 2 заявок/);
+ assert.match(p.queue.querySelector('[data-rona-app-queue-context]').textContent,/Завершённые · 2 заявки/);
  p.select('is-new');window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot([]);
  assert.equal(summary().count,'0');
  assert.equal(summary().ton,'0 т');
