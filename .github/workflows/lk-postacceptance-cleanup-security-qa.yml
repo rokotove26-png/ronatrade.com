@@ -55,11 +55,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm run build
+          # The canonical npm build already runs the protected Client freeze twice
+          # at source checkpoints; a third standalone freeze after in-place
+          # materialization would inspect generated/intermediate v2/v3 sources.
+          npm run build | tee lk-cleanup-build.log
           test -s dist/portal/admin.html
           test -s dist/assets/portal-market-news-current-v1.js
-          node scripts/qa-client-portal-visual-freeze.mjs | tee lk-cleanup-freeze.log
-          grep -Fq 'CLIENT_PORTAL_VISUAL_FREEZE=PASS' lk-cleanup-freeze.log
+          grep -Fq 'CLIENT_PORTAL_VISUAL_FREEZE=PASS' lk-cleanup-build.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -67,5 +69,5 @@ jobs:
           path: |
             cleanup-delta.txt
             lk-cleanup-source.log
-            lk-cleanup-freeze.log
+            lk-cleanup-build.log
           if-no-files-found: ignore
