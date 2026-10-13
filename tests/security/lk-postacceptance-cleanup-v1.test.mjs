@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync,existsSync,readdirSync,statSync} from 'node:fs';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
+import {onRequest as retiredNewsRoute} from '../../functions/portal/news-current-ui.js';
 
 const retired='functions/portal/news-current-ui.js';
 const frozen={
@@ -31,13 +32,18 @@ function sourceFiles(dir) {
   }
   return paths;
 }
-test('obsolete 4-byte news placeholder is absent and no current deployable source references it',()=>{
-  assert.equal(existsSync(retired),false,'retired stub route must be removed from Pages functions tree');
+test('retired news route answers 410 without current caller references',async()=>{
+  assert.ok(existsSync(retired));
+  const r=retiredNewsRoute();
+  assert.equal(r.status,410);
+  assert.equal(r.headers.get('cache-control'),'no-store');
+  assert.equal((await r.json()).code,'RUNTIME_RETIRED_POST_OWNER_ACCEPTANCE');
   const sources=['assets','functions','portal-src/current','_routes.json','scripts/build-pages-direct-canonical.mjs'];
   let count=0;
   for(const item of sources){
     const files=statSync(item).isDirectory()?sourceFiles(item):[item];
     for(const path of files){
+      if(path===retired)continue;
       count++;
       const source=readFileSync(path,'utf8');
       assert.doesNotMatch(source,/(?:\/portal\/)?news-current-ui(?:\.js)?(?:[?'"]|$)/m,'current deployable reference survived: '+path);
