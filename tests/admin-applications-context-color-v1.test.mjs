@@ -37,7 +37,12 @@ test('Applications module is syntactically valid, strictly page-scoped, non-muta
   assert.ok(source.includes("kpi?.source==='RONA_APPLICATION_BUSINESS_V2'"));
   assert.ok(source.includes("kpi.state==='READY'"));
   assert.ok(source.includes("Number.isFinite(Number(v))"));
-  assert.doesNotMatch(source,/fetch\s*\(|XMLHttpRequest|navigator\.sendBeacon|localStorage|innerHTML\s*=/);
+  assert.doesNotMatch(source,/XMLHttpRequest|navigator\.sendBeacon|localStorage|innerHTML\s*=/);
+  assert.equal((source.match(/\bfetch\s*\(/g)||[]).length,1,'Only the canonical read-only fallback may use fetch');
+  assert.ok(source.includes("fetch('/portal/admin-completed-bootstrap'"));
+  assert.ok(source.includes("method:'GET',credentials:'same-origin',cache:'no-store'"));
+  assert.ok(source.includes("sameRegistryAndBucket(liveSnapshot,resolvedKpiPayload,bucket)"));
+  assert.ok(source.includes('rows.every(a=>a?.business_contract'));
   assert.ok(source.includes('a?.application_price')&&source.includes('a?.application_currency')&&source.includes('a?.price_is_agreed'));
   assert.ok(source.includes("a?.retention_decision")&&source.includes("a?.business_contract"));
   assert.match(source,/#page-applications \.rona-app-table \.rona-owner-actions button\.rona-app-action--approve/);
@@ -45,7 +50,7 @@ test('Applications module is syntactically valid, strictly page-scoped, non-muta
   assert.doesNotMatch(source,/#page-(home|deals|access|prices|payments|analytics)\b/);
   assert.doesNotMatch(source,/(document\.querySelector\(['"]h1['"]\)|\.topbar|\.page-title|data-rona-title)/);
   for(const stage of ['is-new','is-work','is-decision','is-completed'])assert.match(source,new RegExp('button\\.'+stage));
-  for(const style of ['rona-fin-pill--danger','rona-app-action--approve','rona-app-action--reject','rona-app-action--offer','rona-app-total-kpi--selected-amount','rona-app-money-values','rona-app-filter button:active',':focus-visible','prefers-reduced-motion'])assert.ok(source.includes(style),style);
+  for(const style of ['rona-fin-pill--danger','rona-app-action--approve','rona-app-action--reject','rona-app-action--offer','rona-app-total-kpi--selected-amount','rona-app-money-values','rona-app-filter button:active',':focus-visible','prefers-reduced-motion','td:last-child button[data-rona-app-passport-open]','width:83px!important','white-space:nowrap!important','td:nth-child(2) *{white-space:normal!important','overflow-x:auto!important'])assert.ok(source.includes(style),style);
 });
 
 class Element{
@@ -202,4 +207,66 @@ test('Real filter switches: quantity and currency-safe authoritative/provisional
  // A legacy list without row-level provenance is not sufficient evidence of an agreed amount.
  p.select('is-new');window.__RONA_OWNER_ADMIN_SNAPSHOT__={applications:[{owner_status:'NEW',quantity_tonnes:10,application_price:745,application_currency:'USD'}]};
  current=summary();assert.equal(current.sum,'—','Unverified legacy rows must never produce a trusted amount');
+});
+
+function shownAmount(page){
+ const cards=page.grid.children.filter(x=>x.dataset.ronaAppTotal);
+ assert.equal(cards.length,3);
+ const host=cards[2].children[1];
+ return (host.children.length?host.children.map(c=>c.textContent).join(' | '):host.textContent).replace(/[\u00a0\u202f]/g,' ');
+}
+function signedCanonicalFixture(){
+ return fixture.map((a,i)=>({...a,application_id:'SCOPE-IN-2026-'+String(i+1).padStart(3,'0')}));
+}
+function unauthoritativeMirror(canonical){
+ return {applications:canonical.map(({business_contract,record_kind,retention_decision,...legacy})=>legacy)};
+}
+function responseFor(payload,{ok=true}={}){
+ return {ok,headers:{get:name=>name==='x-rona-application-business'?'RONA_APPLICATION_BUSINESS_V2':null},
+   json:async()=>({ok:true,data:payload})};
+}
+test('Signed-in Admin fallback: incomplete first snapshot securely hydrates matching selected-category totals exactly once',async()=>{
+ const p=mockPage();p.select('is-decision');p.document.visibilityState='visible';
+ const canonical=signedCanonicalFixture(),legacy=unauthoritativeMirror(canonical),requests=[];
+ const fetch=(url,options)=>{
+   requests.push({url,options});
+   return Promise.resolve(responseFor(currentSnapshot(canonical)));
+ };
+ const window={__RONA_OWNER_ADMIN_READY__:true,__RONA_OWNER_ADMIN_SNAPSHOT__:legacy,addEventListener(){}};
+ const source=await(await onRequest()).text();
+ const ctx=vm.createContext({window,document:p.document,location:{pathname:'/portal/admin'},fetch,queueMicrotask:f=>f(),requestAnimationFrame:f=>f(),setTimeout:()=>0,Intl});
+ new vm.Script(source).runInContext(ctx);
+ assert.equal(shownAmount(p),'…','Never show a definitive empty amount while canonical source is pending');
+ assert.equal(requests.length,1,'One bounded supplemental read per stale bootstrap');
+ assert.equal(requests[0].url,'/portal/admin-completed-bootstrap');
+ assert.equal(requests[0].options.method,'GET');
+ assert.equal(requests[0].options.credentials,'same-origin');
+ assert.equal(requests[0].options.cache,'no-store');
+ assert.ok(!('body' in requests[0].options),'Read-only request must never mutate');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(shownAmount(p),'28 000,00 USD','Real money from matching authoritative DECISION applications');
+ assert.match(p.page.querySelector('[data-rona-app-registry-note]').textContent,/Весь реестр/);
+ assert.equal(requests.length,1,'No fetch loop after hydration');
+ p.select('is-completed');window.__RONA_OWNER_ADMIN_SNAPSHOT__=legacy;
+ assert.equal(shownAmount(p),'57 000,00 EUR | 36 000,00 USD');
+ assert.equal(requests.length,1,'Filter changes reuse validated same-source snapshot without network fanout');
+ assert.equal(p.title.textContent,'Рабочая очередь заявок');
+});
+test('Source mismatch, failed canonical HTTP and unauthenticated context cannot fabricate application amounts',async()=>{
+ const canonical=signedCanonicalFixture();
+ for(const mode of ['WRONG_IDENTITIES','HTTP_UNAUTHORIZED','NOT_ON_ADMIN']){
+   const p=mockPage();p.select('is-decision');p.document.visibilityState='visible';
+   const legacy=unauthoritativeMirror(canonical);
+   const window={__RONA_OWNER_ADMIN_READY__:true,__RONA_OWNER_ADMIN_SNAPSHOT__:legacy,addEventListener(){}};
+   let calls=0;
+   const fetch=()=>{calls++;return Promise.resolve(mode==='HTTP_UNAUTHORIZED'?
+     responseFor(null,{ok:false}):
+     responseFor(currentSnapshot(canonical.map((a,i)=>i===0?{...a,application_id:'OTHER-IN-2026-999'}:a))))};
+   const script=await(await onRequest()).text();
+   const ctx=vm.createContext({window,document:p.document,location:{pathname:mode==='NOT_ON_ADMIN'?'/portal/client':'/portal/admin'},fetch,queueMicrotask:f=>f(),requestAnimationFrame:f=>f(),setTimeout:()=>0,Intl});
+   new vm.Script(script).runInContext(ctx);
+   await new Promise(resolve=>setImmediate(resolve));
+   assert.equal(shownAmount(p),'—','Fail closed: '+mode);
+   assert.equal(calls,mode==='NOT_ON_ADMIN'?0:1,'Only authorized Admin page may request read: '+mode);
+ }
 });
