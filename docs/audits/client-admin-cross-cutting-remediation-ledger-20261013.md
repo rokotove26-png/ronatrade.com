@@ -88,3 +88,31 @@
 - Proposed REVOKE SQL in this audit branch remains UNAPPLIED; require externally witnessed negative auth test, caller compatibility, security approval and rollback.
 
 **Current status:** ACTIVE AUDIT / PRODUCTION UNCHANGED / ACCEPTANCE HOLD. No visual approval marker or gate suppression.
+
+## 6. 2026-10-13 — isolated CI gates and Client documents A/B/A proof
+
+**All candidates remain DRAFT / HOLD; this ledger does not authorize a merge, deployment, SQL grant change, Owner approval, or business-fact creation.**
+
+### Exact-head isolated CI control corrections (workflow/source locks preserved)
+
+| PR | Scope | Exact tested head | Focused result |
+|---|---|---|---|
+| [#1175](https://github.com/rokotove26-png/ronatrade.com/pull/1175) | Issue670 Rail-only trigger excludes global visual-freeze audit file; unchanged strict Rail delta allowlist | `77b52669cdc8ba57b4f8df74aa4754a3f3e82991` | [Issue670 QA SUCCESS, 38368896130](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38368896130) |
+| [#1176](https://github.com/rokotove26-png/ronatrade.com/pull/1176) | Prices visual-only workflow excludes unrelated Supabase changes; exact current release Prices source SHA and refresh semantics checked | `20276556fea3d93e4ce8676c005c9ec666b8e022` | [Prices visual technical QA SUCCESS, 38369602960](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38369602960) |
+| [#1177](https://github.com/rokotove26-png/ronatrade.com/pull/1177) | Issue430 source gate pins current immutable release SHA; historical PR429 fixture and frozen visual hash retained | `1246c6d1ff1d327a0cc66fd0159ed44b1a4999ac` | [Multi-client parity QA SUCCESS, 38369073514](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38369073514) |
+| [#1178](https://github.com/rokotove26-png/ronatrade.com/pull/1178) | MCP gate recognizes existing SYSTEM_ADMIN pilot with exact role identity, TASK/SYSTEM scope, task-ownership and no business write/handoff | `78248754f6f60aeab8130409c01431c10553f6be` | [MCP role matrix QA SUCCESS, 38369822693](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38369822693) |
+
+**Interpretation:** These are isolated *CI source/gating candidates*. A focused SUCCESS is not complete PR release-readiness, external JWT-negative proof, Rail functional UAT, business data authority sign-off or Owner visual approval. Cross-cutting PR #1172 remains 43/48 PASS as of restored source after protected QA file edit was reverted.
+
+### Client Documents fail-closed concurrency proof
+
+- [PR #1174](https://github.com/rokotove26-png/ronatrade.com/pull/1174), head `78d59038357160fc1b9daf048db1b65db1eb1cdd`, isolated [Chromium run 38370003527](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38370003527) SUCCESS.
+- Synthetic browser: workflow 401 preserves independently authorized published Invoice/Addendum while hiding signed upload; 401→200 restores confirmed flow.
+- Synthetic browser: delayed request A→B shows only B's `DOC-B.pdf`, with no A panel; return B→A shows only A's `DOC-A.pdf`, with no stale B panel. No actual Owner/Client credentials were used.
+- Canonical central current-context projection and selected tenant remain checked; do not infer production or external access proof from this fixture.
+
+### Protected test source and Owner governance
+
+- An attempted upgrade of historic `client-owner-targeted-remediation-qa.yml` to V6 was rejected by the protected exact-blob Client visual-freeze guard, as expected. The entire file was restored byte-for-byte to release blob `4f7e703d82dc9810a70f3f7f307219751c878136`; follow-up PR #1172 CI restored 43 successful / 5 failed gates.
+- Separate immutable [Canonical Business V2 Fixture V6 run 38366098988](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38366098988) SUCCESS (protected original V4/V5 test hashes, 19 assertions). Historical V5 owner-targeted test remains red, not waived or silently replaced.
+- Only OWNER may give explicit visual acceptance. All outstanding signed-in Client/Admin and revoked-session authorization tests remain separate mandatory gates. No backend/source data or production change.
