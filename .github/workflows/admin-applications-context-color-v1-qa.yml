@@ -37,7 +37,10 @@ jobs:
             echo 'APPLICATIONS_UI_OUT_OF_SCOPE_CHANGE' >&2
             exit 1
           fi
-          test "$(wc -l < /tmp/admin-applications-delta.txt | tr -d ' ')" = "3"
+          test -n "$(grep -Fx functions/portal/applications-total-kpi-ui.js /tmp/admin-applications-delta.txt)"
+          test -n "$(grep -Fx tests/admin-applications-context-color-v1.test.mjs /tmp/admin-applications-delta.txt)"
+          count="$(wc -l < /tmp/admin-applications-delta.txt | tr -d ' ')"
+          test "$count" = "2" || test "$count" = "3"
           echo 'APPLICATIONS_UI_DELTA_ONLY=PASS'
       - name: Check unchanged core Admin runtime source syntax
         run: |

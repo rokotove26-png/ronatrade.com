@@ -143,6 +143,18 @@ function ensureStyle(){
  '#page-applications .rona-app-table .rona-owner-table td:last-child button:disabled{opacity:.5!important;cursor:not-allowed!important}',
  '@media(max-width:1060px){#page-applications .rona-app-flow,#page-applications .rona-app-filter{grid-template-columns:repeat(2,minmax(0,1fr))!important}}',
  '@media(max-width:600px){#page-applications .rona-app-flow,#page-applications .rona-app-filter{grid-template-columns:1fr!important}}',
+ '#page-applications .rona-app-table{overflow-x:auto!important;overscroll-behavior-x:contain!important}',
+ '#page-applications .rona-app-table .rona-owner-table{table-layout:auto!important;width:max-content!important;min-width:100%!important;max-width:none!important;border-collapse:separate!important;border-spacing:0 3px!important}',
+ '#page-applications .rona-app-table .rona-owner-table th,#page-applications .rona-app-table .rona-owner-table td{white-space:nowrap!important;vertical-align:middle!important;padding:7px 8px!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:not(:nth-child(2)) *,#page-applications .rona-app-table .rona-owner-table th *{white-space:nowrap!important;max-width:none!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:nth-child(2),#page-applications .rona-app-table .rona-owner-table td:nth-child(2) *{white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:nth-child(2){min-width:158px!important;max-width:255px!important;width:24%!important;line-height:1.28!important}',
+ '#page-applications .rona-app-table .rona-app-price{display:inline-flex!important;align-items:center!important;gap:8px!important;white-space:nowrap!important}',
+ '#page-applications .rona-app-table .rona-app-price>div{display:inline-block!important;white-space:nowrap!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:last-child{text-align:center!important;white-space:nowrap!important;min-width:0!important;width:1%!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:last-child button[data-rona-app-passport-open],#page-applications .rona-app-table .rona-owner-table td:last-child button.rona-app-action--open{display:inline-flex!important;width:83px!important;min-width:83px!important;max-width:83px!important;min-height:34px!important;height:34px!important;padding:5px 9px!important;line-height:1.1!important;font-size:12px!important;flex:0 0 83px!important;justify-self:center!important;box-sizing:border-box!important;white-space:nowrap!important}',
+ '#page-applications .rona-app-table .rona-owner-table td:last-child button[data-rona-app-passport-open]:hover:not(:disabled){filter:brightness(1.18)!important}',
+ '@media(max-width:800px){#page-applications .rona-app-table .rona-owner-table{min-width:960px!important}#page-applications .rona-app-table .rona-owner-table td:nth-child(2){max-width:210px!important}}',
  '@media(prefers-reduced-motion:reduce){#page-applications .rona-app-filter button,#page-applications .rona-app-table .rona-owner-table td:last-child button{transition:none!important;transform:none!important}}',
  '@media(prefers-reduced-motion:reduce){#page-applications .rona-app-filter button,#page-applications .rona-app-table .rona-owner-actions button{transition:none!important;transform:none!important}}',
  '@media(prefers-reduced-motion:reduce){#page-applications .rona-app-filter button,#page-applications .rona-app-kpi-grid>.rona-owner-card{transition:none!important;transform:none!important}}'
@@ -231,7 +243,7 @@ function selectedAmount(rows,sourceValid){
 }
 function moneyCard(title,result){
  const type=result.state==='AGREED'?'agreed':result.state==='ESTIMATED'?'estimated':'unavailable';
- const value=result.state==='EMPTY'?'0':result.lines.length?'':'—';
+ const value=result.state==='EMPTY'?'0':result.state==='PENDING'?'…':result.lines.length?'':'—';
  const c=card(title,'rona-app-total-kpi--selected-amount rona-app-amount--'+type,value,result.caption);
  if(result.lines.length){
    const host=c.children[1];host.classList.add('rona-app-money-values');host.textContent='';
@@ -242,17 +254,61 @@ function moneyCard(title,result){
  }
  return c
 }
+// Authoritative, read-only fallback for a temporarily incomplete Admin bootstrap.
+// Uses the exact same authenticated same-origin route as the existing Admin shell.
+let resolvedKpiSource=null,resolvedKpiPayload=null,resolvingKpiSource=null,kpiHydrationFailed=false;
+function canonicalShape(value){
+ const rows=value?.applications;
+ return Array.isArray(rows)&&(rows.length>0?
+   rows.every(a=>a?.business_contract==='RONA_APPLICATION_BUSINESS_V2'&&a?.record_kind==='CLIENT_APPLICATION'):
+   value?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'&&value?.application_kpi?.source==='RONA_APPLICATION_BUSINESS_V2');
+}
+function sameRegistryAndBucket(current,verified,bucket){
+ const left=current?.applications,right=verified?.applications;
+ if(!Array.isArray(left)||!Array.isArray(right)||left.length!==right.length)return false;
+ const identity=a=>String(a?.application_id||'');
+ const sorted=items=>items.map(identity).sort().join('\u001f');
+ if(left.some(a=>!identity(a))||right.some(a=>!identity(a))||sorted(left)!==sorted(right))return false;
+ return sorted(left.filter(a=>applicationBucket(a)===bucket))===sorted(right.filter(a=>applicationBucket(a)===bucket));
+}
+function requestCanonicalKpi(source){
+ if(resolvedKpiSource===source||resolvingKpiSource===source)return;
+ if(typeof location==='undefined'||location.pathname!=='/portal/admin'||document.visibilityState==='hidden')return;
+ if(!Array.isArray(source?.applications)||!source.applications.length)return;
+ if(typeof fetch!=='function')return;
+ resolvingKpiSource=source;kpiHydrationFailed=false;
+ // No speculative arithmetic from old bootstrap; use validated canonical projection only.
+ fetch('/portal/admin-completed-bootstrap',{
+   method:'GET',credentials:'same-origin',cache:'no-store',
+   headers:{accept:'application/json','x-rona-client-source':'ADMIN_APPLICATIONS_KPI_READ_ONLY','x-rona-client-refresh-reason':'CANONICAL_APPLICATIONS_PENDING'}
+ }).then(async response=>{
+   if(!response.ok||response.headers.get('x-rona-application-business')!=='RONA_APPLICATION_BUSINESS_V2')return null;
+   const payload=await response.json();
+   return payload?.ok===true&&canonicalShape(payload?.data)?payload.data:null
+ }).then(data=>{
+   if(window.__RONA_OWNER_ADMIN_SNAPSHOT__!==source)return;
+   resolvedKpiSource=source;resolvedKpiPayload=data;
+   kpiHydrationFailed=!data;
+   schedule()
+ }).catch(()=>{
+   if(window.__RONA_OWNER_ADMIN_SNAPSHOT__!==source)return;
+   resolvedKpiSource=source;resolvedKpiPayload=null;kpiHydrationFailed=true;
+   schedule()
+ }).finally(()=>{if(resolvingKpiSource===source)resolvingKpiSource=null})
+}
 function apply(){
  const page=q('#page-applications'),grid=q('#page-applications .rona-app-kpi-grid');
  if(!page||!grid)return;
  const bucket=currentBucket();if(!bucket||!FILTERS[bucket])return;
  ensureStyle();
- const filter=FILTERS[bucket],snapshot=window.__RONA_OWNER_ADMIN_SNAPSHOT__;
+ const filter=FILTERS[bucket],liveSnapshot=window.__RONA_OWNER_ADMIN_SNAPSHOT__;
+ const usesFallback=!canonicalShape(liveSnapshot)&&resolvedKpiSource===liveSnapshot&&
+   canonicalShape(resolvedKpiPayload)&&sameRegistryAndBucket(liveSnapshot,resolvedKpiPayload,bucket);
+ const snapshot=usesFallback?resolvedKpiPayload:liveSnapshot;
  const hasRows=Array.isArray(snapshot?.applications),rows=hasRows?snapshot.applications:[];
- // The selected category is independently verifiable from canonical row provenance;
- // whole-register KPI readiness must not block a fully verified category.
- const canonical=hasRows&&(snapshot?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'||(rows.length>0&&rows.every(a=>a?.business_contract==='RONA_APPLICATION_BUSINESS_V2'&&a?.record_kind==='CLIENT_APPLICATION')));
- const registryComplete=hasRows&&snapshot?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'&&snapshot?.application_kpi?.source==='RONA_APPLICATION_BUSINESS_V2';
+ const canonical=canonicalShape(snapshot);
+ const registryComplete=canonical&&snapshot?.application_kpi?.source==='RONA_APPLICATION_BUSINESS_V2';
+ if(!canonical&&Array.isArray(liveSnapshot?.applications)&&liveSnapshot.applications.length)requestCanonicalKpi(liveSnapshot);
  const visible=rows.filter(a=>applicationBucket(a)===bucket);
  const quantities=visible.map(a=>a?.quantity_tonnes);
  const complete=quantities.every(v=>finite(v)&&Number(v)>=0);
@@ -261,7 +317,10 @@ function apply(){
    hasRows?String(visible.length):'—',hasRows?'По выбранному статусу · серверный реестр':'Данные пока не загружены');
  const ton=card('Тоннаж · '+filter.label,'rona-app-total-kpi--selected-tonnage',
    hasRows?tonnage:'—',!hasRows?'Данные пока не загружены':complete?'По заявкам выбранного статуса':'Часть значений тоннажа не подтверждена');
- const sum=moneyCard('Сумма · '+filter.label,selectedAmount(visible,canonical));
+ const amount=selectedAmount(visible,canonical);
+ if(!canonical&&Array.isArray(liveSnapshot?.applications)&&liveSnapshot.applications.length&&resolvingKpiSource===liveSnapshot&&resolvedKpiSource!==liveSnapshot)
+   {amount.state='PENDING';amount.caption='Получаем подтверждённую сумму выбранной категории…'}
+ const sum=moneyCard('Сумма · '+filter.label,amount);
  qa('[data-rona-app-total]',grid).forEach(n=>n.remove());
  grid.dataset.ronaAppFilter=bucket;
  grid.style.setProperty('--rona-app-current-accent',filter.tone);
