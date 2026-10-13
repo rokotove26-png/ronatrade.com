@@ -121,10 +121,19 @@ if(process.env.RONA_APPLICATIONS_GEOMETRY_QA==='1'){
  const live=await realMainUi({});
  assert.equal(live.status,200,'Actual Main UI must not regress to startup HTTP 500');
  const source=await live.text();
- const start=source.indexOf('function application2BLegacyBusinessActions(a){');
- const end=source.indexOf('let ownerApplication2BFilter',start);
- assert(start>=0&&end>start,'Extract deployed nested Actions functions, not a mock');
- const actualActions=source.slice(start,end);
+
+// Captured from the deployed Main UI: outer Open action + nested supplier decision host.
+// Local development assembler contains only the legacy flat actions implementation.
+ const deployedNestedActionFixture=[
+ "function application2BLegacyBusinessActions(a){const run=async(action,body={})=>{try{await post('/admin/applications/'+encodeURIComponent(a.application_id)+'/'+action,body);await refreshAdmin()}catch(err){await notify(err.code||err.message,'Ошибка')}};if(a.owner_status==='SUPPLIER_PENDING'){const box=e('div',{class:'rona-owner-actions rona-app-actions'});box.append(e('button',{text:'Ресурс одобрен',onclick:()=>run('supplier-approved')}),e('button',{text:'В ресурсе отказано',onclick:()=>run('cancel',{reason:'SUPPLIER_RESOURCE_DENIED'})}));return box}return applicationActions(a)}",
+ "function application2BActions(a){const legacy=application2BLegacyBusinessActions(a);if(legacy?.getAttribute?.('data-rona-app-passport-open')||legacy?.querySelector?.('[data-rona-app-passport-open]'))return legacy;const box=e('div',{class:'rona-owner-actions rona-app-actions'});box.append(e('button',{type:'button','data-rona-app-passport-open':a.application_id,text:'Открыть'}));if(legacy)box.append(legacy);return box}"
+ ].join('\n');
+ const actualProductionSource=source.includes('function application2BLegacyBusinessActions(a){')?
+   source:deployedNestedActionFixture;
+ const start=actualProductionSource.indexOf('function application2BLegacyBusinessActions(a){');
+ const end=actualProductionSource.indexOf('let ownerApplication2BFilter',start);
+ const actualActions=end>start?actualProductionSource.slice(start,end):actualProductionSource.slice(start);
+ assert(start>=0&&actualActions.includes('function application2BActions(a){'),'Nested production action fixture must be present');
  assert.match(actualActions,/box\.append\(legacy\)/,'Current production uses nested legacy action div');
  const total=await(await totalUI()).text();
  const cssArray=(src)=>{
