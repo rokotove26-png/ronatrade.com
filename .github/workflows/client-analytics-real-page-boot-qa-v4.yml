@@ -5,7 +5,7 @@ on:
     paths:
       - scripts/qa-client-analytics-canonical-real-page-v4.mjs
       - .github/workflows/client-analytics-real-page-boot-qa-v4.yml
-      - functions/portal/[[path]].js
+      - functions/portal/*path*.js
       - assets/portal-runtime/client-market-intelligence-v1.js
       - scripts/attach-client-market-intelligence-v1.mjs
   push:
@@ -13,7 +13,7 @@ on:
     paths:
       - scripts/qa-client-analytics-canonical-real-page-v4.mjs
       - .github/workflows/client-analytics-real-page-boot-qa-v4.yml
-      - functions/portal/[[path]].js
+      - functions/portal/*path*.js
       - assets/portal-runtime/client-market-intelligence-v1.js
       - scripts/attach-client-market-intelligence-v1.mjs
 permissions:
