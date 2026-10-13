@@ -12,7 +12,7 @@ on:
       - 'scripts/attach-client-deal-documents.mjs'
       - 'scripts/qa-client-realization-status-authoritative.mjs'
       - 'scripts/qa-client-deal-passport-authoritative-economics-v1.mjs'
-      - 'functions/portal/api/[[path]].js'
+      - 'functions/portal/api/*path*.js'
       - 'supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs'
       - 'supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts'
       - 'tests/client-deal-state-v1.test.mjs'
