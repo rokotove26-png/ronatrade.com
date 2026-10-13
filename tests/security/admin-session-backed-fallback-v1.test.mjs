@@ -103,3 +103,48 @@ test('database-backed fallback success may serve Admin shell when primary tempor
   assert.equal(counts.assets,1);
   assert.equal(response.headers.get('x-rona-admin-auth'),'server-verified-v1');
 });
+
+
+test('portal catch-all Admin route cannot elevate claim-only Owner gateway or GoTrue identity when DB-backed authorities fail',async()=>{
+  const {onRequest: portalRouter}=await import('../../functions/portal/[[path]].js');
+  const router=readFileSync(new URL('../../functions/portal/[[path]].js',import.meta.url),'utf8');
+  assert.doesNotMatch(router,/authOwnerProbe\s*\(|adminOwnerJwtGatewayProbe\s*\(|SUPABASE_AUTH_OWNER_FALLBACK/);
+  assert.match(router,/const fallback=await adminControlPlaneProbe\(accessToken\)/);
+  let primary=0,backed=0,claimGateway=0,goTrue=0,assets=0,unexpected=[];
+  const original=globalThis.fetch;
+  globalThis.fetch=async(url)=>{
+    const target=String(url);
+    if(target.includes('/functions/v1/rona-portal-api/session/authority')){
+      primary++;
+      return new Response(JSON.stringify({ok:false,code:'BACKEND_UNAVAILABLE'}),{status:503,headers:JSON_HEADERS});
+    }
+    if(target.includes(fallbackRoute)){
+      backed++;
+      return new Response(JSON.stringify({ok:false,code:'BACKEND_UNAVAILABLE'}),{status:503,headers:JSON_HEADERS});
+    }
+    if(target.includes('/functions/v1/rona-admin-control-plane/owner-auth-fallback')){
+      claimGateway++;
+      return new Response(JSON.stringify({ok:true,roles:['ADMIN'],authority:'SUPABASE_EDGE_VERIFIED_OWNER'}),{status:200,headers:JSON_HEADERS});
+    }
+    if(target.includes(authIdentityRoute)){
+      goTrue++;
+      return new Response(JSON.stringify({app_metadata:{portal_identity:'OWNER_ADMIN'}}),{status:200,headers:JSON_HEADERS});
+    }
+    unexpected.push(target);
+    throw new Error('UNEXPECTED_NETWORK_ROUTE');
+  };
+  try{
+    const request=new Request('https://ronaoil.com/portal/admin',{method:'GET',headers:{cookie:'rona_portal_at=synthetic-owner-claims'}});
+    const response=await portalRouter({request,next:async()=>{assets++;return new Response('ILLEGITIMATE_ADMIN_SHELL')}});
+    assert.equal(response.status,503);
+    assert.match(await response.text(),/Восстанавливаю соединение/);
+    assert.equal(primary,2);
+    assert.equal(backed,1);
+    assert.equal(claimGateway,0);
+    assert.equal(goTrue,0);
+    assert.equal(assets,0);
+    assert.deepEqual(unexpected,[]);
+  }finally{
+    globalThis.fetch=original;
+  }
+});
