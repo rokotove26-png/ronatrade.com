@@ -71,3 +71,20 @@
 
 **Safe closure gates:** obtain explicit Owner approval for any protected visual-file delta; verify actual warning visibility, published document link integrity and no forged upload under both normal Client and verified read-only Admin impersonation; develop separate effective-client, strict read-only Admin route with domain acceptance rather than weakening legacy Client-only guard. Test foreign contract, expired session, stale impersonation tab, recovery on 401→200 and no cross-tenant state flash. Before those checks: `DOCUMENT_UI_GOVERNANCE_HOLD` / `ADMIN_DOCUMENT_READ_PATH_PENDING`.
 
+
+## 5. 2026-10-13 — independently verified continuation (SYSTEM_ADMIN)
+
+**Visual authority:** only Owner may perform visual acceptance of Client/Admin/Agent LK; synthetic Chromium proof is not Owner acceptance.
+
+### Client document workflow candidate
+- Isolated DRAFT [PR #1174](https://github.com/rokotove26-png/ronatrade.com/pull/1174) starts from frozen release `f8f0233a33b321e8fc54a7e404cd85e3eff21718`; baseline protected document source blob `a1b724867218de56a168372dd33fc8d16a4f6266`.
+- Strict Issue432 materializer compatibility fixed; canonical Client build and context coherence CI PASS on commit `fd6e2f7f14eb1b6f271de4a117ed55e0d655eb5d`.
+- Isolated Chromium [run 38365721951](https://github.com/rokotove26-png/ronatrade.com/actions/runs/38365721951) SUCCESS: synthetic workflow 401 shows unavailable status; separately published Invoice/Addendum remain visible; upload disabled with unavailable workflow; synthetic 401→200 recovery restores a proven workflow-controlled upload. Source contract and exact canonical build also PASS.
+- No real signed-in Client/Admin impersonation UAT, foreign-contract denial, revoked-session proof, Owner visual approval, production mutation or release. Existing mandatory and specialist gates remain HOLD.
+
+### Rail RPC least-privilege check
+- Live catalog shows `anon EXECUTE = true` on SECURITY DEFINER functions `public.rona_admin_rail_monitoring_lifecycle_v1()` and `public.rona_admin_rail_monitoring_complete_v1(text)`. Both call `portal_private.application_owner_admin_actor_v2()` which checks current auth user, JWT session ID, session validity, ADMIN role and revocation semantics.
+- Each distinct `BEGIN READ ONLY; SET LOCAL ROLE anon; SELECT function(...); ROLLBACK;` negative-path test failed with PostgreSQL `P0001 APPLICATION_OWNER_ADMIN_REQUIRED`; completion used nonexistent deal `DEAL-2099-999`. These prove DB anonymous/no-session denial only, not external PostgREST denial.
+- Proposed REVOKE SQL in this audit branch remains UNAPPLIED; require externally witnessed negative auth test, caller compatibility, security approval and rollback.
+
+**Current status:** ACTIVE AUDIT / PRODUCTION UNCHANGED / ACCEPTANCE HOLD. No visual approval marker or gate suppression.
