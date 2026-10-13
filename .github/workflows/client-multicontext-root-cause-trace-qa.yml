@@ -26,6 +26,9 @@ jobs:
           - label: POST_FIX
             sha: 212a0b32f2793c5de64125328ab264105da9e3e3
             expected: pass
+          - label: CURRENT_HEAD
+            sha: ${{ github.event.pull_request.head.sha || github.sha }}
+            expected: pass
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,7 +87,7 @@ jobs:
           log="$GITHUB_WORKSPACE/client-multicontext-${{ matrix.label }}.log"
           cd "$target_root"
           set +e
-          RONA_TRACE_TARGET_LABEL="${{ matrix.label }}" node "$GITHUB_WORKSPACE/scripts/qa-client-multicontext-root-cause-trace.mjs" >"$log" 2>&1
+          RONA_TRACE_TARGET_LABEL="${{ matrix.label == 'CURRENT_HEAD' && 'POST_FIX' || matrix.label }}" node "$GITHUB_WORKSPACE/scripts/qa-client-multicontext-root-cause-trace.mjs" >"$log" 2>&1
           rc=$?
           set -e
           cat "$log"
