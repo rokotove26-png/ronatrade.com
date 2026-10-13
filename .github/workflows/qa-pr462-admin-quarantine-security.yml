@@ -1,0 +1,38 @@
+name: P0 stale PR462 QA Admin security closure
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/migrations/20261013133500_quarantine_stale_pr462_qa_admin_v1.sql'
+      - 'supabase/functions/rona-g82-github-oidc-browser-qa-20260816/**'
+      - 'tests/security/stale-pr462-qa-admin-quarantine-v1.test.mjs'
+      - '.github/workflows/qa-pr462-admin-quarantine-security.yml'
+      - 'docs/audits/qa-pr462-admin-quarantine-20261013.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pr462-p0-source-lock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prove exact QA-only Admin quarantine and OIDC least privilege
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/security/stale-pr462-qa-admin-quarantine-v1.test.mjs
+          node --test --test-reporter=tap tests/security/stale-pr462-qa-admin-quarantine-v1.test.mjs | tee qa-pr462-quarantine.log
+          grep -Fq '# pass 3' qa-pr462-quarantine.log
+          grep -Fq '# fail 0' qa-pr462-quarantine.log
+          test -s supabase/functions/rona-g82-github-oidc-browser-qa-20260816/deno.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-pr462-quarantine-security
+          path: qa-pr462-quarantine.log
+          if-no-files-found: ignore
