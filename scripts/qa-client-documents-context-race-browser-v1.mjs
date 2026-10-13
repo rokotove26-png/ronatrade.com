@@ -24,18 +24,18 @@ try{
       'QA-A':{contract:{...a},deals:[{deal_id:'DEAL-2099-001'}],documents:[doc('DEAL-2099-001','DOC-A')]},
       'QA-B':{contract:{...b},deals:[{deal_id:'DEAL-2099-002'}],documents:[doc('DEAL-2099-002','DOC-B')]}
     };
-    const state={context:a,listeners:[],startedA:false,releaseA:null,calls:[],a,b};
+    const state={context:a,listeners:[],startedA:false,initialAResolved:false,releaseA:null,calls:[],a,b};
     window.__race=state;
     window.RONA_CLIENT_CONTEXT={
       getCurrentContext:()=>state.context,
       whenReady:async()=>state.context,
       whenCurrentProjection:async()=>{
         const selected=state.context;
-        if(selected.client_id==='QA-A'){
+        if(selected.client_id==='QA-A'&&!state.initialAResolved){
           state.startedA=true;
-          return await new Promise(resolve=>{state.releaseA=()=>resolve(projections['QA-A']);});
+          return await new Promise(resolve=>{state.releaseA=()=>{state.initialAResolved=true;resolve(projections['QA-A']);};});
         }
-        return projections['QA-B'];
+        return projections[selected.client_id];
       },
       subscribe:cb=>{state.listeners.push(cb);return()=>{}}
     };
@@ -81,5 +81,27 @@ try{
   assert.equal(result.selected.client_id,'QA-B');
   assert.deepEqual(errors,[]);
   console.log('QA_DOCUMENTS_PENDING_A_TO_B_CONTEXT_RACE=PASS '+JSON.stringify({AVisible:false,BInvoice:true,currentClient:'QA-B',calls:result.calls.length,synthetic:true}));
+  // Return B to A after the pending first A request has been invalidated.
+  await page.evaluate(()=>{
+    const s=window.__race;
+    s.context=s.a;
+    document.querySelector('#a').style.display='block';
+    document.querySelector('#b').style.display='none';
+    for(const listener of s.listeners)listener(s.a);
+  });
+  await page.waitForFunction(()=>{
+    const card=document.querySelector('#a .rona-deal-documents-v5');
+    return card&&[...card.querySelectorAll('button')].some(x=>x.textContent?.includes('Инвойс')&&x.title==='DOC-A.pdf');
+  },null,{timeout:10000});
+  const returned=await page.evaluate(()=>({
+    current:window.RONA_CLIENT_CONTEXT.getCurrentContext(),
+    aInvoices:[...(document.querySelector('#a .rona-deal-documents-v5')?.querySelectorAll('button')||[])].filter(x=>x.textContent?.includes('Инвойс')).map(x=>x.title),
+    bPanel:!!document.querySelector('#b .rona-deal-documents-v5')
+  }));
+  assert.equal(returned.current.client_id,'QA-A');
+  assert.deepEqual(returned.aInvoices,['DOC-A.pdf']);
+  assert.equal(returned.bPanel,false,'B document leaked into current A context');
+  assert.deepEqual(errors,[]);
+  console.log('QA_DOCUMENTS_A_B_A_CONTEXT_ISOLATION=PASS '+JSON.stringify({current:'QA-A',aInvoices:returned.aInvoices.length,staleB:false,synthetic:true}));
   await page.close();
 }finally{await browser.close()}
