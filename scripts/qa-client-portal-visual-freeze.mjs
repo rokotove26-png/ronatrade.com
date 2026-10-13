@@ -1254,9 +1254,7 @@ const OWNER_DOUBLE_SCALE_110_RUNTIME='assets/portal-runtime/client-contract-down
 const OWNER_DOUBLE_SCALE_110_ALLOWED=[
   OWNER_DOUBLE_SCALE_110_RUNTIME,
   OWNER_DOUBLE_SCALE_110_PATH,
-  'scripts/qa-client-portal-visual-freeze.mjs',
-  'scripts/qa-client-typography-110-correction-v1.mjs',
-  '.github/workflows/client-typography-110-owner-gate-v1.yml'
+  'scripts/qa-client-portal-visual-freeze.mjs'
 ];
 const ownerDoubleScale110Authorized=Boolean(
   ownerDoubleScale110Approval?.approval==='OWNER_IN_CHAT'&&
