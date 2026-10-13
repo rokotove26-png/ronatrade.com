@@ -37,6 +37,8 @@ const RADIO_STAGE2A_WORKFLOW="Admin Radio MESSAGE Stage 2A production QA";
 const RADIO_STAGE2A_WORKFLOW_PATH="/.github/workflows/admin-radio-message-stage2a-production-qa.yml@";
 const RADIO_STAGE2B_WORKFLOW="Admin Radio Notification Announcement Stage 2B production QA";
 const RADIO_STAGE2B_WORKFLOW_PATH="/.github/workflows/admin-radio-stage2b-production-qa.yml@";
+const RADIO_STAGE2C1_WORKFLOW="Admin Radio Stage 2C.1 production QA";
+const RADIO_STAGE2C1_WORKFLOW_PATH="/.github/workflows/admin-radio-stage2c1-production-qa.yml@";
 const RADIO_STAGE2A_REF="refs/heads/release/public-go-live-v1.1";
 const RADIO_STAGE2A_ALLOWED_USERS=new Set([
   "a2a0b91e-4c2a-4d3e-8f11-2a2a00000001",
@@ -115,9 +117,10 @@ async function verifyGithubOidc(token){
     const workflow=String(claims.workflow||"");
     const stage2aWorkflow=workflow===RADIO_STAGE2A_WORKFLOW&&wfRef.includes(RADIO_STAGE2A_WORKFLOW_PATH);
     const stage2bWorkflow=workflow===RADIO_STAGE2B_WORKFLOW&&wfRef.includes(RADIO_STAGE2B_WORKFLOW_PATH);
+    const stage2c1Workflow=workflow===RADIO_STAGE2C1_WORKFLOW&&wfRef.includes(RADIO_STAGE2C1_WORKFLOW_PATH);
     if(String(claims.event_name||"")!=="push"||
        ref!==RADIO_STAGE2A_REF||
-       !(stage2aWorkflow||stage2bWorkflow)){
+       !(stage2aWorkflow||stage2bWorkflow||stage2c1Workflow)){
       throw Object.assign(new Error("OIDC_CLAIMS_DENIED"),{status:403});
     }
     if(!/^\d{5,20}$/.test(String(claims.run_id||"")))
@@ -520,20 +523,11 @@ Deno.serve(async req=>{
     const path=new URL(req.url).pathname;
     const body=await req.json().catch(()=>({}));
 
+    // The PR462 finance-preview workflow is obsolete after Owner acceptance.
+    // Keep the verified OIDC surface for Issue430/Radio, but never issue a
+    // legacy production ADMIN QA session or perform legacy cleanup writes.
     if(verified.profile==="LEGACY"){
-      if(path.endsWith("/cleanup")){
-        const retired=await cleanupByRun(LEGACY_SOURCE,String(claims.run_id||""),"");
-        return json(200,{ok:true,mode:"GITHUB_OIDC_PR462",retired});
-      }
-      if(!path.endsWith("rona-g82-github-oidc-browser-qa-20260816")&&!path.endsWith("/"))
-        return json(404,{ok:false,code:"NOT_FOUND"});
-      if(body?.expectedHead&&String(body.expectedHead)!==String(claims.sha))
-        return json(409,{ok:false,code:"EXACT_HEAD_MISMATCH"});
-      const origin=String(body?.origin||"");
-      if(origin&&!/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(origin))
-        return json(400,{ok:false,code:"IMMUTABLE_PREVIEW_ORIGIN_REQUIRED"});
-      const issued=await issueLegacy(claims);
-      return json(200,{ok:true,mode:"GITHUB_OIDC_PR462",...issued,head:String(claims.sha),run_id:String(claims.run_id||"")});
+      return json(410,{ok:false,code:"PR462_LEGACY_QA_ADMIN_ISSUANCE_RETIRED"});
     }
 
     if(verified.profile==="ISSUE430"){
