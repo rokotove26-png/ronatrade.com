@@ -97,30 +97,6 @@ async function adminFallbackProbe(accessToken){
   }
 }
 
-async function authOwnerProbe(accessToken){
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),3500);
-  try{
-    const r=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
-      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'},
-      signal:controller.signal
-    });
-    if(r.ok){
-      const user=await r.json().catch(()=>null);
-      const identity=String(user?.app_metadata?.portal_identity||'').toUpperCase();
-      if(identity==='OWNER_ADMIN')return {state:'VALID',me:{user:{roles:['ADMIN']},authority:'SUPABASE_AUTH_OWNER_FALLBACK'},status:r.status};
-      return {state:'UNAVAILABLE',me:null,status:r.status,reason:'VALID_NON_OWNER_IDENTITY'};
-    }
-    if(r.status===401||r.status===403)return {state:'INVALID',me:null,status:r.status};
-    if(r.status===429||r.status>=500)return {state:'UNAVAILABLE',me:null,status:r.status};
-    return {state:'UNAVAILABLE',me:null,status:r.status};
-  }catch(_){
-    return {state:'UNAVAILABLE',me:null,status:503};
-  }finally{
-    clearTimeout(timer);
-  }
-}
-
 async function sessionProbe(accessToken){
   if(!accessToken)return {state:'INVALID',me:null,status:401};
   let lastStatus=503;
@@ -144,9 +120,11 @@ async function sessionProbe(accessToken){
   }
   const fallback=await adminFallbackProbe(accessToken);
   if(fallback.state!=='UNAVAILABLE')return fallback;
-  const ownerFallback=await authOwnerProbe(accessToken);
-  if(ownerFallback.state!=='UNAVAILABLE')return ownerFallback;
-  return {state:'UNAVAILABLE',me:null,status:lastStatus||fallback.status||ownerFallback.status||503};
+  // GoTrue /auth/v1/user only proves token/user identity; it cannot substitute
+  // for the database-backed session-allowed, not-revoked ADMIN role check.
+  // When BOTH independent session-backed authorities are unavailable, keep
+  // the Admin shell unavailable instead of granting identity-only access.
+  return {state:'UNAVAILABLE',me:null,status:lastStatus||fallback.status||503};
 }
 async function ensureSession(request){
   const cookies=parseCookies(request.headers.get('cookie'));
