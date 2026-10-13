@@ -7,6 +7,7 @@ const ROOT=process.cwd();
 const DIST=join(ROOT,'dist');
 const CLIENT_HTML=join(DIST,'portal','client.html');
 const TARGET_LABEL=process.env.RONA_TRACE_TARGET_LABEL||'TARGET';
+const CURRENT_HEAD=process.env.RONA_TRACE_CURRENT_HEAD==='1';
 const t0=Date.now();
 const now=()=>Date.now()-t0;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -30,6 +31,25 @@ async function api(req,res,u){
   if(u.pathname==='/portal/api/v1/client/context'){const n=fixtureForIds(c,k);if(!n){const body={ok:false,code:'BAD_CONTEXT'};record(req,u,'',body,400);json(res,400,body);return true}const body={ok:true,data:projection(n)};record(req,u,n,body);await sleep(n==='A'?110:140);json(res,200,body);return true}
   if(u.pathname==='/portal/api/v1/client/prices'){const n=fixtureForIds(c,k),f=FIXTURES[n]||FIXTURES.A,body={ok:true,client_id:f.client_id,contract_id:f.contract_id,prices:[{publication_item_id:`PRICE-${n}`,publication_id:`PUB-${n}`,client_id:f.client_id,contract_id:f.contract_id,product:f.product,basis:'CPT',price:100,currency:'USD',producer:`PRODUCER-${n}`,supplier:`SUPPLIER-${n}`}]};record(req,u,n,body);await sleep(90);json(res,200,body);return true}
   if(u.pathname==='/portal/api/v1/client/deal-documents/state'){const n=fixtureForIds(c,k),f=FIXTURES[n]||FIXTURES.A,body={ok:true,client_id:f.client_id,contract_id:f.contract_id,deals:[{deal_id:f.deal_id,client_id:f.client_id,contract_id:f.contract_id,realization_status:{source:'SERVER_AUTHORITATIVE_REALIZATION_V1',current_stage_key:'resource',stages:stages()}}]};record(req,u,n,body);await sleep(80);json(res,200,body);return true}
+  // CURRENT_HEAD only: mock the actual scoped deal-state endpoint used by the accepted Client runtime.
+  // Historical PRE_FIX / POST_FIX fixtures retain their original behavior.
+  if(CURRENT_HEAD&&u.pathname==='/portal/api/v1/client/deal-state'){
+    const scoped=fixtureForIds(c,k),dealId=u.searchParams.get('dealId')||'',f=scoped?FIXTURES[scoped]:null;
+    if(!f||f.deal_id!==dealId){
+      const denied={ok:false,code:'CLIENT_DEAL_STATE_SCOPE_DENIED'};
+      record(req,u,'',denied,403);json(res,403,denied);return true;
+    }
+    const body={ok:true,data:{
+      source:'RONA_CLIENT_DEAL_STATE_V1',
+      generated_at:new Date().toISOString(),
+      context:contextFixture(scoped),
+      deal:{deal_id:f.deal_id,business_status:'EXECUTING',product:f.product,quantity_tonnes:10,unit_price:100,amount:1000,currency:'USD',delivery_basis:'CPT',destination:'DEST-'+scoped},
+      facts:{resource:{status:'RESOURCE_CONFIRMED',label:'Ресурс подтвержден',source:'SERVER_AUTHORITATIVE_REALIZATION_V1'}},
+      realization_status:{source:'SERVER_AUTHORITATIVE_REALIZATION_V1',current_stage_key:'resource',stages:stages()},
+      next_step:'Сопровождение сделки'
+    }};
+    record(req,u,scoped,body);json(res,200,body);return true;
+  }
   if(u.pathname==='/portal/api/v1/client/messages'){const body={ok:true,messages:[]};record(req,u,name,body);json(res,200,body);return true}
   if(u.pathname==='/portal/api/v1/client/archive'){const body={ok:true,archive:{deals:[]}};record(req,u,name,body);json(res,200,body);return true}
   if(u.pathname==='/portal/api/v1/client/market'||u.pathname==='/portal/api/v1/client/market-intelligence'){const body={ok:true,analytics:[],news:[]};record(req,u,name,body);json(res,200,body);return true}
@@ -83,7 +103,7 @@ try{
   const foreign=(s,f)=>{const b=s?.visible_business||{},out={client_ids:(b.client_ids||[]).filter(x=>x!==f.client_id),contract_ids:(b.contract_ids||[]).filter(x=>x!==f.contract_id),deal_ids:(b.deal_ids||[]).filter(x=>x!==f.deal_id),external_contracts:(b.external_contracts||[]).filter(x=>x!==f.external),company_names:(b.company_names||[]).filter(x=>x!==f.legal_name)};return Object.values(out).some(x=>x.length)?out:null};
   const currentDeal=(s,f)=>s?.deals_live==='ready'&&s?.projection?.deals?.some(d=>d.deal_id===f.deal_id&&d.client_id===f.client_id&&d.contract_id===f.contract_id);
   const currentPrice=(s,f)=>exactPair(s?.prices?.context,f)&&Array.isArray(s?.prices?.prices)&&s.prices.prices.length>0;
-  const currentPassport=(s,f)=>s?.passport?.visible&&s.passport.binding==='authoritative-binding'&&s.passport.deal_id===f.deal_id&&s.passport.client_id===f.client_id&&s.passport.contract_id===f.contract_id;
+  const currentPassport=(s,f)=>s?.passport?.visible&&s.passport.binding===(CURRENT_HEAD?'canonical-deal-state-binding':'authoritative-binding')&&s.passport.deal_id===f.deal_id&&s.passport.client_id===f.client_id&&s.passport.contract_id===f.contract_id;
 
   async function activateProductionControl(kind){return page.evaluate(kind=>{
     const norm=v=>String(v??'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
@@ -102,7 +122,9 @@ try{
     const start=performance.now(),requestStart=requests.length,action=await activateProductionControl('prices');
     if(!action.ok)return{ready:false,representative:false,reason:'PRODUCTION_PRICES_ACTION_NOT_FOUND',ms:Math.round(performance.now()-start),action,owner:null,request:null};
     const ready=await page.waitForFunction(({c,k})=>{const s=window.__RONA_CLIENT_PRICE_SYNC_STATE__;return s?.authority==='SERVER_AUTHORITATIVE_PRICE_PROJECTION'&&s?.context?.client_id===c&&s?.context?.contract_id===k&&Array.isArray(s?.prices)&&s.prices.length>0&&s.prices.every(p=>(!p.client_id||p.client_id===c)&&(!p.contract_id||p.contract_id===k))},{c:f.client_id,k:f.contract_id},{timeout}).then(()=>true).catch(()=>false);
-    const request=requests.slice(requestStart).find(r=>r.path==='/portal/api/v1/client/prices'&&r.client_id===f.client_id&&r.contract_id===f.contract_id&&r.source==='client-price-sync-v1:prices')||null;
+    // Current runtime may preload exact-scope prices before the user opens the Prices section.
+    const priceRequests=CURRENT_HEAD?requests:requests.slice(requestStart);
+    const request=priceRequests.filter(r=>r.path==='/portal/api/v1/client/prices'&&r.client_id===f.client_id&&r.contract_id===f.contract_id&&r.source==='client-price-sync-v1:prices'&&r.status===200).at(-1)||null;
     const owner=await page.evaluate(()=>({marker:window.__RONA_CLIENT_PRICE_SYNC_V1__||null,script:[...document.scripts].map(s=>s.src||'').find(src=>src.includes('/assets/portal-runtime/client-price-sync-v1.js'))||null,state:window.__RONA_CLIENT_PRICE_SYNC_STATE__||null}));
     const representative=Boolean(owner.marker&&owner.script);
     return{ready:ready&&!!request,representative,reason:representative?(ready&&request?'READY':'REAL_CONSUMER_DID_NOT_LOAD_CURRENT_PRICE'):'PRODUCTION_PRICE_CONSUMER_OWNER_NOT_LOADED',ms:Math.round(performance.now()-start),action,owner,request};
@@ -116,7 +138,7 @@ try{
     const nativeVisible=await page.waitForFunction(()=>[...document.querySelectorAll('.rona-deal-command-center-v3,[data-rona-deal-passport]')].some(r=>{const s=getComputedStyle(r),q=r.getBoundingClientRect();return !r.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&q.width>0&&q.height>0}),undefined,{timeout:2500}).then(()=>true).catch(()=>false);
     const runtime=await page.evaluate(()=>({passport_marker:window.__RONA_CLIENT_DEAL_PASSPORT__||null,deals_marker:window.__RONA_CLIENT_DEALS_AUTHORITATIVE__||null,lifecycle_marker:window.__RONA_CLIENT_DEAL_LIFECYCLE__||null,drawer_count:document.querySelectorAll('.rona-deal-command-center-v3,[data-rona-deal-passport]').length}));
     if(!nativeVisible)return{visible:false,bound:false,lifecycle:false,representative:false,reason:'NATIVE_PRODUCTION_DRAWER_DID_NOT_OPEN',ms:Math.round(performance.now()-start),deals_action:dealsAction,target,drawer:null,runtime};
-    const bound=await page.waitForFunction(({c,k,d})=>[...document.querySelectorAll('.rona-deal-command-center-v3,[data-rona-deal-passport]')].some(r=>{const s=getComputedStyle(r),q=r.getBoundingClientRect();return !r.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&q.width>0&&q.height>0&&r.dataset.ronaAuthoritativeBinding==='authoritative-binding'&&r.dataset.ronaAuthoritativeClientId===c&&r.dataset.ronaAuthoritativeContractId===k&&r.dataset.ronaAuthoritativeDealId===d}),{c:f.client_id,k:f.contract_id,d:f.deal_id},{timeout}).then(()=>true).catch(()=>false);
+    const bound=await page.waitForFunction(({c,k,d})=>[...document.querySelectorAll('.rona-deal-command-center-v3,[data-rona-deal-passport]')].some(r=>{const s=getComputedStyle(r),q=r.getBoundingClientRect();return !r.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&q.width>0&&q.height>0&&r.dataset.ronaAuthoritativeBinding===binding&&r.dataset.ronaAuthoritativeClientId===c&&r.dataset.ronaAuthoritativeContractId===k&&r.dataset.ronaAuthoritativeDealId===d}),{c:f.client_id,k:f.contract_id,d:f.deal_id,binding:CURRENT_HEAD?'canonical-deal-state-binding':'authoritative-binding'},{timeout}).then(()=>true).catch(()=>false);
     const lifecycle=await page.waitForFunction(({c,k,d})=>{const t=window.__RONA_STRICT_TRACE__?.events||[];const hit=t.some(e=>e.type==='rona:client:deal-authoritative-detail'&&e.detail?.dealId===d&&e.detail?.client_id===c&&e.detail?.contract_id===k&&e.detail?.realization_status?.source==='SERVER_AUTHORITATIVE_REALIZATION_V1'&&e.detail?.realization_status?.current_stage_key==='resource');const drawer=[...document.querySelectorAll('.rona-deal-command-center-v3,[data-rona-deal-passport]')].find(r=>r.dataset.ronaAuthoritativeDealId===d&&r.dataset.ronaAuthoritativeClientId===c&&r.dataset.ronaAuthoritativeContractId===k);const flow=drawer?.querySelector?.('#rona-deal-realization-flow-v3');return hit&&flow?.dataset?.ronaRealizationOwner==='server-authoritative-v6-strict-context'},{c:f.client_id,k:f.contract_id,d:f.deal_id},{timeout:2500}).then(()=>true).catch(()=>false);
     const drawer=await page.evaluate(({c,k,d})=>{const visible=n=>{if(!n||!n.isConnected||n.hidden)return false;const s=getComputedStyle(n),r=n.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0};const r=[...document.querySelectorAll('.rona-deal-command-center-v3,[data-rona-deal-passport]')].find(visible);if(!r)return null;const flow=r.querySelector('#rona-deal-realization-flow-v3');return{binding:r.dataset.ronaAuthoritativeBinding||'',deal_id:r.dataset.ronaAuthoritativeDealId||'',client_id:r.dataset.ronaAuthoritativeClientId||'',contract_id:r.dataset.ronaAuthoritativeContractId||'',context:r.dataset.ronaAuthoritativeContext||'',passport_marker:r.dataset.ronaDealPassport||'',lifecycle_owner:flow?.dataset?.ronaRealizationOwner||'',text:String(r.innerText||'').replace(/\s+/g,' ').trim().slice(0,600),expected:c+'|'+k+'|'+d}},{c:f.client_id,k:f.contract_id,d:f.deal_id});
     return{visible:!!drawer,bound:bound&&drawer?.binding==='authoritative-binding'&&drawer?.deal_id===f.deal_id&&drawer?.client_id===f.client_id&&drawer?.contract_id===f.contract_id,lifecycle,representative:true,reason:bound&&lifecycle?'READY':'NATIVE_DRAWER_BIND_OR_LIFECYCLE_FAILED',ms:Math.round(performance.now()-start),deals_action:dealsAction,target,drawer,runtime};
