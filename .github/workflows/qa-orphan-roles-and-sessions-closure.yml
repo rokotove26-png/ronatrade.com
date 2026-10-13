@@ -5,6 +5,7 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'supabase/migrations/20261013113500_radio_qa_orphan_admin_and_suspended_oidc_session_closure_v1.sql'
+      - 'supabase/migrations/20261013115000_expire_single_suspended_phase5c_qa_session_v1.sql'
       - 'tests/security/radio-qa-orphan-and-oidc-session-closure-v1.test.mjs'
       - '.github/workflows/qa-orphan-roles-and-sessions-closure.yml'
       - 'docs/audits/qa-orphan-roles-and-sessions-closure-20261013.md'
@@ -32,7 +33,7 @@ jobs:
           git fetch origin release/public-go-live-v1.1
           test "$(git merge-base HEAD origin/release/public-go-live-v1.1)" = "$source_lock"
           git diff --name-only "$source_lock"...HEAD > qa-iam-files.txt
-          if grep -Ev '^(supabase/migrations/20261013113500_radio_qa_orphan_admin_and_suspended_oidc_session_closure_v1\.sql|tests/security/radio-qa-orphan-and-oidc-session-closure-v1\.test\.mjs|\.github/workflows/qa-orphan-roles-and-sessions-closure\.yml|docs/audits/qa-orphan-roles-and-sessions-closure-20261013\.md)$' qa-iam-files.txt; then
+          if grep -Ev '^(supabase/migrations/20261013113500_radio_qa_orphan_admin_and_suspended_oidc_session_closure_v1\.sql|supabase/migrations/20261013115000_expire_single_suspended_phase5c_qa_session_v1\.sql|tests/security/radio-qa-orphan-and-oidc-session-closure-v1\.test\.mjs|\.github/workflows/qa-orphan-roles-and-sessions-closure\.yml|docs/audits/qa-orphan-roles-and-sessions-closure-20261013\.md)$' qa-iam-files.txt; then
             echo 'QA_IAM_OUT_OF_SCOPE_DELTA'
             exit 1
           fi
@@ -42,7 +43,7 @@ jobs:
           set -euo pipefail
           node --check tests/security/radio-qa-orphan-and-oidc-session-closure-v1.test.mjs
           node --test --test-reporter=tap tests/security/radio-qa-orphan-and-oidc-session-closure-v1.test.mjs | tee qa-iam-security.log
-          grep -Fq '# pass 3' qa-iam-security.log
+          grep -Fq '# pass 4' qa-iam-security.log
           grep -Fq '# fail 0' qa-iam-security.log
       - uses: actions/upload-artifact@v4
         if: always()
