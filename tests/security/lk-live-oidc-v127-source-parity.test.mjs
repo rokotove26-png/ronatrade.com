@@ -28,6 +28,6 @@ test('deployed v127 prevents legacy PR462 Admin issuance and preserves the signe
 test('no unintended changes to current Admin and Client visual owner sources',()=>{
   const admin=readFileSync('portal-src/current/admin.html','utf8');
   const client=readFileSync('assets/portal-runtime/client-context-selection-authority-v1.js','utf8');
-  assert.match(admin,/__RONA_ADMIN_CURRENT_ROUTER__/);
-  assert.match(client,/CLIENT_CONTEXT_PROJECTION_STALE_RESPONSE/);
+  assert.equal(gitBlob(admin),'cca468590d2353f64d30300284a302479a2b972c','accepted Admin visual source changed');
+  assert.equal(gitBlob(client),'abe541dbd6162dd7cc03462e1b37ba23d6fb5b60','accepted Client context source changed');
 });
