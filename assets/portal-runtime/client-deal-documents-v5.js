@@ -10,7 +10,7 @@ const DEAL_RE=/^DEAL-\d{4}-\d{3,}$/;
 const STATUS_RE=/^(?:В\s+ИСПОЛНЕНИИ|СДЕЛКА\s+ОТКРЫТА|РЕСУРС\s+ПОДТВЕРЖД[ЕЁ]Н|ПОДТВЕРЖД[ЕЁ]Н|НЕ\s+ПОДТВЕРЖД[ЕЁ]Н|РЕСУРС\s+НЕ\s+ПОДТВЕРЖД[ЕЁ]Н|ПЛАТЕЖИ|ОЖИДАЕТ\s+ОПЛАТЫ|ОПЛАЧЕН(?:О|А)?|ЗАВЕРШЕН(?:А|О)?|ЗАКРЫТ(?:А|О)?|ОТМЕНЕН(?:А|О)?|НА\s+СОГЛАСОВАНИИ)$/i;
 const RESOURCE_OK=/^(?:РЕСУРС\s+)?ПОДТВЕРЖД[ЕЁ]Н$/i;
 const RESOURCE_NO=/^(?:РЕСУРС\s+)?НЕ\s+ПОДТВЕРЖД[ЕЁ]Н$/i;
-const state={deals:new Map(),busy:false,lastLoad:0,scanTimer:0,bootReleased:false,contextKey:'',unsubscribe:null};
+const state={deals:new Map(),busy:false,reloadRequested:false,lastLoad:0,scanTimer:0,bootReleased:false,contextKey:'',unsubscribe:null};
 const text=v=>String(v??'').replace(/\s+/g,' ').trim();
 const low=v=>text(v).toLocaleLowerCase('ru-RU');
 const visible=n=>{if(!n||!n.isConnected)return false;const s=getComputedStyle(n);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&n.getClientRects().length>0};
@@ -57,7 +57,7 @@ async function currentContext(){const authority=contextAuthority();if(!authority
 function ctxKey(ctx){return text(ctx?.client_id)+'|'+text(ctx?.contract_id)}
 function releaseBoot(){if(state.bootReleased)return;state.bootReleased=true;document.documentElement.dataset.ronaClientCanonReady='1'}
 async function loadData(){
-  if(state.busy)return;state.busy=true;
+  if(state.busy){state.reloadRequested=true;return}state.busy=true;
   try{
     const ctx=await currentContext();
     if(!ctx){state.contextKey='';state.deals=new Map();state.lastLoad=Date.now();return}
@@ -75,7 +75,7 @@ async function loadData(){
       next.set(dealId,{dealId,clientId,contractId,deal:d,workflow:wfMap.get(dealId)||{},workflowUnavailable:workflow?.workflow_unavailable===true,documents:dealDocs});
     }
     state.contextKey=key;state.deals=next;state.lastLoad=Date.now();
-  }catch(err){console.error('RONA canonical deal load failed',err)}finally{state.busy=false;scan();requestAnimationFrame(()=>requestAnimationFrame(releaseBoot))}
+  }catch(err){console.error('RONA canonical deal load failed',err)}finally{const queued=state.reloadRequested;state.reloadRequested=false;state.busy=false;scan();requestAnimationFrame(()=>requestAnimationFrame(releaseBoot));if(queued&&contextAuthority()?.getCurrentContext())queueMicrotask(loadData)}
 }
 function navExact(label){const wanted=low(label);return [...document.querySelectorAll('a,button,[role="tab"],[role="menuitem"]')].find(n=>visible(n)&&low(n.textContent)===wanted)||null}
 function removeLegacySection(){const dealNav=navExact('Сделки'),legacyPage=[...document.querySelectorAll('h1,h2,h3')].some(n=>visible(n)&&legacyLabel(n.textContent));if(legacyPage&&dealNav)try{dealNav.click()}catch{};for(const n of [...document.querySelectorAll('a,button,[role="tab"],[role="menuitem"],li')]){if(!legacyLabel(n.textContent))continue;const target=n.closest('li,[role="menuitem"]')||n;if(target!==dealNav)target.remove()}}
