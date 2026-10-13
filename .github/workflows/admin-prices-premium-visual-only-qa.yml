@@ -9,7 +9,9 @@ on:
       - functions/portal/prices-current-ui.js
       - functions/portal/price-updates-api.js
       - functions/portal/owner-api.js
-      - supabase/**
+      # Backend and SQL changes are verified by their domain/security CI.
+      # This strictly visual-only prices workflow runs for Prices UI and its
+      # own visual scope; when triggered it still forbids ANY backend delta.
   workflow_dispatch:
 permissions:
   contents: read
