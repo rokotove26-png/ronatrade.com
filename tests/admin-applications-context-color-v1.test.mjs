@@ -38,10 +38,14 @@ test('Applications module is syntactically valid, strictly page-scoped, non-muta
   assert.ok(source.includes("kpi.state==='READY'"));
   assert.ok(source.includes("Number.isFinite(Number(v))"));
   assert.doesNotMatch(source,/fetch\s*\(|XMLHttpRequest|navigator\.sendBeacon|localStorage|innerHTML\s*=/);
+  assert.ok(source.includes('a?.application_price')&&source.includes('a?.application_currency')&&source.includes('a?.price_is_agreed'));
+  assert.ok(source.includes("a?.retention_decision")&&source.includes("a?.business_contract"));
+  assert.match(source,/#page-applications \.rona-app-table \.rona-owner-actions button\.rona-app-action--approve/);
+  assert.match(source,/#page-applications \.rona-app-table \.rona-owner-actions button\.rona-app-action--reject/);
   assert.doesNotMatch(source,/#page-(home|deals|access|prices|payments|analytics)\b/);
   assert.doesNotMatch(source,/(document\.querySelector\(['"]h1['"]\)|\.topbar|\.page-title|data-rona-title)/);
   for(const stage of ['is-new','is-work','is-decision','is-completed'])assert.match(source,new RegExp('button\\.'+stage));
-  for(const style of ['rona-fin-pill--danger','rona-app-action--approve','rona-app-action--reject','rona-app-action--offer',':focus-visible','prefers-reduced-motion'])assert.ok(source.includes(style),style);
+  for(const style of ['rona-fin-pill--danger','rona-app-action--approve','rona-app-action--reject','rona-app-action--offer','rona-app-total-kpi--selected-amount','rona-app-money-values','rona-app-filter button:active',':focus-visible','prefers-reduced-motion'])assert.ok(source.includes(style),style);
 });
 
 class Element{
@@ -103,20 +107,25 @@ function mockPage(){
  };
  return{document,page,grid,queue,title,head,accept,reject,select:k=>{chosen=k}}
 }
+const row=(patch={})=>({
+ business_contract:'RONA_APPLICATION_BUSINESS_V2',record_kind:'CLIENT_APPLICATION',retention_decision:'KEEP',
+ owner_status:'NEW',status:'SUBMITTED',quantity_tonnes:10.25,client_id:'C-A',
+ application_price:745,application_currency:'USD',price_is_agreed:false,price_source:'CLIENT_REQUESTED_PRICE',...patch
+});
 const fixture=[
- {owner_status:'NEW',status:'SUBMITTED',quantity_tonnes:10.25,client_id:'C-A'},
- {owner_status:'ACCEPTED',status:'UNDER_REVIEW',quantity_tonnes:20,client_id:'C-A'},
- {owner_status:'SUPPLIER_APPROVED',status:'ACCEPTED',quantity_tonnes:null,client_id:'C-B'},
- {owner_status:'SUPPLIER_PENDING',deal_status:'SUPPLIER_PENDING',quantity_tonnes:35,client_id:'C-B'},
- {owner_status:'DEAL',deal_id:'DEAL-1',status:'DEAL_REGISTERED',quantity_tonnes:40,client_id:'C-A'},
- {owner_status:'REJECTED',status:'CANCELLED',quantity_tonnes:60,client_id:'C-C'}
+ row(),
+ row({owner_status:'ACCEPTED',status:'UNDER_REVIEW',quantity_tonnes:20,application_price:900}),
+ row({owner_status:'SUPPLIER_APPROVED',status:'ACCEPTED',quantity_tonnes:null,client_id:'C-B',application_price:800}),
+ row({owner_status:'SUPPLIER_PENDING',deal_status:'SUPPLIER_PENDING',quantity_tonnes:35,client_id:'C-B',application_price:800,price_is_agreed:true,price_source:'SUBMISSION_PRICE_SNAPSHOT'}),
+ row({owner_status:'DEAL',deal_id:'DEAL-1',status:'DEAL_REGISTERED',quantity_tonnes:40,application_price:900,price_is_agreed:true,price_source:'APPROVED_APPLICATION_PRICE'}),
+ row({owner_status:'REJECTED',status:'CANCELLED',quantity_tonnes:60,client_id:'C-C',application_price:950,application_currency:'EUR',price_is_agreed:true,price_source:'APPROVED_APPLICATION_PRICE'})
 ];
 const currentSnapshot=rows=>({
  applications:rows,
  application_business_contract:'RONA_APPLICATION_BUSINESS_V2',
  application_kpi:{source:'RONA_APPLICATION_BUSINESS_V2',state:'READY',tonnage:5000,amounts:[{amount:4523675,currency:'USD'}]}
 });
-test('Real filter switch recalculates context cards without inventing metrics, altering title, or touching actions',async()=>{
+test('Real filter switches: quantity and currency-safe authoritative/provisional amounts, frozen title/actions',async()=>{
  const p=mockPage();
  const window={__RONA_OWNER_ADMIN_READY__:true,__RONA_OWNER_ADMIN_SNAPSHOT__:currentSnapshot(fixture),addEventListener(){}};
  const source=await(await onRequest()).text();
@@ -124,31 +133,58 @@ test('Real filter switch recalculates context cards without inventing metrics, a
  new vm.Script(source).runInContext(ctx);
  function summary(){
    const cards=p.grid.children.filter(x=>x.dataset.ronaAppTotal);
-   assert.equal(cards.length,2,'There must be exactly two context KPI cards');
-   return{count:cards[0].children[1].textContent,ton:cards[1].children[1].textContent,labels:cards.map(x=>x.children[0].textContent)}
+   assert.equal(cards.length,3,'Count, volume and amount must be three distinct selected-category KPI cards');
+   const monetary=cards[2].children[1];
+   return{
+     count:cards[0].children[1].textContent,
+     ton:cards[1].children[1].textContent,
+     sum:monetary.children.length?monetary.children.map(n=>n.textContent).join(' | '):monetary.textContent,
+     label:cards.map(x=>x.children[0].textContent),
+     amountClass:cards[2].className,
+     amountCaption:cards[2].children[2].textContent
+   }
  }
- assert.deepEqual(summary(),{count:'1',ton:'10,25 т',labels:['Заявок · Новые','Тоннаж · Новые']});
+ const names=category=>['Заявок · '+category,'Тоннаж · '+category,'Сумма · '+category];
+ let current=summary();
+ assert.equal(current.count,'1');assert.equal(current.ton,'10,25 т');
+ assert.equal(current.sum,'7 636,25 USD');
+ assert.deepEqual(current.label,names('Новые'));
+ assert.match(current.amountClass,/rona-app-amount--estimated/);
+ assert.match(current.amountCaption,/несогласованной ценой/);
  assert.match(p.page.querySelector('[data-rona-app-registry-note]').textContent,/Весь реестр \(без учёта фильтра\)/);
  assert.match(p.page.querySelector('[data-rona-app-registry-note]').textContent,/4\s?523\s?675 USD/);
  assert.equal(p.title.textContent,'Рабочая очередь заявок');
  assert.ok(p.accept.classList.contains('rona-app-action--approve'));
  assert.ok(p.reject.classList.contains('rona-app-action--reject'));
+
  p.select('is-work');window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot(fixture);
- assert.deepEqual(summary(),{count:'2',ton:'—',labels:['Заявок · В работе','Тоннаж · В работе']},'Incomplete per-row volume must remain unknown');
+ current=summary();assert.equal(current.count,'2');
+ assert.equal(current.ton,'—');
+ assert.equal(current.sum,'—');
+ assert.match(current.amountCaption,/отсутствует подтверждённая цена или объём/);
+
  p.select('is-decision');window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot(fixture);
- assert.equal(summary().count,'1');
- assert.equal(summary().ton,'35 т');
+ current=summary();assert.equal(current.count,'1');assert.equal(current.ton,'35 т');
+ assert.equal(current.sum,'28 000,00 USD');assert.match(current.amountClass,/rona-app-amount--agreed/);
+
  p.select('is-completed');window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot(fixture);
- assert.equal(summary().count,'2');
- assert.equal(summary().ton,'100 т');
+ current=summary();assert.equal(current.count,'2');assert.equal(current.ton,'100 т');
+ assert.equal(current.sum,'57 000,00 EUR | 36 000,00 USD','Different currencies must remain separate');
  assert.match(p.queue.querySelector('[data-rona-app-queue-context]').textContent,/Завершённые · 2 заявки/);
+
  p.select('is-new');window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot([]);
- assert.equal(summary().count,'0');
- assert.equal(summary().ton,'0 т');
+ current=summary();assert.equal(current.count,'0');assert.equal(current.ton,'0 т');assert.equal(current.sum,'0');
  assert.match(p.queue.querySelector(':scope > .rona-owner-muted').textContent,/В категории «Новые» заявок нет/);
  assert.equal(p.title.textContent,'Рабочая очередь заявок');
+
+ window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot([row({application_price:null,application_currency:null})]);
+ current=summary();assert.equal(current.sum,'—','Missing negotiated price must not fabricate a total');
+ window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot([row({retention_decision:'REVIEW'})]);
+ current=summary();assert.equal(current.sum,'—','Unresolved retention source blocks amount');
+ window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot([row({application_price:0})]);
+ current=summary();assert.equal(current.sum,'—','Zero price is not a legitimate authoritative price');
+
  p.select('is-decision');window.__RONA_OWNER_ADMIN_SNAPSHOT__={application_business_contract:null,applications:null};
- assert.equal(summary().count,'—','Unloaded source may not be represented as zero');
- assert.equal(summary().ton,'—');
+ current=summary();assert.equal(current.count,'—');assert.equal(current.ton,'—');assert.equal(current.sum,'—');
  assert.equal(p.head.children.filter(x=>x.id==='ronaApplicationsTotalKpiStyle').length,1,'Style must remain singleton');
 });
