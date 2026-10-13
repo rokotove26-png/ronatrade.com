@@ -30,9 +30,44 @@ jobs:
           grep -Fq '# pass 3' qa-pr462-quarantine.log
           grep -Fq '# fail 0' qa-pr462-quarantine.log
           test -s supabase/functions/rona-g82-github-oidc-browser-qa-20260816/deno.json
+      - name: Live unauthorized HTTP probe of deployed v127 OIDC endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816'
+          status=$(curl --silent --show-error --max-time 25 --output pr462-noauth.json \
+            --write-out '%{http_code}' --request POST \
+            --header 'content-type: application/json' \
+            --data '{}' "$endpoint")
+          test "$status" = '401'
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const body=JSON.parse(readFileSync('pr462-noauth.json','utf8'));
+          assert.equal(body.ok,false);
+          assert.equal(body.code,'OIDC_FORMAT_INVALID');
+          console.log('PR462_LIVE_UNAUTHORIZED_POST_DENIED=PASS');
+          NODE
+          status=$(curl --silent --show-error --max-time 25 --output pr462-malformed.json \
+            --write-out '%{http_code}' --request POST \
+            --header 'content-type: application/json' \
+            --header 'authorization: Bearer malformed-oidc' \
+            --data '{}' "$endpoint")
+          test "$status" = '401'
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const body=JSON.parse(readFileSync('pr462-malformed.json','utf8'));
+          assert.equal(body.ok,false);
+          assert.equal(body.code,'OIDC_FORMAT_INVALID');
+          console.log('PR462_LIVE_MALFORMED_OIDC_POST_DENIED=PASS');
+          NODE
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: qa-pr462-quarantine-security
-          path: qa-pr462-quarantine.log
+          path: |
+            qa-pr462-quarantine.log
+            pr462-noauth.json
+            pr462-malformed.json
           if-no-files-found: ignore
