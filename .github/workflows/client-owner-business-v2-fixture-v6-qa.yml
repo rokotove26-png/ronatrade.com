@@ -6,6 +6,7 @@ on:
     paths:
       - 'scripts/qa-client-owner-canonical-business-fixture-v6.mjs'
       - 'scripts/qa-client-impersonation-tab-binding-browser-v1.mjs'
+      - 'scripts/qa-client-document-workflow-unavailable-preview-v1.mjs'
       - 'scripts/qa-client-typography-110-preview-v1.mjs'
       - 'scripts/qa-client-typography-nav-geometry-v1.mjs'
       - '.github/workflows/client-owner-business-v2-fixture-v6-qa.yml'
@@ -85,6 +86,16 @@ jobs:
           grep -F 'PRODUCTION_PASSPORT_LINEAGE_PROOF' "$GITHUB_WORKSPACE/owner-business-v2-fixture-v6.log"
           grep -F 'OWNER_RETEST_ASSERTION_SET=PASS' "$GITHUB_WORKSPACE/owner-business-v2-fixture-v6.log"
           grep -F 'QA_V6_CANONICAL_BROWSER_E2E=PASS' "$GITHUB_WORKSPACE/owner-business-v2-fixture-v6.log"
+      - name: Validate reversible Client-document unavailability preview in emitted build only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RONA_OWNER_V6_CANDIDATE_ROOT"
+          node --check "$GITHUB_WORKSPACE/scripts/qa-client-document-workflow-unavailable-preview-v1.mjs"
+          node "$GITHUB_WORKSPACE/scripts/qa-client-document-workflow-unavailable-preview-v1.mjs" | tee "$GITHUB_WORKSPACE/document-workflow-unavailable-preview.log"
+          node --check dist/assets/portal-runtime/client-deal-documents-v5.js
+          grep -F 'QA_DOCUMENT_WORKFLOW_UNAVAILABLE_DIST_PREVIEW=PASS' "$GITHUB_WORKSPACE/document-workflow-unavailable-preview.log"
+          git diff --exit-code -- assets/portal-runtime/client-deal-documents-v5.js
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -93,5 +104,6 @@ jobs:
             owner-business-v2-fixture-v6.log
             nav-geometry.log
             admin-preview-document-state-denial.log
+            document-workflow-unavailable-preview.log
             owner-nav-visual-preview.png
           if-no-files-found: warn
