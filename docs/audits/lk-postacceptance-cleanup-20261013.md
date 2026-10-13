@@ -41,7 +41,7 @@ Only two explicit `anon` revocations and one function config change; preflight/p
 
 ## Edge function retirement: maintain a HOLD ledger
 
-Prior `docs/track-a-edge-retirement-db-workload-audit-20260920.md` classified 25 historical QA/G82 functions as `410/RUNTIME_RETIRED_PRE_OWNER_UAT` retirement candidates. Live 2026-10-13 catalog still lists the historical QA slugs as ACTIVE; spot source reads reconfirm 410 for `rona-portal-api-phase5c2-qa`, `rona-g5c7-qa`, and `rona-g82-uat-final-v2`.
+Prior `docs/track-a-edge-retirement-db-workload-audit-20260920.md` classified 26 historical QA/G82 functions as `410/RUNTIME_RETIRED_PRE_OWNER_UAT` retirement candidates. Live 2026-10-13 catalog still lists the historical QA slugs as ACTIVE; spot source reads reconfirm 410 for `rona-portal-api-phase5c2-qa`, `rona-g5c7-qa`, and `rona-g82-uat-final-v2`.
 **Do not confuse ACTIVE registration with active business use, or 410 stub source with zero external callers.** Retention until supported time-window request logs, DB invoker/ref search, consumer tracing, exact backup/export and deletion-capable access. Keep market source, staff workspace, session broker and signed upload intact.
 
 ## Required verification and rollback
