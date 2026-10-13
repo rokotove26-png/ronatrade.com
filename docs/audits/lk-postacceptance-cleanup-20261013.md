@@ -52,3 +52,7 @@ Prior `docs/track-a-edge-retirement-db-workload-audit-20260920.md` classified 26
 4. Owner alone governs visual changes; this patch must not change any protected visual source. Rollback the PR to the exact baseline or execute recorded SQL rollback by authorized migration process; no silent data cleanup.
 
 **Status:** candidate prepared; production and legacy archive preserved pending passing source and migration gates. No general deletion of `portal-src/canonical`, `owner-ui-chunks`, `remaining-sections-r2-base`, old Cloudflare compatibility URLs, Supabase backup tables or used Edge bridges.
+
+## Exact applied SQL equality (reverified)
+
+2026-10-13 `supabase_migrations.schema_migrations` shows `version=20261013093143`, `name=lk_rail_anon_execute_and_parser_path_v1`, `statement_count=1`. A read-only PostgreSQL equality comparison of `statements[1]` against the full current GitHub migration content returned `exact_git_sql_match=true`; both are 2465 characters and MD5 `5c99d0beee7ce0cfff675e11ff1fd680`. The cleanup source test now hash-locks those SQL bytes. **Production application is complete; no repeat migration is needed.** The original source filename starts `20261013093500` instead of the recorded `20261013093143`. No migration registry rows were rewritten or deleted. Before invoking `supabase db push`/other auto-apply against production, reconcile the version mapping through an authorized migration-repair workflow; NEVER infer that two different timestamps mean two different intended database changes.
