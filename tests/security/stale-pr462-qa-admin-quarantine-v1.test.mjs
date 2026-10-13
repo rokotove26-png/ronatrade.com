@@ -32,6 +32,10 @@ test('legacy GitHub OIDC PR462 Admin account issuer cannot run',()=>{
   assert.match(body,/return json\(410,\{ok:false,code:"PR462_LEGACY_QA_ADMIN_ISSUANCE_RETIRED"\}\)/);
   assert.doesNotMatch(body,/await issueLegacy|await cleanupByRun|auth\.admin\.createUser/);
   assert.doesNotMatch(oidc,/await issueLegacy\(claims\)/);
+  assert.doesNotMatch(oidc,/\basync function issueLegacy\s*\(/,'Unreachable production Admin issuer must be removed, not merely bypassed');
+  assert.doesNotMatch(oidc,/\bLEGACY_SOURCE\b/,'Unreachable PR462 Admin issuer source constant must be removed');
+  assert.doesNotMatch(oidc,/role:\s*["']ADMIN["'],\s*status:\s*["']ACTIVE["']/,'OIDC edge must no longer contain direct ADMIN role grants');
+  assert.match(oidc,/async function cleanupByRun\(sourceSystem,runId,sourcePortalId\)/,'Issue430 current cleanup dependency must remain');
 });
 test('live OIDC nonlegacy workflow boundaries and per-run cleanup retained',()=>{
   assert.match(oidc,/async function verifyGithubOidc\(token\)/);
