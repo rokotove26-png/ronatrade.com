@@ -5,6 +5,7 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'scripts/qa-client-owner-canonical-business-fixture-v6.mjs'
+      - 'scripts/qa-client-impersonation-tab-binding-browser-v1.mjs'
       - 'scripts/qa-client-typography-110-preview-v1.mjs'
       - 'scripts/qa-client-typography-nav-geometry-v1.mjs'
       - '.github/workflows/client-owner-business-v2-fixture-v6-qa.yml'
@@ -61,6 +62,14 @@ jobs:
           cd "$RONA_OWNER_V6_CANDIDATE_ROOT"
           RONA_NAV_SCREENSHOT_PATH="$GITHUB_WORKSPACE/owner-nav-visual-preview.png" node "$GITHUB_WORKSPACE/scripts/qa-client-typography-nav-geometry-v1.mjs" | tee "$GITHUB_WORKSPACE/nav-geometry.log"
           grep -F 'QA_CLIENT_NAV_GEOMETRY_READ_ONLY' "$GITHUB_WORKSPACE/nav-geometry.log"
+      - name: Verify Admin preview preserves Client-only document-state denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RONA_OWNER_V6_CANDIDATE_ROOT"
+          node "$GITHUB_WORKSPACE/scripts/qa-client-impersonation-tab-binding-browser-v1.mjs" | tee "$GITHUB_WORKSPACE/admin-preview-document-state-denial.log"
+          grep -F 'CLIENT_IMPERSONATION_BROWSER_QA=PASS' "$GITHUB_WORKSPACE/admin-preview-document-state-denial.log"
+          grep -F 'CLIENT_IMPERSONATION_DOCUMENTS_CLIENT_ONLY_DENIAL_QA=PASS' "$GITHUB_WORKSPACE/admin-preview-document-state-denial.log"
       - name: Validate canonical Business V2 synthetic fixtures and real Chromium paths
         shell: bash
         run: |
@@ -83,5 +92,6 @@ jobs:
           path: |
             owner-business-v2-fixture-v6.log
             nav-geometry.log
+            admin-preview-document-state-denial.log
             owner-nav-visual-preview.png
           if-no-files-found: warn
