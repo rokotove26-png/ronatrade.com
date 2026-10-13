@@ -1,0 +1,52 @@
+name: Admin Applications contextual color UI QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/applications-total-kpi-ui.js'
+      - 'tests/admin-applications-context-color-v1.test.mjs'
+      - '.github/workflows/admin-applications-context-color-v1-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  applications-only-ui-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Enforce narrow delta and locked accepted Admin header
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git diff --name-only "$BASE_SHA" HEAD > /tmp/admin-applications-delta.txt
+          cat /tmp/admin-applications-delta.txt
+          if grep -Ev '^(functions/portal/applications-total-kpi-ui\.js|tests/admin-applications-context-color-v1\.test\.mjs|\.github/workflows/admin-applications-context-color-v1-qa\.yml)$' /tmp/admin-applications-delta.txt; then
+            echo 'APPLICATIONS_UI_OUT_OF_SCOPE_CHANGE' >&2
+            exit 1
+          fi
+          test "$(wc -l < /tmp/admin-applications-delta.txt | tr -d ' ')" = "3"
+          echo 'APPLICATIONS_UI_DELTA_ONLY=PASS'
+      - name: Check unchanged core Admin runtime source syntax
+        run: |
+          node --check functions/portal/applications-total-kpi-ui.js
+          node --check functions/portal/main-ui/index.js
+          node --check assets/portal-admin-shell-fast-v1.js
+      - name: Execute selected-filter data and visual contract tests
+        run: node --test --test-reporter=tap tests/admin-applications-context-color-v1.test.mjs
+      - name: Preserve immutable canonical Client/Admin assets
+        run: |
+          node scripts/build-pages-direct-canonical.mjs
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false||x.client_runtime?.legacy_runtime_in_deployment!==false)process.exit(1);"
