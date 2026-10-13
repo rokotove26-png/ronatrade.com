@@ -187,6 +187,41 @@ function enhanceActions(page){
  })
 }
 function appCountLabel(n){const two=Math.abs(n)%100,one=two%10;return String(n)+' '+(two>=11&&two<=14?'заявок':one===1?'заявка':one>=2&&one<=4?'заявки':'заявок')}
+// Same unit-price × quantity formula as application_business_projection_v2, limited to the live selected UI bucket.
+// application_price is the canonical effective price. It may be unagreed; NEVER present it as a booked/signed amount.
+const moneyFmt=v=>new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
+function selectedAmount(rows,sourceValid){
+ if(!sourceValid)return{state:'UNAVAILABLE',lines:[],caption:'Источник стоимости не подтверждён'};
+ if(rows.length===0)return{state:'EMPTY',lines:[],caption:'В выбранной категории заявок нет'};
+ const sums=new Map();let estimated=0,missing=0,blocked=0;
+ for(const a of rows){
+   if(a?.business_contract!=='RONA_APPLICATION_BUSINESS_V2'||a?.record_kind!=='CLIENT_APPLICATION'||upper(a?.retention_decision)!=='KEEP'){blocked++;continue}
+   const qty=Number(a?.quantity_tonnes),price=Number(a?.application_price),currency=upper(a?.application_currency);
+   if(!finite(a?.quantity_tonnes)||qty<=0||!finite(a?.application_price)||price<=0||!/^[A-Z]{3}$/.test(currency)){missing++;continue}
+   const line=qty*price;if(!Number.isFinite(line)||line<0){missing++;continue}
+   sums.set(currency,(sums.get(currency)||0)+line);
+   if(a?.price_is_agreed!==true)estimated++
+ }
+ if(blocked)return{state:'UNAVAILABLE',lines:[],caption:'Проверка записей реестра не завершена'};
+ if(missing)return{state:'UNAVAILABLE',lines:[],caption:'Нельзя вывести общий итог: у '+appCountLabel(missing)+' отсутствует подтверждённая цена или объём'};
+ const lines=Array.from(sums,([currency,amount])=>({currency,amount})).sort((a,b)=>a.currency.localeCompare(b.currency));
+ if(!lines.length)return{state:'UNAVAILABLE',lines:[],caption:'Данные для расчёта отсутствуют'};
+ return{state:estimated?'ESTIMATED':'AGREED',lines,
+   caption:estimated?'Расчёт по действующей цене заявки · '+appCountLabel(estimated)+' с несогласованной ценой':'По согласованным ценам заявок · объём × цена за тонну'}
+}
+function moneyCard(title,result){
+ const type=result.state==='AGREED'?'agreed':result.state==='ESTIMATED'?'estimated':'unavailable';
+ const value=result.state==='EMPTY'?'0':result.lines.length?'':'—';
+ const c=card(title,'rona-app-total-kpi--selected-amount rona-app-amount--'+type,value,result.caption);
+ if(result.lines.length){
+   const host=c.children[1];host.classList.add('rona-app-money-values');host.textContent='';
+   for(const item of result.lines){
+     const line=document.createElement('span');line.className='rona-app-money-line';
+     line.textContent=moneyFmt(item.amount)+' '+item.currency;host.append(line)
+   }
+ }
+ return c
+}
 function apply(){
  const page=q('#page-applications'),grid=q('#page-applications .rona-app-kpi-grid');
  if(!page||!grid)return;
@@ -194,6 +229,7 @@ function apply(){
  ensureStyle();
  const filter=FILTERS[bucket],snapshot=window.__RONA_OWNER_ADMIN_SNAPSHOT__;
  const hasRows=Array.isArray(snapshot?.applications),rows=hasRows?snapshot.applications:[];
+ const canonical=hasRows&&snapshot?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'&&snapshot?.application_kpi?.source==='RONA_APPLICATION_BUSINESS_V2';
  const visible=rows.filter(a=>applicationBucket(a)===bucket);
  const quantities=visible.map(a=>a?.quantity_tonnes);
  const complete=quantities.every(v=>finite(v)&&Number(v)>=0);
@@ -202,10 +238,11 @@ function apply(){
    hasRows?String(visible.length):'—',hasRows?'По выбранному статусу · серверный реестр':'Данные пока не загружены');
  const ton=card('Тоннаж · '+filter.label,'rona-app-total-kpi--selected-tonnage',
    hasRows?tonnage:'—',!hasRows?'Данные пока не загружены':complete?'По заявкам выбранного статуса':'Часть значений тоннажа не подтверждена');
+ const sum=moneyCard('Сумма · '+filter.label,selectedAmount(visible,canonical));
  qa('[data-rona-app-total]',grid).forEach(n=>n.remove());
  grid.dataset.ronaAppFilter=bucket;
  grid.style.setProperty('--rona-app-current-accent',filter.tone);
- grid.prepend(count,ton);
+ grid.prepend(count,ton,sum);
  const old=q('[data-rona-app-registry-note]',page);if(old)old.remove();
  grid.insertAdjacentElement('afterend',makeRegistryNote(snapshot));
  const queue=q('.rona-app-table',page);
