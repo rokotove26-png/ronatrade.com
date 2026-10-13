@@ -12,6 +12,14 @@ function installStyle(){
   const s=document.createElement('style');
   s.id=STYLE_ID;
   s.textContent='html.rona-applications-premium-pass3 #page-applications .rona-app-currency-open-inline{display:inline-flex!important;align-items:center!important;gap:7px!important;flex:0 0 auto!important;flex-wrap:nowrap!important;white-space:nowrap!important;vertical-align:middle!important}html.rona-applications-premium-pass3 #page-applications .rona-app-currency-open-inline>select,html.rona-applications-premium-pass3 #page-applications .rona-app-currency-open-inline>label{flex:0 0 auto!important;margin:0!important}html.rona-applications-premium-pass3 #page-applications .rona-app-currency-open-inline>button[data-rona-app-passport-open]{flex:0 0 auto!important;margin:0!important}';
+
+  // The supplier decision has three independent, sibling controls. The historical
+  // two-column grid and the narrow Open button rule must not overlap their hit areas.
+  s.textContent += [
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-table .rona-owner-table td:last-child .rona-owner-actions.rona-app-actions[data-rona-app-independent-actions="3"]{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 83px!important;gap:7px!important;width:277px!important;min-width:277px!important;max-width:277px!important;align-items:stretch!important;justify-content:center!important;flex-wrap:nowrap!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-table .rona-owner-table td:last-child .rona-owner-actions.rona-app-actions[data-rona-app-independent-actions="3"]>button{position:static!important;grid-column:auto!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;height:43px!important;min-height:43px!important;margin:0!important;padding:4px 5px!important;font-size:11px!important;line-height:1.15!important;white-space:normal!important;overflow-wrap:normal!important;flex:0 0 auto!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-table .rona-owner-table td:last-child .rona-owner-actions.rona-app-actions[data-rona-app-independent-actions="3"]>button[data-rona-app-passport-open]{grid-column:auto!important;width:100%!important;min-width:0!important;max-width:100%!important;flex:0 0 auto!important}'
+  ].join('');
   document.head.appendChild(s);
 }
 function headerIndex(table,kind){
@@ -59,8 +67,18 @@ function ensureInlinePair(cell,button){
   return true;
 }
 function placeButton(cell,button){
-  if(ensureInlinePair(cell,button))return;
   const host=actionHost(cell);if(!host)return;
+  // Decision actions have no currency selector. Mount Open directly alongside
+  // Approve and Deny, never inside either button or in an overlay wrapper.
+  if(host.classList.contains('rona-app-actions')){
+    if(button.parentElement!==host||host.lastElementChild!==button)host.append(button);
+    const direct=Array.from(host.children).filter(node=>node.tagName==='BUTTON');
+    if(direct.length===3&&direct[2]===button)host.setAttribute('data-rona-app-independent-actions','3');
+    else host.removeAttribute('data-rona-app-independent-actions');
+    return;
+  }
+  // Keep the established currency/Open pairing for other application states.
+  if(ensureInlinePair(cell,button))return;
   if(button.parentElement!==host||host.lastElementChild!==button)host.append(button);
 }
 function ensureButton(row){
