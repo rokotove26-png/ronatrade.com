@@ -47,6 +47,7 @@ test('all mutations are atomic, count checked, fail closed and preserve producti
 
 test('one old suspended QA_PHASE5C session is expired only after source and permission preflight',()=>{
   const sql=readFileSync('supabase/migrations/20261013115000_expire_single_suspended_phase5c_qa_session_v1.sql','utf8');
+  assert.equal(createHash('md5').update(sql).digest('hex'),'32672e237d8dc70900383bea2da41572','APPLIED_PHASE5C_SQL_SOURCE_DRIFT');
   assert.match(sql,/^BEGIN;\s*DO \$phase5c\$/m);
   assert.match(sql,/source_system='QA_PHASE5C'/);
   assert.match(sql,/status='SUSPENDED' AND pu\.lifecycle_state='SUSPENDED'/);
