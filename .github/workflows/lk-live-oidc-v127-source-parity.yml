@@ -1,0 +1,51 @@
+name: LK deployed OIDC v127 source parity QA
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/functions/rona-g82-github-oidc-browser-qa-20260816/index.ts'
+      - 'tests/security/lk-live-oidc-v127-source-parity.test.mjs'
+      - '.github/workflows/lk-live-oidc-v127-source-parity.yml'
+      - 'docs/audits/lk-live-oidc-v127-source-parity-20261013.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  no-regression-deployed-oidc-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Ensure exact release baseline and source-only diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='193db1e476675157bd51887d52f39092a4ed3e8b'
+          git fetch origin release/public-go-live-v1.1
+          test "$(git merge-base HEAD origin/release/public-go-live-v1.1)" = "$base"
+          git diff --name-only "$base"...HEAD > oidc-source-delta.txt
+          if grep -Ev '^(supabase/functions/rona-g82-github-oidc-browser-qa-20260816/index\.ts|tests/security/lk-live-oidc-v127-source-parity\.test\.mjs|\.github/workflows/lk-live-oidc-v127-source-parity\.yml|docs/audits/lk-live-oidc-v127-source-parity-20261013\.md)$' oidc-source-delta.txt; then
+            echo 'OIDC_OUT_OF_SCOPE_DELTA'
+            exit 1
+          fi
+      - name: Verify exact deployed v127 Edge blob and preserved authenticated OIDC contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/security/lk-live-oidc-v127-source-parity.test.mjs
+          node --test --test-reporter=tap tests/security/lk-live-oidc-v127-source-parity.test.mjs | tee oidc-live-source-parity.log
+          grep -Fq '# pass 3' oidc-live-source-parity.log
+          grep -Fq '# fail 0' oidc-live-source-parity.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lk-live-oidc-source-parity
+          path: |
+            oidc-source-delta.txt
+            oidc-live-source-parity.log
+          if-no-files-found: ignore
