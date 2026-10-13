@@ -251,7 +251,7 @@ function apply(){
  const hasRows=Array.isArray(snapshot?.applications),rows=hasRows?snapshot.applications:[];
  // The selected category is independently verifiable from canonical row provenance;
  // whole-register KPI readiness must not block a fully verified category.
- const canonical=hasRows&&(snapshot?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'||rows.every(a=>a?.business_contract==='RONA_APPLICATION_BUSINESS_V2'&&a?.record_kind==='CLIENT_APPLICATION'));
+ const canonical=hasRows&&(snapshot?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'||(rows.length>0&&rows.every(a=>a?.business_contract==='RONA_APPLICATION_BUSINESS_V2'&&a?.record_kind==='CLIENT_APPLICATION')));
  const registryComplete=hasRows&&snapshot?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'&&snapshot?.application_kpi?.source==='RONA_APPLICATION_BUSINESS_V2';
  const visible=rows.filter(a=>applicationBucket(a)===bucket);
  const quantities=visible.map(a=>a?.quantity_tonnes);
