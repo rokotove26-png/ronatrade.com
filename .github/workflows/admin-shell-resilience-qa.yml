@@ -70,11 +70,11 @@ jobs:
           grep -q 'font-size:14.5px' dist/portal/admin.html
           grep -q 'data-action="create-access">Создать доступ</button>' dist/portal/admin.html
           grep -q 'data-page="agent-settlements"' dist/portal/admin.html
-          grep -q 'data-page="claims"' dist/portal/admin.html
+          ! grep -q 'data-page="claims"' dist/portal/admin.html
           grep -q 'data-page="market-news"' dist/portal/admin.html
           grep -q 'portal-admin-shell-fast-v1.js' dist/portal/admin.html
           grep -q 'portal-admin-runtime-watchdog-v1.js' dist/portal/admin.html
-          grep -q 'clients-agents-current-ui' dist/portal/admin.html
+          grep -q '/portal/clients-agents-current-ui' dist/assets/portal-admin-shell-fast-v1.js
           grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" dist/assets/portal-admin-shell-fast-v1.js
           grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v23-agent-rewards-correction-gate-v3'" dist/assets/portal-admin-runtime-watchdog-v1.js
           grep -q '/portal/analytics-v2-ui' dist/assets/portal-admin-shell-fast-v1.js
