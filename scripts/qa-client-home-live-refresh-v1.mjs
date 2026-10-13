@@ -5,10 +5,13 @@ import {chromium} from 'playwright';
 
 const home=readFileSync('assets/portal-runtime/client-home-command-center-v2.js','utf8');
 const freeze=JSON.parse(readFileSync('governance/client-home-live-source-refresh-v1-20261010.json','utf8'));
+const navigationApproval=JSON.parse(readFileSync('governance/client-home-navigation-fresh-projection-v4-20261012.json','utf8'));
 for(const token of [
+  "HOME_NAVIGATION_FRESH_PROJECTION_V4='20261012-client-home-navigation-fresh-projection-v4'",
   "HOME_LIVE_FRESHNESS_V1='20261010-client-home-live-freshness-v1'",
   "HOME_PENDING_REFRESH_V2='20261010-client-home-pending-refresh-v2'",
   "if(state.loading){if(reason!=='timer')state.refreshPending=true;return;}",
+  "if(reason==='navigation'&&state.lastLoad&&Date.now()-state.lastLoad<SOURCE_REFRESH_MS){void load(false);return}",
   "if(pending&&visibleHome())queueMicrotask(()=>refreshVisible('pending'))", 
   'SOURCE_REFRESH_MS=30000',
   "authority.invalidateCurrentProjection()",
@@ -23,6 +26,11 @@ for(const forbidden of ['RONA-C001','UNIVERSAL SOLYARIS','DEAL-2026-004'])assert
 assert.equal(freeze.requirements.no_business_calculation_changes,true);
 assert.equal(freeze.requirements.exact_blob_enforcement,true);
 assert.equal(freeze.requirements.wildcard_exception,false);
+assert.equal(navigationApproval.scope,'CLIENT_HOME_NAVIGATION_FRESH_PROJECTION_V4');
+assert.equal(navigationApproval.requirements.navigation_reuses_projection_within_refresh_window,true);
+assert.equal(navigationApproval.requirements.central_authority_ttl_remains_source_of_freshness,true);
+assert.equal(navigationApproval.requirements.explicit_invalidation_still_forces_refresh,true);
+assert.equal(navigationApproval.requirements.no_visual_theme_change,true);
 
 const browser=await chromium.launch({headless:true,channel:'chrome'});
 const page=await browser.newPage({viewport:{width:1320,height:860}});
@@ -199,7 +207,7 @@ if(failed.status==='error'){
   assert.equal(failed.status,'ready','unexpected source state '+JSON.stringify(failed));
   assert.equal(failed.markers?.client_id,'QA-CLIENT-B','recovery crossed client boundary');
   assert.ok(!failed.labels.some(x=>x.includes('420')),'previous tenant data leaked');
-  assert.ok(afterRace.networkCalls>=beforeRace+2,'ready state lacked fresh authorization');
+  assert.ok(failed.counters.networkCalls>=beforeRace+2,'ready state lacked fresh authorization');
 }
 console.log('HOME_V1_ERROR_FAIL_CLOSED=PASS',JSON.stringify({observedError:true,finalState:failed.status}));
 await page.evaluate(()=>window.__QA_HOME.setReceived(110));

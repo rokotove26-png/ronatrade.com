@@ -3,6 +3,7 @@ const MARK='20260902-client-home-command-center-v3-current-context';
 const HOME_LIVE_FRESHNESS_V1='20261010-client-home-live-freshness-v1';
 const HOME_PENDING_REFRESH_V2='20261010-client-home-pending-refresh-v2';
 const HOME_SERVER_CLOSEOUT_V3='20261010-client-home-server-closeout-attention-v3';
+const HOME_NAVIGATION_FRESH_PROJECTION_V4='20261012-client-home-navigation-fresh-projection-v4';
 const SOURCE_REFRESH_MS=30000;
 if(window.__RONA_CLIENT_HOME_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_HOME_RUNTIME__=MARK;
@@ -339,6 +340,9 @@ function refreshVisible(reason='timer'){
   if(!visibleHome())return;
   if(state.loading){if(reason!=='timer')state.refreshPending=true;return;}
   if(reason==='timer'&&state.lastLoad&&Date.now()-state.lastLoad<SOURCE_REFRESH_MS)return;
+  // Returning to Home should reuse the central projection while it is within its freshness window.
+  // The context authority performs TTL revalidation; only an expired projection needs a network read.
+  if(reason==='navigation'&&state.lastLoad&&Date.now()-state.lastLoad<SOURCE_REFRESH_MS){void load(false);return}
   void load(true);
 }
 function isHomeNavigation(target){const explicit=target?.closest?.('[data-page="home"],[data-page-link="home"]');if(explicit)return true;const el=target?.closest?.('a,button,[role="tab"],[role="menuitem"]');return /^Главная$/iu.test(norm(el?.textContent))}

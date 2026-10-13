@@ -5,6 +5,23 @@ on:
     branches:
       - release/public-go-live-v1.1
     types: [opened, synchronize, reopened]
+    # This gate is pinned to the Issue 430 candidate parent. Do not run it for unrelated audit PRs.
+    paths:
+      - 'functions/portal/api/v1/client/**'
+      - 'functions/portal/api/_browser-impersonation.js'
+      - 'assets/portal-runtime/client-contract-download-v3.js'
+      - 'assets/portal-runtime/client-deals-authoritative-v1.js'
+      - 'assets/portal-runtime/client-deal-lifecycle-v1.js'
+      - 'assets/portal-runtime/portal-client-company-directory-authority-v1.js'
+      - 'supabase/functions/rona-portal-api/**'
+      - 'supabase/migrations/*client*'
+      - 'scripts/build-pages-direct-canonical.mjs'
+      - 'scripts/repair-issue430-*'
+      - 'scripts/qa-issue430-*'
+      - 'scripts/qa-client-multiclient-parity-430.mjs'
+      - 'scripts/qa-client-owner-authenticated-*.mjs'
+      - 'tests/*430*'
+      - '_routes.json'
 
 permissions:
   contents: read

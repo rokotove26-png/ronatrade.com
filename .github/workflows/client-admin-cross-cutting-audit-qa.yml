@@ -1,0 +1,59 @@
+name: Client and Admin cross-cutting audit focused QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'docs/audits/client-admin-cross-cutting-closure-20261012.md'
+      - 'scripts/qa-admin-sidebar-visual-browser.mjs'
+      - 'assets/portal-runtime/client-home-command-center-v2.js'
+      - 'assets/portal-runtime/client-applications-live-render-v1.js'
+      - 'scripts/apply-client-context-coherence-432-consumer-v2.mjs'
+      - 'scripts/qa-client-home-live-refresh-v1.mjs'
+      - 'scripts/materialize-portal-client-applications-canonical-v1.mjs'
+      - 'scripts/qa-client-portal-visual-freeze.mjs'
+      - 'scripts/qa-client-owner-retest-real-browser-v4.mjs'
+      - 'scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs'
+      - 'governance/client-home-navigation-fresh-projection-v4-20261012.json'
+      - 'scripts/qa-client-context-projection-source-diagnostic.mjs'
+      - 'tests/client-deals-lifecycle-tabs-v1.test.mjs'
+      - 'tests/security/client-deal-documents-read-boundary-v1.test.mjs'
+      - 'tests/security/portal-private-rls-hardening-v2.test.mjs'
+      - 'supabase/migrations/20261012173000_revoke_unneeded_public_api_grants_v1.sql'
+      - 'docs/audits/rollback/20261012173000_revoke_unneeded_public_api_grants_v1.sql'
+      - 'tests/admin-owner-jwt-fallback-source.test.mjs'
+      - '.github/workflows/client-admin-cross-cutting-audit-qa.yml'
+      - '.github/workflows/admin-interactivity-qa.yml'
+      - '.github/workflows/admin-shell-resilience-qa.yml'
+      - '.github/workflows/issue430-owner-authorized-browser-qa.yml'
+      - '.github/workflows/issue430-resource-company-corrective-qa.yml'
+      - '.github/workflows/client-multiclient-parity-430-qa.yml'
+      - '.github/workflows/ai-read-only-contour-qa.yml'
+      - '.github/workflows/admin-entity-control-stage2-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused-audit-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify canonical Client payload provenance and projection source
+        run: node scripts/qa-client-context-projection-source-diagnostic.mjs
+      - name: Current Client lifecycle and Admin owner auth contracts
+        run: node --test tests/client-deals-lifecycle-tabs-v1.test.mjs tests/admin-owner-jwt-fallback-source.test.mjs tests/security/client-deal-documents-read-boundary-v1.test.mjs
+      - name: Syntax and canonical Pages build
+        run: |
+          node --check 'functions/portal/[[path]].js'
+          node --check functions/portal/api/v1/client/context.js
+          node --check assets/portal-runtime/client-context-selection-authority-v1.js
+          npm run build
+          node --check dist/assets/portal-runtime/portal-client-applications-canonical-v1.js || { nl -ba dist/assets/portal-runtime/portal-client-applications-canonical-v1.js | sed -n '270,305p'; exit 1; }
+      - name: Verify current Admin single-owner contract
+        run: node scripts/qa-admin-single-owner.mjs

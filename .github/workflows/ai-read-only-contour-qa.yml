@@ -7,6 +7,22 @@ on:
   pull_request:
     branches:
       - release/public-go-live-v1.1
+    # This workflow validates an AI-read-only lineage; keep it off unrelated Admin/Client audit changes.
+    paths:
+      - 'supabase/functions/rona-ai-read-only/**'
+      - 'supabase/functions/rona-ai-read-extras/**'
+      - 'functions/portal/api/v1/ai/**'
+      - 'functions/portal/_middleware.js'
+      - 'functions/portal/_middleware-core.js'
+      - 'functions/portal/[[path]].js'
+      - 'functions/portal/clients-agents-current-ui.js'
+      - 'portal-src/current/admin.html'
+      - 'portal-src/current/client/**'
+      - 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html'
+      - 'scripts/build-pages-direct-canonical.mjs'
+      - 'scripts/test-ai-read-only-contour.mjs'
+      - 'scripts/test-ai-read-extras.mjs'
+      - '_routes.json'
   workflow_dispatch:
 
 permissions:

@@ -45,9 +45,9 @@ test('Client Deals lifecycle filter remains visually exclusive even when canonic
   assert.ok(renderer.includes("n.style.setProperty('display','none','important')"));
   assert.ok(renderer.includes("else n.style.removeProperty('display')"));
   assert.ok(renderer.includes("setDealCardHidden(c,!(bucketOk&&searchOk&&stageOk))"));
-  assert.ok(renderer.includes("const MARK='20261005-client-deals-authoritative-closeout-v13'"));
-  assert.ok(rendererAttach.includes('client-deals-authoritative-v1.js?v=20261005-authoritative-v16-client-closeout'));
-  assert.ok(rendererAttach.includes('20261005-client-deals-authoritative-closeout-v13'));
+  assert.ok(renderer.includes("const MARK='20261005-client-deals-authoritative-closeout-v14'"));
+  assert.ok(rendererAttach.includes('client-deals-authoritative-v1.js?v=20261005-authoritative-v17-client-closeout'));
+  assert.ok(rendererAttach.includes('20261005-client-deals-authoritative-closeout-v14'));
 });
 
 test('Client Deals stage controls are explicit buttons aligned to the title frame',()=>{

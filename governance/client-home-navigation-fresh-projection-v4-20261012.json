@@ -1,0 +1,53 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-10-12",
+  "owner_instruction": "During the owner-directed cross-cutting Client/Admin audit, the Home navigation was found to invalidate a still-fresh central client-context projection on every return to Home. Reuse the current projection during the existing 30-second freshness window; keep the central authority TTL, visible-only timer refresh, explicit invalidation, tenant-scope checks and fail-closed stale-response behavior. No visual, HTML, CSS, commercial or business-rule change is authorized.",
+  "owner_instruction_ref": "OWNER_IN_CHAT:20261012:CLIENT_ADMIN_CROSS_CUTTING_AUDIT; OWNER_IN_CHAT:20261012:CONTINUE_SAFE_REMEDIATION",
+  "scope": "CLIENT_HOME_NAVIGATION_FRESH_PROJECTION_V4",
+  "decision": "SCOPED_NONVISUAL_CACHE_REUSE_CORRECTION",
+  "approval_marker": "OWNER_FUNCTIONAL_APPROVAL: CLIENT_HOME_NAVIGATION_FRESH_PROJECTION_V4",
+  "supersedes_scope": "CLIENT_HOME_SERVER_RAIL_CLOSEOUT_ATTENTION_AND_PROVENANCE_V3",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-home-command-center-v2.js"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-home-command-center-v2.js": {
+      "visual_freeze_baseline_blob_sha": "057b373152c534284ce6918eca21ed7c22e5232c",
+      "supersedes_authorized_post_blob_sha": "473f6ab6f8c5888f7aa8596ba0a9372f7fe0fd62",
+      "authorized_post_blob_sha": "616736f2f540b3b688024cfa1d65398c7e947f51",
+      "required_marker": "20261012-client-home-navigation-fresh-projection-v4"
+    }
+  },
+  "requirements": {
+    "client_home_only": true,
+    "navigation_reuses_projection_within_refresh_window": true,
+    "central_authority_ttl_remains_source_of_freshness": true,
+    "refresh_interval_unchanged_ms": 30000,
+    "timer_refresh_only_when_home_visible": true,
+    "explicit_invalidation_still_forces_refresh": true,
+    "tenant_scope_verified_on_each_result": true,
+    "stale_context_response_not_rendered": true,
+    "source_errors_fail_closed": true,
+    "no_business_calculation_changes": true,
+    "no_finance_or_rail_rule_changes": true,
+    "no_html_template_change": true,
+    "no_css_asset_change": true,
+    "no_visual_theme_change": true,
+    "exact_file_enforcement_remains_active": true,
+    "exact_blob_enforcement": true,
+    "visual_freeze_remains_enabled": true,
+    "wildcard_exception": false,
+    "real_chromium_navigation_network_test_required": true,
+    "rollback_preserved": true
+  },
+  "rollback": {
+    "release_commit": "f8f0233a33b321e8fc54a7e404cd85e3eff21718",
+    "previous_home_blob_sha": "473f6ab6f8c5888f7aa8596ba0a9372f7fe0fd62",
+    "edge_version": 105,
+    "edge_pin": "c37b8215e308db72f37d6ad625d346b9778a7ea9",
+    "edge_deployment_required": false,
+    "database_mutation_for_home_change": false,
+    "rollback_action": "Restore the exact previous Home runtime blob; keep visual freeze enabled."
+  },
+  "release_gate": "CLIENT_HOME_REAL_CHROMIUM_FRESH_NAVIGATION_AND_TENANT_RACE_QA_GREEN; VISUAL_FREEZE_GREEN; PRODUCTION_DEPLOY_VERIFIED"
+}
