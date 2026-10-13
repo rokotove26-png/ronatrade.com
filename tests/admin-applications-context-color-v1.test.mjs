@@ -74,7 +74,7 @@ class Element{
   }
   querySelectorAll(s){
     if(s==='[data-rona-app-total]')return this.children.filter(x=>x.dataset.ronaAppTotal);
-    if(s==='.rona-app-table .rona-owner-actions button')return this.actions||[];
+    if(s==='.rona-app-table button'||s==='.rona-app-table .rona-owner-actions button')return this.actions||[];
     return []
   }
 }
@@ -115,7 +115,7 @@ const row=(patch={})=>({
 const fixture=[
  row(),
  row({owner_status:'ACCEPTED',status:'UNDER_REVIEW',quantity_tonnes:20,application_price:900}),
- row({owner_status:'SUPPLIER_APPROVED',status:'ACCEPTED',quantity_tonnes:null,client_id:'C-B',application_price:800}),
+ row({owner_status:'REVIEW',status:'ACCEPTED',quantity_tonnes:null,client_id:'C-B',application_price:800}),
  row({owner_status:'SUPPLIER_PENDING',deal_status:'SUPPLIER_PENDING',quantity_tonnes:35,client_id:'C-B',application_price:800,price_is_agreed:true,price_source:'SUBMISSION_PRICE_SNAPSHOT'}),
  row({owner_status:'DEAL',deal_id:'DEAL-1',status:'DEAL_REGISTERED',quantity_tonnes:40,application_price:900,price_is_agreed:true,price_source:'APPROVED_APPLICATION_PRICE'}),
  row({owner_status:'REJECTED',status:'CANCELLED',quantity_tonnes:60,client_id:'C-C',application_price:950,application_currency:'EUR',price_is_agreed:true,price_source:'APPROVED_APPLICATION_PRICE'})
@@ -156,6 +156,14 @@ test('Real filter switches: quantity and currency-safe authoritative/provisional
  assert.equal(p.title.textContent,'Рабочая очередь заявок');
  assert.ok(p.accept.classList.contains('rona-app-action--approve'));
  assert.ok(p.reject.classList.contains('rona-app-action--reject'));
+ assert.ok(source.includes('.rona-app-flow-step:nth-child(1){border-color:'));
+ assert.ok(source.includes('.rona-app-filter{display:grid!important;grid-template-columns:repeat(4'));
+ assert.ok(source.includes('.rona-app-table .rona-owner-table td:last-child button'));
+ // Registered category sum must not depend on whole-registry KPI being ready.
+ window.__RONA_OWNER_ADMIN_SNAPSHOT__={applications:fixture};
+ current=summary();assert.equal(current.sum,'7 636,25 USD','Canonical row provenance permits scoped amount while aggregate KPI is pending');
+ assert.match(p.page.querySelector('[data-rona-app-registry-note]').textContent,/итоги ещё не сформированы/);
+ window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot(fixture);
 
  p.select('is-work');window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot(fixture);
  current=summary();assert.equal(current.count,'2');
@@ -170,6 +178,10 @@ test('Real filter switches: quantity and currency-safe authoritative/provisional
  p.select('is-completed');window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot(fixture);
  current=summary();assert.equal(current.count,'2');assert.equal(current.ton,'100 т');
  assert.equal(current.sum,'57 000,00 EUR | 36 000,00 USD','Different currencies must remain separate');
+ window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot([row({owner_status:'SUPPLIER_APPROVED',status:'ACCEPTED',price_is_agreed:true})]);
+ current=summary();assert.equal(current.count,'1','KPI bucket must match the actual released application2BBucket for SUPPLIER_APPROVED');
+ assert.equal(current.sum,'7 636,25 USD');
+ window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot(fixture);
  assert.match(p.queue.querySelector('[data-rona-app-queue-context]').textContent,/Завершённые · 2 заявки/);
 
  p.select('is-new');window.__RONA_OWNER_ADMIN_SNAPSHOT__=currentSnapshot([]);
@@ -187,4 +199,7 @@ test('Real filter switches: quantity and currency-safe authoritative/provisional
  p.select('is-decision');window.__RONA_OWNER_ADMIN_SNAPSHOT__={application_business_contract:null,applications:null};
  current=summary();assert.equal(current.count,'—');assert.equal(current.ton,'—');assert.equal(current.sum,'—');
  assert.equal(p.head.children.filter(x=>x.id==='ronaApplicationsTotalKpiStyle').length,1,'Style must remain singleton');
+ // A legacy list without row-level provenance is not sufficient evidence of an agreed amount.
+ p.select('is-new');window.__RONA_OWNER_ADMIN_SNAPSHOT__={applications:[{owner_status:'NEW',quantity_tonnes:10,application_price:745,application_currency:'USD'}]};
+ current=summary();assert.equal(current.sum,'—','Unverified legacy rows must never produce a trusted amount');
 });
