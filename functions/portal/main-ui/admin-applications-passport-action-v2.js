@@ -64,9 +64,10 @@ function ensureInlinePair(cell,button){
 // Place "Open" as a sibling BELOW that grid, not inside it. Inline-important
 // placement beats every legacy visual overlay and preserves click handlers.
 function placeIndependentOpenRow(cell,host,button){
+  // Also correct a previously nested Open control already present in the host.
+  if(button.parentElement!==cell||cell.lastElementChild!==button)cell.append(button);
   const original=Array.from(host.children).filter(node=>node.tagName==='BUTTON');
   if(!original.length)return false;
-  if(button.parentElement!==cell||cell.lastElementChild!==button)cell.append(button);
   cell.setAttribute('data-rona-app-independent-actions',String(original.length+1));
   const css=(node,styles)=>{for(const [key,value]of Object.entries(styles))node.style.setProperty(key,value,'important')};
   css(cell,{'min-width':'256px','width':'256px','white-space':'normal','overflow':'visible'});
