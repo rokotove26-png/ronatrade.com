@@ -43,3 +43,23 @@ test('all mutations are atomic, count checked, fail closed and preserve producti
   assert.doesNotMatch(executable,/\bDROP\b|\bTRUNCATE\b|\bDELETE\s+FROM\b|\bGRANT\s+EXECUTE\b/i);
   assert.doesNotMatch(executable,/UPDATE\s+auth\.users\b/i);
 });
+
+
+test('one old suspended QA_PHASE5C session is expired only after source and permission preflight',()=>{
+  const sql=readFileSync('supabase/migrations/20261013115000_expire_single_suspended_phase5c_qa_session_v1.sql','utf8');
+  assert.match(sql,/^BEGIN;\s*DO \$phase5c\$/m);
+  assert.match(sql,/source_system='QA_PHASE5C'/);
+  assert.match(sql,/status='SUSPENDED' AND pu\.lifecycle_state='SUSPENDED'/);
+  assert.match(sql,/starts_with\(pu\.login_name,'qa_'\)/);
+  assert.match(sql,/pu\.source_timestamp<'2026-08-20'::timestamptz/);
+  assert.match(sql,/au\.last_sign_in_at<'2026-09-01'::timestamptz/);
+  assert.match(sql,/IF n<>1 OR v_session IS NULL OR v_auth IS NULL/);
+  assert.match(sql,/QA_PHASE5C_ACCOUNT_OR_BUSINESS_SCOPE_DRIFT/);
+  assert.match(sql,/UPDATE auth\.sessions s\s+SET not_after=/);
+  assert.match(sql,/IF updated_count<>1/);
+  assert.match(sql,/QA_PHASE5C_SUSPENDED_SESSION_POSTFLIGHT_FAILED/);
+  assert.match(sql,/END \$phase5c\$;\s*COMMIT;/);
+  const executable=sql.split('\n').filter(x=>!x.trimStart().startsWith('--')).join('\n');
+  assert.doesNotMatch(executable,/\bDROP\b|\bTRUNCATE\b|\bDELETE\s+FROM\b|\bGRANT\b/i);
+  assert.doesNotMatch(executable,/UPDATE (?:auth\.users|portal_private\.portal_users|portal_private\.portal_user_roles|portal_private\.staff_user_roles)\b/i);
+});
