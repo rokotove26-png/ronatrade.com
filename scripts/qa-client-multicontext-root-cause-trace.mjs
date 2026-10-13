@@ -192,17 +192,24 @@ try{
     const activeStart={requests:requests.length,dom:await page.locator('*').count()};
     await page.waitForTimeout(32000);
     const activeRequests=requests.slice(activeStart.requests);
-    const refreshContext=activeRequests.filter(r=>r.path==='/portal/api/v1/client/context'&&r.source==='client-context-selection-authority-v1:client-application-lifecycle-v1'&&r.client_id===FIXTURES.A.client_id&&r.contract_id===FIXTURES.A.contract_id&&r.status===200);
+    // Current canonical Applications and Operations use separate source-verified 30s refresh owners.
+    const activeSources=['client-context-selection-authority-v1:applications-canonical','client-context-selection-authority-v1:client-application-lifecycle-v1'];
+    const refreshContext=activeRequests.filter(r=>r.path==='/portal/api/v1/client/context'&&activeSources.includes(r.source)&&r.client_id===FIXTURES.A.client_id&&r.contract_id===FIXTURES.A.contract_id&&r.response_client_id===FIXTURES.A.client_id&&r.response_contract_id===FIXTURES.A.contract_id&&r.status===200);
     const refreshDocuments=activeRequests.filter(r=>r.path==='/portal/api/v1/client/deal-documents/state'&&r.source==='client-deal-documents-v5'&&r.client_id===FIXTURES.A.client_id&&r.contract_id===FIXTURES.A.contract_id&&r.status===200);
     const allowed=new Set([...refreshContext,...refreshDocuments]);
-    operational={request_delta:activeRequests.length,context_refresh_count:refreshContext.length,documents_refresh_count:refreshDocuments.length,unexpected:activeRequests.filter(r=>!allowed.has(r)),dom_delta:(await page.locator('*').count())-activeStart.dom};
+    const activeCounts=Object.fromEntries(activeSources.map(source=>[source,refreshContext.filter(r=>r.source===source).length]));
+    operational={request_delta:activeRequests.length,context_refresh_count:refreshContext.length,active_source_counts:activeCounts,documents_refresh_count:refreshDocuments.length,unexpected:activeRequests.filter(r=>!allowed.has(r)),dom_delta:(await page.locator('*').count())-activeStart.dom};
     const homeAction=await activateProductionControl('home');
     if(!homeAction.ok)throw new Error('CURRENT_HEAD_PASSIVE_HOME_ACTION_UNAVAILABLE:'+JSON.stringify(homeAction.candidates||[]));
     await waitRequestQuiescence(750,6500);
     const idleBefore={requests:requests.length,dom:await page.locator('*').count()};
     await page.waitForTimeout(32000);
     const idleAfter={requests:requests.length,dom:await page.locator('*').count()};
-    idle={request_delta:idleAfter.requests-idleBefore.requests,dom_delta:idleAfter.dom-idleBefore.dom,mode:'PASSIVE_HOME'};
+    const passiveRequests=requests.slice(idleBefore.requests);
+    // Home and canonical Applications both have source-verified 30s refresh timers.
+    const passiveSources=['client-context-selection-authority-v1:applications-canonical','client-context-selection-authority-v1:client-home-command-center-v2:source-refresh'];
+    const permitted=passiveRequests.filter(r=>r.path==='/portal/api/v1/client/context'&&passiveSources.includes(r.source)&&r.client_id===FIXTURES.A.client_id&&r.contract_id===FIXTURES.A.contract_id&&r.response_client_id===FIXTURES.A.client_id&&r.response_contract_id===FIXTURES.A.contract_id&&r.status===200);
+    idle={request_delta:passiveRequests.length,source_counts:Object.fromEntries(passiveSources.map(source=>[source,permitted.filter(r=>r.source===source).length])),unauthorized:passiveRequests.filter(r=>!permitted.includes(r)),dom_delta:idleAfter.dom-idleBefore.dom,mode:'PASSIVE_HOME_BOUNDED_30S_REFRESH'};
   }else{
     await waitRequestQuiescence();
     const idleBefore={requests:requests.length,dom:await page.locator('*').count()};
@@ -231,8 +238,11 @@ try{
   const realContext=requests.filter(r=>r.path==='/portal/api/v1/client/context'&&!r.source.startsWith('diagnostic-'));for(const r of realContext){if(!r.source.startsWith('client-context-selection-authority-v1:'))failures.push({code:'UNAPPROVED_CONTEXT_OWNER',request:r});if(r.client_id!==r.response_client_id||r.contract_id!==r.response_contract_id)failures.push({code:'CONTEXT_RESPONSE_SCOPE_MISMATCH',request:r})}
   const alwaysForbidden=requests.filter(r=>['/portal/api/v1/client/shipments','/portal/api/v1/client/rail','/portal/api/v1/client/messages','/portal/api/v1/client/archive'].includes(r.path));if(alwaysForbidden.length)failures.push({code:'UNAPPROVED_BACKGROUND_FANOUT',requests:alwaysForbidden});
   const eventFailures=[];for(const probe of event_probes){const causal=probe.causal_requests.filter(r=>r.path.startsWith('/portal/api/v1/client/'));const approved=causal.filter(r=>r.path==='/portal/api/v1/client/deal-documents/state'&&r.source==='client-deal-lifecycle-v1'&&r.client_id===FIXTURES.A.client_id&&r.contract_id===FIXTURES.A.contract_id);const disallowed=causal.filter(r=>!approved.includes(r));const byOwner=new Map();for(const r of causal.filter(r=>r.path==='/portal/api/v1/client/context')){const key=`${r.path}|${r.client_id}|${r.contract_id}`;byOwner.set(key,(byOwner.get(key)||0)+1)}const duplicate_context=[...byOwner].filter(([,n])=>n>1);if(disallowed.length||duplicate_context.length)eventFailures.push({event:probe.type,causal_requests:causal,disallowed,duplicate_context,ambient_requests:probe.ambient_requests})}if(eventFailures.length)failures.push({code:'FOCUS_PAGESHOW_VISIBILITY_FANOUT',events:eventFailures});
-  if(operational&&(operational.unexpected.length>0||operational.context_refresh_count>1||operational.documents_refresh_count>1||operational.dom_delta>5))failures.push({code:'ACTIVE_OPERATIONAL_REFRESH_UNBOUNDED_OR_CROSS_SCOPE',operational});
-  if(idle.request_delta!==0)failures.push({code:'IDLE_REQUEST_GROWTH',idle});if(idle.dom_delta>5)failures.push({code:'WHOLE_DOCUMENT_FEEDBACK_GROWTH',idle});
+  if(operational&&(operational.unexpected.length>0||Object.values(operational.active_source_counts).some(n=>n>1)||operational.documents_refresh_count>1||operational.dom_delta>5))failures.push({code:'ACTIVE_OPERATIONAL_REFRESH_UNBOUNDED_OR_CROSS_SCOPE',operational});
+  if(CURRENT_HEAD){
+    if(idle.unauthorized.length>0||Object.values(idle.source_counts).some(n=>n>1))failures.push({code:'PASSIVE_IDLE_UNAUTHORIZED_OR_EXCESS_REFRESH',idle});
+  }else if(idle.request_delta!==0)failures.push({code:'IDLE_REQUEST_GROWTH',idle});
+  if(idle.dom_delta>5)failures.push({code:'WHOLE_DOCUMENT_FEEDBACK_GROWTH',idle});
 
   const counts={};for(const r of requests){const key=`${r.path}|${r.source}`;counts[key]=(counts[key]||0)+1}
   const priceProof=cycles.map(c=>({cycle:c.name,action:c.prices.action,owner:c.prices.owner,representative:c.prices.representative,reason:c.prices.reason,request:c.prices.request,state:{context:c.prices_snapshot.prices?.context,authority:c.prices_snapshot.prices?.authority,count:c.prices_snapshot.prices?.prices?.length||0}}));
