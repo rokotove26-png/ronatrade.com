@@ -107,3 +107,109 @@ if(process.env.RONA_APPLICATIONS_GEOMETRY_QA==='1'){
  }finally{await browser.close()}
  console.log('ADMIN_APPLICATION_THREE_ACTIONS_BROWSER_GEOMETRY=PASS widths=1440,1100,750');
 }
+
+
+// Production regression: exercise the ACTUAL emitted Main UI action composer
+// (outer Open button + NESTED two-button business div), not a flat mock.
+if(process.env.RONA_APPLICATIONS_GEOMETRY_QA==='1'){
+ const vm=(await import('node:vm')).default;
+ const {chromium}=await import('playwright');
+ const {onRequest:realMainUi}=await import('../functions/portal/main-ui/index.js');
+ const {onRequest:totalUI}=await import('../functions/portal/applications-total-kpi-ui.js');
+ const {default:premium}=await import('../functions/portal/main-ui/admin-applications-premium-v1.js');
+ const {default:readability}=await import('../functions/portal/main-ui/admin-applications-readability-v5.js');
+ const live=await realMainUi({});
+ assert.equal(live.status,200,'Actual Main UI must not regress to startup HTTP 500');
+ const source=await live.text();
+ const start=source.indexOf('function application2BLegacyBusinessActions(a){');
+ const end=source.indexOf('let ownerApplication2BFilter',start);
+ assert(start>=0&&end>start,'Extract deployed nested Actions functions, not a mock');
+ const actualActions=source.slice(start,end);
+ assert.match(actualActions,/box\.append\(legacy\)/,'Current production uses nested legacy action div');
+ const total=await(await totalUI()).text();
+ const cssArray=(src)=>{
+   const n=src.indexOf('s.textContent=[');
+   assert(n>=0,'CSS owner assignment required');
+   const a=src.indexOf('[',n),b=src.indexOf("].join('')",a);
+   assert(b>a,'CSS array must close');
+   return String(vm.runInNewContext(src.slice(a,b+1)+".join('')"));
+ };
+ const cssLayers=[cssArray(premium),cssArray(readability),cssArray(total)];
+ const passportScript=actionRuntime.replace("if(location.pathname!=='/portal/admin')return;","if(false)return;");
+ const html='<!doctype html><html class="rona-applications-premium-pass3"><head></head><body>'
+ +'<section id="page-applications"><div class="rona-app-table"><table class="rona-owner-table">'
+ +'<thead><tr><th>Заявка</th><th>Действия</th></tr></thead><tbody><tr>'
+ +'<td data-app-col="application-id">APP-DOM-QA</td><td data-app-col="actions"></td>'
+ +'</tr></tbody></table></div></section></body></html>';
+ const fixture=[
+  "const e=(tag,attrs={})=>{const n=document.createElement(tag);for(const [k,v] of Object.entries(attrs)){if(k==='class')n.className=v;else if(k==='text')n.textContent=String(v);else if(k==='onclick')n.addEventListener('click',v);else n.setAttribute(k,String(v))}return n};",
+  "function application2BBucket(){return 'DECISION'}",
+  "window.__supplierCalls=[];window.__openClicks=[];",
+  "const post=async(path,body)=>{window.__supplierCalls.push({path,body});return {ok:true}};",
+  "const refreshAdmin=async()=>{};const notify=async()=>{};const applicationActions=()=>null;",
+  actualActions,
+  "document.querySelector('td[data-app-col=actions]').append(application2BActions({application_id:'APP-DOM-QA',owner_status:'SUPPLIER_PENDING',deal_status:'SUPPLIER_PENDING'}));",
+  "document.querySelector('button[data-rona-app-passport-open]').addEventListener('click',()=>window.__openClicks.push('APP-DOM-QA'));"
+ ].join('\n');
+ const browser=await chromium.launch({headless:true});
+ try{
+  for(const width of [1440,1170,750]){
+   const page=await browser.newPage({viewport:{width,height:900}});
+   const errors=[];page.on('pageerror',e=>errors.push(e.message));
+   await page.setContent(html,{waitUntil:'load'});
+   await page.addScriptTag({content:fixture});
+   const initial=await page.evaluate(()=>{
+     const outer=document.querySelector('td[data-app-col="actions"]>.rona-app-actions');
+     const inner=outer?.querySelector(':scope>.rona-app-actions');
+     return {outer:outer?.children.length,inner:inner?.children.length,
+      open:outer?.querySelector(':scope>button[data-rona-app-passport-open]')?.textContent,
+      approve:inner?.children[0]?.textContent,reject:inner?.children[1]?.textContent};
+   });
+   assert.equal(initial.outer,2,'Actual outer wrapper contains Open and inner div at '+width);
+   assert.equal(initial.inner,2,'Actual inner business wrapper has two buttons at '+width);
+   assert.equal(initial.open,'Открыть');assert.equal(initial.approve,'Ресурс одобрен');
+   assert.equal(initial.reject,'В ресурсе отказано');
+   await page.addScriptTag({content:passportScript});
+   for(const css of cssLayers)await page.addStyleTag({content:css});
+   await page.waitForTimeout(100);
+   const layout=await page.evaluate(()=>{
+     const outer=document.querySelector('td[data-app-col="actions"]>.rona-app-actions');
+     const inner=outer.querySelector(':scope>.rona-app-actions');
+     const buttons=[inner.children[0],inner.children[1],outer.querySelector(':scope>button[data-rona-app-passport-open]')];
+     return {outerDisplay:getComputedStyle(outer).display,innerDisplay:getComputedStyle(inner).display,
+      nestedCount:document.querySelectorAll('.rona-app-actions .rona-app-actions').length,
+      nestedButtons:document.querySelectorAll('button button').length,
+      rects:buttons.map(n=>{const b=n.getBoundingClientRect(),c=getComputedStyle(n);return {
+       x:b.left,y:b.top,right:b.right,bottom:b.bottom,width:b.width,height:b.height,position:c.position};})};
+   });
+   assert.equal(layout.nestedCount,1,'Only the real nested div at '+width);
+   assert.equal(layout.nestedButtons,0,'No nested buttons at '+width);
+   assert.equal(layout.outerDisplay,'flex','Outer wrapper must stack rows at '+width);
+   assert.equal(layout.innerDisplay,'grid','Inner business buttons must be side by side at '+width);
+   const [approve,reject,open]=layout.rects;
+   const overlaps=(a,b)=>Math.min(a.right,b.right)-Math.max(a.x,b.x)>1 &&
+     Math.min(a.bottom,b.bottom)-Math.max(a.y,b.y)>1;
+   assert(!overlaps(approve,reject),'Approve/Reject overlap at '+width);
+   assert(!overlaps(approve,open),'Approve/Open overlap at '+width);
+   assert(!overlaps(reject,open),'Reject/Open overlap at '+width);
+   assert(approve.width>=100&&reject.width>=100&&open.width>=230,'Insufficient clickable width at '+width);
+   assert(open.y>=Math.max(approve.bottom,reject.bottom)+4,'Open must be BELOW both decisions at '+width);
+   assert(layout.rects.every(r=>r.position==='static'),'No absolutely positioned buttons at '+width);
+   await page.locator('td[data-app-col="actions"]>.rona-app-actions>.rona-app-actions>button').first().click();
+   await page.locator('td[data-app-col="actions"]>.rona-app-actions>.rona-app-actions>button').nth(1).click();
+   await page.locator('td[data-app-col="actions"]>.rona-app-actions>button[data-rona-app-passport-open]').click();
+   await page.waitForFunction(()=>window.__supplierCalls.length===2&&window.__openClicks.length===1);
+   const calls=await page.evaluate(()=>({supplier:window.__supplierCalls,open:window.__openClicks}));
+   assert.deepEqual(calls.supplier.map(x=>x.path),[
+    '/admin/applications/APP-DOM-QA/supplier-approved','/admin/applications/APP-DOM-QA/cancel'
+   ],'Preserve independent business handlers at '+width);
+   assert.deepEqual(calls.open,['APP-DOM-QA'],'Preserve independent passport opening at '+width);
+   await page.evaluate(()=>window.dispatchEvent(new Event('rona:admin-refreshed')));
+   await page.waitForTimeout(50);
+   assert.equal(await page.locator('td[data-app-col="actions"] button').count(),3,'No duplicate buttons after refresh at '+width);
+   assert.deepEqual(errors,[],'Browser must have no script errors at '+width);
+   await page.close();
+  }
+ }finally{await browser.close()}
+ console.log('ADMIN_APPLICATION_NESTED_PRODUCTION_ACTIONS=PASS widths=1440,1170,750');
+}
