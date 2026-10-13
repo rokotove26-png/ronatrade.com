@@ -48,6 +48,7 @@ console.log('QA_DOCUMENT_WORKFLOW_UNAVAILABLE_DIST_PREVIEW=PASS',JSON.stringify(
  emittedOnly:true,
  sourceUnchanged:true,
  patchCount:replacements.length,
- canonicalPublishedDocumentsPreserved:true,
- signedUploadFailsClosed:true
+ canonicalPublishedDocumentLogicUnchanged:true,
+ existingSignedUploadGateUnchanged:true,
+ visibleWarningBrowserProof:'PENDING_AUTHORIZED_FIXTURE'
 }));
