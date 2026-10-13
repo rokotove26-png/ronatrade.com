@@ -138,7 +138,7 @@ test('Real filter switches: quantity and currency-safe authoritative/provisional
    return{
      count:cards[0].children[1].textContent,
      ton:cards[1].children[1].textContent,
-     sum:monetary.children.length?monetary.children.map(n=>n.textContent).join(' | '):monetary.textContent,
+     sum:(monetary.children.length?monetary.children.map(n=>n.textContent).join(' | '):monetary.textContent).replace(/[\u00a0\u202f]/g,' '),
      label:cards.map(x=>x.children[0].textContent),
      amountClass:cards[2].className,
      amountCaption:cards[2].children[2].textContent
