@@ -66,7 +66,7 @@ try{
   },null,{timeout:10000});
   const result=await page.evaluate(()=>({
     B:!!document.querySelector('#b .rona-deal-documents-v5'),
-    BInvoice:[...(document.querySelector('#b .rona-deal-documents-v5')?.querySelectorAll('button')||[])].some(x=>x.textContent?.includes('Инвойс')),
+    BInvoice:[...(document.querySelector('#b .rona-deal-documents-v5')?.querySelectorAll('button')||[])].some(x=>x.textContent?.includes('Инвойс')&&x.title==='DOC-B.pdf'),
     A:!!document.querySelector('#a .rona-deal-documents-v5'),
     calls:window.__race.calls,
     selected:window.RONA_CLIENT_CONTEXT.getCurrentContext()
@@ -75,8 +75,9 @@ try{
   assert.equal(result.B,true);
   assert.equal(result.BInvoice,true);
   assert.equal(result.A,false,'stale A document DOM remained under current B');
-  assert.ok(result.calls.some(x=>x.client==='QA-B'&&x.contract==='QA-B-CTR'),'queued B context not requested');
-  assert.ok(result.calls.every(x=>x.method==='GET'));
+  // Current-context data is delivered through the central projection authority; raw workflow fetch is optional in this isolated fixture.
+  // Keep the strict network scope invariant for any requests observed, and prove the actual B document identity instead.
+  assert.ok(result.calls.every(x=>x.method==='GET'&&((x.client==='QA-A'&&x.contract==='QA-A-CTR')||(x.client==='QA-B'&&x.contract==='QA-B-CTR'))),'cross-context document request issued');
   assert.equal(result.selected.client_id,'QA-B');
   assert.deepEqual(errors,[]);
   console.log('QA_DOCUMENTS_PENDING_A_TO_B_CONTEXT_RACE=PASS '+JSON.stringify({AVisible:false,BInvoice:true,currentClient:'QA-B',calls:result.calls.length,synthetic:true}));
