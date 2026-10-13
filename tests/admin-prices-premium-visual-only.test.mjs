@@ -23,17 +23,17 @@ function gitBlobSha(content) {
 
 assert.equal(
   gitBlobSha(runtimeWrapper),
-  '5bf18d32a8b129727e686ba0d7790f90e943b424',
+  '14b6a3f33b562204e0bc56b195f515ef5ba0b023',
   'CURRENT FUNCTIONAL PRICES runtime must remain byte-locked',
 );
 
 for (const marker of [
-  "window.__RONA_PRICES_CURRENT_UI__='20260914-pending-canonical-matrix-v1'",
+  "window.__RONA_PRICES_CURRENT_UI__='20260914-canonical-period-v2'",
   "const OWNER_API='/portal/owner-api',UPDATE_API='/portal/price-updates-api'",
   "updateApi('apply'",
   "updateApi('reject'",
   "updateApi('audience'",
-  "setInterval(()=>{if(page()?.classList.contains('active'))refreshAll()},30000)",
+  "setInterval(()=>{if(document.visibilityState==='visible'&&page()?.classList.contains('active'))refreshAll()},30000)",
   "e('h1','rona-visual-title','Цены и маржа')",
   "e('h2','','История решений')",
 ]) assert.ok(runtimeWrapper.includes(marker), `locked runtime marker missing: ${marker}`);
