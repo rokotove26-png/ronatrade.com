@@ -318,7 +318,7 @@ function apply(){
  const ton=card('Тоннаж · '+filter.label,'rona-app-total-kpi--selected-tonnage',
    hasRows?tonnage:'—',!hasRows?'Данные пока не загружены':complete?'По заявкам выбранного статуса':'Часть значений тоннажа не подтверждена');
  const amount=selectedAmount(visible,canonical);
- if(!canonical&&Array.isArray(liveSnapshot?.applications)&&liveSnapshot.applications.length&&resolvingKpiSource===liveSnapshot)
+ if(!canonical&&Array.isArray(liveSnapshot?.applications)&&liveSnapshot.applications.length&&resolvingKpiSource===liveSnapshot&&resolvedKpiSource!==liveSnapshot)
    {amount.state='PENDING';amount.caption='Получаем подтверждённую сумму выбранной категории…'}
  const sum=moneyCard('Сумма · '+filter.label,amount);
  qa('[data-rona-app-total]',grid).forEach(n=>n.remove());
