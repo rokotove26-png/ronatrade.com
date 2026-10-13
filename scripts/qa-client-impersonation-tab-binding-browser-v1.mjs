@@ -97,7 +97,7 @@ const server=http.createServer(async(req,res)=>{
       if(u.pathname==='/portal/api/v1/client/context')return send(res,200,projection);
       if(u.pathname==='/portal/api/v1/client/prices')return send(res,200,{ok:true,client_id:CLIENT,contract_id:CONTRACT,prices:[]});
       if(u.pathname==='/portal/api/v1/client/applications-projection')return send(res,200,{ok:true,data:{client_id:CLIENT,contract_id:CONTRACT,applications:[]}});
-      if(u.pathname==='/portal/api/v1/client/deal-documents/state')return send(res,200,{ok:true,client_id:CLIENT,contract_id:CONTRACT,deals:[]});
+      if(u.pathname==='/portal/api/v1/client/deal-documents/state')return send(res,401,{ok:false,code:'PORTAL_ACCESS_DENIED'});
       if(u.pathname==='/portal/api/v1/client/market')return send(res,200,{ok:true,market:[]});
       if(u.pathname==='/portal/api/v1/client/messages')return send(res,200,{ok:true,messages:[]});
       if(u.pathname==='/portal/api/v1/client/archive')return send(res,200,{ok:true,archive:[]});
@@ -156,6 +156,18 @@ try{
     current:window.RONA_CLIENT_CONTEXT?.getCurrentContext?.()||null,
     authority:document.documentElement.dataset.ronaClientContextAuthority||''
   }));
+
+  // The actual deployed legacy document-state Edge v13 requires CLIENT role.
+  // This synthetic Admin impersonation fixture MUST NOT fabricate a 200 success.
+  // Only the browser tab-header transport is under test; no live Admin access is implied.
+  const deniedDoc=await page.evaluate(async url=>{
+    const res=await fetch(url,{method:'GET',cache:'no-store',credentials:'same-origin'});
+    return{status:res.status,body:await res.json()};
+  },'/portal/api/v1/client/deal-documents/state?clientId='+encodeURIComponent(CLIENT)+'&contractId='+encodeURIComponent(CONTRACT));
+  if(deniedDoc.status!==401||deniedDoc.body?.code!=='PORTAL_ACCESS_DENIED')throw new Error('ADMIN_DOCUMENT_STATE_SYNTHETIC_DENIAL_NOT_PRESERVED');
+  const deniedCalls=requests.filter(x=>x.path==='/portal/api/v1/client/deal-documents/state');
+  if(!deniedCalls.length||deniedCalls.some(x=>x.tab!==SESSION||x.method!=='GET'))throw new Error('ADMIN_DOCUMENT_STATE_IMPERSONATION_TAB_OR_METHOD_INVALID');
+  console.log('CLIENT_IMPERSONATION_DOCUMENTS_CLIENT_ONLY_DENIAL_QA=PASS '+JSON.stringify({method:'GET',status:deniedDoc.status,synthetic:true,backendRoleWidening:false}));
 
   const bootstrapRequests=requests.filter(x=>x.path==='/portal/api/v1/client/bootstrap');
   if(!bootstrapRequests.length)throw new Error('CLIENT_BROWSER_BOOTSTRAP_NOT_EMITTED');
