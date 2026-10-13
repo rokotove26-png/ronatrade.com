@@ -54,6 +54,7 @@ class Element{
     };
   }
   append(...items){for(const x of items){x.parentElement=this;this.children.push(x)}}
+  appendChild(item){this.append(item);return item}
   prepend(...items){for(const x of items)x.parentElement=this;this.children.unshift(...items)}
   remove(){if(this.parentElement){const p=this.parentElement.children;const idx=p.indexOf(this);if(idx>=0)p.splice(idx,1);this.parentElement=null}}
   insertAdjacentElement(where,x){if(where!=='afterend'||!this.parentElement)throw Error('Unexpected insertion');const p=this.parentElement.children;p.splice(p.indexOf(this)+1,0,x);x.parentElement=this.parentElement}
