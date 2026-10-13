@@ -77,7 +77,8 @@ test('Rail RPC hardening revokes only explicit anon EXECUTE and preserves authen
   }
   assert.match(sql,/ALTER FUNCTION portal_private\.mi_curve_code_value_v1\(text,text\)\s+SET search_path TO pg_catalog, pg_temp;/i);
   assert.match(rb,/ALTER FUNCTION portal_private\.mi_curve_code_value_v1\(text,text\) RESET search_path;/i);
-  assert.doesNotMatch(sql,/\b(?:DROP|TRUNCATE|DELETE FROM|UPDATE\s+portal_private|INSERT INTO|GRANT EXECUTE TO anon)\b/i);
+  const executable=sql.split('\n').filter(line=>!line.trimStart().startsWith('--')).join('\n');
+  assert.doesNotMatch(executable,/\b(?:DROP|TRUNCATE|DELETE FROM|UPDATE\s+portal_private|INSERT INTO|GRANT EXECUTE TO anon)\b/i);
   assert.doesNotMatch(sql,/REVOKE\s+(?:ALL|EXECUTE)\s+ON\s+(?:ALL|SCHEMA|TABLE)/i);
   console.log('LK_RAIL_ANON_AND_PARSER_HARDENING_EXACT_SCOPE=PASS');
 });
