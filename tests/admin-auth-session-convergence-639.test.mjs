@@ -644,7 +644,9 @@ test('Admin shell refreshes when the current access probe is unavailable but a r
   assert.equal(await response.text(),'ADMIN_SHELL_OK');
   assert.equal(oldPrimaryCalls,2);
   assert.equal(controlCalls,1);
-  assert.equal(ownerProbeCalls,1);
+  // A newly refreshed access token is checked against the session authority;
+  // do not query GoTrue Owner identity when the former access token is stale.
+  assert.equal(ownerProbeCalls,0);
   assert.equal(refreshCalls,1);
   assert.equal(newPrimaryCalls,1);
   const setCookie=response.headers.get('set-cookie')||'';
