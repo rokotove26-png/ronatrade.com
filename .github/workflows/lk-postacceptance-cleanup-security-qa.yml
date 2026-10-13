@@ -1,0 +1,71 @@
+name: LK post-acceptance cleanup and security QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/news-current-ui.js'
+      - 'supabase/migrations/20261013093500_lk_rail_anon_execute_and_parser_path_v1.sql'
+      - 'supabase/rollbacks/20261013093500_lk_rail_anon_execute_and_parser_path_v1_rollback.sql'
+      - 'tests/security/lk-postacceptance-cleanup-v1.test.mjs'
+      - '.github/workflows/lk-postacceptance-cleanup-security-qa.yml'
+      - 'docs/audits/lk-postacceptance-cleanup-20261013.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-locked-postacceptance-cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify exact immutable release ancestry and changed-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_lock='f8f0233a33b321e8fc54a7e404cd85e3eff21718'
+          git fetch origin release/public-go-live-v1.1
+          test "$(git merge-base HEAD origin/release/public-go-live-v1.1)" = "$source_lock"
+          git diff --name-only "$source_lock"...HEAD > cleanup-delta.txt
+          cat cleanup-delta.txt
+          if grep -Ev '^(functions/portal/news-current-ui\.js|supabase/migrations/20261013093500_lk_rail_anon_execute_and_parser_path_v1\.sql|supabase/rollbacks/20261013093500_lk_rail_anon_execute_and_parser_path_v1_rollback\.sql|tests/security/lk-postacceptance-cleanup-v1\.test\.mjs|\.github/workflows/lk-postacceptance-cleanup-security-qa\.yml|docs/audits/lk-postacceptance-cleanup-20261013\.md)$' cleanup-delta.txt; then
+            echo 'LK_CLEANUP_OUT_OF_SCOPE_DELTA'
+            exit 1
+          fi
+      - name: Verify no UI change, retired endpoint, scope-limited SQL and rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check functions/portal/news-current-ui.js
+          node --check tests/security/lk-postacceptance-cleanup-v1.test.mjs
+          node --test --test-reporter=tap tests/security/lk-postacceptance-cleanup-v1.test.mjs | tee lk-cleanup-source.log
+          grep -Fq '# fail 0' lk-cleanup-source.log
+          grep -Fq 'LK_RETIRED_STUB_ZERO_ACTIVE_REFERENCES=PASS' lk-cleanup-source.log
+          grep -Fq 'LK_CURRENT_VISUAL_SOURCE_BLOBS_UNCHANGED=PASS' lk-cleanup-source.log
+          grep -Fq 'LK_RAIL_ANON_AND_PARSER_HARDENING_EXACT_SCOPE=PASS' lk-cleanup-source.log
+      - name: Build the actual canonical deployed assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          test -s dist/portal/admin.html
+          test -s dist/assets/portal-market-news-current-v1.js
+          node scripts/qa-client-portal-visual-freeze.mjs | tee lk-cleanup-freeze.log
+          grep -Fq 'CLIENT_PORTAL_VISUAL_FREEZE=PASS' lk-cleanup-freeze.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lk-postacceptance-cleanup-proof
+          path: |
+            cleanup-delta.txt
+            lk-cleanup-source.log
+            lk-cleanup-freeze.log
+          if-no-files-found: ignore
