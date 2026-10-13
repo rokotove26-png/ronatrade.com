@@ -259,8 +259,9 @@ function moneyCard(title,result){
 let resolvedKpiSource=null,resolvedKpiPayload=null,resolvingKpiSource=null,kpiHydrationFailed=false;
 function canonicalShape(value){
  const rows=value?.applications;
- return Array.isArray(rows)&&rows.length>0&&rows.every(a=>a?.business_contract==='RONA_APPLICATION_BUSINESS_V2'&&a?.record_kind==='CLIENT_APPLICATION')&&
-   (value?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'||value?.application_kpi?.source==='RONA_APPLICATION_BUSINESS_V2');
+ return Array.isArray(rows)&&(rows.length>0?
+   rows.every(a=>a?.business_contract==='RONA_APPLICATION_BUSINESS_V2'&&a?.record_kind==='CLIENT_APPLICATION'):
+   value?.application_business_contract==='RONA_APPLICATION_BUSINESS_V2'&&value?.application_kpi?.source==='RONA_APPLICATION_BUSINESS_V2');
 }
 function sameRegistryAndBucket(current,verified,bucket){
  const left=current?.applications,right=verified?.applications;
