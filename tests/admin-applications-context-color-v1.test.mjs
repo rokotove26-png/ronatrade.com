@@ -270,3 +270,77 @@ test('Source mismatch, failed canonical HTTP and unauthenticated context cannot 
    assert.equal(calls,mode==='NOT_ON_ADMIN'?0:1,'Only authorized Admin page may request read: '+mode);
  }
 });
+
+
+// Browser geometry regression for three independent supplier decision controls.
+// Uses the four real CSS sources in actual runtime load order, not retyped styles.
+test('Browser: Approve, Deny and Open have three non-overlapping clickable rectangles', {
+ skip:process.env.RONA_APPLICATIONS_GEOMETRY_QA!=='1'
+},async()=>{
+ const {chromium}=await import('playwright');
+ const {default:premium}=await import('../functions/portal/main-ui/admin-applications-premium-v1.js');
+ const {default:readability}=await import('../functions/portal/main-ui/admin-applications-readability-v5.js');
+ const {default:passport}=await import('../functions/portal/main-ui/admin-applications-passport-action-v2.js');
+ const total=await(await onRequest()).text();
+ const cssArray=(source,assignment)=>{
+   const from=source.indexOf(assignment);
+   assert(from>=0,'Expected CSS owner assignment missing: '+assignment);
+   const begin=source.indexOf('[',from+assignment.length-1);
+   const end=source.indexOf("].join('')",begin);
+   assert(end>begin,'CSS owner array must close');
+   return String(vm.runInNewContext(source.slice(begin,end+1)+".join('')"));
+ };
+ const passportCss=cssArray(passport,'s.textContent +=');
+ const premiumCss=cssArray(premium,'s.textContent=');
+ const readabilityCss=cssArray(readability,'s.textContent=');
+ const totalCss=cssArray(total,'s.textContent=');
+ const styles=[passportCss,premiumCss,readabilityCss,totalCss];
+ assert(styles.every(style=>style.length>50),'All runtime CSS owners must be present');
+ assert(totalCss.includes('grid-auto-rows:minmax(38px,auto)!important'),'Two-row corrective CSS must be included');
+ const content='<!doctype html><html class="rona-applications-premium-pass3"><head>'
+  +styles.map(style=>'<style>'+style+'</style>').join('')+'</head><body>'
+  +'<section id="page-applications"><div class="rona-app-table"><table class="rona-owner-table">'
+  +'<thead><tr><th>Заявка</th><th>Действия</th></tr></thead><tbody><tr>'
+  +'<td>APP-FIXTURE</td><td data-app-col="actions"><div class="rona-owner-actions rona-app-actions" data-rona-app-independent-actions="3">'
+  +'<button type="button" class="rona-app-action--approve">Ресурс одобрен</button>'
+  +'<button type="button" class="rona-app-action--reject">В ресурсе отказано</button>'
+  +'<button type="button" data-rona-app-passport-open="APP-FIXTURE">Открыть</button>'
+  +'</div></td></tr></tbody></table></div></section>'
+  +'<script>window.actionClicks=[];document.querySelectorAll(".rona-app-actions>button").forEach((button,index)=>button.addEventListener("click",()=>window.actionClicks.push(index)));</script>'
+  +'</body></html>';
+ const browser=await chromium.launch({headless:true});
+ try{
+  for(const width of [1440,1100,750]){
+   const page=await browser.newPage({viewport:{width,height:850}});
+   const pageErrors=[];
+   page.on('pageerror',error=>pageErrors.push(String(error.message)));
+   await page.setContent(content,{waitUntil:'load'});
+   const actual=await page.locator('.rona-app-actions > button').evaluateAll(buttons=>{
+    const rects=buttons.map(button=>{
+     const box=button.getBoundingClientRect(),style=getComputedStyle(button);
+     return {x:box.x,y:box.y,right:box.right,bottom:box.bottom,width:box.width,height:box.height,
+       position:style.position,display:style.display,gridColumn:style.gridColumnStart,
+       parent:button.parentElement.className};
+    });
+    return {rects,nested:document.querySelectorAll('button button').length,
+      hostGrid:getComputedStyle(buttons[0].parentElement).gridTemplateColumns};
+   });
+   assert.equal(actual.nested,0,'No button element may contain another button at '+width);
+   assert.equal(actual.rects.length,3,'Exactly three action buttons at '+width);
+   const [approve,reject,open]=actual.rects;
+   const intersects=(a,b)=>Math.max(a.x,b.x)<Math.min(a.right,b.right)-1
+       &&Math.max(a.y,b.y)<Math.min(a.bottom,b.bottom)-1;
+   assert(!intersects(approve,reject),'Approve and Deny must not overlap at '+width);
+   assert(!intersects(approve,open),'Open must not overlap Approve at '+width);
+   assert(!intersects(reject,open),'Open must not overlap Deny at '+width);
+   assert(approve.width>=95&&reject.width>=95&&open.width>=210,'Touch/click targets too narrow at '+width);
+   assert(open.y>=Math.max(approve.bottom,reject.bottom)+4,'Open must occupy its own second row at '+width);
+   assert(actual.rects.every(x=>x.position==='static'),'No positioned overlapping buttons at '+width);
+   assert.equal(pageErrors.length,0,'Browser JS errors at '+width+': '+pageErrors);
+   for(let i=0;i<3;i++)await page.locator('.rona-app-actions > button').nth(i).click();
+   const clicks=await page.evaluate(()=>window.actionClicks);
+   assert.deepEqual(clicks,[0,1,2],'Each control must receive only its own click at '+width);
+   await page.close();
+  }
+ }finally{await browser.close()}
+});
