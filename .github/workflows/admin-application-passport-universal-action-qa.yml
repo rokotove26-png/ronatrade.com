@@ -15,6 +15,7 @@ permissions:
 jobs:
   passport-open-action:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,4 +27,12 @@ jobs:
           node --check functions/portal/main-ui/admin-applications-passport-action-v2.js
           node --check functions/portal/main-ui/application-passport-runtime.js
       - name: Universal action contract
+        run: node tests/admin-application-passport-universal-action.test.mjs
+      - name: Install real Chromium browser for CSS and click geometry
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Real passport injection with three independent button hit targets
+        env:
+          RONA_APPLICATIONS_GEOMETRY_QA: '1'
         run: node tests/admin-application-passport-universal-action.test.mjs
