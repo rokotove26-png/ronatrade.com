@@ -159,91 +159,80 @@ test('Admin shell falls back to isolated Admin control-plane when primary sessio
   assert.equal(fallbackCalls,1);
 });
 
-test('Admin owner shell uses Supabase JWT-gateway fallback after the first retryable primary authority failure',async()=>{
+test('Admin shell denies claim-only owner JWT gateway when both session authorities are unavailable',async()=>{
   let primaryCalls=0,gatewayCalls=0,controlCalls=0,authCalls=0;
   globalThis.fetch=async(url)=>{
     const u=String(url);
     if(u.includes('/functions/v1/rona-portal-api/session/authority')){primaryCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
-    if(u.includes('/functions/v1/rona-admin-control-plane/owner-auth-fallback')){gatewayCalls++;return jsonResponse({ok:true,authority:'SUPABASE_EDGE_VERIFIED_OWNER',roles:['ADMIN'],auth_user_id:'c4a167ae-cd4f-4296-8f13-ef09ced41968'},200);}
+    if(u.includes('/functions/v1/rona-admin-control-plane/owner-auth-fallback')){gatewayCalls++;return jsonResponse({ok:true,authority:'SUPABASE_EDGE_VERIFIED_OWNER',roles:['ADMIN']},200);}
     if(u.includes('/functions/v1/rona-admin-control-plane/readiness')){controlCalls++;return jsonResponse({ok:false},503);}
-    if(u.includes('/auth/v1/user')){authCalls++;return jsonResponse({message:'temporary unavailable'},503);}
+    if(u.includes('/auth/v1/user')){authCalls++;return jsonResponse({app_metadata:{portal_identity:'OWNER_ADMIN'}},200);}
     throw new Error('UNEXPECTED_FETCH '+u);
   };
-  const request=new Request('https://ronaoil.com/portal/admin',{method:'GET',headers:{cookie:'rona_portal_at=access-owner-valid'}});
-  const response=await portalRouter({request,next:async()=>new Response('ADMIN_SHELL_OK',{status:200,headers:{'content-type':'text/plain'}})});
-  assert.equal(response.status,200);
-  assert.equal(await response.text(),'ADMIN_SHELL_OK');
-  assert.equal(primaryCalls,1);
-  assert.equal(gatewayCalls,1);
-  assert.equal(controlCalls,0);
-  assert.equal(authCalls,0);
+  const request=new Request('https://ronaoil.com/portal/admin',{method:'GET',headers:{cookie:'rona_portal_at=synthetic-owner-claims'}});
+  const response=await portalRouter({request,next:async()=>new Response('SHOULD_NOT_BE_REACHED',{status:200})});
+  assert.equal(response.status,503);
+  assert.match(await response.text(),/Восстанавливаю соединение/);
+  assert.equal(primaryCalls,2);
+  assert.equal(controlCalls,1);
+  assert.equal(gatewayCalls,0,'claim-only gateway not an authorization source');
+  assert.equal(authCalls,0,'GoTrue identity-only access must not be contacted');
 });
 
-test('JWT-gateway non-owner result cannot elevate a user to Admin',async()=>{
-  let gatewayCalls=0;
+test('JWT-gateway non-owner denial is not required to deny Admin when current session authority is unavailable',async()=>{
+  let gatewayCalls=0,controlCalls=0;
   globalThis.fetch=async(url)=>{
     const u=String(url);
     if(u.includes('/functions/v1/rona-portal-api/session/authority'))return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
     if(u.includes('/functions/v1/rona-admin-control-plane/owner-auth-fallback')){gatewayCalls++;return jsonResponse({ok:false,code:'OWNER_IDENTITY_REQUIRED'},403);}
-    if(u.includes('/functions/v1/rona-admin-control-plane/readiness'))return jsonResponse({ok:false},503);
+    if(u.includes('/functions/v1/rona-admin-control-plane/readiness')){controlCalls++;return jsonResponse({ok:false},503);}
     if(u.includes('/auth/v1/user'))return jsonResponse({id:'regular-user',app_metadata:{}},200);
     throw new Error('UNEXPECTED_FETCH '+u);
   };
-  const request=new Request('https://ronaoil.com/portal/admin',{method:'GET',headers:{cookie:'rona_portal_at=access-non-owner'}});
+  const request=new Request('https://ronaoil.com/portal/admin',{method:'GET',headers:{cookie:'rona_portal_at=synthetic-non-owner'}});
   const response=await portalRouter({request,next:async()=>new Response('SHOULD_NOT_BE_REACHED')});
   assert.equal(response.status,503);
   assert.match(await response.text(),/Восстанавливаю соединение/);
-  assert.equal(gatewayCalls,1);
+  assert.equal(gatewayCalls,0);
+  assert.equal(controlCalls,1);
 });
 
-test('Admin owner shell falls back to Supabase Auth owner identity when both Edge authorities are transiently unavailable',async()=>{
-  let primaryCalls=0,controlCalls=0,authCalls=0;
+test('Owner GoTrue identity cannot elevate Admin shell during dual-authority outage and refresh failure',async()=>{
+  let primaryCalls=0,controlCalls=0,authCalls=0,refreshCalls=0;
   globalThis.fetch=async(url)=>{
     const u=String(url);
-    if(u.includes('/functions/v1/rona-portal-api/session/authority')){
-      primaryCalls++;
-      return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
-    }
-    if(u.includes('/functions/v1/rona-admin-control-plane/readiness')){
-      controlCalls++;
-      return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
-    }
-    if(u.includes('/auth/v1/user')){
-      authCalls++;
-      return jsonResponse({id:'owner-auth-user',app_metadata:{portal_identity:'OWNER_ADMIN'}},200);
-    }
+    if(u.includes('/functions/v1/rona-portal-api/session/authority')){primaryCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
+    if(u.includes('/functions/v1/rona-admin-control-plane/readiness')){controlCalls++;return jsonResponse({ok:false},503);}
+    if(u.includes('/auth/v1/user')){authCalls++;return jsonResponse({id:'owner-auth-user',app_metadata:{portal_identity:'OWNER_ADMIN'}},200);}
+    if(u.includes('/auth/v1/token?grant_type=refresh_token')){refreshCalls++;return jsonResponse({error:'AUTH_TEMPORARILY_UNAVAILABLE'},503);}
     throw new Error('UNEXPECTED_FETCH '+u);
   };
-
-  const request=new Request('https://ronaoil.com/portal/admin',{
-    method:'GET',
-    headers:{cookie:'rona_portal_at=access-valid; rona_portal_rt=refresh-valid'}
-  });
-  const response=await portalRouter({
-    request,
-    next:async()=>new Response('ADMIN_SHELL_OK',{status:200,headers:{'content-type':'text/plain'}})
-  });
-  assert.equal(response.status,200);
-  assert.equal(await response.text(),'ADMIN_SHELL_OK');
+  const request=new Request('https://ronaoil.com/portal/admin',{method:'GET',headers:{cookie:'rona_portal_at=synthetic-owner; rona_portal_rt=synthetic-refresh'}});
+  const response=await portalRouter({request,next:async()=>new Response('SHOULD_NOT_BE_REACHED',{status:200})});
+  assert.equal(response.status,503);
+  assert.match(await response.text(),/Восстанавливаю соединение/);
   assert.equal(primaryCalls,2);
   assert.equal(controlCalls,1);
-  assert.equal(authCalls,1);
+  assert.equal(refreshCalls,1);
+  assert.equal(authCalls,0);
+  assert.equal(response.headers.get('set-cookie'),null,'transient authority outage must not revoke cookies');
 });
 
-test('Admin direct Auth fallback does not elevate a valid non-owner identity',async()=>{
+test('Non-owner GoTrue profile cannot authorize Admin shell without session attestation',async()=>{
+  let authCalls=0;
   globalThis.fetch=async(url)=>{
     const u=String(url);
     if(u.includes('/functions/v1/rona-portal-api/session/authority'))return jsonResponse({ok:false},503);
     if(u.includes('/functions/v1/rona-admin-control-plane/readiness'))return jsonResponse({ok:false},503);
-    if(u.includes('/auth/v1/user'))return jsonResponse({id:'regular-user',app_metadata:{}},200);
+    if(u.includes('/auth/v1/token?grant_type=refresh_token'))return jsonResponse({error:'TEMPORARY_UNAVAILABLE'},503);
+    if(u.includes('/auth/v1/user')){authCalls++;return jsonResponse({id:'regular-user',app_metadata:{}},200);}
     throw new Error('UNEXPECTED_FETCH '+u);
   };
-  const request=new Request('https://ronaoil.com/portal/admin',{
-    method:'GET',headers:{cookie:'rona_portal_at=access-valid; rona_portal_rt=refresh-valid'}
-  });
+  const request=new Request('https://ronaoil.com/portal/admin',{method:'GET',headers:{cookie:'rona_portal_at=synthetic-non-owner; rona_portal_rt=synthetic-refresh'}});
   const response=await portalRouter({request,next:async()=>new Response('SHOULD_NOT_BE_REACHED')});
   assert.equal(response.status,503);
   assert.match(await response.text(),/Восстанавливаю соединение/);
+  assert.equal(authCalls,0);
 });
 
 test('Issue 663 exact login session probe uses publishable key and returns Admin redirect',async()=>{
@@ -655,7 +644,9 @@ test('Admin shell refreshes when the current access probe is unavailable but a r
   assert.equal(await response.text(),'ADMIN_SHELL_OK');
   assert.equal(oldPrimaryCalls,2);
   assert.equal(controlCalls,1);
-  assert.equal(ownerProbeCalls,1);
+  // A newly refreshed access token is checked against the session authority;
+  // do not query GoTrue Owner identity when the former access token is stale.
+  assert.equal(ownerProbeCalls,0);
   assert.equal(refreshCalls,1);
   assert.equal(newPrimaryCalls,1);
   const setCookie=response.headers.get('set-cookie')||'';

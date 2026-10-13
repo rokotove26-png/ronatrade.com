@@ -33,8 +33,8 @@ assert(shell.includes("'rona:admin-pagechange'"),'Current router page-change eve
 assert(route.includes("'x-rona-admin-shell','current-only-v2'"),'Admin route must identify current-only v2 shell');
 assert(route.includes("'x-rona-admin-auth-resilience','triple-authority-owner-v2'"),'Admin route dual-authority resilience marker missing');
 assert(route.includes('async function adminFallbackProbe(accessToken)'),'Admin control-plane fallback probe missing');
-assert(route.includes('async function authOwnerProbe(accessToken)'),'Admin owner Auth fallback probe missing');
-assert(route.includes("identity==='OWNER_ADMIN'"),'Admin owner Auth fallback must require trusted OWNER_ADMIN app metadata');
+assert(!route.includes('authOwnerProbe(')&&!route.includes('SUPABASE_AUTH_OWNER_FALLBACK'),'Admin route must not elevate Owner identity metadata without current session authority');
+assert(route.includes("return {state:'UNAVAILABLE',me:null,status:lastStatus||fallback.status||503}"),'Admin route must fail closed when both session-backed authorities are unavailable');
 assert(route.includes("'x-rona-admin-current-only','main-v2-shell-v2'"),'Admin route lifecycle marker missing');
 assert(build.includes("path: 'portal-src/current/admin.html'"));
 assert(build.includes('current-only-router-v2'),'Pages build must require authoritative current router');

@@ -1,0 +1,67 @@
+name: Admin session-backed fallback negative security QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/admin.js'
+      - 'functions/portal/[[path]].js'
+      - 'tests/security/admin-session-backed-fallback-v1.test.mjs'
+      - 'tests/admin-auth-session-convergence-639.test.mjs'
+      - 'tests/admin-shell-resilience.test.mjs'
+      - 'tests/admin-current-only-shell-contract.test.mjs'
+      - '.github/workflows/admin-session-backed-fallback-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admin-session-backed-fail-closed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Exact source syntax and protected fallback invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check functions/portal/admin.js
+          node --check 'functions/portal/[[path]].js'
+          node --check tests/admin-auth-session-convergence-639.test.mjs
+          node --check tests/security/admin-session-backed-fallback-v1.test.mjs
+          grep -Fq 'join auth.sessions s on s.id=' supabase/functions/rona-admin-control-plane/index.ts
+          grep -Fq 'a.session_allowed' supabase/functions/rona-admin-control-plane/index.ts
+          grep -Fq 'ADMIN_CONTROL_PLANE_FALLBACK' functions/portal/admin.js
+          if grep -Eq 'authOwnerProbe|adminOwnerJwtGatewayProbe|SUPABASE_AUTH_OWNER_FALLBACK' functions/portal/admin.js 'functions/portal/[[path]].js'; then
+            echo 'IDENTITY_ONLY_SHELL_AUTH_FORBIDDEN'
+            exit 1
+          fi
+      - name: Test revoked/denied/unavailable session fail-closed and database-backed recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-reporter=tap tests/security/admin-session-backed-fallback-v1.test.mjs | tee admin-session-negative.log
+          grep -Fq '# fail 0' admin-session-negative.log
+      - name: Verify existing Admin shell and refresh-convergence contracts with stronger session rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/admin-shell-resilience.test.mjs
+          node tests/admin-current-only-shell-contract.test.mjs
+          node --test --test-reporter=tap tests/admin-auth-session-convergence-639.test.mjs | tee admin-session-convergence.log
+          grep -Fq '# fail 0' admin-session-convergence.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: admin-session-backed-fallback-qa
+          path: |
+            admin-session-negative.log
+            admin-session-convergence.log
+          if-no-files-found: ignore

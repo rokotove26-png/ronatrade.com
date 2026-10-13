@@ -172,51 +172,9 @@ async function adminControlPlaneProbe(accessToken){
     return{state:'INVALID',me:null,status:r.status};
   }catch(_){return{state:'UNAVAILABLE',me:null,status:503}}
 }
-async function authOwnerProbe(accessToken){
-  try{
-    const r=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
-      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}
-    });
-    if(r.ok){
-      const user=await r.json().catch(()=>null);
-      const identity=String(user?.app_metadata?.portal_identity||'').toUpperCase();
-      if(identity==='OWNER_ADMIN')return{state:'VALID',me:{user:{roles:['ADMIN']},authority:'SUPABASE_AUTH_OWNER_FALLBACK'},status:r.status};
-      return{state:'UNAVAILABLE',me:null,status:r.status,reason:'VALID_NON_OWNER_IDENTITY'};
-    }
-    if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};
-    if(r.status===429||r.status>=500)return{state:'UNAVAILABLE',me:null,status:r.status};
-    return{state:'UNAVAILABLE',me:null,status:r.status};
-  }catch(_){return{state:'UNAVAILABLE',me:null,status:503}}
-}
-async function adminOwnerJwtGatewayProbe(accessToken){
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort('RONA_ADMIN_OWNER_GATEWAY_TIMEOUT'),2500);
-  try{
-    const r=await fetch(`${ADMIN_CONTROL_PLANE_API}/owner-auth-fallback`,{
-      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'},
-      signal:controller.signal
-    });
-    if(r.ok){
-      const j=await r.json().catch(()=>null);
-      if(j?.ok===true&&j?.authority==='SUPABASE_EDGE_VERIFIED_OWNER'&&Array.isArray(j?.roles)&&j.roles.includes('ADMIN'))return{state:'VALID',me:{user:{roles:['ADMIN'],auth_user_id:j.auth_user_id||null},authority:j.authority},status:r.status,authority:j.authority};
-      return{state:'UNAVAILABLE',me:null,status:r.status||502};
-    }
-    if(r.status===401)return{state:'INVALID',me:null,status:r.status};
-    if(r.status===403)return{state:'UNAVAILABLE',me:null,status:r.status,reason:'VALID_NON_OWNER_IDENTITY'};
-    if(r.status===429||r.status>=500)return{state:'UNAVAILABLE',me:null,status:r.status};
-    return{state:'UNAVAILABLE',me:null,status:r.status};
-  }catch(_){return{state:'UNAVAILABLE',me:null,status:503}}
-  finally{clearTimeout(timer)}
-}
 async function sessionProbe(accessToken,{allowAdminFallback=false}={}){
   if(!accessToken)return{state:'INVALID',me:null,status:401};
-  let lastStatus=503,ownerGatewayChecked=false;
-  const ownerGatewayFallback=async()=>{
-    if(!allowAdminFallback||ownerGatewayChecked)return null;
-    ownerGatewayChecked=true;
-    const gateway=await adminOwnerJwtGatewayProbe(accessToken);
-    return gateway.state==='UNAVAILABLE'?null:gateway;
-  };
+  let lastStatus=503;
   for(let attempt=0;attempt<SESSION_AUTHORITY_TIMEOUTS_MS.length;attempt++){
     if(attempt)await sleep(SESSION_AUTHORITY_RETRY_DELAY_MS);
     try{
@@ -228,17 +186,15 @@ async function sessionProbe(accessToken,{allowAdminFallback=false}={}){
         continue;
       }
       if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};
-      if(r.status===429||r.status>=500){const gateway=await ownerGatewayFallback();if(gateway)return gateway;continue}
+      if(r.status===429||r.status>=500)continue;
       return{state:'INVALID',me:null,status:r.status};
-    }catch(_){
-      lastStatus=503;
-      const gateway=await ownerGatewayFallback();if(gateway)return gateway;
-    }
+    }catch(_){lastStatus=503}
   }
+  // No JWT-claims-only / GoTrue identity grants. Current ADMIN authorization
+  // requires the primary role/session authority or the DB-backed control-plane.
   if(allowAdminFallback){
-    const gateway=await ownerGatewayFallback();if(gateway)return gateway;
-    const fallback=await adminControlPlaneProbe(accessToken);if(fallback.state!=='UNAVAILABLE')return fallback;
-    const ownerFallback=await authOwnerProbe(accessToken);if(ownerFallback.state!=='UNAVAILABLE')return ownerFallback
+    const fallback=await adminControlPlaneProbe(accessToken);
+    if(fallback.state!=='UNAVAILABLE')return fallback;
   }
   return{state:'UNAVAILABLE',me:null,status:lastStatus};
 }
