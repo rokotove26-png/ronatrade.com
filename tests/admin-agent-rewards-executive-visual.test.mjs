@@ -58,6 +58,10 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
   try{
     for(const width of [1750,1440,950,650]){
       deal.cashFlow.realizedFxReference=width===950?-10:10;
+      deal.agentTerm=width===650
+        ?{mode:'FIXED',status:'ACTIVE',lifecycleState:'ACTIVE',authorityState:'CONFIRMED',fixedAmount:400,currency:'USD'}
+        :{mode:'PERCENT',status:'ACTIVE',lifecycleState:'ACTIVE',authorityState:'CONFIRMED',
+           rate:0.1,currency:'USD',reference:'EXCLUDING FX'};
       deal.planInputs.transportBreakdownStatus=width===950?'APPROVED_BREAKDOWN':'APPROVED_BREAKDOWN_WITH_TARIFF_CONFLICT';
       deal.planInputs.transportBreakdown=width===950?{components:[{label:'Тарифный компонент',amount:3000,currency:'USD'}]}:{components:[{label:'Тарифный компонент',amount:3000,currency:'USD'}],conflict:{scope:'RONA_VISUAL_QA',plan_rate:14,rail_matrix_rate:17,unit:'USD/t'}};
       const page=await browser.newPage({viewport:{width,height:1000},deviceScaleFactor:1});
@@ -87,6 +91,11 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         const inp=root.querySelector('[data-owner-key="openSettlementAdjustment"]');
         const unit=root.querySelector('.rona-ar-input-currency');
         const sections=cols.map(el=>el.querySelector('.rona-ar-col-title')?.textContent);
+        const planRows=[...root.querySelectorAll('.rona-ar-col.plan .rona-ar-row')];
+        const planNet=planRows.find(el=>el.querySelector('.rona-ar-name')?.textContent==='Итого чистая прибыль');
+        const ownerActual=root.querySelector('[data-owner-computed="actualFinancialResult"] .rona-ar-value');
+        const ownerReward=root.querySelector('[data-owner-computed="agentReward"] .rona-ar-value');
+        const agreementWarning=root.querySelector('.rona-ar-col.owner .rona-ar-agent-contract-flag');
         const expenseTotal=[...root.querySelectorAll('.rona-ar-col.plan .rona-ar-row')].find(el=>el.querySelector('.rona-ar-name')?.textContent.startsWith('Расходы постатейно'));
         const fx=root.querySelector('[data-rona-ar-fx-reference="1"]');
         const fxValue=fx?.querySelector('.rona-ar-fx-value');
@@ -99,6 +108,15 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         const meaning=sel=>root.querySelector(sel)?.dataset.financeMeaning||null;
         return {version:window.__RONA_AGENT_REWARDS_PRESENTATION__,names,values,sections,
           gridColumns:grid.gridTemplateColumns,nameFont,valueFont,columns:cols.map(el=>el.getBoundingClientRect().toJSON()),
+          hiddenRows:{
+            planFx:planRows.filter(el=>el.querySelector('.rona-ar-name')?.textContent==='Курсовая разница').length,
+            ownerAgentBasis:root.querySelectorAll('.rona-ar-col.owner [data-owner-computed="agentBasis"]').length,
+            planNetValue:planNet?.querySelector('.rona-ar-value')?.textContent,
+            ownerActual:ownerActual?.textContent,ownerReward:ownerReward?.textContent,
+            contractWarnings:root.querySelectorAll('.rona-ar-col.owner .rona-ar-agent-contract-flag').length,
+            warningText:agreementWarning?.textContent||null,
+            warningTooltip:agreementWarning?.title||null
+          },
           technicalCount:technical.length,hasHiddenTech:!!source&&!source.open,
           summary:first?.textContent,displayTechnical:source?.open??null,
           inputExists:!!inp,inputDisabled:inp?.disabled,inputCurrency:unit?.textContent,
@@ -147,7 +165,22 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         'FACT · чистый ДДС'
       ],'Reward first, then owner calculation, profit and cash at '+width);
       assert.equal(result.values[0],'500,0 USD','Plan reward retains exact canonical input at '+width);
-      assert.equal(result.values[1],'400,0 USD','Owner-derived fixed term is NOT paid amount at '+width);
+      assert.equal(result.values[1],width===650?'400,0 USD':'198,0 USD',
+        'Owner calculation uses full actual financial result for confirmed percentage terms at '+width);
+      assert.equal(result.hiddenRows.planFx,0,'Plan FX row must not appear at '+width);
+      assert.equal(result.hiddenRows.ownerAgentBasis,0,'Separate agent basis row must not appear at '+width);
+      assert.equal(result.hiddenRows.planNetValue,'+1 760,0 USD',
+        'Hiding Plan FX must not silently change authoritative net profit formula at '+width);
+      assert.equal(result.hiddenRows.ownerActual,'+1 980,0 USD',
+        'Approved actual financial result is the agent calculation basis at '+width);
+      assert.equal(result.hiddenRows.ownerReward,width===650?'+400,0 USD':'+198,0 USD',
+        'Owner agent reward must use actual result without subtracting realized FX at '+width);
+      assert.equal(result.hiddenRows.contractWarnings,width===650?0:1,
+        'Special signed FX-exclusion terms must not silently lose warning at '+width);
+      if(width!==650){
+        assert.equal(result.hiddenRows.warningText,'Условие FX · сверить договор');
+        assert.match(result.hiddenRows.warningTooltip||'',/Внутренняя база — фактический финансовый результат/);
+      }
       assert.equal(result.values[3],'1 980,0 USD'.replace(/\u00a0/g,' '),'Fact value must retain canonical numeric formatting');
       assert.deepEqual(result.sections,['Ожидаемый результат','ДДС по сделке','Фактический результат']);
       assert(result.technicalCount>=1&&result.hasHiddenTech,'Source code must be disclosed, not displayed by default');
@@ -196,6 +229,8 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         assert.equal(await page.locator('[data-rona-ar-fx-reference]').count(),0,'Absent/unapproved FX must not be fabricated as zero');
         assert.equal(await page.locator('.rona-ar-pnl-grid .rona-ar-row').filter({hasText:'Реализованный FX'}).count(),0,
           'FX reference must not return to table when source becomes unavailable');
+        assert.equal(await page.locator('[data-owner-computed="agentReward"] .rona-ar-value').textContent(),
+          '+198,0 USD','Internal owner reward basis does not require separate realized-FX reference');
       }
       assert.deepEqual(errors,[],'No runtime exceptions at '+width);
       assert(!calls.some(v=>!v.startsWith('GET ')),'Read-only visual QA must never POST anything');

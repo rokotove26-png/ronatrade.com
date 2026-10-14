@@ -240,6 +240,12 @@ function installStyle(){
  #page-agent-settlements .rona-ar-table .rona-ar-row{padding:10px 13px}
 }
 
+
+/* Owner result is the internal agent base; an external EXCLUDING FX term needs distinct review. */
+#page-agent-settlements .rona-ar-col.owner .rona-ar-agent-contract-flag{display:inline-flex;margin-left:7px;
+ padding:3px 7px;font-size:10px;line-height:1.3;letter-spacing:0;color:#ffdb90;
+ border:1px solid rgba(255,205,106,.42);background:rgba(136,88,18,.15);vertical-align:middle;white-space:normal}
+
 `;document.head.append(s)
 }
 
@@ -420,17 +426,20 @@ function ownerCorrectionApproved(deal){
   return String(deal?.ownerCorrectionAuthority?.status||'')==='APPROVED_FOR_OWNER_CORRECTION'
     && String(deal?.ownerCorrectionAuthority?.contract||'')==='PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'
 }
-function ownerAgentReward(deal,actualResult,fxReference){
-  const t=deal?.agentTerm||{},ref=upper(t.reference),mode=upper(t.mode),result=num(actualResult);
-  if(result===null)return{value:null,basis:null,status:'ACTUAL_RESULT_REQUIRED'};
-  let basis=result;
-  if(mode==='PERCENT'&&ref.includes('EXCLUDING FX')){
-    const fx=num(fxReference);
-    if(fx===null)return{value:null,basis:null,status:'FX_REFERENCE_REQUIRED_FOR_AGENT_BASIS'};
-    basis=result-fx
-  }
+function ownerAgentReward(deal,actualResult){
+  // The Owner's INTERNAL calculation basis is exactly actual financial result.
+  // This does NOT amend a confirmed external agent contract or agent payable.
+  const basis=num(actualResult);
+  if(basis===null)return{value:null,basis:null,status:'ACTUAL_RESULT_REQUIRED',externalFxTermConflict:false};
   const reward=termReward(deal,{preferSettlement:false,basisValue:basis});
-  return{value:reward.value,basis,status:reward.status}
+  const t=deal?.agentTerm||{};
+  const externalFxTermConflict=upper(t.mode)==='PERCENT'&&upper(t.reference).includes('EXCLUDING FX');
+  return{
+    value:reward.value,basis,externalFxTermConflict,
+    status:externalFxTermConflict&&reward.value!==null
+      ?'INTERNAL_ACTUAL_RESULT_BASIS_EXTERNAL_FX_TERM_REVIEW_REQUIRED'
+      :reward.status
+  }
 }
 function ownerModel(deal,fact){
   const bridge=deal?.ownerResultBridge||{},bridgeApproved=ownerBridgeApproved(deal);
@@ -448,7 +457,7 @@ function ownerModel(deal,fact){
     ?null:fact.cashReceived-counterpartyCashOut-fact.bankFees;
   const actualFinancialResult=netCashFlow===null||openSettlementAdjustment===null
     ?null:netCashFlow+openSettlementAdjustment;
-  const reward=bridgeApproved?ownerAgentReward(deal,actualFinancialResult,fact.realizedFxReference):{value:null,basis:null,status:'OPEN_SETTLEMENT_BRIDGE_REQUIRED'};
+  const reward=bridgeApproved?ownerAgentReward(deal,actualFinancialResult):{value:null,basis:null,status:'OPEN_SETTLEMENT_BRIDGE_REQUIRED'};
   const ronaProfit=actualFinancialResult===null||reward.value===null?null:actualFinancialResult-reward.value;
   return{
     bridge,bridgeApproved,
@@ -549,7 +558,6 @@ function renderPlan(deal){
   table.append(expenseLines(m.lines,'Плановые статьи затрат не материализованы · TO_VERIFY'));
   table.append(pnlRow('Итого финансовый результат',m.financialResult,m.cur,{hint:'Выручка − плановые расходы',total:true,signed:true}));
   table.append(pnlRow('Налоги и платежи',m.taxes,m.cur,{hint:m.taxStatus,status:m.taxStatus}));
-  table.append(pnlRow('Курсовая разница',m.fx,m.cur,{hint:m.fxStatus,signed:true,status:m.fxStatus}));
   table.append(pnlRow('Итого чистая прибыль',m.netProfit,m.cur,{hint:'Финрезультат − налоги/платежи ± курс',total:true,signed:true}));
   table.append(pnlRow('Агентское вознаграждение',m.reward.value,m.cur,{hint:m.reward.status}));
   table.append(pnlRow('Итого прибыль RONA',m.ronaProfit,m.cur,{hint:'Чистая прибыль − агентское вознаграждение',final:true,signed:true}));
@@ -666,17 +674,14 @@ function recomputeOwner(col,deal,fact,cur){
   const netCashFlow=fact.cashReceived===null||counterpartyCashOut===null||fact.bankFees===null?null:fact.cashReceived-counterpartyCashOut-fact.bankFees;
   const openSettlementAdjustment=round1(q('[data-owner-key="openSettlementAdjustment"]',col)?.value);
   const actualFinancialResult=netCashFlow===null||openSettlementAdjustment===null?null:netCashFlow+openSettlementAdjustment;
-  const reward=ownerAgentReward(deal,actualFinancialResult,fact.realizedFxReference);
+  const reward=ownerAgentReward(deal,actualFinancialResult);
   const ronaProfit=actualFinancialResult===null||reward.value===null?null:actualFinancialResult-reward.value;
   const set=(k,v)=>{const n=q('[data-owner-computed="'+k+'"] .rona-ar-value',col);if(n){n.textContent=num(v)===null?'TO_VERIFY':signedMoney(v,cur);n.className='rona-ar-value '+tone(v)}};
   set('counterpartyCashOut',counterpartyCashOut);
   set('netCashFlow',netCashFlow);
   set('actualFinancialResult',actualFinancialResult);
-  set('agentBasis',reward.basis);
   set('agentReward',reward.value);
   set('ronaProfit',ronaProfit);
-  const basisLabel=q('[data-owner-computed="agentBasis"] .rona-ar-name',col);
-  if(basisLabel)basisLabel.title=upper(deal?.agentTerm?.reference).includes('EXCLUDING FX')?'Фактический результат − реализованный FX (по условию агента)':'База по подтверждённому условию агента';
   const rewardLabel=q('[data-owner-computed="agentReward"] .rona-ar-name',col);
   if(rewardLabel)rewardLabel.title=reward.status;
   return{paymentLineAmounts,counterpartyCashOut,netCashFlow,openSettlementAdjustment,actualFinancialResult,agentBasis:reward.basis,reward:reward.value,ronaProfit}
@@ -711,8 +716,18 @@ function renderOwner(deal){
     editable?'ДЗ (+) / КЗ и авансы (−) · управленческая корректировка':'TO_VERIFY: нужен подтверждённый расчётный мост'
   ));
   table.append(ownerComputedRow('Фактический финансовый результат','actualFinancialResult',base.actualFinancialResult,cur,'Автоматически: скорректированный Чистый ДДС + Незакрытые расчёты'));
-  table.append(ownerComputedRow('База агентского вознаграждения','agentBasis',base.reward.basis,cur,upper(deal?.agentTerm?.reference).includes('EXCLUDING FX')?'Финрезультат − FX, потому что условие агента исключает FX':'По подтверждённому условию агента'));
-  table.append(ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,base.reward.status,false,true,agentStatusText(base.reward.status)));
+  const rewardRow=ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,base.reward.status,false,true,agentStatusText(base.reward.status));
+  if(base.reward.externalFxTermConflict){
+    // Distinguish internal Owner calculation from the external signed FX-exclusion condition.
+    const label=q('.rona-ar-name',rewardRow);
+    if(label){
+      const warning=chip('Условие FX · сверить договор','warn');
+      warning.classList.add('rona-ar-agent-contract-flag');
+      warning.title='Внутренняя база — фактический финансовый результат. Договорное условие EXCLUDING FX требует отдельной проверки суммы к выплате.';
+      label.append(warning)
+    }
+  }
+  table.append(rewardRow);
   table.append(ownerComputedRow('Итого прибыль RONA','ronaProfit',base.ronaProfit,cur,'Фактический результат − агентское вознаграждение',true,true,base.reward.value===null?'После расчёта агента':'TO_VERIFY'));
   col.append(table);
   qa('[data-owner-payment-key],[data-owner-key]',col).forEach(inp=>{inp.disabled=!editable;inp.addEventListener('input',()=>recomputeOwner(col,deal,fact,cur))});
