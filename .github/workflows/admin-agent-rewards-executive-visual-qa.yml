@@ -13,6 +13,8 @@ on:
       - 'supabase/migrations/*agent_rewards_effective_chain_owner_correction*.sql'
       - 'tests/admin-agent-rewards-finance-workspace-v1.test.mjs'
       - 'supabase/migrations/*agent_rewards_source_current_jsonb_scalar_guard*.sql'
+      - 'supabase/migrations/*agent_rewards_source_locked_payment_identity*.sql'
+      - 'tests/fixtures/agent-rewards-bnk-identity-v21-integration.sql'
       - 'tests/fixtures/agent-rewards-jsonb-scalar-guard-v20-integration.sql'
       - 'tests/admin-agent-rewards-executive-visual.test.mjs'
       - '.github/workflows/admin-agent-rewards-executive-visual-qa.yml'
@@ -39,7 +41,7 @@ jobs:
           set -euo pipefail
           git diff --name-only "$BASE_SHA" HEAD > /tmp/agent-rewards-ui-files.txt
           cat /tmp/agent-rewards-ui-files.txt
-          if grep -Ev '^(functions/portal/(agent-rewards-v1-ui|owner-api)\.js|tests/admin-agent-rewards-(finance-workspace-v1|executive-visual)\.test\.mjs|tests/fixtures/(agent-rewards-finance-v(16-integration|18-effective-chains-integration)|agent-rewards-jsonb-scalar-guard-v20-integration)\.sql|supabase/migrations/20261014(113000_agent_rewards_current_finance_reconciled_v16|114500_agent_rewards_reconciled_owner_correction_v17|120000_agent_rewards_current_finance_effective_chains_v18|121500_agent_rewards_effective_chain_owner_correction_v19|145000_agent_rewards_source_current_jsonb_scalar_guard_v20)\.sql|\.github/workflows/admin-agent-rewards-(executive-visual-qa|functional-finance-qa)\.yml)$' /tmp/agent-rewards-ui-files.txt; then
+          if grep -Ev '^(functions/portal/(agent-rewards-v1-ui|owner-api)\.js|tests/admin-agent-rewards-(finance-workspace-v1|executive-visual)\.test\.mjs|tests/fixtures/(agent-rewards-finance-v(16-integration|18-effective-chains-integration)|agent-rewards-jsonb-scalar-guard-v20-integration|agent-rewards-bnk-identity-v21-integration)\.sql|supabase/migrations/20261014(113000_agent_rewards_current_finance_reconciled_v16|114500_agent_rewards_reconciled_owner_correction_v17|120000_agent_rewards_current_finance_effective_chains_v18|121500_agent_rewards_effective_chain_owner_correction_v19|145000_agent_rewards_source_current_jsonb_scalar_guard_v20|153000_agent_rewards_source_locked_payment_identity_v21)\.sql|\.github/workflows/admin-agent-rewards-(executive-visual-qa|functional-finance-qa)\.yml)$' /tmp/agent-rewards-ui-files.txt; then
             echo "FINANCE_UI_SCOPE_VIOLATION" >&2
             exit 1
           fi
@@ -48,12 +50,18 @@ jobs:
             grep -Fxq 'tests/admin-agent-rewards-executive-visual.test.mjs' /tmp/agent-rewards-ui-files.txt
             echo 'FINANCE_UI_SCOPE=PASS'
           else
-            # Incident recovery: allow a DB-only v20 JSONB safety fix, but require
-            # the migration, Postgres scalar fixture, and finance source-contract test.
-            grep -Fxq 'supabase/migrations/20261014145000_agent_rewards_source_current_jsonb_scalar_guard_v20.sql' /tmp/agent-rewards-ui-files.txt
-            grep -Fxq 'tests/fixtures/agent-rewards-jsonb-scalar-guard-v20-integration.sql' /tmp/agent-rewards-ui-files.txt
-            grep -Fxq 'tests/admin-agent-rewards-finance-workspace-v1.test.mjs' /tmp/agent-rewards-ui-files.txt
-            echo 'FINANCE_DB_SCALAR_HOTFIX_SCOPE=PASS'
+            if grep -Fxq 'supabase/migrations/20261014153000_agent_rewards_source_locked_payment_identity_v21.sql' /tmp/agent-rewards-ui-files.txt; then
+              # Read-only BNK binding: require independent PostgreSQL, source-contract tests.
+              grep -Fxq 'tests/fixtures/agent-rewards-bnk-identity-v21-integration.sql' /tmp/agent-rewards-ui-files.txt
+              grep -Fxq 'tests/admin-agent-rewards-finance-workspace-v1.test.mjs' /tmp/agent-rewards-ui-files.txt
+              echo 'FINANCE_BNK_SOURCE_IDENTITY_SCOPE=PASS'
+            else
+              # Existing v20 JSONB-only incident pathway remains unchanged.
+              grep -Fxq 'supabase/migrations/20261014145000_agent_rewards_source_current_jsonb_scalar_guard_v20.sql' /tmp/agent-rewards-ui-files.txt
+              grep -Fxq 'tests/fixtures/agent-rewards-jsonb-scalar-guard-v20-integration.sql' /tmp/agent-rewards-ui-files.txt
+              grep -Fxq 'tests/admin-agent-rewards-finance-workspace-v1.test.mjs' /tmp/agent-rewards-ui-files.txt
+              echo 'FINANCE_DB_SCALAR_HOTFIX_SCOPE=PASS'
+            fi
           fi
       - name: Verify finance P&L contract and unchanged authority
         run: |
