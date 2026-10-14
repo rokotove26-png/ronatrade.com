@@ -147,12 +147,6 @@ async function latestCorrection(s:any){
 }
 async function list(s:any){
  const [term,addendum,correction]=await Promise.all([termFor(s),selected(s),latestCorrection(s)]);
- const existing=await sql`select a.document_id,a.authoritative_filename as filename,a.contract_reference,
- a.uploaded_at,a.sha256 from portal_private.agent_agency_contract_documents a
- join portal_private.storage_objects o on o.id=a.storage_object_key and o.storage_state='VERIFIED'
- where a.agent_legal_entity_key=${s.agent_legal_entity_key}::uuid
- and a.document_kind='AGENCY_ADDENDUM' and a.lifecycle_state::text='ACTIVE'
- order by uploaded_at desc limit 60`;
  const acts=await sql`select r.id,r.request_status,r.correction_version,r.owner_correction_key,
  r.addendum_key,r.requested_at,r.dispatched_at,r.completed_at
  from portal_private.agent_reward_act_requests_v1 r
@@ -168,8 +162,6 @@ async function list(s:any){
    term:term?{termId:term.id,mode:term.commission_mode,rate:term.commission_rate,
      fixedAmount:term.commission_fixed_amount,currency:term.currency,
      reference:term.term_reference,authority:term.authority_state}:null,
-   signedAddenda:existing.map(x=>({documentId:x.document_id,filename:x.filename,
-     reference:x.contract_reference,sha256:x.sha256,uploadedAt:x.uploaded_at})),
    currentAddendum:addendum?{bindingId:addendum.id,documentId:addendum.document_id,
      filename:addendum.filename,reference:addendum.document_reference,
      evidenceStatus:addendum.evidence_status}:null,
@@ -188,19 +180,27 @@ async function bind(actor:{userId:string},req:Request,s:any,body:any){
  if(reference.length<3)throw deny("ADDENDUM_REFERENCE_REQUIRED",409);
  const term=await termFor(s),old=await selected(s);
  if(old?.document_id===docId)return{bindingId:old.id,status:"ALREADY_LINKED"};
+ if(old)throw deny("DEAL_SIGNED_ADDENDUM_ALREADY_LINKED",409);
  let bindingId="";
  await sql.begin(async tx=>{
    await tx`select pg_advisory_xact_lock(hashtext(${s.deal_id}))`;
-   await tx`update portal_private.agent_reward_deal_addenda_v1
-     set is_current=false,evidence_status='SUPERSEDED'
-     where deal_key=${s.deal_key}::uuid and assignment_id=${s.assignment_id}::uuid and is_current=true`;
+   // Lock the canonical deal row as well: repeated submissions are serialized across assignments.
+   await tx`select id from portal_private.deals where id=${s.deal_key}::uuid for update`;
+   const currentDeal=await tx`select b.id,a.document_id from portal_private.agent_reward_deal_addenda_v1 b
+     join portal_private.agent_agency_contract_documents a on a.id=b.agency_document_key
+     where b.deal_key=${s.deal_key}::uuid and b.is_current=true limit 2`;
+   if(currentDeal.length){
+     if(currentDeal.length===1&&currentDeal[0].document_id===docId&&old?.id===currentDeal[0].id)
+       return;
+     throw deny("DEAL_SIGNED_ADDENDUM_ALREADY_LINKED",409);
+   }
    const b=await tx`insert into portal_private.agent_reward_deal_addenda_v1(
        deal_key,assignment_id,agent_legal_entity_key,agency_document_key,term_key,document_reference,linked_by)
      values(${s.deal_key}::uuid,${s.assignment_id}::uuid,${s.agent_legal_entity_key}::uuid,
        ${doc.id}::uuid,${term?.id||null}::uuid,${reference},${actor.userId}::uuid)
      on conflict(deal_key,assignment_id,agency_document_key)
-     do update set is_current=true,evidence_status='RECEIVED_NOT_LEGALLY_VERIFIED',
-       linked_at=now(),linked_by=excluded.linked_by,term_key=excluded.term_key returning id`;
+     do nothing returning id`;
+   if(b.length!==1)throw deny("DEAL_SIGNED_ADDENDUM_ALREADY_LINKED",409);
    bindingId=String(b[0].id);
    await audit(tx,actor,req,"AGENT_SIGNED_ADDENDUM_LINKED_TO_DEAL",s.deal_id,{
      bindingId,documentId:docId,assignmentId:s.assignment_id,
