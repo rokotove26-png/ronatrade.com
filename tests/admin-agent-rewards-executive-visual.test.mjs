@@ -132,7 +132,30 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
           return n?getComputedStyle(n).color:null
         };
         const meaning=sel=>root.querySelector(sel)?.dataset.financeMeaning||null;
+        const cockpit=root.querySelector('.rona-ar-workspace');
+        const waterfall=root.querySelector('.rona-ar-waterfall');
+        const evidence=root.querySelector('.rona-ar-evidence');
+        const insightItems=[...root.querySelectorAll('.rona-ar-cascade-row')];
+        const delta=root.querySelector('.rona-ar-compare-cell.delta .rona-ar-compare-value');
+        const payoutRows=[...root.querySelectorAll('.rona-ar-evidence-row')];
         return {version:window.__RONA_AGENT_REWARDS_PRESENTATION__,names,values,sections,
+          cockpit:{
+            version:root.dataset.ronaAgentRewardsCockpit,
+            workspaces:root.querySelectorAll('.rona-ar-workspace').length,
+            navCount:root.querySelectorAll('.rona-ar-directory').length,
+            selectedCount:root.querySelectorAll('.rona-ar-deal[aria-pressed="true"]').length,
+            insightCount:root.querySelectorAll('[data-rona-ar-insights="source-only-v1"]').length,
+            insightPanels:root.querySelectorAll('.rona-ar-insight-card').length,
+            waterfallSteps:insightItems.map(n=>n.dataset.ronaArCascadeStep),
+            waterfallBars:root.querySelectorAll('.rona-ar-cascade-bar').length,
+            waterfallNet:root.querySelector('.rona-ar-cascade-row.subtotal:nth-child(5) .rona-ar-cascade-value')?.textContent,
+            delta:delta?.textContent,
+            evidenceText:evidence?.textContent||'',
+            evidenceRows:payoutRows.length,
+            navWidth:cockpit?.querySelector('.rona-ar-directory')?.getBoundingClientRect().width||0,
+            rightWidth:cockpit?.querySelector('.rona-ar-focus')?.getBoundingClientRect().width||0,
+            horizontalOverflow:Math.max(document.documentElement.scrollWidth,root.scrollWidth)
+          },
           gridColumns:grid.gridTemplateColumns,nameFont,valueFont,columns:cols.map(el=>el.getBoundingClientRect().toJSON()),
           pnlByColumn,financialLabels,
           hiddenRows:{
@@ -208,6 +231,24 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         }
       });
       assert.equal(result.version,'executive-finance-v1');
+      assert.equal(result.cockpit.version,'executive-cockpit-v1');
+      assert.equal(result.cockpit.workspaces,1);
+      assert.equal(result.cockpit.navCount,1);
+      assert.equal(result.cockpit.selectedCount,1);
+      assert.equal(result.cockpit.insightCount,1);
+      assert.equal(result.cockpit.insightPanels,2);
+      assert.deepEqual(result.cockpit.waterfallSteps,['income','expense','subtotal','expense','subtotal','agent','final']);
+      assert.equal(result.cockpit.waterfallBars,7,'All seven initial financial waterfall steps are strictly source-derived');
+      assert.equal(result.cockpit.waterfallNet,'+1 782,0 USD');
+      assert.equal(result.cockpit.delta,'-18,0 USD','Comparison is OWNER net less PLAN net, not a fabricated payables number');
+      assert.match(result.cockpit.evidenceText,/Основание и статус расчёта/);
+      assert.match(result.cockpit.evidenceText,/Не подтверждено в текущем источнике/,
+        'Do not silently turn OWNER preview into an external settlement');
+      assert.equal(result.cockpit.evidenceRows,5);
+      assert(result.cockpit.navWidth>180 && result.cockpit.rightWidth>180,'Both master and detail panels must be usable');
+      assert(result.cockpit.horizontalOverflow<=width+1,'No horizontal overflow in executive cockpit at '+width);
+      if(width>=1600)assert(result.cockpit.rightWidth>result.cockpit.navWidth,'Large screens prioritize deal analysis');
+
       assert.deepEqual(result.names,[
         'PLAN · агентское вознаграждение',
         'РАСЧЁТ · агентское вознаграждение',
@@ -357,6 +398,10 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
           'Top net-profit KPI must track OWNER result during positive draft expense');
         assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'160,2 USD',
           'Agent KPI uses matching OWNER after-tax basis');
+        assert.equal(await page.locator('.rona-ar-cascade-row.final .rona-ar-cascade-value').textContent(),'+1 441,8 USD',
+          'Financial cascade tracks the same unsaved OWNER draft as management KPI');
+        assert.equal(await page.locator('.rona-ar-compare-cell.delta .rona-ar-compare-value').textContent(),'-198,0 USD',
+          'Owner-versus-plan comparison is live and does not create an external payable');
         await adjust.fill('-50');
         const afterNegative=await page.evaluate(()=>{
           const labels=['Доходы','Расходы','Прибыль до налогообложения','Налоги и платежи (10%)','Чистая прибыль','Агентское вознаграждение'];
@@ -416,6 +461,10 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
           'A missing deal term must be described precisely, not as no agent/contract');
         assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'ДС не привязано');
         assert.equal(await page.locator('.rona-ar-col.fact .rona-ar-reward-focus .rona-ar-value').textContent(),'ДС не привязано');
+        assert.match(await page.locator('.rona-ar-evidence').textContent(),/ДС не привязано \/ источник не подтверждён/);
+        assert.match(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-value').textContent(),/ДС не привязано/);
+        assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),0,
+          'Never plot an external agent liability without a verified term');
 
         // Regression: 010 has a Finance-approved NONE plan because DS4 was
         // invalidated. Respect the zero PLAN forecast, but never invent a current term.
@@ -444,6 +493,10 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
           'Unfulfilled DS5 closing remains recorded as a forecast state');
         assert.equal(await page.locator('.rona-ar-btn.send').isDisabled(),true,
           'A management projection must never enable an external payable or agent send');
+        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Закрывающие документы ещё ожидаются/);
+        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Не подтверждено в текущем источнике/);
+        assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),1,
+          'Internally calculable management estimate remains visually distinguishable from payable authority');
       }
       if(width===950){
         const formerRevenue=deal.planInputs.revenue,oldCash=deal.cashFlow.cashReceived,
