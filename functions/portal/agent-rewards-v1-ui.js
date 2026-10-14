@@ -7,7 +7,7 @@ window.__RONA_AGENT_REWARDS_PRESENTATION__='executive-finance-v1';
 if(location.pathname!=='/portal/admin')return;
 
 const API='/portal/owner-api';
-const state={data:null,selectedKey:null,saving:false,workspacePromise:null,loadedAt:0,lastError:null};
+const state={data:null,selectedKey:null,saving:false,workspacePromise:null,loadedAt:0,lastError:null,docCache:new Map(),docLoading:new Set(),docError:new Map()};
 let ownerRepairTimer=null;
 const q=(s,r=document)=>r.querySelector(s);
 const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
@@ -915,11 +915,11 @@ function renderOwner(deal){
       if(!m.paymentComplete||m.netProfit===null)throw new Error('Расчёт и детализация платежей требуют сверки Finance');
       const payload={paymentLineAmounts:m.paymentLineAmounts,openSettlementAdjustment:m.openSettlementAdjustment};
       await saveCorrection(deal.dealId,deal.assignmentId,payload,'');
-      await getWorkspace({force:true});state.selectedKey=rowKey(deal);render()
+      await getWorkspace({force:true});state.docCache.delete(rowKey(deal));state.selectedKey=rowKey(deal);render()
     }catch(e){window.RONA_ADMIN_DIALOGS?.message?window.RONA_ADMIN_DIALOGS.message(String(e.message||e),{title:'Корректировка не сохранена'}):alert(e.message||e)}
     finally{state.saving=false}
   };
-  actions.append(save,send);col.append(actions);return col
+  actions.append(save);if(deal.ownerCorrection&&editable){const act=docButton('Акт выполненных работ',()=>void requestAgentAct(deal,act));actions.append(act)}actions.append(send);col.append(actions);return col
 }
 function metricCard(label,value,cur,meta,kind='',nullText='—'){
   const t=tone(value),card=el('div','rona-ar-metric '+kind+' '+(t||'verify'));
@@ -1103,6 +1103,171 @@ function updateExecutiveInsightsForDraft(col,deal,draft){
     reward:{value:draft.reward,status:reward.status},ronaProfit:draft.ronaProfit
   })
 }
+
+const AGREEMENT_API='/portal/agency-contracts',DEAL_DOCUMENT_API='/portal/agent-reward-workflow';
+function installDealDocumentStyle(){
+  if(q('#ronaArDealDocumentStyle'))return;
+  const s=el('style');s.id='ronaArDealDocumentStyle';
+  s.textContent="\n#page-agent-settlements .rona-ar-documents{order:2;min-width:0;display:grid;gap:12px;padding:18px 20px;border:1px solid rgba(98,173,213,.28);border-radius:16px;background:linear-gradient(125deg,rgba(9,30,47,.97),rgba(9,20,38,.96))}\n#page-agent-settlements .rona-ar-doc-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}\n#page-agent-settlements .rona-ar-doc-title{font-size:17px;color:#eafaff;font-weight:900}\n#page-agent-settlements .rona-ar-doc-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}\n#page-agent-settlements .rona-ar-doc-card{display:grid;gap:10px;align-content:start;min-width:0;padding:16px;background:rgba(3,15,27,.64);border:1px solid rgba(112,183,219,.18);border-radius:12px}\n#page-agent-settlements .rona-ar-doc-kicker{color:#80ccdf;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}\n#page-agent-settlements .rona-ar-doc-name{color:#e7f9ff;font-size:13px;line-height:1.45;font-weight:850;overflow-wrap:anywhere}\n#page-agent-settlements .rona-ar-doc-note{font-size:11px;line-height:1.55;color:#a1bbc9;overflow-wrap:anywhere}\n#page-agent-settlements .rona-ar-doc-btn{min-height:39px;padding:9px 12px;border:1px solid rgba(99,191,219,.39);border-radius:9px;background:rgba(25,87,113,.48);color:#ebfaff;font-family:inherit;font-size:11px;font-weight:850;cursor:pointer}\n#page-agent-settlements .rona-ar-doc-btn.primary{background:linear-gradient(115deg,#155783,#138396);border-color:#65bedc}\n#page-agent-settlements .rona-ar-doc-btn:disabled{opacity:.46;cursor:not-allowed}\n#page-agent-settlements .rona-ar-doc-btn:focus-visible{outline:2px solid #7ee2ef;outline-offset:2px}\n#page-agent-settlements .rona-ar-doc-field{display:grid;gap:6px;font-size:11px;color:#9dbfd1}\n#page-agent-settlements .rona-ar-doc-field input,#page-agent-settlements .rona-ar-doc-field select{min-width:0;max-width:100%;width:100%;min-height:38px;border:1px solid rgba(102,165,197,.37);border-radius:8px;background:#0a2032;color:#effbff;padding:7px 9px;font:inherit;box-sizing:border-box}\n#page-agent-settlements .rona-ar-doc-ack{display:flex;gap:8px;align-items:flex-start;font-size:11px;color:#acc8d7;line-height:1.5}\n#page-agent-settlements .rona-ar-doc-request{padding:9px 0;border-top:1px solid rgba(109,171,205,.14);font-size:11px;line-height:1.5;color:#d7eaf4}\n@media(max-width:1280px){#page-agent-settlements .rona-ar-doc-columns{grid-template-columns:1fr}}\n@media(max-width:720px){#page-agent-settlements .rona-ar-documents{padding:13px}#page-agent-settlements .rona-ar-doc-card{padding:13px}}\n";
+  document.head.appendChild(s)
+}
+function docKey(deal){return rowKey(deal)}
+function docUrl(deal,action){
+  return DEAL_DOCUMENT_API+'?dealId='+encodeURIComponent(String(deal.dealId||''))+
+    '&assignmentId='+encodeURIComponent(String(deal.assignmentId||''))+
+    '&action='+encodeURIComponent(action||'state')
+}
+async function docCall(deal,action='state',init){
+  const r=await fetch(docUrl(deal,action),Object.assign({credentials:'same-origin',
+    cache:'no-store',headers:{accept:'application/json'}},init||{}));
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||j.ok===false)throw new Error(String(j.code||('HTTP_'+r.status)));
+  return j.data||{}
+}
+async function refreshDealDocuments(deal){
+  const key=docKey(deal);
+  if(state.docLoading.has(key))return;
+  state.docLoading.add(key);
+  try{state.docCache.set(key,await docCall(deal));state.docError.delete(key)}
+  catch(e){state.docError.set(key,String(e.message||e))}
+  finally{state.docLoading.delete(key);if(state.selectedKey===key&&state.data)render()}
+}
+function docNotice(msg){
+  if(window.RONA_ADMIN_DIALOGS?.message)return window.RONA_ADMIN_DIALOGS.message(msg,{title:'Документы агента'});
+  alert(msg)
+}
+function docButton(text,handler,primary=false){
+  const b=el('button','rona-ar-doc-btn'+(primary?' primary':''),text);
+  b.type='button';b.onclick=handler;return b
+}
+function docField(title,control){
+  const x=el('label','rona-ar-doc-field');x.append(el('span','',title),control);return x
+}
+async function signedAgencyDownload(companyId,documentId){
+  const r=await fetch(AGREEMENT_API+'?action=download&companyId='+encodeURIComponent(companyId)
+    +'&documentId='+encodeURIComponent(documentId),{credentials:'same-origin',cache:'no-store'});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||j.ok===false)throw new Error(String(j.code||'SIGNED_PDF_UNAVAILABLE'));
+  const url=j.data?.url;
+  if(!/^https:\/\//.test(String(url||'')))throw new Error('SIGNED_URL_INVALID');
+  window.open(url,'_blank','noopener,noreferrer')
+}
+async function bindDealAddendum(deal,documentId,button){
+  button.disabled=true;
+  try{
+    await docCall(deal,'bind',{method:'POST',headers:{accept:'application/json','content-type':'application/json'},
+      body:JSON.stringify({documentId})});
+    await refreshDealDocuments(deal);
+    docNotice('Подписанное ДС привязано к сделке. Finance и Legal должны подтвердить договорную базу.')
+  }catch(e){docNotice('Не удалось привязать ДС: '+String(e.message||e))}
+  finally{button.disabled=false}
+}
+async function uploadDealAddendum(deal,companyId,fileControl,refControl,ackControl,button){
+  const file=fileControl.files?.[0],reference=refControl.value.trim();
+  if(!file||!/\.pdf$/i.test(file.name)||!file.size||file.size>20*1024*1024)
+    return docNotice('Выберите PDF-файл до 20 МБ.');
+  if(reference.length<3)return docNotice('Введите номер и дату ДС.');
+  if(!ackControl.checked)return docNotice('Подтвердите, что PDF подписан сторонами.');
+  button.disabled=true;
+  try{
+    const form=new FormData();form.append('file',file);form.append('kind','AGENCY_ADDENDUM');
+    form.append('reference',reference);form.append('attestedSigned','true');
+    const r=await fetch(AGREEMENT_API+'?action=upload&companyId='+encodeURIComponent(companyId),
+      {method:'POST',credentials:'same-origin',cache:'no-store',body:form});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||j.ok===false)throw new Error(String(j.code||'AGENCY_UPLOAD_FAILED'));
+    if(!j.data?.documentId)throw new Error('DOCUMENT_ID_NOT_RETURNED');
+    await docCall(deal,'bind',{method:'POST',headers:{accept:'application/json','content-type':'application/json'},
+      body:JSON.stringify({documentId:j.data.documentId})});
+    await refreshDealDocuments(deal);
+    docNotice('ДС загружено в защищённый архив и привязано к выбранной сделке.')
+  }catch(e){await refreshDealDocuments(deal);docNotice('Ошибка сохранения ДС: '+String(e.message||e))}
+  finally{button.disabled=false}
+}
+async function requestAgentAct(deal,button){
+  button.disabled=true;
+  try{
+    const result=await docCall(deal,'request-act',{method:'POST'});
+    await refreshDealDocuments(deal);
+    docNotice('Заявка на акт выполненных работ зарегистрирована: '+String(result.requestId||'')+
+      '. Проверка Finance и Legal необходима перед подготовкой PDF и отправкой агенту.')
+  }catch(e){docNotice('Акт не запрошен: '+String(e.message||e))}
+  finally{button.disabled=false}
+}
+function renderDealDocuments(root,deal){
+  installDealDocumentStyle();
+  const section=el('section','rona-ar-documents');
+  section.dataset.ronaArDealDocuments='v1';
+  section.append(el('div','rona-ar-doc-head'));
+  const head=q('.rona-ar-doc-head',section);
+  head.append(el('h3','rona-ar-doc-title','Агент · подписанные ДС · акты'),
+    el('span','rona-ar-doc-kicker','Документальный контур'));
+  const key=docKey(deal),docs=state.docCache.get(key);
+  if(!docs){
+    const err=state.docError.get(key);
+    section.append(el('div','rona-ar-doc-note',err?'Реестр документов недоступен: '+err:
+      'Загрузка агентских документов по сделке…'));
+    if(!state.docLoading.has(key))setTimeout(()=>void refreshDealDocuments(deal),0);
+    root.append(section);return
+  }
+  const layout=el('div','rona-ar-doc-columns'),l=el('div','rona-ar-doc-card'),
+    r=el('div','rona-ar-doc-card');
+  l.append(el('div','rona-ar-doc-kicker','Агент конкретной сделки'),
+    el('div','rona-ar-doc-name',docs.agentLegalName||deal.agentLegalName||'Не установлен'),
+    el('div','rona-ar-doc-note','Представитель: '+String(docs.agentName||deal.agentName||'—')+
+      ' · статус назначения: '+String(docs.assignmentStatus||'TO_VERIFY')));
+  l.append(el('div','rona-ar-doc-kicker','Подписанное дополнительное соглашение'));
+  const current=docs.currentAddendum;
+  if(current){
+    l.append(el('div','rona-ar-doc-name',current.filename),
+      el('div','rona-ar-doc-note','Основание: '+String(current.reference||'—')+
+        ' · '+String(current.evidenceStatus||'TO_VERIFY')));
+    l.append(docButton('Скачать подписанное ДС',()=>void signedAgencyDownload(
+      docs.agentCompanyId,current.documentId).catch(e=>docNotice(String(e.message||e)))));
+  }else l.append(el('div','rona-ar-doc-note','Подписанное ДС для этой сделки ещё не привязано.'));
+  const available=Array.isArray(docs.signedAddenda)?docs.signedAddenda:[];
+  if(available.length){
+    const choose=el('select');choose.setAttribute('aria-label','ДС из архива агентской компании');
+    choose.append(new Option('Выберите ДС из архива',''));
+    for(const d of available)choose.append(new Option(String(d.reference||d.filename||d.documentId),d.documentId));
+    const bind=docButton('Привязать архивное ДС',()=>{if(choose.value)void bindDealAddendum(deal,choose.value,bind)});
+    l.append(docField('Архив подписанных ДС',choose),bind)
+  }
+  const file=el('input');file.type='file';file.accept='application/pdf,.pdf';
+  const reference=el('input');reference.type='text';reference.maxLength=180;
+  reference.placeholder='ДС №... от ...';
+  const ackLabel=el('label','rona-ar-doc-ack'),ack=el('input');ack.type='checkbox';
+  ackLabel.append(ack,el('span','','Подтверждаю наличие подписей обеих сторон на PDF.'));
+  const upload=docButton('Загрузить и привязать подписанное ДС',
+    ()=>void uploadDealAddendum(deal,docs.agentCompanyId,file,reference,ack,upload),true);
+  l.append(docField('Подписанный PDF (до 20 МБ)',file),docField('Номер и дата ДС',reference),ackLabel,upload);
+  const term=docs.term;
+  r.append(el('div','rona-ar-doc-kicker','Параметры вознаграждения'));
+  if(term){
+    const value=term.mode==='PERCENT'&&num(term.rate)!==null?fmt(num(term.rate)*100)+'% · договорная база':
+      term.mode==='FIXED'?money(term.fixedAmount,term.currency||currencyOf(deal)):
+      term.mode==='PER_TONNE'?money(term.rate,term.currency||currencyOf(deal))+' / т':'TO_VERIFY';
+    r.append(el('div','rona-ar-doc-name',value),el('div','rona-ar-doc-note',
+      'Подтверждённый источник условий: '+String(term.reference||'—')));
+  }else r.append(el('div','rona-ar-doc-note','Однозначно действующие условия не обнаружены. Ставка автоматически не назначается.'));
+  r.append(el('div','rona-ar-doc-note',current?
+    'Загрузка PDF не меняет ставку. Совпадение параметров с ДС проверяют Finance и Legal.':
+    'Для применения условий к сделке сначала привяжите соответствующее подписанное ДС.'));
+  r.append(el('div','rona-ar-doc-kicker','Акт выполненных работ'));
+  const correction=docs.ownerCorrection;
+  r.append(el('div','rona-ar-doc-note',correction?
+    'Сохранённая OWNER-корректировка №'+correction.version+' · '+correction.sourceId:
+    'Сначала сохраните фактическую OWNER-корректировку.'));
+  const request=docButton('Акт выполненных работ',()=>void requestAgentAct(deal,request),true);
+  request.disabled=!current||!correction;r.append(request);
+  for(const item of (Array.isArray(docs.acts)?docs.acts:[]).slice(0,6))
+    r.append(el('div','rona-ar-doc-request','OWNER №'+String(item.correction_version)+
+      ' · '+String(item.request_status)+' · '+String(item.requested_at||'')));
+  r.append(el('div','rona-ar-doc-note',
+    'Запрос на акт не является готовым юридическим документом или обязательством к выплате.'));
+  layout.append(l,r);section.append(layout);root.append(section)
+}
+
 function renderExecutiveWorkspace(root,deals,deal){
   const workspace=el('div','rona-ar-workspace'),nav=el('aside','rona-ar-directory'),right=el('main','rona-ar-focus');
   nav.setAttribute('aria-label','Реестр агентских сделок');
@@ -1123,7 +1288,7 @@ function renderExecutiveWorkspace(root,deals,deal){
   tags.append(chip(String(deal.dealId||'Сделка'),''),
     chip(String(deal.businessStatus||'TO_VERIFY'),''),chip(currencyOf(deal)||'TO_VERIFY',''));
   intro.append(profile,tags);right.append(intro);
-  for(const selector of ['.rona-ar-status','.rona-ar-pulse','.rona-ar-fx-reference','.rona-ar-pnl-grid','.rona-ar-insights']){
+  for(const selector of ['.rona-ar-status','.rona-ar-pulse','.rona-ar-documents','.rona-ar-fx-reference','.rona-ar-pnl-grid','.rona-ar-insights']){
     const element=q(selector,root);
     if(element)right.append(element)
   }
@@ -1144,6 +1309,7 @@ function render(){
     renderDealPulse(root,deal);
     renderFxReference(root,deal);
     const grid=el('div','rona-ar-pnl-grid');grid.append(renderPlan(deal),renderFact(deal),renderOwner(deal));root.append(grid);
+    renderDealDocuments(root,deal);
     renderExecutiveInsights(root,deal);
     renderExecutiveWorkspace(root,deals,deal);
   }
