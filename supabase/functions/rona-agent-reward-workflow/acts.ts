@@ -114,6 +114,8 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
  }catch(e){await service.storage.from(BUCKET).remove([objectName]).catch(()=>null);throw e}
 }
 async function publish(sql:any,req:Request,ctx:any,row:any){
+ // Agent inbox UI deployment gate: never record delivery before it is visible to the recipient.
+ deny('AGENT_PORTAL_INBOX_UI_NOT_DEPLOYED');
  await assertCurrent(sql,row);
  if(row.request_status!=='OWNER_SIGNED'||!await stageExists(sql,row.id,'OWNER_SIGNED'))
    deny('OWNER_SIGNED_ACT_REQUIRED');
