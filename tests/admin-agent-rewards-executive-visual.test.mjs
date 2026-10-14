@@ -651,3 +651,77 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
     }
   }finally{await browser.close()}
 });
+
+
+test('Authorized final agent act renders official numbered document, canonical signature and 35mm seal without agent delivery',async()=>{
+  const {chromium}=await import('playwright');
+  const script=await(await onRequest()).text();
+  const dealId='DEAL-2026-004',assignmentId='11111111-1111-4111-8111-111111111111';
+  const correctionId='c1111111-1111-4111-8111-111111111111';
+  const requestId='a1111111-1111-4111-8111-111111111111';
+  const deal={dealId,assignmentId,clientName:'QA Покупатель',agentName:'Представитель агента',
+    agentLegalEntityId:'S-005',agentLegalName:'ООО «ИнКом»',businessStatus:'CLOSED',
+    financialCurrency:'USD',receiptCurrency:'USD',
+    cashFlow:{status:'APPROVED_CASH_FLOW_DDS',currency:'USD',cashReceived:5000,counterpartyCashOut:3000,bankFees:20,netCashFlow:1980},
+    financeSourceReconciliation:{status:'RECONCILED_CURRENT_FINANCE_V8'},
+    cashPaymentLines:[{paymentId:'P-QA',counterparty:'Поставщик',canonicalCounterpartyId:'SUPPLIER:QA',
+      counterpartyResolutionStatus:'RESOLVED',amount:3000,currency:'USD'}],
+    ownerResultBridge:{recognition_status:'APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE',open_settlement_adjustment:{amount:0}},
+    ownerCorrectionAuthority:{status:'APPROVED_FOR_OWNER_CORRECTION',contract:'PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'},
+    ownerCorrection:{version:1,createdAt:'2026-10-14T12:00:00.000Z',payload:{paymentLineAmounts:{},openSettlementAdjustment:0}},
+    agentTerm:{mode:'PERCENT',rate:0.5,status:'ACTIVE',lifecycleState:'ACTIVE',authorityState:'CONFIRMED',reference:'DS 1 QA'}};
+  const doc={dealId,assignmentId,agentCompanyId:'S-005',agentLegalName:'ООО «ИнКом»',
+    agentName:'Представитель агента',assignmentStatus:'ACTIVE',
+    term:{termId:'TERM-QA',mode:'PERCENT',rate:0.5,reference:'ДС 1',authority:'CONFIRMED'},
+    currentAddendum:{bindingId:'b1111111-1111-4111-8111-111111111111',documentId:'AGENCY-S-005-QA',
+      filename:'Signed_QA.pdf',reference:'ДС №1 от 15.07.2026',evidenceStatus:'VERIFIED_BY_EXISTING_AUTHORITY'},
+    ownerCorrection:{sourceId:correctionId,version:1},
+    acts:[{id:requestId,correction_version:1,owner_correction_key:correctionId,request_status:'DRAFT_READY',
+      review:{finance:{status:'APPROVED'},legal:{status:'APPROVED'},approved:true},documents:[]}]};
+  const final={requestId,dealId,documentNumber:'AG-2026-QA-001',documentDate:'2026-10-15',
+    servicePeriod:'с 01.09.2026 по 30.09.2026',services:'Агентское сопровождение сделки',
+    amount:123.45,currency:'USD',issuer:'ООО «РОНА Трейд»',issuerSigner:'QA Руководитель',
+    issuerRequisites:'Кыргызская Республика, г. Бишкек',agentLegalName:'ООО «ИнКом»',
+    agentTaxId:'TEST-TAX',agentSignatory:'QA Исполнитель',
+    addendumReference:'ДС №1 от 15.07.2026',facsimileAuthorizationRef:'QA-LEGAL-CANONICAL'};
+  const browser=await chromium.launch({headless:true});
+  try{
+    const page=await browser.newPage({viewport:{width:1440,height:1000}});
+    const posted=[],errors=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    page.on('dialog',d=>void d.accept());
+    await page.route('http://rona.official/portal/admin',r=>r.fulfill({status:200,contentType:'text/html',
+      body:'<!doctype html><html lang="ru"><head><meta charset="utf-8"></head><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
+    await page.route('http://rona.official/portal/owner-api**',r=>r.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({ok:true,data:{deals:[deal]}})}));
+    await page.route('http://rona.official/portal/agent-reward-workflow**',r=>{
+      const u=new URL(r.request().url()),action=u.searchParams.get('action')||'state';
+      if(action==='final-act'&&r.request().method()==='POST'){
+        posted.push(JSON.parse(r.request().postData()||'{}'));
+        return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:final})});
+      }
+      if(action.startsWith('canonical-'))return r.fulfill({status:200,contentType:'image/png',body:''});
+      return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:doc})});
+    });
+    await page.goto('http://rona.official/portal/admin');
+    await page.addScriptTag({content:script});
+    const box=page.locator('.rona-ar-documents');
+    await box.getByText('ООО «ИнКом»').waitFor({timeout:12000});
+    const finalButton=box.getByRole('button',{name:'Сформировать акт с подписью и печатью RONA Trade'});
+    assert.equal(await finalButton.isDisabled(),false);
+    const [popup]=await Promise.all([page.waitForEvent('popup'),finalButton.click()]);
+    await popup.getByRole('heading',{name:/АКТ ВЫПОЛНЕННЫХ РАБОТ/}).waitFor({timeout:9000});
+    const content=await popup.locator('main.copy').innerText();
+    assert.match(content,/AG-2026-QA-001/);
+    assert.match(content,/123,45 USD/);
+    assert.match(content,/Агентское сопровождение сделки/);
+    assert.doesNotMatch(content,/ВНУТРЕННИЙ ПРОЕКТ|TO_VERIFY/);
+    assert.equal(await popup.locator('img.sig').count(),1);
+    assert.equal(await popup.locator('img.stamp').count(),1);
+    assert.match(await popup.locator('style').innerText(),/\.stamp\{width:35mm;height:35mm/);
+    assert.equal(posted.length,1);
+    assert.deepEqual(posted[0],{ownerConfirmsSigning:true,ownerConfirmsFacsimile:true});
+    assert.deepEqual(errors,[]);
+    await popup.close();await page.close();
+  }finally{await browser.close()}
+});
