@@ -1264,6 +1264,90 @@ function openAgentActDraft(deal,docs,act){
   const control=w.document.getElementById('ronaDraftPrint');
   if(control)control.addEventListener('click',()=>w.print());
 }
+async function openFinalAgentAct(deal,docs,act,button){
+ const yes=window.confirm('Подтверждаете оформление акта от имени RONA Trade с применением утверждённых графических подписи и печати? Это не квалифицированная электронная подпись. Все факты и полномочия должны быть подтверждены.');
+ if(!yes)return;
+ // Open synchronously to avoid popup blockers; only authorized source data is written later.
+ const w=window.open('','_blank');
+ if(!w)return docNotice('Разрешите открытие окна для акта.');
+ w.opener=null;
+ button.disabled=true;
+ try{
+   const url=docUrl(deal,'final-act')+'&requestId='+encodeURIComponent(String(act.id));
+   const res=await fetch(url,{method:'POST',credentials:'same-origin',cache:'no-store',
+     headers:{accept:'application/json','content-type':'application/json'},
+     body:JSON.stringify({ownerConfirmsSigning:true,ownerConfirmsFacsimile:true})});
+   const json=await res.json().catch(()=>({}));
+   if(!res.ok||json.ok===false)throw new Error(String(json.code||'ACT_FINAL_ISSUE_NOT_AUTHORIZED'));
+   const d=json.data||{},esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({
+     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+   })[ch]);
+   if(!d.documentNumber||!d.services||!d.issuerSigner||!d.issuerRequisites||
+      !d.agentLegalName||!d.addendumReference||!d.facsimileAuthorizationRef||
+      !Number.isFinite(Number(d.amount))||Number(d.amount)<=0)throw new Error('ACT_FINAL_SOURCE_INCOMPLETE');
+   const amount=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(d.amount));
+   const date=String(d.documentDate||'').split('-').reverse().join('.');
+   const fileRoot=DEAL_DOCUMENT_API+'?requestId='+encodeURIComponent(String(act.id));
+   const page=[
+    '<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Акт № ',esc(d.documentNumber),'</title>',
+    '<style>@page{size:A4;margin:0}*{box-sizing:border-box}',
+    'body{margin:0;font-family:"Arial Narrow",Arial,sans-serif;color:#14181d;background:white}',
+    '.sheet{width:210mm;min-height:297mm;position:relative;overflow:hidden}',
+    '.brand{width:210mm;height:297mm;position:absolute;top:0;left:0}',
+    '.copy{position:relative;margin:47mm 23mm 17mm;font-size:12.5pt;line-height:1.25;text-align:justify}',
+    'h1{text-align:center;font-size:15pt;line-height:1.25;margin:0 0 8mm}',
+    'p{margin:3mm 0}table{width:100%;border-collapse:collapse;margin:7mm 0}',
+    'td,th{border:1px solid #555;padding:2.5mm;text-align:left;font-size:11.8pt}',
+    '.legal{font-size:10.7pt;white-space:pre-line}',
+    '.bottom{display:grid;grid-template-columns:1fr 1fr;gap:9mm;margin-top:15mm}',
+    '.sign{min-height:46mm;border-top:1px solid #aaa;padding:2mm 0;position:relative}',
+    '.sig{width:40mm;height:29mm;object-fit:contain;position:absolute;bottom:6mm;left:10mm}',
+    '.stamp{width:35mm;height:35mm;object-fit:contain;position:absolute;bottom:-3mm;left:29mm}',
+    '.controls{position:fixed;top:10px;right:10px;z-index:100;border:0;background:#0b5472;color:#fff;border-radius:7px;padding:11px;font-size:13px;cursor:pointer}',
+    '.legal-note{font-size:9pt;color:#454545;margin-top:5mm}',
+    '@media print{.controls{display:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head>',
+    '<body><button class="controls" id="actPrint" type="button">Печать / сохранить PDF</button>',
+    '<div class="sheet"><img class="brand" alt="" src="',DEAL_DOCUMENT_API,'?action=canonical-letterhead">',
+    '<main class="copy"><h1>АКТ ВЫПОЛНЕННЫХ РАБОТ<br>(ОКАЗАННЫХ АГЕНТСКИХ УСЛУГ)<br>№ ',esc(d.documentNumber),'</h1>',
+    '<p style="text-align:right">г. Бишкек, ',esc(date),'</p>',
+    '<p><b>',esc(d.issuer),'</b>, именуемое далее «Заказчик», в лице ',
+       esc(d.issuerSigner),', с одной стороны, и <b>',esc(d.agentLegalName),
+       '</b>, именуемое далее «Исполнитель», в лице ',esc(d.agentSignatory),
+       ', с другой стороны, составили настоящий акт.</p>',
+    '<p><b>Основание:</b> ',esc(d.addendumReference),
+       '. Сделка ',esc(d.dealId),'. Период оказания услуг: ',esc(d.servicePeriod),'.</p>',
+    '<p>Исполнителем оказаны следующие агентские услуги:</p>',
+    '<table><thead><tr><th style="width:10%">№</th><th>Наименование оказанных услуг</th><th style="width:30%">Стоимость</th></tr></thead>',
+    '<tbody><tr><td>1</td><td>',esc(d.services),'</td><td>',esc(amount),' ',esc(d.currency),'</td></tr>',
+    '<tr><td colspan="2"><b>Итого</b></td><td><b>',esc(amount),' ',esc(d.currency),'</b></td></tr></tbody></table>',
+    '<p>Размер вознаграждения определён по подтверждённому расчёту и указанному договорному основанию. Подписание со стороны Исполнителя оформляется отдельно.</p>',
+    '<div class="bottom"><div class="sign"><b>ЗАКАЗЧИК</b><p class="legal">',esc(d.issuerRequisites),'</p>',
+      '<img class="sig" alt="Каноническая подпись RONA Trade" src="',fileRoot,'&action=canonical-signature">',
+      '<img class="stamp" alt="Каноническая печать RONA Trade" src="',fileRoot,'&action=canonical-seal">',
+      '<p style="position:absolute;bottom:0">',esc(d.issuerSigner),'</p></div>',
+    '<div class="sign"><b>ИСПОЛНИТЕЛЬ</b><p class="legal">',esc(d.agentLegalName),
+      ' · ',esc(d.agentTaxId||''),'</p><p>',esc(d.agentSignatory),'</p>',
+      '<p style="margin-top:16mm">____________________________</p></div></div>',
+    '<p class="legal-note">Графические подпись и печать Заказчика воспроизведены согласно ',
+       esc(d.facsimileAuthorizationRef),'. Не являются квалифицированной электронной подписью.</p>',
+    '</main></div></body></html>'
+   ].join('');
+   w.document.open();w.document.write(page);w.document.close();
+   const print=w.document.getElementById('actPrint');
+   if(print)print.onclick=async()=>{
+     const pictures=Array.from(w.document.images);
+     await Promise.all(pictures.map(img=>img.complete?Promise.resolve():
+       new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;})));
+     if(pictures.some(img=>img.naturalWidth<1))
+       return w.alert('Не удалось проверить утверждённую подпись, печать или бланк. Печать заблокирована.');
+     w.print();
+   };
+ }catch(e){
+   try{w.close()}catch{}
+   docNotice('Акт не может быть подписан: '+String(e.message||e))
+ }finally{button.disabled=false}
+}
+
 function actUploadForm(deal,act,stage,title,attestation){
   const field=el('div','rona-ar-doc-field'),input=el('input');
   input.type='file';input.accept='application/pdf,.pdf';
@@ -1299,7 +1383,14 @@ function renderActRecord(deal,docs,act){
     card.append(download)
   }
   if(!current)return card;
-  card.append(docButton('Открыть проект акта · печать в PDF',()=>openAgentActDraft(deal,docs,act)));
+  const final=docButton('Сформировать акт с подписью и печатью RONA Trade',
+    ()=>void openFinalAgentAct(deal,docs,act,final),true);
+  // Never treat pending review as signed authority.
+  final.disabled=!approved;final.title=approved?'Требует личного подтверждения подписания':
+    'Финансовые и юридические заключения пока не подтверждены';
+  card.append(final);
+  if(!approved)card.append(docButton('Открыть внутренний проект для согласования',
+    ()=>openAgentActDraft(deal,docs,act)));
   if(!approved)card.append(el('div','rona-ar-doc-note',
     'Finance и Legal: PENDING. Внутренний проект можно сохранить для согласования; подписание до фактического подтверждения не разрешено.'));
   if(stage==='REVIEW_REQUESTED'||stage==='FINANCE_LEGAL_REVIEW')
