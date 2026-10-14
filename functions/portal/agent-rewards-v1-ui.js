@@ -242,6 +242,10 @@ function installStyle(){
 }
 
 
+/* OWNER expense-first adjustment is explained once below its input. */
+#page-agent-settlements .rona-ar-col.owner .rona-ar-owner-adjustment-note{
+ margin:0 15px 11px;padding:9px 11px;border:1px solid rgba(185,167,255,.18);border-radius:9px;
+ background:rgba(133,100,225,.055);color:#b9cde0;font-size:11.25px;line-height:1.48;overflow-wrap:anywhere}
 /* Owner result is the internal agent base; an external EXCLUDING FX term needs distinct review. */
 #page-agent-settlements .rona-ar-col.owner .rona-ar-agent-contract-flag{display:inline-flex;margin-left:7px;
  padding:3px 7px;font-size:10px;line-height:1.3;letter-spacing:0;color:#ffdb90;
@@ -819,6 +823,9 @@ function renderOwner(deal){
     expenseDeltaFromSource(base.openSettlementAdjustment),
     cur,
     editable?'Плюс — дополнительный расход, минус — дополнительный доход. Управленческая корректировка, не банковский платёж.':'TO_VERIFY: нужен подтверждённый расчётный мост'
+  ));
+  adjustmentGroup.append(el('div','rona-ar-owner-adjustment-note',
+    'Плюс — дополнительный расход, минус — дополнительный доход. Это управленческая корректировка, она не является банковским платежом и не изменяет подтверждённые оплаты контрагентам.'
   ));
   table.append(adjustmentGroup);
   table.append(ownerComputedRow('Прибыль до налогообложения','actualFinancialResult',base.actualFinancialResult,cur,'Доходы − Расходы'));

@@ -95,6 +95,8 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         const source=technical.find(n=>n.textContent.includes('APPROVED_FINANCE_MANAGEMENT_PLAN'));
         const first=source?.querySelector('summary');
         const inp=root.querySelector('[data-owner-key="openSettlementAdjustment"]');
+        const adjustmentGroup=root.querySelector('.rona-ar-col.owner .rona-ar-owner-adjustment');
+        const adjustmentNote=adjustmentGroup?.querySelector('.rona-ar-owner-adjustment-note');
         const settlementInsideExpenses=!!root.querySelector('.rona-ar-col.fact .rona-ar-table>.rona-ar-balances');
         const oldBottomSettlement=!!root.querySelector('.rona-ar>.rona-ar-balances');
         const unit=root.querySelector('.rona-ar-input-currency');
@@ -141,6 +143,13 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
           technicalCount:technical.length,hasHiddenTech:!!source&&!source.open,
           summary:first?.textContent,displayTechnical:source?.open??null,
           inputExists:!!inp,inputDisabled:inp?.disabled,inputCurrency:unit?.textContent,
+          adjustmentNote:{
+            count:root.querySelectorAll('.rona-ar-col.owner .rona-ar-owner-adjustment-note').length,
+            directlyBelowInput:adjustmentNote?.previousElementSibling===inp?.closest('.rona-ar-row'),
+            visible:!!adjustmentNote&&getComputedStyle(adjustmentNote).display!=='none'&&adjustmentNote.getBoundingClientRect().height>0,
+            wraps:!!adjustmentNote&&adjustmentNote.scrollWidth<=adjustmentNote.clientWidth+1,
+            text:adjustmentNote?.textContent||''
+          },
           width:root.getBoundingClientRect().width,scrollWidth:root.scrollWidth,visibleRewardRow:!!root.querySelector('.rona-ar-reward-focus'),
           grouping:{
             factNames:factGroupNames,ownerNames:ownerGroupNames,
@@ -255,6 +264,12 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       assert.equal(result.ledger.planExpenseDetail,1,'The original approved transportation expense article remains in the plan at '+width);
       assert.match(result.ledger.actualPaidTooltip||'',/VISUAL-QA-PAYMENT/,'Payment provenance remains accessible by hover at '+width);
       assert.match(result.ledger.ownerInputTooltip||'',/Корректировка расходов \(доходов\)/,'Owner correction retains its accessible label at '+width);
+      assert.equal(result.adjustmentNote.count,1,'Show one OWNER adjustment note at '+width);
+      assert.equal(result.adjustmentNote.directlyBelowInput,true,'Place the note immediately under the adjustment row at '+width);
+      assert.equal(result.adjustmentNote.visible,true,'OWNER adjustment explanation must stay visible at '+width);
+      assert.equal(result.adjustmentNote.wraps,true,'OWNER adjustment note must wrap without horizontal overflow at '+width);
+      assert.equal(result.adjustmentNote.text,
+        'Плюс — дополнительный расход, минус — дополнительный доход. Это управленческая корректировка, она не является банковским платежом и не изменяет подтверждённые оплаты контрагентам.');
       assert.equal(result.fxCount,1,'One FX reference strip, not duplicate rows, at '+width);
       assert.equal(result.fxInsideTables,0,'FX strip must be OUTSIDE finance tables at '+width);
       assert.equal(result.fxRows,0,'Neither FACT nor Owner table may contain realized FX at '+width);
