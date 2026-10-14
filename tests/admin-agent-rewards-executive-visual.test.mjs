@@ -19,7 +19,7 @@ test('Executive presentation changes no financial authority, formulas, API or se
   assert.match(js,/function termReward\(deal/);
   assert.match(js,/Math\.max\(0,basis\)\*num\(t\.rate\)/);
   assert.match(js,/function ownerModel\(deal,fact\)/);
-  assert.match(js,/netCashFlow\+openSettlementAdjustment/);
+  assert.match(js,/Math\.max\(0,openSettlementAdjustment\)/);
   assert.match(js,/await saveCorrection\(deal\.dealId,deal\.assignmentId,payload,ta\.value\)/);
   assert.match(js,/payload=\{paymentLineAmounts:m\.paymentLineAmounts,openSettlementAdjustment:m\.openSettlementAdjustment\}/);
   assert.match(file,/minimumFractionDigits:1,maximumFractionDigits:1/);
