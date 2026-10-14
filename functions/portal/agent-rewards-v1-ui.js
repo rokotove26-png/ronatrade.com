@@ -754,6 +754,7 @@ function distributeCounterpartyTotal(parts,amount){
 function ownerComputedRow(label,key,value,cur,hint,final=false,signed=true,nullText='TO_VERIFY'){
   const r=pnlRow(label,value,cur,{hint,total:!final,final,signed});
   r.dataset.ownerComputed=key;
+  r.dataset.ownerSigned=signed?'true':'false';
   if(num(value)===null&&nullText){
     const v=q('.rona-ar-value',r);
     if(v){v.textContent=nullText;v.className='rona-ar-value'}
@@ -807,7 +808,7 @@ function recomputeOwner(col,deal,fact,cur){
   const actualFinancialResult=pnl.preTaxProfit;
   const reward=ownerAgentReward(deal,pnl.netProfit);
   const ronaProfit=pnl.netProfit===null||reward.value===null?null:pnl.netProfit-reward.value;
-  const set=(k,v)=>{const n=q('[data-owner-computed="'+k+'"] .rona-ar-value',col);if(n){n.textContent=num(v)===null?'TO_VERIFY':signedMoney(v,cur);n.className='rona-ar-value '+tone(v)}};
+  const set=(k,v)=>{const row=q('[data-owner-computed="'+k+'"]',col),n=q('.rona-ar-value',row);if(n){n.textContent=num(v)===null?'TO_VERIFY':row.dataset.ownerSigned==='false'?money(v,cur):signedMoney(v,cur);n.className='rona-ar-value '+tone(v)}};
   set('income',pnl.income);
   set('expenses',pnl.expenses);
   set('counterpartyCashOut',counterpartyCashOut);
