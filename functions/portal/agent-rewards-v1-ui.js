@@ -902,7 +902,8 @@ function renderOwner(deal){
     else inp.disabled=!editable;
     inp.addEventListener('input',()=>{
       if(inp.hasAttribute('data-owner-payment-group-key'))inp.dataset.groupDirty='1';
-      recomputeOwner(col,deal,fact,cur)
+      const preview=recomputeOwner(col,deal,fact,cur);
+      updateExecutiveInsightsForDraft(col,deal,preview)
     })
   });
   const actions=el('div','rona-ar-actions'),save=el('button','rona-ar-btn primary','Сохранить корректировку'),send=el('button','rona-ar-btn send','Отправить агенту');
@@ -952,7 +953,7 @@ function renderFxReference(root,deal){
 function renderDealCards(root,deals){
   const grid=el('div','rona-ar-deals');
   for(const d of deals){
-    const card=el('button','rona-ar-deal');card.type='button';if(rowKey(d)===state.selectedKey)card.classList.add('is-active');
+    const card=el('button','rona-ar-deal');card.type='button';card.dataset.ronaArDealSelect=rowKey(d);card.setAttribute('aria-pressed',String(rowKey(d)===state.selectedKey));if(rowKey(d)===state.selectedKey)card.classList.add('is-active');
     const top=el('div','rona-ar-deal-top');top.append(el('div','rona-ar-deal-id',d.dealId||'Deal'),chip(d.businessStatus||'—',upper(d.businessStatus)==='CANCELLED'?'warn':''));
     const fm=cashFactModel(d),actual=ownerModel(d,fm),resultTone=tone(actual.netProfit);card.classList.add(resultTone||'verify');
     card.append(top,el('div','rona-ar-deal-client',(d.clientName||'—')+' · '+(d.agentName||'Агент не указан')),el('div','rona-ar-deal-result',actual.netProfit===null?'Чистая прибыль: TO_VERIFY':'Чистая прибыль: '+signedMoney(actual.netProfit,fm.cur)));
@@ -960,20 +961,191 @@ function renderDealCards(root,deals){
   }
   root.append(grid)
 }
+
+function executiveInfoRow(label,value,{kind='',reference=''}={}){
+  const row=el('div','rona-ar-evidence-row'),title=el('div','rona-ar-evidence-label',label),
+    content=el('div','rona-ar-evidence-value'+(kind?' '+kind:''),value);
+  row.append(title,content);
+  if(reference){
+    const ref=el('div','rona-ar-evidence-ref',reference);
+    ref.title=reference;row.append(ref)
+  }
+  return row
+}
+function financialCascadeSteps(owner){
+  return [
+    {label:'Доходы',amount:owner.income,start:0,end:owner.income,type:'income'},
+    {label:'Расходы',amount:owner.expenses,start:owner.income,end:owner.actualFinancialResult,type:'expense'},
+    {label:'Прибыль до налога',amount:owner.actualFinancialResult,start:0,end:owner.actualFinancialResult,type:'subtotal'},
+    {label:'Налоги (10%)',amount:owner.taxes,start:owner.actualFinancialResult,end:owner.netProfit,type:'expense'},
+    {label:'Чистая прибыль',amount:owner.netProfit,start:0,end:owner.netProfit,type:'subtotal'},
+    {label:'Расчёт агенту',amount:owner.reward?.value,start:owner.netProfit,end:owner.ronaProfit,type:'agent',unknownText:agentStatusText(owner.reward?.status)},
+    {label:'Прибыль RONA',amount:owner.ronaProfit,start:0,end:owner.ronaProfit,type:'final'}
+  ]
+}
+function renderExecutiveInsights(root,deal,ownerDraft=null){
+  const plan=planModel(deal),fact=cashFactModel(deal),owner=ownerDraft||ownerModel(deal,fact),
+    cur=currencyOf(deal),pnlCur=plan.cur&&fact.cur&&plan.cur===fact.cur?plan.cur:null;
+  const section=el('section','rona-ar-insights');
+  section.dataset.ronaArInsights='source-only-v1';
+  section.setAttribute('aria-label','Сравнение и документальные основания выбранной сделки');
+  const label=el('div','rona-ar-insights-header');
+  label.append(el('div','rona-ar-insights-eyebrow','АНАЛИТИКА · ЕДИНЫЙ УПРАВЛЕНЧЕСКИЙ РЕЗУЛЬТАТ'),
+    el('div','rona-ar-insights-note','Суммы только из текущих PLAN, FACT и OWNER · без создания права на выплату'));
+  section.append(label);
+  const waterfall=el('section','rona-ar-insight-card rona-ar-waterfall');
+  waterfall.append(el('h3','rona-ar-insight-title','Финансовый каскад'),
+    el('p','rona-ar-insight-subtitle','Доходы → расходы → расчётный налог → чистая прибыль → расчёт агенту → результат RONA'));
+  const compare=el('div','rona-ar-compare');
+  const canCompare=pnlCur!==null&&num(plan.netProfit)!==null&&num(owner.netProfit)!==null;
+  const delta=canCompare?num(owner.netProfit)-num(plan.netProfit):null;
+  for(const [title,value,kind,formatted] of [
+    ['PLAN · чистая прибыль',plan.netProfit,'plan',pnlCur&&num(plan.netProfit)!==null?money(plan.netProfit,pnlCur):'TO_VERIFY'],
+    ['OWNER · чистая прибыль',owner.netProfit,'owner',pnlCur&&num(owner.netProfit)!==null?money(owner.netProfit,pnlCur):'TO_VERIFY'],
+    ['Отклонение OWNER − PLAN',delta,'delta',pnlCur&&delta!==null?signedMoney(delta,pnlCur):'TO_VERIFY']
+  ]){
+    const cell=el('div','rona-ar-compare-cell '+kind),
+      valueNode=el('div','rona-ar-compare-value '+(tone(value)||'verify'),formatted);
+    cell.append(el('div','rona-ar-compare-label',title),valueNode);
+    compare.append(cell)
+  }
+  waterfall.append(compare);
+  const steps=financialCascadeSteps(owner),known=steps
+    .filter(s=>num(s.start)!==null&&num(s.end)!==null&&num(s.amount)!==null);
+  const coords=known.flatMap(s=>[num(s.start),num(s.end)]).concat([0]);
+  const minimum=Math.min(...coords),maximum=Math.max(...coords);
+  const spread=maximum-minimum,zero=spread>0?100*(0-minimum)/spread:0;
+  const bars=el('div','rona-ar-cascade');
+  bars.setAttribute('role','img');
+  bars.setAttribute('aria-label','Финансовый каскад из источников OWNER; неподтверждённые суммы отмечены TO_VERIFY');
+  for(const step of steps){
+    const amount=num(step.amount),a=num(step.start),b=num(step.end),
+      exists=amount!==null&&a!==null&&b!==null,
+      row=el('div','rona-ar-cascade-row '+step.type+(exists?'':' unknown')),
+      title=el('span','rona-ar-cascade-name',step.label),
+      track=el('div','rona-ar-cascade-track'),
+      zeroLine=el('span','rona-ar-cascade-zero'),
+      result=el('span','rona-ar-cascade-value '+(tone(amount)||'verify'),
+        exists?(step.type==='expense'||step.type==='agent'?money(amount,cur):signedMoney(amount,cur))
+          :(step.unknownText||'TO_VERIFY'));
+    row.dataset.ronaArCascadeStep=step.type;
+    zeroLine.style.setProperty('--ar-zero',zero.toFixed(4)+'%');
+    zeroLine.setAttribute('aria-hidden','true');
+    track.append(zeroLine);
+    if(exists){
+      const bar=el('span','rona-ar-cascade-bar');
+      const start=spread>0?(Math.min(a,b)-minimum)/spread*100:zero;
+      const length=spread>0?Math.abs(b-a)/spread*100:0;
+      bar.style.left=Math.max(0,Math.min(100,start)).toFixed(4)+'%';
+      bar.style.width=Math.max(0,Math.min(100,length)).toFixed(4)+'%';
+      bar.setAttribute('aria-hidden','true');
+      track.append(bar)
+    }
+    row.append(title,track,result);bars.append(row)
+  }
+  waterfall.append(bars);
+  const evidence=el('aside','rona-ar-insight-card rona-ar-evidence');
+  evidence.append(el('h3','rona-ar-insight-title','Основание и статус расчёта'),
+    el('p','rona-ar-insight-subtitle','Источники показаны раздельно. Управленческий прогноз не равен подтверждённому обязательству.'));
+  const list=el('div','rona-ar-evidence-list'),p=deal?.planInputs||{},t=deal?.agentTerm||{},
+    planAuthoritative=p.revenueStatus==='APPROVED_FINANCE_MANAGEMENT_PLAN'
+      &&upper(p.expenseStatus).startsWith('APPROVED_FINANCE_MANAGEMENT_PLAN')
+      &&Boolean(deal?.planAuthority?.financeProposalRecordId)
+      &&Boolean(deal?.planAuthority?.operationsApprovalRecordId),
+    termActive=validTerm(deal),ref=upper(t.reference),
+    pendingClosing=termActive&&ref.includes('FINAL LOADING AND CLOSING DOCUMENTS')
+      &&!['COMPLETED','CLOSED'].includes(upper(deal.businessStatus));
+  list.append(
+    executiveInfoRow('PLAN · источник',planAuthoritative?'Finance + Operations · подтверждено':'TO_VERIFY / источник не подтверждён',
+      {kind:planAuthoritative?'ok':'verify'}),
+    executiveInfoRow('FACT · движение денежных средств',fact.approved?'ДДС · подтверждённый источник':'TO_VERIFY / ДДС не подтверждён',
+      {kind:fact.approved?'ok':'verify'}),
+    executiveInfoRow('OWNER · управленческий мост',ownerBridgeApproved(deal)?'Подтверждён':'TO_VERIFY / мост не подтверждён',
+      {kind:ownerBridgeApproved(deal)?'ok':'verify'})
+  );
+  let termDescription='ДС не привязано / источник не подтверждён';
+  if(termActive){
+    const mode=upper(t.mode);
+    termDescription=mode==='PERCENT'&&num(t.rate)!==null
+      ?'Ставка по действующему ДС: '+fmt(num(t.rate)*100)+'%'
+      :mode==='FIXED'&&num(t.fixedAmount)!==null
+        ?'Действующее ДС · фиксировано: '+money(t.fixedAmount,t.currency||cur)
+        :mode==='PER_TONNE'&&num(t.rate)!==null
+          ?'Действующее ДС · ставка за тонну: '+money(t.rate,t.currency||cur)
+          :'Действующее ДС · условия требуют проверки';
+  }
+  list.append(executiveInfoRow('Договорное основание агента',
+    termDescription,{kind:termActive?'ok':'verify',reference:termActive?String(t.reference||''):''}));
+  if(pendingClosing)list.append(executiveInfoRow('Условие действующего ДС',
+    'Закрывающие документы ещё ожидаются · только внутренний прогноз',{kind:'verify'}));
+  const settlement=deal?.settlement||{},settlementState=upper(settlement.state),
+    confirmedSettlement=['APPROVED','PAYABLE_CONFIRMED','PAID'].includes(settlementState)
+      &&['CONFIRMED','VERIFIED','AUTHORITATIVE'].includes(upper(settlement.authorityState))
+      &&num(settlement.amount)!==null
+      &&String(settlement.currency||'').trim()===cur;
+  list.append(executiveInfoRow('Подтверждённое состояние settlement',
+    confirmedSettlement?'Источник: '+settlementState+' · '+money(settlement.amount,cur)
+      :'Не подтверждено в текущем источнике',{kind:confirmedSettlement?'ok':'verify'}));
+  evidence.append(list,el('div','rona-ar-evidence-guard',
+    'Важно: расчёт PLAN / OWNER и график не создают начисление, платёж или право агента на выплату. Решение определяется только действующими документами и отдельным авторизованным settlement.'));
+  section.append(waterfall,evidence);
+  const existing=q('.rona-ar-insights',root);
+  if(existing)existing.replaceWith(section);else root.append(section);
+  return section
+}
+function updateExecutiveInsightsForDraft(col,deal,draft){
+  const root=col.closest('.rona-ar');
+  if(!root||!q('.rona-ar-insights',root))return;
+  const reward=ownerAgentReward(deal,draft.netProfit);
+  renderExecutiveInsights(root,deal,{
+    income:draft.income,expenses:draft.expenses,actualFinancialResult:draft.actualFinancialResult,
+    taxes:draft.taxes,netProfit:draft.netProfit,
+    reward:{value:draft.reward,status:reward.status},ronaProfit:draft.ronaProfit
+  })
+}
+function renderExecutiveWorkspace(root,deals,deal){
+  const workspace=el('div','rona-ar-workspace'),nav=el('aside','rona-ar-directory'),right=el('main','rona-ar-focus');
+  nav.setAttribute('aria-label','Реестр агентских сделок');
+  right.setAttribute('aria-label','Аналитика выбранной сделки');
+  const top=el('div','rona-ar-directory-header'),copy=el('div');
+  copy.append(el('div','rona-ar-directory-kicker','RONA TRADE · DEALS'),
+    el('h2','rona-ar-directory-title','Сделки агентов'));
+  top.append(copy,el('span','rona-ar-directory-count',String(deals.length)));
+  nav.append(top);
+  const cards=q('.rona-ar-deals',root);
+  if(cards)nav.append(cards);
+  nav.append(el('div','rona-ar-directory-footer',
+    'Выберите сделку. Все показатели справа относятся только к её текущему контексту.'));
+  const intro=el('section','rona-ar-focus-intro'),profile=el('div'),tags=el('div','rona-ar-focus-tags');
+  profile.append(el('div','rona-ar-focus-kicker','ВЫБРАННАЯ СДЕЛКА · УПРАВЛЕНЧЕСКИЙ ОБЗОР'),
+    el('h2','rona-ar-focus-title',String(deal.clientName||'Контрагент не указан')),
+    el('div','rona-ar-focus-agent','Агент: '+String(deal.agentName||'Не указан')));
+  tags.append(chip(String(deal.dealId||'Сделка'),''),
+    chip(String(deal.businessStatus||'TO_VERIFY'),''),chip(currencyOf(deal)||'TO_VERIFY',''));
+  intro.append(profile,tags);right.append(intro);
+  for(const selector of ['.rona-ar-status','.rona-ar-pulse','.rona-ar-fx-reference','.rona-ar-pnl-grid','.rona-ar-insights']){
+    const element=q(selector,root);
+    if(element)right.append(element)
+  }
+  workspace.append(nav,right);root.replaceChildren(workspace)
+}
+
 function render(){
-  installStyle();installExecutiveCockpitStyle();const root=el('div','rona-ar'),data=state.data;root.dataset.ronaAgentRewardsVisual='premium-fintech-v2';
+  installStyle();installExecutiveCockpitStyle();const root=el('div','rona-ar'),data=state.data;root.dataset.ronaAgentRewardsVisual='premium-fintech-v2';root.dataset.ronaAgentRewardsCockpit='executive-cockpit-v1';
   if(!data){root.append(el('div','rona-ar-loader','Загрузка финансового P&L-контура…'));replace(root);return}
   const deals=Array.isArray(data.deals)?data.deals:[];
   if(state.selectedKey&&!deals.some(d=>rowKey(d)===state.selectedKey))state.selectedKey=null;
   if(!deals.length){root.append(el('div','rona-ar-loader','Сделок в агентском контуре пока нет.'));replace(root);return}
-  renderDealCards(root,deals);
   if(!state.selectedKey)state.selectedKey=rowKey(deals[0]);
+  renderDealCards(root,deals);
   const deal=selectedDeal();
   if(deal){
     const st=el('div','rona-ar-status');st.append(el('span','',deal.dealId+' · '+deal.clientName+' · '+(deal.agentName||'Агент')),el('strong','','Валюта: '+(currencyOf(deal)||'TO_VERIFY')));root.append(st);
     renderDealPulse(root,deal);
     renderFxReference(root,deal);
-    const grid=el('div','rona-ar-pnl-grid');grid.append(renderPlan(deal),renderFact(deal),renderOwner(deal));root.append(grid)
+    const grid=el('div','rona-ar-pnl-grid');grid.append(renderPlan(deal),renderFact(deal),renderOwner(deal));root.append(grid);
+    renderExecutiveInsights(root,deal);
+    renderExecutiveWorkspace(root,deals,deal);
   }
   replace(root)
 }
