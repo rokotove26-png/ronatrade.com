@@ -40,7 +40,9 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       revenue:5000,expenseKnownTotal:3000,expenseLines:[{label:'Транспортировка',amount:3000,currency:'USD'}],
       taxesAndPayments:250,fxDifference:10,agentReward:500,agentRewardStatus:'APPROVED_FINANCE_MANAGEMENT_PLAN',
       expenseStatus:'APPROVED_FINANCE_MANAGEMENT_PLAN',revenueStatus:'APPROVED_FINANCE_MANAGEMENT_PLAN',
-      taxesAndPaymentsStatus:'TO_VERIFY_PLAN_TAX_STATUS',fxStatus:'TO_VERIFY_PLAN_FX_STATUS'
+      taxesAndPaymentsStatus:'TO_VERIFY_PLAN_TAX_STATUS',fxStatus:'TO_VERIFY_PLAN_FX_STATUS',
+      transportBreakdownStatus:'APPROVED_BREAKDOWN_WITH_TARIFF_CONFLICT',
+      transportBreakdown:{currency:'USD',components:[{label:'Тарифный компонент',amount:3000,currency:'USD'}],conflict:{scope:'RONA_VISUAL_QA',plan_rate:14,rail_matrix_rate:17,unit:'USD/t'}}
     },
     cashFlow:{status:'APPROVED_CASH_FLOW_DDS',currency:'USD',cashReceived:5000,counterpartyCashOut:3000,bankFees:20,netCashFlow:1980,realizedFxReference:10},
     cashPaymentLines:[{paymentId:'VISUAL-QA-PAYMENT',counterparty:'Поставщик',amount:3000,currency:'USD',nativeAmount:3000,nativeCurrency:'USD',authorityStatus:'APPROVED_PAYMENT_FACT'}],
@@ -56,6 +58,8 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
   try{
     for(const width of [1750,1440,950,650]){
       deal.cashFlow.realizedFxReference=width===950?-10:10;
+      deal.planInputs.transportBreakdownStatus=width===950?'APPROVED_BREAKDOWN':'APPROVED_BREAKDOWN_WITH_TARIFF_CONFLICT';
+      deal.planInputs.transportBreakdown=width===950?{components:[{label:'Тарифный компонент',amount:3000,currency:'USD'}]}:{components:[{label:'Тарифный компонент',amount:3000,currency:'USD'}],conflict:{scope:'RONA_VISUAL_QA',plan_rate:14,rail_matrix_rate:17,unit:'USD/t'}};
       const page=await browser.newPage({viewport:{width,height:1000},deviceScaleFactor:1});
       const errors=[];const calls=[];
       page.on('pageerror',err=>errors.push(err.message));
@@ -83,6 +87,7 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         const inp=root.querySelector('[data-owner-key="openSettlementAdjustment"]');
         const unit=root.querySelector('.rona-ar-input-currency');
         const sections=cols.map(el=>el.querySelector('.rona-ar-col-title')?.textContent);
+        const expenseTotal=[...root.querySelectorAll('.rona-ar-col.plan .rona-ar-row')].find(el=>el.querySelector('.rona-ar-name')?.textContent.startsWith('Расходы постатейно'));
         const fx=root.querySelector('[data-rona-ar-fx-reference="1"]');
         const fxValue=fx?.querySelector('.rona-ar-fx-value');
         const fxTableRows=[...root.querySelectorAll('.rona-ar-pnl-grid .rona-ar-row')]
@@ -98,6 +103,19 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
           summary:first?.textContent,displayTechnical:source?.open??null,
           inputExists:!!inp,inputDisabled:inp?.disabled,inputCurrency:unit?.textContent,
           width:root.getBoundingClientRect().width,scrollWidth:root.scrollWidth,visibleRewardRow:!!root.querySelector('.rona-ar-reward-focus'),
+          ledger:{
+            hintCount:root.querySelectorAll('.rona-ar-pnl-grid .rona-ar-row .rona-ar-hint').length,
+            expenseSubtitleCount:root.querySelectorAll('.rona-ar-pnl-grid .rona-ar-exp-sub').length,
+            tariffSections:root.querySelectorAll('.rona-ar-pnl-grid .rona-ar-transport').length,
+            tariffHeadings:[...root.querySelectorAll('.rona-ar-pnl-grid *')].filter(el=>el.textContent==='Транспортировка · тарифный состав').length,
+            tariffConflict:root.querySelectorAll('.rona-ar-col.plan .rona-ar-tariff-flag').length,
+            tariffFlagText:root.querySelector('.rona-ar-col.plan .rona-ar-tariff-flag')?.textContent||null,
+            planExpenseAmount:expenseTotal?.querySelector('.rona-ar-value')?.textContent||null,
+            planExpenseTooltip:expenseTotal?.querySelector('.rona-ar-name')?.title||null,
+            planExpenseDetail:root.querySelectorAll('.rona-ar-col.plan .rona-ar-exp-name').length,
+            actualPaidTooltip:root.querySelector('.rona-ar-col.fact .rona-ar-exp-name')?.title||null,
+            ownerInputTooltip:root.querySelector('.rona-ar-col.owner [data-owner-key="openSettlementAdjustment"]')?.getAttribute('aria-label')||null
+          },
           fxCount:root.querySelectorAll('[data-rona-ar-fx-reference="1"]').length,
           fxAmount:fxValue?.textContent,fxColor:fxValue?getComputedStyle(fxValue).color:null,
           fxMeaning:fx?.querySelector('.rona-ar-fx-label')?.textContent,
@@ -138,6 +156,17 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       assert(result.visibleRewardRow,'Reward rows must have visible priority at '+width);
       assert(result.inputExists&&result.inputCurrency==='USD','Currency displayed beside editable numeric amount');
       assert.equal(result.inputDisabled,true,'Unauthorized test must not unlock owner correction');
+      assert.equal(result.ledger.hintCount,0,'No tiny comments underneath financial line items at '+width);
+      assert.equal(result.ledger.expenseSubtitleCount,0,'No tiny metadata below expense or payment details at '+width);
+      assert.equal(result.ledger.tariffSections,0,'Tariff breakdown section must not render at '+width);
+      assert.equal(result.ledger.tariffHeadings,0,'Tariff composition heading must be fully removed at '+width);
+      assert.equal(result.ledger.tariffConflict,width===950?0:1,'Tariff warning must appear only when actual source reports conflict at '+width);
+      if(width!==950)assert.equal(result.ledger.tariffFlagText,'Тарифное расхождение');
+      assert.equal(result.ledger.planExpenseAmount,'3 000,0 USD','Source-locked approved expense total must not change at '+width);
+      assert.equal(result.ledger.planExpenseTooltip,'APPROVED_FINANCE_MANAGEMENT_PLAN','Nonvisual source details must be retained in a label tooltip at '+width);
+      assert.equal(result.ledger.planExpenseDetail,1,'The original approved transportation expense article remains in the plan at '+width);
+      assert.match(result.ledger.actualPaidTooltip||'',/VISUAL-QA-PAYMENT/,'Payment provenance remains accessible by hover at '+width);
+      assert.match(result.ledger.ownerInputTooltip||'',/Незакрытые расчёты/,'Owner correction retains its accessible label at '+width);
       assert.equal(result.fxCount,1,'One FX reference strip, not duplicate rows, at '+width);
       assert.equal(result.fxInsideTables,0,'FX strip must be OUTSIDE finance tables at '+width);
       assert.equal(result.fxRows,0,'Neither FACT nor Owner table may contain realized FX at '+width);
