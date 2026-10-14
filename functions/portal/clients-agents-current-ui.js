@@ -122,7 +122,7 @@ function currentUiRuntime(){
     if(!workspace||!Array.isArray(workspace.users))return null;
     const target=txt(client?.client_id);
     return users().filter(u=>Array.isArray(u.bindings)&&u.bindings.some(b=>
-      txt(b.clientId||b.client_id)===target&&String(b.status||'ACTIVE').toUpperCase()!=='REVOKED'));
+      txt(b.clientId||b.client_id)===target&&String(b.status||'').toUpperCase()==='ACTIVE'));
   }
   function companyCurrentContracts(client){
     const id=txt(client?.client_id),reference=txt(client?.contract_id);
