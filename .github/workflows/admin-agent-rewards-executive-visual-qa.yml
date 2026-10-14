@@ -36,7 +36,9 @@ jobs:
             echo "FINANCE_UI_SCOPE_VIOLATION" >&2
             exit 1
           fi
-          test "$(wc -l < /tmp/agent-rewards-ui-files.txt | tr -d ' ')" = 3
+          test -s /tmp/agent-rewards-ui-files.txt
+          grep -Fxq 'functions/portal/agent-rewards-v1-ui.js' /tmp/agent-rewards-ui-files.txt
+          grep -Fxq 'tests/admin-agent-rewards-executive-visual.test.mjs' /tmp/agent-rewards-ui-files.txt
           echo 'FINANCE_PRESENTATION_DELTA_ONLY=PASS'
       - name: Verify finance P&L contract and unchanged authority
         run: |
