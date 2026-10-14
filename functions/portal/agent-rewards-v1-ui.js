@@ -323,54 +323,8 @@ function termReward(deal,{preferSettlement=false,basisValue=null}={}){
   }
   return{value:null,status:'TO_VERIFY'}
 }
-function groupExpenses(deal){
-  const cur=currencyOf(deal),rows=Array.isArray(deal?.expenses)?deal.expenses:[],map=new Map();
-  for(const x of rows){
-    const cc=String(x.receiptCurrency||'').trim(),amount=num(x.receiptCurrencyEquivalent);
-    if(!cc||cc!==cur||amount===null)continue;
-    const kind=upper(x.paymentKind),key=[kind,String(x.paymentId||''),String(x.counterparty||'')].join('|');
-    const prev=map.get(key)||{key,kind,paymentId:x.paymentId||'',counterparty:x.counterparty||x.counterpartyName||'',amount:0,currency:cc,native:[],category:x.expenseCategory||'',basis:x.accrualBasis||'',status:x.expenseStatus||''};
-    prev.amount+=amount;
-    if(num(x.nativeAmount)!==null&&x.nativeCurrency)prev.native.push(money(x.nativeAmount,String(x.nativeCurrency).trim()));
-    map.set(key,prev)
-  }
-  return Array.from(map.values())
-}
-function managementReward(deal,basisValue){
-  const t=deal?.agentTerm||{},cur=currencyOf(deal),ref=upper(t.reference),basis=num(basisValue);
-  if(!validTerm(deal))return{value:null,status:t.mode?'TERM_NOT_ACTIVE':'TERM_MISSING'};
-  if(upper(t.mode)==='FIXED'&&num(t.fixedAmount)!==null&&String(t.currency||'').trim()===cur)return{value:num(t.fixedAmount),status:'MANAGEMENT_RECALC_FIXED_TERM'};
-  if(upper(t.mode)==='PER_TONNE'&&num(t.rate)!==null){
-    const qty=num(deal?.accrualFact?.quantity?.actual_tonnes)??num(deal.quantityTonnes);
-    if(qty===null||String(t.currency||'').trim()!==cur)return{value:null,status:'CALCULATION_BASIS_REQUIRED'};
-    return{value:num(t.rate)*qty,status:'MANAGEMENT_RECALC_PER_TONNE_TERM'}
-  }
-  if(upper(t.mode)==='PERCENT'&&num(t.rate)!==null){
-    if(basis===null)return{value:null,status:'CALCULATION_BASIS_REQUIRED'};
-    return{value:Math.max(0,basis)*num(t.rate),status:ref.includes('EXCLUDING FX')?'MANAGEMENT_RECALC_PERCENT_EXCLUDING_FX':'MANAGEMENT_RECALC_PERCENT_TERM'}
-  }
-  return{value:null,status:'TO_VERIFY'}
-}
-function factModel(deal){
-  const cur=currencyOf(deal),all=groupExpenses(deal),operating=all.filter(x=>x.kind==='COUNTERPARTY_PAYMENT');
-  const opTotal=operating.length?operating.reduce((s,x)=>s+x.amount,0):null;
-  const recognitionStatus=String(deal?.accrualFact?.recognition_status||deal?.factInputs?.recognitionStatus||'TO_VERIFY_NO_APPROVED_ACCRUAL_FACT');
-  const approved=recognitionStatus==='APPROVED_OPERATIONAL_ACCRUAL_FACT';
-  const actualSpend=num(deal?.factInputs?.accruedExpenseTotal??deal?.factInputs?.actualSpend);
-  const fx=approved?num(deal?.factInputs?.fxDifference):null;
-  const fxStatus=String(deal?.factInputs?.fxStatus||deal?.asIs?.fxStatus||'TO_VERIFY_NO_AUTHORITATIVE_PERFORMANCE_FACT');
-  const revenue=approved?num(deal?.factInputs?.revenue):null;
-  const taxes=approved?num(deal?.factInputs?.taxesAndPayments):null;
-  const financialResult=revenue===null||opTotal===null?null:revenue-opTotal;
-  const netProfit=financialResult===null||taxes===null||fx===null?null:financialResult-taxes+fx;
-  const approvedReward=approved?num(deal?.accrualFact?.agent_reward):null;
-  const reward=!approved?{value:null,status:'FACT_PERFORMANCE_REQUIRED'}:approvedReward!==null?{value:approvedReward,status:'APPROVED_ACCRUAL_AGENT_REWARD'}:managementReward(deal,financialResult);
-  const ronaProfit=netProfit===null||reward.value===null?null:netProfit-reward.value;
-  const actualQuantity=approved?num(deal?.accrualFact?.quantity?.actual_tonnes):null;
-  const settlementPositions=Array.isArray(deal?.settlementPositions)?deal.settlementPositions:[];
-  const conditionalPositions=Array.isArray(deal?.conditionalPositions)?deal.conditionalPositions:[];
-  return{cur,revenue,operating,opTotal,taxes,fx,fxStatus,financialResult,netProfit,reward,ronaProfit,actualSpend,actualQuantity,recognitionStatus,approved,settlementPositions,conditionalPositions}
-}
+// Legacy accrual helper had a second incompatible profit/tax formula. Removed;
+// authoritative operational accrual facts remain untouched in Finance source data.
 function cashPaymentLinesModel(deal,cur){
   // Functional contract: one row per source-verified canonical counterparty,
   // NOT one row per paymentId. Unresolved identities remain isolated and flagged.
@@ -437,16 +391,55 @@ function cashFactModel(deal){
   }
 }
 
+// One management P&L formula shared by PLAN, FACT and OWNER. Finance sources
+// remain immutable: this 10% is a managerial provision, not a statutory tax fact.
+const MANAGEMENT_TAX_RATE=0.10;
+function managementProfitModel(income,expenses){
+  const earned=num(income),spent=num(expenses);
+  if(earned===null||spent===null)return{
+    income:earned,expenses:spent,preTaxProfit:null,taxes:null,netProfit:null,
+    status:'TO_VERIFY_MANAGEMENT_PROFIT_BASE'
+  };
+  const preTaxProfit=earned-spent;
+  const taxes=Math.max(0,preTaxProfit)*MANAGEMENT_TAX_RATE;
+  return{
+    income:earned,expenses:spent,preTaxProfit,taxes,
+    netProfit:preTaxProfit-taxes,status:'MANAGEMENT_TAX_10_PERCENT'
+  }
+}
+function managementAgentReward(deal,netProfit){
+  return num(netProfit)===null
+    ?{value:null,status:'NET_PROFIT_REQUIRED'}
+    :termReward(deal,{preferSettlement:false,basisValue:netProfit})
+}
+function factManagementModel(deal,fact){
+  const expenses=fact.approved&&fact.counterpartyCashOut!==null&&fact.bankFees!==null
+    ?fact.counterpartyCashOut+fact.bankFees:null;
+  const pnl=managementProfitModel(fact.cashReceived,expenses);
+  const reward=managementAgentReward(deal,pnl.netProfit);
+  return{...pnl,reward,ronaProfit:pnl.netProfit===null||reward.value===null
+    ?null:pnl.netProfit-reward.value}
+}
 function planModel(deal){
-  const cur=currencyOf(deal),p=deal?.planInputs||{},lines=Array.isArray(p.expenseLines)?p.expenseLines.filter(x=>String(x.currency||'').trim()===cur&&num(x.amount)!==null):[];
-  const expTotal=num(p.expenseKnownTotal);
-  const revenue=num(p.revenue),financialResult=revenue===null||expTotal===null?null:revenue-expTotal;
-  const taxes=num(p.taxesAndPayments),fx=num(p.fxDifference);
-  const netProfit=financialResult===null||taxes===null||fx===null?null:financialResult-taxes+fx;
-  const approvedReward=num(p.agentReward);
-  const reward=approvedReward!==null?{value:approvedReward,status:p.agentRewardStatus||'APPROVED_FINANCE_MANAGEMENT_PLAN'}:termReward(deal,{preferSettlement:false,basisValue:financialResult});
-  const ronaProfit=netProfit===null||reward.value===null?null:netProfit-reward.value;
-  return{cur,revenue,lines,expTotal,financialResult,taxes,fx,netProfit,reward,ronaProfit,expenseStatus:p.expenseStatus||'TO_VERIFY',revenueStatus:p.revenueStatus||'TO_VERIFY',taxStatus:p.taxesAndPaymentsStatus||'TO_VERIFY',fxStatus:p.fxStatus||'TO_VERIFY',transportBreakdown:p.transportBreakdown||null,transportBreakdownStatus:p.transportBreakdownStatus||'NOT_MATERIALIZED'}
+  const cur=currencyOf(deal),p=deal?.planInputs||{},
+    lines=Array.isArray(p.expenseLines)?p.expenseLines.filter(x=>String(x.currency||'').trim()===cur&&num(x.amount)!==null):[];
+  const expTotal=num(p.expenseKnownTotal),revenue=num(p.revenue);
+  const pnl=managementProfitModel(revenue,expTotal);
+  const reward=managementAgentReward(deal,pnl.netProfit);
+  const ronaProfit=pnl.netProfit===null||reward.value===null?null:pnl.netProfit-reward.value;
+  // Preserve historical Finance-approved plan inputs only as source evidence.
+  // Tax and FX source fields are not silently re-applied to this user-defined 10% model.
+  return{
+    cur,revenue,lines,expTotal,financialResult:pnl.preTaxProfit,taxes:pnl.taxes,
+    netProfit:pnl.netProfit,reward,ronaProfit,
+    sourceTaxes:num(p.taxesAndPayments),sourceFx:num(p.fxDifference),
+    sourceAgentReward:num(p.agentReward),
+    expenseStatus:p.expenseStatus||'TO_VERIFY',
+    revenueStatus:p.revenueStatus||'TO_VERIFY',
+    taxStatus:pnl.status,
+    transportBreakdown:p.transportBreakdown||null,
+    transportBreakdownStatus:p.transportBreakdownStatus||'NOT_MATERIALIZED'
+  }
 }
 function correctionPaymentValue(deal,paymentId,fallback){
   const p=deal?.ownerCorrection?.payload||{},lines=p?.paymentLineAmounts;
@@ -460,18 +453,18 @@ function ownerCorrectionApproved(deal){
   return String(deal?.ownerCorrectionAuthority?.status||'')==='APPROVED_FOR_OWNER_CORRECTION'
     && String(deal?.ownerCorrectionAuthority?.contract||'')==='PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'
 }
-function ownerAgentReward(deal,actualResult){
-  // The Owner's INTERNAL calculation basis is exactly actual financial result.
-  // This does NOT amend a confirmed external agent contract or agent payable.
-  const basis=num(actualResult);
-  if(basis===null)return{value:null,basis:null,status:'ACTUAL_RESULT_REQUIRED',externalFxTermConflict:false};
-  const reward=termReward(deal,{preferSettlement:false,basisValue:basis});
+function ownerAgentReward(deal,netProfit){
+  // The internal basis is always after-tax management profit; an external
+  // signed EXCLUDING FX clause still requires separate contractual review.
+  const basis=num(netProfit);
+  if(basis===null)return{value:null,basis:null,status:'NET_PROFIT_REQUIRED',externalFxTermConflict:false};
+  const reward=managementAgentReward(deal,basis);
   const t=deal?.agentTerm||{};
   const externalFxTermConflict=upper(t.mode)==='PERCENT'&&upper(t.reference).includes('EXCLUDING FX');
   return{
     value:reward.value,basis,externalFxTermConflict,
     status:externalFxTermConflict&&reward.value!==null
-      ?'INTERNAL_ACTUAL_RESULT_BASIS_EXTERNAL_FX_TERM_REVIEW_REQUIRED'
+      ?'INTERNAL_NET_PROFIT_BASIS_EXTERNAL_FX_TERM_REVIEW_REQUIRED'
       :reward.status
   }
 }
@@ -497,30 +490,30 @@ function ownerModel(deal,fact){
   const counterpartyCashOut=fact.counterpartyCashOut===null||!paymentComplete?null:fact.counterpartyCashOut+paymentDelta;
   const netCashFlow=fact.cashReceived===null||counterpartyCashOut===null||fact.bankFees===null
     ?null:fact.cashReceived-counterpartyCashOut-fact.bankFees;
-  const actualFinancialResult=netCashFlow===null||openSettlementAdjustment===null
-    ?null:netCashFlow+openSettlementAdjustment;
-  const reward=bridgeApproved?ownerAgentReward(deal,actualFinancialResult):{value:null,basis:null,status:'OPEN_SETTLEMENT_BRIDGE_REQUIRED'};
-  const ronaProfit=actualFinancialResult===null||reward.value===null?null:actualFinancialResult-reward.value;
+  // Owner open-settlement (+/-) is represented explicitly on the income/expense
+  // side of the same formula; its signed source input and audit trail are unchanged.
+  const income=netCashFlow===null||openSettlementAdjustment===null
+    ?null:fact.cashReceived+Math.max(0,openSettlementAdjustment);
+  const expenses=netCashFlow===null||openSettlementAdjustment===null
+    ?null:counterpartyCashOut+fact.bankFees+Math.max(0,-openSettlementAdjustment);
+  const pnl=managementProfitModel(income,expenses);
+  const actualFinancialResult=pnl.preTaxProfit;
+  const reward=bridgeApproved?ownerAgentReward(deal,pnl.netProfit)
+    :{value:null,basis:null,status:'OPEN_SETTLEMENT_BRIDGE_REQUIRED'};
+  const ronaProfit=pnl.netProfit===null||reward.value===null?null:pnl.netProfit-reward.value;
   return{
     bridge,bridgeApproved,correctionScopeValid,
-    cashReceived:fact.cashReceived,
-    counterpartyCashOut,
+    cashReceived:fact.cashReceived,counterpartyCashOut,
     factCounterpartyCashOut:fact.counterpartyCashOut,
-    bankFees:fact.bankFees,
-    netCashFlow,
-    factNetCashFlow:fact.netCashFlow,
-    paymentLines,
-    fxReference:fact.realizedFxReference,
-    openSettlementAdjustment,
-    actualFinancialResult,
-    reward,
-    ronaProfit
+    bankFees:fact.bankFees,netCashFlow,factNetCashFlow:fact.netCashFlow,
+    income:pnl.income,expenses:pnl.expenses,taxes:pnl.taxes,netProfit:pnl.netProfit,
+    paymentLines,fxReference:fact.realizedFxReference,openSettlementAdjustment,
+    actualFinancialResult,reward,ronaProfit
   }
 }
-
 function rowVisualIcon(label){
   const s=upper(label);
-  if(s.includes('ВЫРУЧ')||s.includes('ПОСТУП'))return'↓';
+  if(s.includes('ВЫРУЧ')||s.includes('ПОСТУП')||s.includes('ДОХОД'))return'↓';
   if(s.includes('ОПЛАЧ')||s.includes('РАСХОД'))return'↗';
   if(s.includes('КОМИСС'))return'¤';
   if(s.includes('ДДС'))return'↕';
@@ -556,7 +549,7 @@ function financeMeaning(label){
   if(v.includes('АГЕНТСКОГО ВОЗНАГРАЖДЕНИЯ')||v.includes('АГЕНТСКОЕ ВОЗНАГРАЖДЕНИЕ'))return'agent';
   if(v.includes('КУРСОВАЯ')||v.includes(' FX'))return'fx';
   if(v.includes('НЕЗАКРЫТЫЕ РАСЧЁТЫ'))return'adjustment';
-  if(v.includes('ВЫРУЧКА')||v.includes('ВЫРУЧКУ')||v==='ПОСТУПИЛО')return'inflow';
+  if(v.includes('ВЫРУЧКА')||v.includes('ВЫРУЧКУ')||v.includes('ДОХОДЫ')||v==='ПОСТУПИЛО')return'inflow';
   if(v.includes('ОПЛАЧЕНО')||v.includes('РАСХОДЫ')||v.includes('КОМИССИИ')||v.includes('НАЛОГИ'))return'outflow';
   if(v.includes('ПРИБЫЛЬ')||v.includes('РЕЗУЛЬТАТ')||v.includes('ЧИСТЫЙ ДДС'))return'result';
   return'neutral'
@@ -588,22 +581,22 @@ function columnHead(kind,title,meta,badge,badgeKind){
 }
 function renderPlan(deal){
   const m=planModel(deal),col=el('section','rona-ar-col plan');
-  col.append(columnHead('1 · ПЛАН','Ожидаемый результат','Расчёт только по доступным параметрам сделки','PLAN',''));
+  col.append(columnHead('1 · ПЛАН','Ожидаемый результат',
+    'Единая управленческая формула · налог 10% расчётно','PLAN',''));
   const table=el('div','rona-ar-table');
-  table.append(pnlRow('Итого выручка',m.revenue,m.cur,{hint:m.revenueStatus,total:true}));
-  const expensesTotal=pnlRow('Расходы постатейно',m.expTotal,m.cur,{hint:m.expenseStatus});
-  // Preserve the authoritative tariff-conflict warning without showing tariff composition.
+  table.append(pnlRow('Доходы',m.revenue,m.cur,{hint:m.revenueStatus,total:true}));
+  const expensesTotal=pnlRow('Расходы',m.expTotal,m.cur,{hint:m.expenseStatus});
   if(m.transportBreakdown?.conflict||upper(m.transportBreakdownStatus).includes('CONFLICT')){
     const warning=chip('Тарифное расхождение','warn');warning.classList.add('rona-ar-tariff-flag');
     q('.rona-ar-name',expensesTotal)?.append(warning)
   }
   table.append(expensesTotal);
-  table.append(expenseLines(m.lines,'Плановые статьи затрат не материализованы · TO_VERIFY'));
-  table.append(pnlRow('Итого финансовый результат',m.financialResult,m.cur,{hint:'Выручка − плановые расходы',total:true,signed:true}));
-  table.append(pnlRow('Налоги и платежи',m.taxes,m.cur,{hint:m.taxStatus,status:m.taxStatus}));
-  table.append(pnlRow('Итого чистая прибыль',m.netProfit,m.cur,{hint:'Финрезультат − налоги/платежи ± курс',total:true,signed:true}));
-  table.append(pnlRow('Агентское вознаграждение',m.reward.value,m.cur,{hint:m.reward.status}));
-  table.append(pnlRow('Итого прибыль RONA',m.ronaProfit,m.cur,{hint:'Чистая прибыль − агентское вознаграждение',final:true,signed:true}));
+  table.append(expenseLines(m.lines,'Плановые статьи затрат не подтверждены · TO_VERIFY'));
+  table.append(pnlRow('Прибыль до налогообложения',m.financialResult,m.cur,{hint:'Доходы − Расходы',total:true,signed:true}));
+  table.append(pnlRow('Налоги и платежи (10%)',m.taxes,m.cur,{hint:'Управленческое начисление · 10% от положительной прибыли',status:m.taxStatus}));
+  table.append(pnlRow('Чистая прибыль',m.netProfit,m.cur,{hint:'Прибыль до налогообложения − расчётный налог',total:true,signed:true}));
+  table.append(pnlRow('Агентское вознаграждение',m.reward.value,m.cur,{hint:'База — Чистая прибыль · '+m.reward.status}));
+  table.append(pnlRow('Прибыль RONA',m.ronaProfit,m.cur,{hint:'Чистая прибыль − Агентское вознаграждение',final:true,signed:true}));
   col.append(table);return col
 }
 function balanceKind(x){
@@ -636,11 +629,14 @@ function balancesView(deal){
   return box
 }
 function renderFact(deal){
-  const m=cashFactModel(deal),col=el('section','rona-ar-col fact');
-  col.append(columnHead('2 · ФАКТ','ДДС по сделке','Только реальные поступления и выплаты',m.approved?'ДДС':'TO VERIFY',m.approved?'good':'warn'));
+  const m=cashFactModel(deal),pnl=factManagementModel(deal,m),col=el('section','rona-ar-col fact');
+  col.append(columnHead('2 · ФАКТ','Расчёт по фактическим платежам',
+    'Подтверждённые денежные операции · управленческий налог 10%, не факт уплаты',
+    m.approved?'ФАКТ':'TO VERIFY',m.approved?'good':'warn'));
   const table=el('div','rona-ar-table');
-  table.append(pnlRow('Поступило',m.cashReceived,m.cur,{hint:'Фактические поступления денежных средств',total:true}));
-  table.append(pnlRow('Оплачено контрагентам',m.counterpartyCashOut,m.cur,{hint:'Подтверждённые списания по сделке',total:true}));
+  table.append(pnlRow('Доходы',pnl.income,m.cur,{hint:'Подтверждённые денежные поступления, денежная база расчёта',total:true}));
+  table.append(pnlRow('Расходы',pnl.expenses,m.cur,{hint:'Оплачено контрагентам + банковские комиссии',total:true}));
+  table.append(pnlRow('Оплачено контрагентам',m.counterpartyCashOut,m.cur,{hint:'Подтверждённые платежи по каноническим контрагентам'}));
   table.append(expenseLines(
     m.paymentLines.map(x=>({
       label:x.counterparty,
@@ -652,10 +648,13 @@ function renderFact(deal){
     })),
     m.approved?'Подтверждённых выплат контрагентам нет.':'Выплаты TO_VERIFY.'
   ));
-  table.append(pnlRow('Банковские комиссии',m.bankFees,m.cur,{hint:'Фактически списанные комиссии'}));
-  table.append(pnlRow('Чистый ДДС',m.netCashFlow,m.cur,{hint:'Поступления − выплаты − комиссии',final:true,signed:true}));
-  col.append(table);
-  return col
+  table.append(pnlRow('Банковские комиссии',m.bankFees,m.cur,{hint:'Фактически списанные комиссии, уже включены в Расходы'}));
+  table.append(pnlRow('Прибыль до налогообложения',pnl.preTaxProfit,m.cur,{hint:'Доходы − Расходы',total:true,signed:true}));
+  table.append(pnlRow('Налоги и платежи (10%)',pnl.taxes,m.cur,{hint:'Управленческое начисление · 10% от положительной прибыли'}));
+  table.append(pnlRow('Чистая прибыль',pnl.netProfit,m.cur,{hint:'Прибыль до налогообложения − расчётный налог',total:true,signed:true}));
+  table.append(pnlRow('Агентское вознаграждение',pnl.reward.value,m.cur,{hint:'База — Чистая прибыль · '+pnl.reward.status}));
+  table.append(pnlRow('Прибыль RONA',pnl.ronaProfit,m.cur,{hint:'Чистая прибыль − Агентское вознаграждение',final:true,signed:true}));
+  col.append(table);return col
 }
 function ownerInputRow(label,key,value,cur,hint){
   const r=el('div','rona-ar-row'),left=el('div'),inp=el('input','rona-ar-input');r.dataset.financeMeaning=financeMeaning(label);
@@ -709,6 +708,7 @@ function distributeCounterpartyTotal(parts,amount){
 function ownerComputedRow(label,key,value,cur,hint,final=false,signed=true,nullText='TO_VERIFY'){
   const r=pnlRow(label,value,cur,{hint,total:!final,final,signed});
   r.dataset.ownerComputed=key;
+  r.dataset.ownerSigned=signed?'true':'false';
   if(num(value)===null&&nullText){
     const v=q('.rona-ar-value',r);
     if(v){v.textContent=nullText;v.className='rona-ar-value'}
@@ -720,7 +720,7 @@ function agentStatusText(status){
   if(s==='TERM_MISSING'||s==='TERM_NOT_ACTIVE')return'Нет действующего условия';
   if(s==='CLOSING_CONDITIONS_REQUIRED')return'Расчёт после закрытия';
   if(s==='FX_REFERENCE_REQUIRED_FOR_AGENT_BASIS')return'Нужна FX-база';
-  if(s==='ACTUAL_RESULT_REQUIRED'||s==='OPEN_SETTLEMENT_BRIDGE_REQUIRED')return'Нет расчётной базы';
+  if(s==='ACTUAL_RESULT_REQUIRED'||s==='NET_PROFIT_REQUIRED'||s==='OPEN_SETTLEMENT_BRIDGE_REQUIRED')return'Нет чистой прибыли для расчёта';
   return'Расчёт не завершён'
 }
 function recomputeOwner(col,deal,fact,cur){
@@ -754,19 +754,28 @@ function recomputeOwner(col,deal,fact,cur){
   const netCashFlow=fact.cashReceived===null||counterpartyCashOut===null||fact.bankFees===null
     ?null:fact.cashReceived-counterpartyCashOut-fact.bankFees;
   const openSettlementAdjustment=round1(q('[data-owner-key="openSettlementAdjustment"]',col)?.value);
-  const actualFinancialResult=netCashFlow===null||openSettlementAdjustment===null?null:netCashFlow+openSettlementAdjustment;
-  const reward=ownerAgentReward(deal,actualFinancialResult);
-  const ronaProfit=actualFinancialResult===null||reward.value===null?null:actualFinancialResult-reward.value;
-  const set=(k,v)=>{const n=q('[data-owner-computed="'+k+'"] .rona-ar-value',col);if(n){n.textContent=num(v)===null?'TO_VERIFY':signedMoney(v,cur);n.className='rona-ar-value '+tone(v)}};
+  const income=netCashFlow===null||openSettlementAdjustment===null
+    ?null:fact.cashReceived+Math.max(0,openSettlementAdjustment);
+  const expenses=netCashFlow===null||openSettlementAdjustment===null
+    ?null:counterpartyCashOut+fact.bankFees+Math.max(0,-openSettlementAdjustment);
+  const pnl=managementProfitModel(income,expenses);
+  const actualFinancialResult=pnl.preTaxProfit;
+  const reward=ownerAgentReward(deal,pnl.netProfit);
+  const ronaProfit=pnl.netProfit===null||reward.value===null?null:pnl.netProfit-reward.value;
+  const set=(k,v)=>{const row=q('[data-owner-computed="'+k+'"]',col),n=q('.rona-ar-value',row);if(n){n.textContent=num(v)===null?'TO_VERIFY':row.dataset.ownerSigned==='false'?money(v,cur):signedMoney(v,cur);n.className='rona-ar-value '+tone(v)}};
+  set('income',pnl.income);
+  set('expenses',pnl.expenses);
   set('counterpartyCashOut',counterpartyCashOut);
-  set('netCashFlow',netCashFlow);
   set('actualFinancialResult',actualFinancialResult);
+  set('taxes',pnl.taxes);
+  set('netProfit',pnl.netProfit);
   set('agentReward',reward.value);
   set('ronaProfit',ronaProfit);
   const rewardLabel=q('[data-owner-computed="agentReward"] .rona-ar-name',col);
   if(rewardLabel)rewardLabel.title=reward.status;
   return{paymentLineAmounts,counterpartyCashOut,netCashFlow,openSettlementAdjustment,
-    actualFinancialResult,agentBasis:reward.basis,reward:reward.value,ronaProfit,
+    income:pnl.income,expenses:pnl.expenses,actualFinancialResult,taxes:pnl.taxes,
+    netProfit:pnl.netProfit,agentBasis:reward.basis,reward:reward.value,ronaProfit,
     paymentComplete}
 }
 function renderOwner(deal){
@@ -778,40 +787,41 @@ function renderOwner(deal){
     '3 · OWNER / АГЕНТ',
     'Фактический результат',
     !editable
-      ?(!fact.approved?'ФАКТ ДДС TO_VERIFY':!base.bridgeApproved?'Расчётный мост TO_VERIFY':'Корректировка не подтверждена Finance → Operations')
+      ?(!fact.approved?'ФАКТ TO_VERIFY':!base.bridgeApproved?'Расчётный мост TO_VERIFY':'Корректировка не подтверждена Finance → Operations')
       :saved
-        ?'ФАКТ ДДС + постатейные корректировки + незакрытые расчёты · версия '+deal.ownerCorrection.version+' · '+new Date(deal.ownerCorrection.createdAt).toLocaleString('ru-RU')
-        :'ФАКТ ДДС → постатейные корректировки → фактический результат',
+        ?'Корректировки выплат + незакрытые расчёты · версия '+deal.ownerCorrection.version+' · '+new Date(deal.ownerCorrection.createdAt).toLocaleString('ru-RU')
+        :'Сверенный ФАКТ → корректировки → единый налог 10% → чистая прибыль',
     !editable?'TO VERIFY':saved?'СОХРАНЕНО':'РАСЧЁТ',
     !editable?'warn':saved?'good':''
   ));
   const table=el('div','rona-ar-table');
-  table.append(pnlRow('Поступило',base.cashReceived,cur,{hint:'Точно из ФАКТ / ДДС',total:true}));
-  table.append(ownerComputedRow('Оплачено контрагентам','counterpartyCashOut',base.counterpartyCashOut,cur,'FACT + дельта постатейных корректировок',false,false));
+  table.append(ownerComputedRow('Доходы','income',base.income,cur,'Подтверждённые поступления + положительная управленческая корректировка',false,false));
+  table.append(ownerComputedRow('Расходы','expenses',base.expenses,cur,'Выплаты + комиссии + отрицательная управленческая корректировка',false,false));
+  table.append(ownerComputedRow('Оплачено контрагентам','counterpartyCashOut',base.counterpartyCashOut,cur,'FACT + корректировки платежей по контрагентам',false,false));
   table.append(ownerPaymentLines(base.paymentLines,editable));
-  table.append(pnlRow('Банковские комиссии',base.bankFees,cur,{hint:'Точно из ФАКТ / ДДС'}));
-  table.append(ownerComputedRow('Чистый ДДС','netCashFlow',base.netCashFlow,cur,'Поступления − скорректированные выплаты − комиссии'));
+  table.append(pnlRow('Банковские комиссии',base.bankFees,cur,{hint:'Подтверждённые комиссии включены в Расходы'}));
   table.append(ownerInputRow(
     'Незакрытые расчёты',
     'openSettlementAdjustment',
     base.openSettlementAdjustment,
     cur,
-    editable?'ДЗ (+) / КЗ и авансы (−) · управленческая корректировка':'TO_VERIFY: нужен подтверждённый расчётный мост'
+    editable?'Положительное значение увеличивает Доходы, отрицательное увеличивает Расходы':'TO_VERIFY: нужен подтверждённый расчётный мост'
   ));
-  table.append(ownerComputedRow('Фактический финансовый результат','actualFinancialResult',base.actualFinancialResult,cur,'Автоматически: скорректированный Чистый ДДС + Незакрытые расчёты'));
-  const rewardRow=ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,base.reward.status,false,true,agentStatusText(base.reward.status));
+  table.append(ownerComputedRow('Прибыль до налогообложения','actualFinancialResult',base.actualFinancialResult,cur,'Доходы − Расходы'));
+  table.append(ownerComputedRow('Налоги и платежи (10%)','taxes',base.taxes,cur,'Управленческий расчёт 10% от положительной прибыли',false,false));
+  table.append(ownerComputedRow('Чистая прибыль','netProfit',base.netProfit,cur,'Прибыль до налогообложения − расчётный налог'));
+  const rewardRow=ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,'База — Чистая прибыль · '+base.reward.status,false,true,agentStatusText(base.reward.status));
   if(base.reward.externalFxTermConflict){
-    // Distinguish internal Owner calculation from the external signed FX-exclusion condition.
     const label=q('.rona-ar-name',rewardRow);
     if(label){
       const warning=chip('Условие FX · сверить договор','warn');
       warning.classList.add('rona-ar-agent-contract-flag');
-      warning.title='Внутренняя база — фактический финансовый результат. Договорное условие EXCLUDING FX требует отдельной проверки суммы к выплате.';
+      warning.title='Внутренняя база — чистая прибыль после расчётного налога 10%. Подписанное условие EXCLUDING FX требует отдельной проверки внешней суммы к выплате.';
       label.append(warning)
     }
   }
   table.append(rewardRow);
-  table.append(ownerComputedRow('Итого прибыль RONA','ronaProfit',base.ronaProfit,cur,'Фактический результат − агентское вознаграждение',true,true,base.reward.value===null?'После расчёта агента':'TO_VERIFY'));
+  table.append(ownerComputedRow('Прибыль RONA','ronaProfit',base.ronaProfit,cur,'Чистая прибыль − Агентское вознаграждение',true,true,base.reward.value===null?'После расчёта агента':'TO_VERIFY'));
   col.append(table);
   qa('[data-owner-payment-group-key],[data-owner-key]',col).forEach(inp=>{
     if(inp.hasAttribute('data-owner-payment-group-key'))inp.disabled=!editable||inp.disabled;
@@ -828,7 +838,7 @@ function renderOwner(deal){
     if(state.saving||!editable)return;state.saving=true;save.disabled=true;save.textContent='Сохраняю…';
     try{
       const m=recomputeOwner(col,deal,fact,cur);
-      if(!m.paymentComplete||m.actualFinancialResult===null)throw new Error('Расчёт и детализация платежей требуют сверки Finance');
+      if(!m.paymentComplete||m.netProfit===null)throw new Error('Расчёт и детализация платежей требуют сверки Finance');
       const payload={paymentLineAmounts:m.paymentLineAmounts,openSettlementAdjustment:m.openSettlementAdjustment};
       await saveCorrection(deal.dealId,deal.assignmentId,payload,ta.value);
       await getWorkspace({force:true});state.selectedKey=rowKey(deal);render()
@@ -843,16 +853,17 @@ function metricCard(label,value,cur,meta,kind=''){
   return card
 }
 function renderDealPulse(root,deal){
-  const p=planModel(deal),f=cashFactModel(deal),o=ownerModel(deal,f),pulse=el('div','rona-ar-pulse');
-  pulse.setAttribute('aria-label','Ключевые финансовые показатели выбранной сделки');
-  // P&L and payment sources are unchanged. An Owner calculation is NOT a paid reward.
+  const p=planModel(deal),f=cashFactModel(deal),fp=factManagementModel(deal,f),
+    o=ownerModel(deal,f),pulse=el('div','rona-ar-pulse');
+  pulse.setAttribute('aria-label','Ключевые управленческие показатели выбранной сделки');
   pulse.append(
-    metricCard('PLAN · агентское вознаграждение',p.reward.value,p.cur,p.reward.status,'agent agent-primary'),
+    metricCard('PLAN · агентское вознаграждение',p.reward.value,p.cur,'База — Чистая прибыль; проверенные источники: '+p.revenueStatus+' / '+p.expenseStatus+'; условие агента: '+p.reward.status,'agent agent-primary'),
     metricCard('РАСЧЁТ · агентское вознаграждение',o.reward.value,f.cur,o.reward.value===null?agentStatusText(o.reward.status):o.reward.status,'agent agent-calculated'),
-    metricCard('PLAN · прибыль RONA',p.ronaProfit,p.cur,'PLAN · выручка: '+(num(p.revenue)===null?'TO_VERIFY':money(p.revenue,p.cur)),'plan'),
-    metricCard('FACT · чистый ДДС',f.netCashFlow,f.cur,f.approved?'Поступления − выплаты − комиссии':'TO_VERIFY','fact')
+    metricCard('PLAN · прибыль RONA',p.ronaProfit,p.cur,'База агента — чистая прибыль после расчётных 10%','plan'),
+    metricCard('FACT · чистая прибыль',fp.netProfit,f.cur,f.approved?'Подтверждённые денежные операции · налог 10% расчётно':'TO_VERIFY','fact')
   );
-  root.append(pulse,el('div','rona-ar-summary-note','Расчётное вознаграждение не означает произведённую выплату. Неподтверждённые показатели обозначены отдельно.'))
+  root.append(pulse,el('div','rona-ar-summary-note',
+    'Единая управленческая формула: Доходы − Расходы = Прибыль до налогообложения; налоги 10% от положительной прибыли; чистая прибыль — база агента. 10% не означает фактическую уплату налогов. Вознаграждение не означает выплату.'))
 }
 // Informational, source-locked value only: no inclusion in P&L or cash formulas.
 function renderFxReference(root,deal){
@@ -874,8 +885,8 @@ function renderDealCards(root,deals){
   for(const d of deals){
     const card=el('button','rona-ar-deal');card.type='button';if(rowKey(d)===state.selectedKey)card.classList.add('is-active');
     const top=el('div','rona-ar-deal-top');top.append(el('div','rona-ar-deal-id',d.dealId||'Deal'),chip(d.businessStatus||'—',upper(d.businessStatus)==='CANCELLED'?'warn':''));
-    const fm=cashFactModel(d),resultTone=tone(fm.netCashFlow);card.classList.add(resultTone||'verify');
-    card.append(top,el('div','rona-ar-deal-client',(d.clientName||'—')+' · '+(d.agentName||'Агент не указан')),el('div','rona-ar-deal-result',fm.netCashFlow===null?'ДДС: TO_VERIFY':'ДДС: '+signedMoney(fm.netCashFlow,fm.cur)));
+    const fm=cashFactModel(d),fp=factManagementModel(d,fm),resultTone=tone(fp.netProfit);card.classList.add(resultTone||'verify');
+    card.append(top,el('div','rona-ar-deal-client',(d.clientName||'—')+' · '+(d.agentName||'Агент не указан')),el('div','rona-ar-deal-result',fp.netProfit===null?'Чистая прибыль: TO_VERIFY':'Чистая прибыль: '+signedMoney(fp.netProfit,fm.cur)));
     card.onclick=()=>{state.selectedKey=rowKey(d);render()};grid.append(card)
   }
   root.append(grid)
@@ -886,7 +897,7 @@ function render(){
   const deals=Array.isArray(data.deals)?data.deals:[];
   if(state.selectedKey&&!deals.some(d=>rowKey(d)===state.selectedKey))state.selectedKey=null;
   const hero=el('div','rona-ar-finance-banner'),copy=el('div');
-  copy.append(el('div','rona-ar-sub','План агентского вознаграждения, денежные потоки и расчётный результат выбранной сделки. ПЛАН и ФАКТ представлены отдельно; доступные корректировки находятся в колонке «OWNER / АГЕНТ». Точность сумм — 0,1.'));
+  copy.append(el('div','rona-ar-sub','ПЛАН, ФАКТ и OWNER используют одну управленческую формулу прибыли. ФАКТ основан на подтверждённых денежных операциях, а не на бухгалтерском признании выручки. Налоги 10% — расчётная величина, не налоговое обязательство. Точность отображения — 0,1.'));
   hero.append(copy,el('div','rona-ar-live','Финансовая модель'));root.append(hero);
   if(!deals.length){root.append(el('div','rona-ar-loader','Сделок в агентском контуре пока нет.'));replace(root);return}
   renderDealCards(root,deals);
