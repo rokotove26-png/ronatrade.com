@@ -147,8 +147,8 @@ async function latestCorrection(s:any){
 }
 async function list(s:any){
  const [term,addendum,correction]=await Promise.all([termFor(s),selected(s),latestCorrection(s)]);
- const existing=await sql`select document_id,authoritative_filename as filename,contract_reference,
- uploaded_at,sha256 from portal_private.agent_agency_contract_documents a
+ const existing=await sql`select a.document_id,a.authoritative_filename as filename,a.contract_reference,
+ a.uploaded_at,a.sha256 from portal_private.agent_agency_contract_documents a
  join portal_private.storage_objects o on o.id=a.storage_object_key and o.storage_state='VERIFIED'
  where a.agent_legal_entity_key=${s.agent_legal_entity_key}::uuid
  and a.document_kind='AGENCY_ADDENDUM' and a.lifecycle_state::text='ACTIVE'
