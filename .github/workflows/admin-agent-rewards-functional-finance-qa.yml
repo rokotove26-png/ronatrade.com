@@ -52,6 +52,12 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -f tests/fixtures/agent-rewards-finance-v16-integration.sql
+      - name: Install Chromium for Agent Rewards grouped counterparty interface
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Verify actual grouped finance browser dashboard
+        run: node --test tests/admin-agent-rewards-executive-visual.test.mjs
       - name: Verify affected Owner API and finance JS syntax
         run: |
           node --check functions/portal/owner-api.js
