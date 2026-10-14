@@ -12,7 +12,7 @@ function currentUiRuntime(){
   const requestedAccessView=new URL(location.href).searchParams.get('accessView');
   const accessViews=new Set(['companies','agents','users','history']);
   const S={view:accessViews.has(requestedAccessView)?requestedAccessView:'companies',search:''};
-  let business=null,authority=null,workspace=null,refreshPromise=null,rootGuard=null,rootRepairQueued=false,lastRefreshAt=0;
+  let business=null,authority=null,workspace=null,agentDirectory=null,agentDirectoryError=null,refreshPromise=null,rootGuard=null,rootRepairQueued=false,lastRefreshAt=0;
   const AUTO_REPAIR_COOLDOWN_MS=60000;
   const q=(s,r=document)=>r.querySelector(s);
   const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
@@ -66,15 +66,32 @@ function currentUiRuntime(){
   async function loadAll(reason='manual'){
     const source=String(reason||'manual').toUpperCase().replace(/[^A-Z0-9_-]+/g,'_').slice(0,48);
     const headers={accept:'application/json','x-rona-client-source':'ADMIN_ACCESS_REFRESH','x-rona-client-refresh-reason':'ADMIN_ACCESS_'+source};
-    const [b,a,w]=await Promise.all([owner('/admin/bootstrap',{headers}),auth('/bootstrap',{headers}),owner('/admin/access-workspace',{headers}).catch(()=>null)]);
-    business=b||{};authority=a||{};workspace=w&&typeof w==='object'?w:null;
+    const [b,a,w,d]=await Promise.all([owner('/admin/bootstrap',{headers}),auth('/bootstrap',{headers}),owner('/admin/access-workspace',{headers}).catch(()=>null),auth('/agent-companies',{headers}).catch(e=>{agentDirectoryError=e?.code||e?.message||'AGENT_DIRECTORY_UNAVAILABLE';return null})]);
+    business=b||{};authority=a||{};workspace=w&&typeof w==='object'?w:null;agentDirectory=d&&Array.isArray(d.agents)?d:null;if(agentDirectory)agentDirectoryError=null;
     window.__RONA_OWNER_ADMIN_SNAPSHOT__=business;
     window.__RONA_ADMIN_LIVE_SNAPSHOT__={...(window.__RONA_ADMIN_LIVE_SNAPSHOT__||{}),authority,accessWorkspace:workspace,at:new Date().toISOString()};
-    return{business,authority,workspace}
+    return{business,authority,workspace,agentDirectory}
   }
 
   const clients=()=>Array.isArray(business?.clients)?business.clients:Array.isArray(business?.companies)?business.companies:[];
   const agents=()=>Array.isArray(business?.agents)?business.agents:[];
+  // Legal companies own agency contracts; Agent Person identities remain independent login/representative records.
+  function agentCompanies(){
+    if(agentDirectory?.agents)return agentDirectory.agents;
+    const names=new Map();
+    for(const a of agents()){
+      const id=txt(a.agent_legal_entity_id||a.agentLegalEntityId),name=txt(a.agent_legal_name||a.agentLegalName);
+      if(id&&name&&!names.has(id))names.set(id,{agentLegalEntityId:id,legalName:name,documents:[],clients:[],representatives:[]});
+    }
+    return [...names.values()].sort((a,b)=>a.legalName.localeCompare(b.legalName,'ru'));
+  }
+  function companyAgentId(x){
+    const legal=txt(x.agent_legal_entity_id||x.agentLegalEntityId);
+    if(legal)return legal;
+    const p=txt(x.agent_person_id||x.agentPersonId);
+    const entry=agents().find(a=>txt(a.agent_person_id||a.agentPersonId)===p);
+    return txt(entry?.agent_legal_entity_id||entry?.agentLegalEntityId);
+  }
   const users=()=>Array.isArray(workspace?.users)?workspace.users:Array.isArray(authority?.accessUsers)?authority.accessUsers:[];
   const events=()=>Array.isArray(workspace?.events)?workspace.events:[];
   const contracts=()=>Array.isArray(authority?.contracts)?authority.contracts:[];
@@ -85,12 +102,97 @@ function currentUiRuntime(){
 
   function hero(){const h=el('section','rona-visual-hero ca-hero'),c=el('div','ca-hero-copy'),a=el('div','ca-hero-actions');c.append(el('div','rona-visual-kicker','RONA TRADE · CLIENTS'),el('h1','rona-visual-title','Клиенты и агенты'),el('div','rona-visual-sub','Компании, агенты, пользователи, договорные права и история изменений доступа.'));const addCompany=el('button','ca-primary','Добавить компанию'),b=el('button','ca-primary','Создать пользователя');addCompany.type='button';addCompany.dataset.ronaAddCompany='primary';addCompany.onclick=openCompanyModal;b.type='button';b.dataset.ronaCreateAccess='primary';b.onclick=openAccessModal;a.append(addCompany,b);h.append(c,a);return h}
   function cell(l,v){const c=el('div','ca-cell');c.append(el('span','',l),el('strong','',v||'—'));return c}
-  function kpis(){const cs=clients(),as=agents(),us=users(),assigned=cs.filter(x=>String(x.agent_person_id||'').trim()).length,active=us.filter(x=>String(x.status||'').toUpperCase()==='ACTIVE').length,g=el('div','ca-kpis');[['Компаний',cs.length,'Текущий контур'],['Агентов',as.length,'Зарегистрированные агенты'],['С агентом',assigned,'Закрепление по компании'],['Активных доступов',active,'Серверная авторизация']].forEach(([t,v,s])=>g.append(card(t,el('div','rona-owner-kpi',v),el('div','rona-owner-muted',s))));return g}
+  function kpis(){const cs=clients(),as=agentCompanies(),us=users(),assigned=cs.filter(x=>!!companyAgentId(x)).length,active=us.filter(x=>String(x.status||'').toUpperCase()==='ACTIVE').length,g=el('div','ca-kpis');[['Компаний',cs.length,'Текущий контур'],['Агентов',as.length,'Агентские компании'],['С агентом',assigned,'Закрепление по компании'],['Активных доступов',active,'Серверная авторизация']].forEach(([t,v,s])=>g.append(card(t,el('div','rona-owner-kpi',v),el('div','rona-owner-muted',s))));return g}
   function toolbar(){const b=card(''),row=el('div','ca-toolbar'),search=el('input','ca-search');search.type='search';search.placeholder='Поиск по компании, Client ID, договору, агенту, пользователю или истории';search.value=S.search;search.oninput=()=>{S.search=search.value;drawBody()};const tabs=el('div','ca-tabs');[['companies','Компании'],['agents','Агенты'],['users','Пользователи и доступы'],['history','История и права']].forEach(([v,t])=>{const x=el('button','',t);x.type='button';x.setAttribute('aria-pressed',String(S.view===v));x.onclick=()=>{S.view=v;const u=new URL(location.href);u.searchParams.set('accessView',v);history.replaceState(history.state,'',u);render()};tabs.append(x)});const reload=el('button','ca-btn','Обновить');reload.type='button';reload.onclick=refresh;row.append(search,tabs,reload);b.append(row);return b}
 
-  function companyCard(x){const head=el('div','ca-head'),left=el('div'),right=el('div','ca-hero-actions'),assigned=String(x.agent_person_id||'').trim(),contract=companyRows().find(r=>txt(r.client_id)===txt(x.client_id)||txt(r.contract_id)===txt(x.contract_id))||null;left.append(el('div','ca-name',x.legal_name||'Компания'),el('div','ca-id',x.client_id||'—'));const options=el('button','ca-btn ca-option','Опция');options.type='button';options.dataset.ronaEntityOptions='company';options.onclick=()=>openEntityOptions('COMPANY',String(x.client_id||''),String(x.legal_name||x.client_id||'Компания'));right.append(pill(assigned?'Агент назначен':'Без агента',assigned?'success':'neutral'),options);head.append(left,right);const meta=el('div','ca-meta');meta.append(cell('Договор',x.current_external_contract_number||x.contract_id||contract?.external||'—'),cell('Contract ID',x.contract_id||contract?.contract_id||'—'));const row=el('div','ca-actions'),sel=el('select');sel.append(new Option('Без агента',''));for(const a of agents())sel.append(new Option(a.agent_name||a.display_name||a.full_name||a.agent_person_id||'Агент',a.agent_person_id||a.id||''));sel.value=x.agent_person_id||'';const save=el('button','ca-primary','Сохранить');save.type='button';save.onclick=async()=>{save.disabled=true;try{await owner('/admin/clients/'+encodeURIComponent(x.client_id)+'/agent',{method:'POST',headers:{'content-type':'application/json',accept:'application/json'},body:JSON.stringify({agentPersonId:sel.value||null})});await refresh();await notice('Закрепление агента сохранено.')}catch(e){await notice(errorText(e.code||e.message),'Ошибка')}finally{save.disabled=false}};row.append(sel,save);if(contract){const contractState=el('span','rona-current-state '+(contract.ready?'ready':contract.attached?'wait':'missing'),contract.ready?'Договор доступен клиенту':contract.attached?'PDF ожидает подтверждения':'Договор не прикреплён');row.append(contractState);if(!contract.ready){const attach=el('button','ca-btn','Прикрепить договор');attach.type='button';attach.dataset.ronaCompanyContractAttach='true';attach.onclick=()=>void pickCompanyPdf(contract,attach);row.append(attach)}}return card('',head,meta,row)}
-  function companiesView(){const s=norm(S.search),xs=clients().filter(x=>!s||norm([x.legal_name,x.client_id,x.contract_id,x.current_external_contract_number,x.agent_name].join(' ')).includes(s)),g=el('div','ca-grid');if(!xs.length)return el('div','ca-empty','По выбранному фильтру компаний нет.');xs.forEach(x=>g.append(companyCard(x)));return g}
-  function agentsView(){const s=norm(S.search),xs=agents().filter(a=>{if(!s)return true;const id=String(a.agent_person_id||a.id||''),owned=clients().filter(x=>String(x.agent_person_id||'')===id).map(x=>x.legal_name).join(' ');return norm([a.agent_name,a.display_name,a.full_name,id,owned].join(' ')).includes(s)}),g=el('div','ca-grid');if(!xs.length)return el('div','ca-empty','По выбранному фильтру агентов нет.');for(const a of xs){const id=String(a.agent_person_id||a.id||''),owned=clients().filter(x=>String(x.agent_person_id||'')===id),head=el('div','ca-head'),left=el('div'),right=el('div','ca-hero-actions');left.append(el('div','ca-name',a.agent_name||a.display_name||a.full_name||'Агент'),el('div','ca-id',id||'—'));const options=el('button','ca-btn ca-option','Опция');options.type='button';options.dataset.ronaEntityOptions='agent';options.onclick=()=>openEntityOptions('AGENT',id,String(a.agent_name||a.display_name||a.full_name||id||'Агент'));right.append(pill(owned.length?owned.length+' клиент(ов)':'Без клиентов',owned.length?'success':'neutral'),options);head.append(left,right);const chips=el('div','ca-chips');owned.forEach(x=>chips.append(el('span','ca-chip',x.legal_name||x.client_id||'Клиент')));g.append(card('',head,chips.childNodes.length?chips:el('div','ca-copy','Компании пока не закреплены.')))}return g}
+  function companyCard(x){
+    const head=el('div','ca-head'),left=el('div'),right=el('div','ca-hero-actions'),assigned=companyAgentId(x),
+      contract=companyRows().find(r=>txt(r.client_id)===txt(x.client_id)||txt(r.contract_id)===txt(x.contract_id))||null;
+    left.append(el('div','ca-name',x.legal_name||'Компания'),el('div','ca-id',x.client_id||'—'));
+    const options=el('button','ca-btn ca-option','Опция');options.type='button';
+    options.dataset.ronaEntityOptions='company';options.onclick=()=>openEntityOptions('COMPANY',String(x.client_id||''),String(x.legal_name||x.client_id||'Компания'));
+    right.append(pill(assigned?'Агент назначен':'Без агента',assigned?'success':'neutral'),options);head.append(left,right);
+    const meta=el('div','ca-meta');meta.append(cell('Договор',x.current_external_contract_number||x.contract_id||contract?.external||'—'),cell('Contract ID',x.contract_id||contract?.contract_id||'—'));
+    const row=el('div','ca-actions'),sel=el('select');sel.append(new Option('Без агента',''));
+    for(const a of agentCompanies())sel.append(new Option(a.legalName,a.agentLegalEntityId));
+    sel.value=assigned||'';
+    const save=el('button','ca-primary','Сохранить');save.type='button';
+    save.onclick=async()=>{if(sel.value===assigned)return;save.disabled=true;try{
+      await owner('/admin/clients/'+encodeURIComponent(x.client_id)+'/agent',{method:'POST',
+        headers:{'content-type':'application/json',accept:'application/json'},
+        body:JSON.stringify({agentLegalEntityId:sel.value||null})});
+      await refresh('company-agent-assignment');await notice('Агентская компания закреплена за клиентом.')}
+      catch(e){await notice(errorText(e.code||e.message),'Ошибка')}finally{save.disabled=false}};
+    row.append(sel,save);
+    if(contract){
+      const contractState=el('span','rona-current-state '+(contract.ready?'ready':contract.attached?'wait':'missing'),
+        contract.ready?'Договор доступен клиенту':contract.attached?'PDF ожидает подтверждения':'Договор не прикреплён');
+      row.append(contractState);
+      if(!contract.ready){const attach=el('button','ca-btn','Прикрепить договор');attach.type='button';
+        attach.dataset.ronaCompanyContractAttach='true';attach.onclick=()=>void pickCompanyPdf(contract,attach);row.append(attach)}
+    }
+    return card('',head,meta,row);
+  }
+  function companiesView(){const s=norm(S.search),xs=clients().filter(x=>!s||norm([x.legal_name,x.client_id,x.contract_id,x.current_external_contract_number,x.agent_legal_name,x.agent_name].join(' ')).includes(s)),g=el('div','ca-grid');if(!xs.length)return el('div','ca-empty','По выбранному фильтру компаний нет.');xs.forEach(x=>g.append(companyCard(x)));return g}
+  function agentsView(){
+    const s=norm(S.search),list=agentCompanies(),
+      xs=list.filter(a=>!s||norm([a.legalName,a.agentLegalEntityId,...(a.clients||[]).map(x=>x.legalName)].join(' ')).includes(s)),g=el('div','ca-grid');
+    if(!xs.length)return el('div','ca-empty',agentDirectoryError&&!list.length?'Сведения об агентских компаниях временно недоступны.':'По выбранному фильтру агентских компаний нет.');
+    for(const a of xs){
+      const id=a.agentLegalEntityId,owned=Array.isArray(a.clients)&&agentDirectory
+        ?a.clients:clients().filter(x=>companyAgentId(x)===id).map(x=>({legalName:x.legal_name,clientId:x.client_id}));
+      const head=el('div','ca-head'),left=el('div'),right=el('div','ca-hero-actions');
+      left.append(el('div','ca-name',a.legalName),el('div','ca-id',id));
+      right.append(pill(owned.length?owned.length+' клиент(ов)':'Без клиентов',owned.length?'success':'neutral'));
+      const upload=el('button','ca-primary','Загрузить подписанный документ');upload.type='button';
+      upload.dataset.ronaAgentAgreementUpload=id;upload.onclick=()=>void openAgentDocumentModal(a);right.append(upload);
+      head.append(left,right);
+      const chips=el('div','ca-chips');for(const x of owned)chips.append(el('span','ca-chip',x.legalName||x.clientId||'Клиент'));
+      const docs=el('div','ca-contract-documents');
+      docs.append(el('h3','', 'Договоры и дополнительные соглашения'));
+      if(!a.documents?.length)docs.append(el('div','ca-copy','Документы ещё не загружены.'));
+      for(const d of a.documents||[]){
+        const row=el('div','ca-binding'),meta=el('div'),actions=el('div','ca-actions');
+        meta.append(el('strong','',d.filename),el('div','ca-id',(d.kind==='AGENCY_CONTRACT'?'Агентский договор':'Дополнительное соглашение')+(d.number?' № '+d.number:'')+' · '+(d.reviewStatus==='LEGAL_CONFIRMED'?'Подтверждён':'Загружен')));
+        const download=el('button','ca-btn','Скачать');download.type='button';download.dataset.ronaAgentAgreementDownload=d.id;
+        download.onclick=async()=>{download.disabled=true;try{
+          const result=await auth('/agent-companies/'+encodeURIComponent(id)+'/documents/'+encodeURIComponent(d.id)+'/download');
+          if(!result?.url)throw new Error('AGENT_DOCUMENT_DOWNLOAD_UNAVAILABLE');
+          const link=el('a');link.href=result.url;link.target='_blank';link.rel='noopener noreferrer';link.download=d.filename;
+          document.body.append(link);link.click();link.remove();
+        }catch(e){await notice(errorText(e?.code||e?.message),'Ошибка скачивания')}finally{download.disabled=false}};
+        actions.append(download);row.append(meta,actions);docs.append(row);
+      }
+      g.append(card('',head,chips.childNodes.length?chips:el('div','ca-copy','Компании пока не закреплены.'),docs));
+    }
+    return g;
+  }
+  function openAgentDocumentModal(agent){
+    const m=modal('Документы · '+agent.legalName);
+    const form=el('form','ca-form'),kind=el('select'),number=el('input'),file=el('input'),confirm=el('input');
+    kind.append(new Option('Агентский договор','AGENCY_CONTRACT'),new Option('Дополнительное соглашение','AGENCY_ADDENDUM'));
+    number.placeholder='Номер документа';number.maxLength=120;
+    file.type='file';file.accept='.pdf,application/pdf';file.required=true;
+    confirm.type='checkbox';confirm.required=true;
+    const attestation=el('label','ca-copy');attestation.append(confirm,el('span','', ' Подтверждаю, что загружаю подписанный сторонами PDF.'));
+    const actions=el('div','ca-modal-actions'),save=el('button','ca-primary','Сохранить PDF'),cancel=el('button','ca-btn','Отмена');
+    save.type='submit';cancel.type='button';cancel.onclick=()=>m.close();
+    form.append(label('Тип документа',kind),label('Номер (если есть)',number),label('PDF-документ',file),attestation);
+    actions.append(cancel,save);form.append(actions);m.box.append(form);
+    form.onsubmit=async e=>{e.preventDefault();const selected=file.files?.[0];
+      if(!selected)return notice('Выберите PDF-файл.');
+      if(selected.size>15*1024*1024||selected.size<8)return notice('Разрешён PDF размером до 15 МБ.');
+      if(selected.type&&selected.type!=='application/pdf')return notice('Разрешён только PDF-файл.');
+      const payload=new FormData();payload.set('documentKind',kind.value);payload.set('documentNumber',number.value.trim());
+      payload.set('signedAttested',confirm.checked?'true':'false');payload.set('file',selected);
+      save.disabled=true;try{
+        const result=await auth('/agent-companies/'+encodeURIComponent(agent.agentLegalEntityId)+'/documents',{method:'POST',body:payload});
+        m.close();await refresh('agent-document-upload');
+        await notice(result?.existing?'Этот PDF уже сохранён в архиве.':'PDF сохранён в архиве агентской компании.','Документ сохранён');
+      }catch(err){await notice(errorText(err?.code||err?.message),'Ошибка загрузки')}finally{save.disabled=false}
+    };
+    file.focus();
+  }
 
   function bindingStatus(v){const s=String(v||'').toUpperCase();return s==='ACTIVE'?pill('Активен','success'):s==='SUSPENDED'?pill('Приостановлен','warn'):s==='PENDING'?pill('Ожидает договор','warn'):s==='REVOKED'?pill('Отозван','neutral'):pill(s||'—','neutral')}
   async function mutate(path,body={}){return auth(path,{method:'POST',headers:{'content-type':'application/json',accept:'application/json'},body:JSON.stringify(body)})}
