@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
 import { createAdminEntityControl } from "./admin-entity-control-v1.ts";
+import { createAgentCompanyArchive } from "./agent-company-documents-v1.ts";
 
 const DB = Deno.env.get("SUPABASE_DB_URL");
 const SUPA_URL = Deno.env.get("SUPABASE_URL");
@@ -866,6 +867,7 @@ async function bootstrap(req) {
   return { ok: true, data };
 }
 
+const agentCompanyArchive=createAgentCompanyArchive({sql,service,audit});
 const adminEntityControl=createAdminEntityControl({sql,service,audit,jsonBody});
 
 Deno.serve(async (req) => {
@@ -888,6 +890,11 @@ Deno.serve(async (req) => {
         :await adminEntityControl.execute(ctx,req,kind,entityId);
       return send(200,{ok:true,data});
     }
+    if(path==="/agent-companies"&&req.method==="GET")return send(200,{ok:true,data:await agentCompanyArchive.directory()});
+    const agentDocDownload=path.match(/^\/agent-companies\/([^/]+)\/documents\/([^/]+)\/download$/);
+    if(agentDocDownload&&req.method==="GET")return send(200,{ok:true,data:await agentCompanyArchive.download(decodeURIComponent(agentDocDownload[1]),decodeURIComponent(agentDocDownload[2]))});
+    const agentDocAttach=path.match(/^\/agent-companies\/([^/]+)\/documents$/);
+    if(agentDocAttach&&req.method==="POST")return send(201,{ok:true,data:await agentCompanyArchive.attach(ctx,req,decodeURIComponent(agentDocAttach[1]))});
     if (path === "/bootstrap" && req.method === "GET") return send(200, await bootstrap(req));
     if ((path === "/agent-readiness" || path === "/readiness") && req.method === "GET") {
       const identities = await agentIdentities();
