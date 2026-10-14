@@ -254,7 +254,7 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       assert.equal(result.ledger.planExpenseTooltip,'APPROVED_FINANCE_MANAGEMENT_PLAN','Nonvisual source details must be retained in a label tooltip at '+width);
       assert.equal(result.ledger.planExpenseDetail,1,'The original approved transportation expense article remains in the plan at '+width);
       assert.match(result.ledger.actualPaidTooltip||'',/VISUAL-QA-PAYMENT/,'Payment provenance remains accessible by hover at '+width);
-      assert.match(result.ledger.ownerInputTooltip||'',/Корректировка взаиморасчётов/,'Owner correction retains its accessible label at '+width);
+      assert.match(result.ledger.ownerInputTooltip||'',/Корректировка расходов \(доходов\)/,'Owner correction retains its accessible label at '+width);
       assert.equal(result.fxCount,1,'One FX reference strip, not duplicate rows, at '+width);
       assert.equal(result.fxInsideTables,0,'FX strip must be OUTSIDE finance tables at '+width);
       assert.equal(result.fxRows,0,'Neither FACT nor Owner table may contain realized FX at '+width);
@@ -288,8 +288,8 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
           '+178,2 USD','Internal owner reward remains based on after-tax profit without realized FX');
       }
       if(width===1440){
-        // Signed OPEN owner adjustments must change the correct side of the shared
-        // Income - Expense equation AND recompute 10% and the agent share live.
+        // Positive displayed adjustment = extra expense; negative displayed adjustment = income.
+        // Persisted Finance source sign stays the opposite, preserving historical audit.
         deal.ownerCorrectionAuthority.status='APPROVED_FOR_OWNER_CORRECTION';
         await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
         const adjust=page.locator('[data-owner-key="openSettlementAdjustment"]');
@@ -303,12 +303,12 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
             return[label,row?.querySelector('.rona-ar-value')?.textContent||null]
           }))
         });
-        assert.equal(afterPositive['Доходы'],'5 200,0 USD');
-        assert.equal(afterPositive['Расходы'],'3 020,0 USD');
-        assert.equal(afterPositive['Прибыль до налогообложения'],'+2 180,0 USD');
-        assert.equal(afterPositive['Налоги и платежи (10%)'],'218,0 USD');
-        assert.equal(afterPositive['Чистая прибыль'],'+1 962,0 USD');
-        assert.equal(afterPositive['Агентское вознаграждение'],'+196,2 USD');
+        assert.equal(afterPositive['Доходы'],'5 000,0 USD');
+        assert.equal(afterPositive['Расходы'],'3 220,0 USD');
+        assert.equal(afterPositive['Прибыль до налогообложения'],'+1 780,0 USD');
+        assert.equal(afterPositive['Налоги и платежи (10%)'],'178,0 USD');
+        assert.equal(afterPositive['Чистая прибыль'],'+1 602,0 USD');
+        assert.equal(afterPositive['Агентское вознаграждение'],'+160,2 USD');
         await adjust.fill('-50');
         const afterNegative=await page.evaluate(()=>{
           const labels=['Доходы','Расходы','Прибыль до налогообложения','Налоги и платежи (10%)','Чистая прибыль','Агентское вознаграждение'];
@@ -318,12 +318,32 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
             return[label,row?.querySelector('.rona-ar-value')?.textContent||null]
           }))
         });
-        assert.equal(afterNegative['Доходы'],'5 000,0 USD');
-        assert.equal(afterNegative['Расходы'],'3 070,0 USD');
-        assert.equal(afterNegative['Прибыль до налогообложения'],'+1 930,0 USD');
-        assert.equal(afterNegative['Налоги и платежи (10%)'],'193,0 USD');
-        assert.equal(afterNegative['Чистая прибыль'],'+1 737,0 USD');
-        assert.equal(afterNegative['Агентское вознаграждение'],'+173,7 USD');
+        assert.equal(afterNegative['Доходы'],'5 050,0 USD');
+        assert.equal(afterNegative['Расходы'],'3 020,0 USD');
+        assert.equal(afterNegative['Прибыль до налогообложения'],'+2 030,0 USD');
+        assert.equal(afterNegative['Налоги и платежи (10%)'],'203,0 USD');
+        assert.equal(afterNegative['Чистая прибыль'],'+1 827,0 USD');
+        assert.equal(afterNegative['Агентское вознаграждение'],'+182,7 USD');
+        // Previously saved +125 source means income; it must display -125
+        // without changing the approved source amount or recalculated profit.
+        deal.ownerCorrection={
+          version:1,createdAt:'2026-10-14T00:00:00Z',
+          payload:{openSettlementAdjustment:125,paymentLineAmounts:{}}
+        };
+        await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
+        const storedSign=await page.evaluate(()=>({
+          visible:document.querySelector('[data-owner-key="openSettlementAdjustment"]')?.value,
+          income:[...document.querySelectorAll('.rona-ar-col.owner .rona-ar-row')]
+            .find(x=>x.querySelector('.rona-ar-name')?.firstChild?.textContent==='Доходы')
+            ?.querySelector('.rona-ar-value')?.textContent,
+          expenses:[...document.querySelectorAll('.rona-ar-col.owner .rona-ar-row')]
+            .find(x=>x.querySelector('.rona-ar-name')?.firstChild?.textContent==='Расходы')
+            ?.querySelector('.rona-ar-value')?.textContent
+        }));
+        assert.equal(storedSign.visible,'-125.0','Source +125 must display as -125 income adjustment');
+        assert.equal(storedSign.income,'5 125,0 USD','Historical saved income must be unchanged');
+        assert.equal(storedSign.expenses,'3 020,0 USD','Historical saved income must not become an expense');
+        delete deal.ownerCorrection;
         deal.ownerCorrectionAuthority.status='NOT_APPROVED';
       }
       if(width===950){
