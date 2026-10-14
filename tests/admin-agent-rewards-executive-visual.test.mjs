@@ -45,7 +45,13 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       transportBreakdown:{currency:'USD',components:[{label:'Тарифный компонент',amount:3000,currency:'USD'}],conflict:{scope:'RONA_VISUAL_QA',plan_rate:14,rail_matrix_rate:17,unit:'USD/t'}}
     },
     cashFlow:{status:'APPROVED_CASH_FLOW_DDS',currency:'USD',cashReceived:5000,counterpartyCashOut:3000,bankFees:20,netCashFlow:1980,realizedFxReference:10},
-    cashPaymentLines:[{paymentId:'VISUAL-QA-PAYMENT',counterparty:'Поставщик',amount:3000,currency:'USD',nativeAmount:3000,nativeCurrency:'USD',authorityStatus:'APPROVED_PAYMENT_FACT'}],
+    financeSourceReconciliation:{status:'RECONCILED_CURRENT_FINANCE_V8',sourceVersion:'VISUAL_QA_AUTHORITY'},
+    cashPaymentLines:[
+      {paymentId:'VISUAL-QA-PAYMENT',counterparty:'Поставщик',canonicalCounterpartyId:'SUPPLIER:VISUAL-QA',counterpartyResolutionStatus:'RESOLVED',
+        amount:1800,currency:'USD',nativeAmount:1800,nativeCurrency:'USD',authorityStatus:'AUTHORITATIVE_FINANCE_PAYMENT'},
+      {paymentId:'VISUAL-QA-PAYMENT-2',counterparty:'Поставщик',canonicalCounterpartyId:'SUPPLIER:VISUAL-QA',counterpartyResolutionStatus:'RESOLVED',
+        amount:1200,currency:'USD',nativeAmount:1200,nativeCurrency:'USD',authorityStatus:'AUTHORITATIVE_FINANCE_PAYMENT'}
+    ],
     ownerResultBridge:{recognition_status:'APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE',open_settlement_adjustment:{amount:0}},
     ownerCorrectionAuthority:{status:'NOT_APPROVED',contract:'PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'},
     settlementPositions:[]
@@ -96,6 +102,9 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         const ownerActual=root.querySelector('[data-owner-computed="actualFinancialResult"] .rona-ar-value');
         const ownerReward=root.querySelector('[data-owner-computed="agentReward"] .rona-ar-value');
         const agreementWarning=root.querySelector('.rona-ar-col.owner .rona-ar-agent-contract-flag');
+        const factGroupNames=[...root.querySelectorAll('.rona-ar-col.fact .rona-ar-exp-name')].map(n=>n.textContent);
+        const ownerGroupNames=[...root.querySelectorAll('.rona-ar-col.owner .rona-ar-exp-name')].map(n=>n.textContent);
+        const groupInputs=[...root.querySelectorAll('.rona-ar-col.owner [data-owner-payment-group-key]')];
         const expenseTotal=[...root.querySelectorAll('.rona-ar-col.plan .rona-ar-row')].find(el=>el.querySelector('.rona-ar-name')?.textContent.startsWith('Расходы постатейно'));
         const fx=root.querySelector('[data-rona-ar-fx-reference="1"]');
         const fxValue=fx?.querySelector('.rona-ar-fx-value');
@@ -121,6 +130,13 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
           summary:first?.textContent,displayTechnical:source?.open??null,
           inputExists:!!inp,inputDisabled:inp?.disabled,inputCurrency:unit?.textContent,
           width:root.getBoundingClientRect().width,scrollWidth:root.scrollWidth,visibleRewardRow:!!root.querySelector('.rona-ar-reward-focus'),
+          grouping:{
+            factNames:factGroupNames,ownerNames:ownerGroupNames,
+            ownerInputCount:groupInputs.length,
+            groupKey:groupInputs[0]?.dataset.ownerPaymentGroupKey||null,
+            factPaidTotal:root.querySelector('.rona-ar-col.fact .rona-ar-row:nth-child(2) .rona-ar-value')?.textContent||null,
+            sourceIdsTooltip:root.querySelector('.rona-ar-col.owner .rona-ar-exp-name')?.title||null
+          },
           ledger:{
             hintCount:root.querySelectorAll('.rona-ar-pnl-grid .rona-ar-row .rona-ar-hint').length,
             expenseSubtitleCount:root.querySelectorAll('.rona-ar-pnl-grid .rona-ar-exp-sub').length,
@@ -189,6 +205,11 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       assert(result.visibleRewardRow,'Reward rows must have visible priority at '+width);
       assert(result.inputExists&&result.inputCurrency==='USD','Currency displayed beside editable numeric amount');
       assert.equal(result.inputDisabled,true,'Unauthorized test must not unlock owner correction');
+      assert.deepEqual(result.grouping.factNames,['Поставщик'],'FACT must show one canonical counterparty, not two payment rows at '+width);
+      assert.deepEqual(result.grouping.ownerNames,['Поставщик'],'Owner must have only one editable aggregate per canonical counterparty at '+width);
+      assert.equal(result.grouping.ownerInputCount,1,'One input per canonical supplier at '+width);
+      assert.equal(result.grouping.groupKey,'ENTITY:SUPPLIER:VISUAL-QA','Canonical ID must be grouping key, not display name at '+width);
+      assert.match(result.grouping.sourceIdsTooltip||'',/VISUAL-QA-PAYMENT-2/,'Original source payment IDs retained for audit drilldown');
       assert.equal(result.ledger.hintCount,0,'No tiny comments underneath financial line items at '+width);
       assert.equal(result.ledger.expenseSubtitleCount,0,'No tiny metadata below expense or payment details at '+width);
       assert.equal(result.ledger.tariffSections,0,'Tariff breakdown section must not render at '+width);

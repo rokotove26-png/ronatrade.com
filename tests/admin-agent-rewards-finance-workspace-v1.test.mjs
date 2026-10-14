@@ -16,6 +16,8 @@ const ownerMirrorHotfix=readFileSync('supabase/migrations/20261006213200_admin_a
 const itemizedOwner=readFileSync('supabase/migrations/20261006214500_admin_agent_rewards_itemized_owner_corrections_v13.sql','utf8');
 const authoritativeDds=readFileSync('supabase/migrations/20261007002500_admin_agent_rewards_authoritative_dds_v14.sql','utf8');
 const correctionAuthority=readFileSync('supabase/migrations/20261007091500_admin_agent_rewards_correction_authority_parity_v15.sql','utf8');
+const reconciledRead=readFileSync('supabase/migrations/20261014113000_agent_rewards_current_finance_reconciled_v16.sql','utf8');
+const reconciledCorrection=readFileSync('supabase/migrations/20261014114500_agent_rewards_reconciled_owner_correction_v17.sql','utf8');
 const ui=readFileSync('functions/portal/agent-rewards-v1-ui.js','utf8');
 const ownerApi=readFileSync('functions/portal/owner-api.js','utf8');
 const shell=readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
@@ -304,7 +306,10 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Отправить агенту/);
   assert.match(ui,/send\.disabled=true/);
   assert.doesNotMatch(ui,/data-owner-expense-key/);
-  assert.match(ui,/data-owner-payment-key/);
+  assert.match(ui,/data-owner-payment-group-key/);
+  assert.doesNotMatch(ui,/data-owner-payment-key/);
+  assert.match(ui,/function distributeCounterpartyTotal\(parts,amount\)/);
+  assert.match(ui,/CANONICAL_COUNTERPARTY_ID_ONLY|canonicalCounterpartyId/);
   assert.match(ui,/data-owner-key/);
   assert.match(ui,/paymentLineAmounts:m\.paymentLineAmounts/);
   assert.match(ui,/openSettlementAdjustment:m\.openSettlementAdjustment/);
@@ -418,8 +423,20 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
 
 test('Owner API routes Agent Rewards to correction-authority V13 read RPC and correction V7',()=>{
   assert.match(ownerApi,/\/admin\/agent-rewards-v1/);
-  assert.match(ownerApi,/rona_admin_agent_rewards_workspace_v13/);
-  assert.match(ownerApi,/rona_admin_agent_rewards_correct_v7/);
+  assert.match(ownerApi,/rona_admin_agent_rewards_workspace_v14/);
+  assert.match(ownerApi,/rona_admin_agent_rewards_correct_v8/);
+  assert.match(reconciledRead,/create or replace function public\.rona_admin_agent_rewards_workspace_v14\(\)/);
+  assert.match(reconciledRead,/payment_resource_chains_effective_v8/);
+  assert.match(reconciledRead,/deal_finance_authority_payments_v8_read_v1/);
+  assert.match(reconciledRead,/FINANCE_V8_CURRENT_RECONCILED/);
+  assert.match(reconciledRead,/HOLD_CURRENT_FINANCE_SOURCE_MISMATCH/);
+  assert.match(reconciledRead,/LEGACY_APPROVED_PAYMENT_SCOPE_RECONCILED/);
+  assert.match(reconciledRead,/approved_dds_authority|agent_rewards\.fact\.dds_authority_v3/);
+  assert.match(reconciledRead,/CANONICAL_COUNTERPARTY_ID_ONLY/);
+  assert.doesNotMatch(reconciledRead,/\bupdate\s+portal_private\.|\bdelete\s+from\s+portal_private\.|\binsert\s+into\s+portal_private\./i);
+  assert.match(reconciledCorrection,/create or replace function public\.rona_admin_agent_rewards_correct_v8\(/);
+  assert.match(reconciledCorrection,/rona_admin_agent_rewards_correct_v7/);
+  assert.match(reconciledCorrection,/PAYMENT_LINE_NOT_IN_RECONCILED_FINANCE_SOURCE/);
   assert.match(ownerApi,/p_assignment_id/);
   assert.match(ownerApi,/p_corrected_payload/);
   assert.match(ownerApi,/p_idempotency_key/);
