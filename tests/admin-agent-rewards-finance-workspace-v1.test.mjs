@@ -384,7 +384,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/function balancesView\(deal\)/);
   assert.match(ui,/Незакрытые расчёты/);
   assert.match(ui,/Условные претензии и HOLD-позиции в ДЗ\/КЗ не включены/);
-  assert.match(ui,/Чистый ДДС/);
+  assert.match(ui,/function managementProfitModel\(income,expenses\)/);
   assert.doesNotMatch(ui,/actualFinancialResult[^\n]*\+[^\n]*realizedFxReference/);
   assert.match(ui,/function factManagementModel\(deal,fact\)/);
   assert.match(ui,/Сверенный ФАКТ → корректировки → единый налог 10% → чистая прибыль/);
