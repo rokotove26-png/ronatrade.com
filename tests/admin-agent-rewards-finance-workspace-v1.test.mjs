@@ -382,7 +382,10 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/if\(hint\)labelNode\.title=String\(hint\)/);
   assert.match(ui,/if\(sub\)labelNode\.title=sub/);
   assert.match(ui,/function balancesView\(deal\)/);
-  assert.match(ui,/Незакрытые расчёты/);
+  assert.match(ui,/Задолженность и авансы по контрагентам/);
+  assert.match(ui,/if\(settlements\)table\.append\(settlements\)/);
+  assert.doesNotMatch(ui,/root\.append\(balances\)/);
+  assert.match(ui,/Корректировка взаиморасчётов/);
   assert.match(ui,/Условные претензии и HOLD-позиции в ДЗ\/КЗ не включены/);
   assert.match(ui,/function managementProfitModel\(income,expenses\)/);
   assert.doesNotMatch(ui,/actualFinancialResult[^\n]*\+[^\n]*realizedFxReference/);
@@ -403,7 +406,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/const basis=num\(netProfit\)/);
   assert.match(ui,/ownerAgentReward\(deal,pnl\.netProfit\)/);
   assert.match(ui,/INTERNAL_NET_PROFIT_BASIS_EXTERNAL_FX_TERM_REVIEW_REQUIRED/);
-  assert.match(ui,/Незакрытые расчёты/);
+  assert.match(ui,/Корректировка взаиморасчётов/);
   assert.match(ui,/Прибыль до налогообложения/);
   assert.doesNotMatch(ui,/База агентского вознаграждения/);
   assert.doesNotMatch(ui,/data-owner-computed="agentBasis"/);
