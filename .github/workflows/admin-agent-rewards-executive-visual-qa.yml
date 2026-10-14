@@ -9,6 +9,8 @@ on:
       - 'functions/portal/owner-api.js'
       - 'supabase/migrations/*agent_rewards_current_finance_reconciled*.sql'
       - 'supabase/migrations/*agent_rewards_reconciled_owner_correction*.sql'
+      - 'supabase/migrations/*agent_rewards_current_finance_effective_chains*.sql'
+      - 'supabase/migrations/*agent_rewards_effective_chain_owner_correction*.sql'
       - 'tests/admin-agent-rewards-finance-workspace-v1.test.mjs'
       - 'tests/admin-agent-rewards-executive-visual.test.mjs'
       - '.github/workflows/admin-agent-rewards-executive-visual-qa.yml'
@@ -35,7 +37,7 @@ jobs:
           set -euo pipefail
           git diff --name-only "$BASE_SHA" HEAD > /tmp/agent-rewards-ui-files.txt
           cat /tmp/agent-rewards-ui-files.txt
-          if grep -Ev '^(functions/portal/(agent-rewards-v1-ui|owner-api)\.js|tests/admin-agent-rewards-(finance-workspace-v1|executive-visual)\.test\.mjs|tests/fixtures/agent-rewards-finance-v16-integration\.sql|supabase/migrations/2026101411(3000_agent_rewards_current_finance_reconciled_v16|4500_agent_rewards_reconciled_owner_correction_v17)\.sql|\.github/workflows/admin-agent-rewards-(executive-visual-qa|functional-finance-qa)\.yml)
+          if grep -Ev '^(functions/portal/(agent-rewards-v1-ui|owner-api)\.js|tests/admin-agent-rewards-(finance-workspace-v1|executive-visual)\.test\.mjs|tests/fixtures/agent-rewards-finance-v(16-integration|18-effective-chains-integration)\.sql|supabase/migrations/20261014(113000_agent_rewards_current_finance_reconciled_v16|114500_agent_rewards_reconciled_owner_correction_v17|120000_agent_rewards_current_finance_effective_chains_v18|121500_agent_rewards_effective_chain_owner_correction_v19)\.sql|\.github/workflows/admin-agent-rewards-(executive-visual-qa|functional-finance-qa)\.yml)
             echo "FINANCE_UI_SCOPE_VIOLATION" >&2
             exit 1
           fi
