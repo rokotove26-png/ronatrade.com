@@ -372,37 +372,71 @@ function factModel(deal){
   return{cur,revenue,operating,opTotal,taxes,fx,fxStatus,financialResult,netProfit,reward,ronaProfit,actualSpend,actualQuantity,recognitionStatus,approved,settlementPositions,conditionalPositions}
 }
 function cashPaymentLinesModel(deal,cur){
-  const rows=Array.isArray(deal?.cashPaymentLines)?deal.cashPaymentLines:[],map=new Map();
+  // Functional contract: one row per source-verified canonical counterparty,
+  // NOT one row per paymentId. Unresolved identities remain isolated and flagged.
+  const rows=Array.isArray(deal?.cashPaymentLines)?deal.cashPaymentLines:[],map=new Map(),seen=new Set();
+  let complete=true,total=0;
   for(const x of rows){
     const amount=num(x.amount),currency=String(x.currency||'').trim();
-    if(amount===null||!currency||currency!==cur)continue;
-    const paymentId=String(x.paymentId||''),counterparty=String(x.counterparty||'Контрагент');
-    const key=[paymentId,counterparty,currency].join('|');
-    const prev=map.get(key)||{paymentId,counterparty,amount:0,currency,native:[],source:[]};
-    prev.amount+=amount;
-    if(num(x.nativeAmount)!==null&&x.nativeCurrency)prev.native.push(money(x.nativeAmount,String(x.nativeCurrency)));
-    if(x.authorityStatus)prev.source.push(String(x.authorityStatus));
-    map.set(key,prev)
+    const paymentId=String(x.paymentId||'').trim();
+    if(!paymentId||amount===null||currency!==cur||seen.has(paymentId)){
+      complete=false;continue
+    }
+    seen.add(paymentId);
+    const canonicalId=String(x.canonicalCounterpartyId||'').trim();
+    const resolved=canonicalId&&String(x.counterpartyResolutionStatus||'')==='RESOLVED';
+    const key=resolved?'ENTITY:'+canonicalId:'PAYMENT:'+paymentId;
+    const counterparty=String(x.counterparty||'Контрагент').trim();
+    const prior=map.get(key);
+    const group=prior||{
+      key,canonicalCounterpartyId:resolved?canonicalId:null,
+      counterparty,currency,amount:0,parts:[],paymentIds:[],native:[],source:[],
+      resolved:!!resolved
+    };
+    if(prior&&group.currency!==currency){complete=false;continue}
+    group.amount+=amount;
+    group.paymentIds.push(paymentId);
+    group.parts.push({paymentId,amount,currency,source:String(x.source||'')});
+    if(num(x.nativeAmount)!==null&&x.nativeCurrency)group.native.push(money(x.nativeAmount,String(x.nativeCurrency)));
+    if(x.authorityStatus)group.source.push(String(x.authorityStatus));
+    map.set(key,group);total+=amount
   }
-  return Array.from(map.values())
+  const approvedTotal=num(deal?.cashFlow?.counterpartyCashOut);
+  return{
+    groups:Array.from(map.values()),
+    complete:complete&&approvedTotal!==null&&Math.abs(total-approvedTotal)<=0.005,
+    amountTotal:total,approvedTotal,uniquePaymentCount:seen.size
+  }
 }
+
 function cashFactModel(deal){
   const f=deal?.cashFlow||{},cur=String(f.currency||currencyOf(deal)||'').trim();
-  const status=String(f.status||'TO_VERIFY_PRESENTATION_AUTHORITY'),approved=status==='APPROVED_CASH_FLOW_DDS';
+  const sourceStatus=String(deal?.financeSourceReconciliation?.status||'');
+  const contractStatus=String(f.status||'TO_VERIFY_PRESENTATION_AUTHORITY');
+  const sourceApproved=['RECONCILED_CURRENT_FINANCE_V8','LEGACY_APPROVED_PAYMENT_SCOPE_RECONCILED'].includes(sourceStatus);
+  const scoped=contractStatus==='APPROVED_CASH_FLOW_DDS'&&sourceApproved;
+  const projection=scoped?cashPaymentLinesModel(deal,cur):{groups:[],complete:false,amountTotal:null};
+  const cashReceived=num(f.cashReceived),counterpartyCashOut=num(f.counterpartyCashOut),
+        bankFees=num(f.bankFees),dds=num(f.netCashFlow);
+  const arithmeticValid=cashReceived!==null&&counterpartyCashOut!==null
+    &&bankFees!==null&&dds!==null&&Math.abs(cashReceived-counterpartyCashOut-bankFees-dds)<=0.005;
+  const approved=scoped&&projection.complete&&arithmeticValid;
   const settlementPositions=Array.isArray(deal?.settlementPositions)?deal.settlementPositions:[];
   const conditionalPositions=Array.isArray(deal?.conditionalPositions)?deal.conditionalPositions:[];
-  const paymentLines=approved?cashPaymentLinesModel(deal,cur):[];
   return{
-    cur,status,approved,
-    cashReceived:approved?num(f.cashReceived):null,
-    counterpartyCashOut:approved?num(f.counterpartyCashOut):null,
-    bankFees:approved?num(f.bankFees):null,
+    cur,status:approved?contractStatus:'TO_VERIFY_PAYMENT_TOTAL_RECONCILIATION',
+    sourceStatus,approved,sourceReconciled:approved,
+    cashReceived:approved?cashReceived:null,
+    counterpartyCashOut:approved?counterpartyCashOut:null,
+    bankFees:approved?bankFees:null,
     totalCashOut:approved?num(f.totalCashOut):null,
-    netCashFlow:approved?num(f.netCashFlow):null,
+    netCashFlow:approved?dds:null,
     realizedFxReference:approved?num(f.realizedFxReference):null,
-    paymentLines,settlementPositions,conditionalPositions
+    paymentLines:approved?projection.groups:[],
+    paymentTotal:projection.amountTotal,settlementPositions,conditionalPositions
   }
 }
+
 function planModel(deal){
   const cur=currencyOf(deal),p=deal?.planInputs||{},lines=Array.isArray(p.expenseLines)?p.expenseLines.filter(x=>String(x.currency||'').trim()===cur&&num(x.amount)!==null):[];
   const expTotal=num(p.expenseKnownTotal);
@@ -445,12 +479,20 @@ function ownerModel(deal,fact){
   const bridge=deal?.ownerResultBridge||{},bridgeApproved=ownerBridgeApproved(deal);
   const defaultOpen=bridgeApproved?num(bridge?.open_settlement_adjustment?.amount):null;
   const openSettlementAdjustment=bridgeApproved?correctionValue(deal,'openSettlementAdjustment',null,defaultOpen):null;
-  let paymentDelta=0,paymentComplete=fact.approved;
-  const paymentLines=(fact.paymentLines||[]).map(x=>{
-    const factAmount=num(x.amount),correctedAmount=correctionPaymentValue(deal,String(x.paymentId||''),factAmount);
-    if(factAmount===null||correctedAmount===null)paymentComplete=false;
-    else paymentDelta+=correctedAmount-factAmount;
-    return{...x,factAmount,correctedAmount}
+  const rawSaved=deal?.ownerCorrection?.payload?.paymentLineAmounts||{};
+  const savedKeys=Object.keys(rawSaved);
+  const allowed=new Set((fact.paymentLines||[]).flatMap(g=>g.parts.map(p=>p.paymentId)));
+  const correctionScopeValid=savedKeys.every(key=>allowed.has(key));
+  let paymentDelta=0,paymentComplete=fact.approved&&correctionScopeValid;
+  const paymentLines=(fact.paymentLines||[]).map(g=>{
+    let correctedAmount=0;
+    for(const part of g.parts){
+      const original=num(part.amount);
+      const corrected=correctionPaymentValue(deal,part.paymentId,original);
+      if(original===null||corrected===null){paymentComplete=false;continue}
+      correctedAmount+=corrected;paymentDelta+=corrected-original
+    }
+    return{...g,factAmount:g.amount,correctedAmount}
   });
   const counterpartyCashOut=fact.counterpartyCashOut===null||!paymentComplete?null:fact.counterpartyCashOut+paymentDelta;
   const netCashFlow=fact.cashReceived===null||counterpartyCashOut===null||fact.bankFees===null
@@ -460,7 +502,7 @@ function ownerModel(deal,fact){
   const reward=bridgeApproved?ownerAgentReward(deal,actualFinancialResult):{value:null,basis:null,status:'OPEN_SETTLEMENT_BRIDGE_REQUIRED'};
   const ronaProfit=actualFinancialResult===null||reward.value===null?null:actualFinancialResult-reward.value;
   return{
-    bridge,bridgeApproved,
+    bridge,bridgeApproved,correctionScopeValid,
     cashReceived:fact.cashReceived,
     counterpartyCashOut,
     factCounterpartyCashOut:fact.counterpartyCashOut,
@@ -475,6 +517,7 @@ function ownerModel(deal,fact){
     ronaProfit
   }
 }
+
 function rowVisualIcon(label){
   const s=upper(label);
   if(s.includes('ВЫРУЧ')||s.includes('ПОСТУП'))return'↓';
