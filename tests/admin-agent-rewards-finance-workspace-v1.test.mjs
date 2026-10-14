@@ -590,6 +590,10 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(agentActEdge,/resolve_portal_auth/);
   assert.match(agentActEdge,/ADMIN_IMPERSONATION_DENIED/);
   assert.match(agentActEdge,/SIGNED_ADDENDUM_WRONG_AGENT/);
+  // Regression for the 2026-10-14 production 500: both signed PDF archive and
+  // private storage registry have sha256, so this read MUST alias its source.
+  assert.match(agentActEdge,/select a\.document_id,a\.authoritative_filename as filename,a\.contract_reference,\s+a\.uploaded_at,a\.sha256 from portal_private\.agent_agency_contract_documents a/);
+  assert.doesNotMatch(agentActEdge,/\buploaded_at,sha256 from portal_private\.agent_agency_contract_documents a/);
   assert.match(agentActEdge,/SAVE_OWNER_CORRECTION_FIRST/);
   assert.match(agentActEdge,/LINK_SIGNED_DEAL_ADDENDUM_FIRST/);
   assert.match(agentActEdge,/AGENT_SERVICES_ACT_REVIEW_REQUESTED/);
