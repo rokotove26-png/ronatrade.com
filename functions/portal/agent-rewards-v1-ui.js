@@ -1299,25 +1299,21 @@ function renderActRecord(deal,docs,act){
     card.append(download)
   }
   if(!current)return card;
-  if(!approved){
-    card.append(el('div','rona-ar-doc-note',
-      'Подготовка корпоративного акта ожидает подтверждённые заключения Finance и Legal, привязанные к ID этой заявки.'));
-    return card
-  }
+  card.append(docButton('Открыть проект акта · печать в PDF',()=>openAgentActDraft(deal,docs,act)));
+  if(!approved)card.append(el('div','rona-ar-doc-note',
+    'Finance и Legal: PENDING. Внутренний проект можно сохранить для согласования; подписание до фактического подтверждения не разрешено.'));
   if(stage==='REVIEW_REQUESTED'||stage==='FINANCE_LEGAL_REVIEW')
-    card.append(actUploadForm(deal,act,'FINANCE_LEGAL_DRAFT','Подготовленный Finance и Legal проект акта (PDF)',false));
-  else if(stage==='DRAFT_READY')
-    card.append(actUploadForm(deal,act,'OWNER_SIGNED','Акт с подписью RONA Trade (PDF)',true));
-  else if(stage==='OWNER_SIGNED'){
-    const dispatch=docButton('Отправить агенту на подписание',()=>{},true);
-    dispatch.disabled=true;
-    dispatch.title='Входящие акты в ЛК Агента ещё не активированы.';
-    card.append(dispatch,el('div','rona-ar-doc-note',
-      'Отправка отключена до подтверждения доставки через защищённый кабинет агента.'));
-  }else if(stage==='AWAITING_AGENT_SIGNATURE')
-    card.append(actUploadForm(deal,act,'BOTH_SIGNED','Акт, возвращённый с подписями обеих сторон (PDF)',true));
-  else if(stage==='SIGNED_ARCHIVED')
-    card.append(el('div','rona-ar-doc-note','Акт подписан обеими сторонами. PDF хранится в закрытом архиве.'));
+    card.append(actUploadForm(deal,act,'FINANCE_LEGAL_DRAFT','Проект акта для внутренней проверки (PDF)',false));
+  else if(stage==='DRAFT_READY'){
+    if(approved)card.append(actUploadForm(deal,act,'OWNER_SIGNED','Акт с подписью RONA Trade (PDF)',true));
+    else card.append(el('div','rona-ar-doc-note','Проект сохранён. Дождитесь действительных заключений Finance и Legal для подписи.'));
+  }else if(stage==='OWNER_SIGNED'||stage==='AWAITING_AGENT_SIGNATURE'){
+    if(approved)card.append(actUploadForm(deal,act,'BOTH_SIGNED',
+      'Акт с подписями обеих сторон, полученный вне ЛК агента (PDF)',true));
+    card.append(el('div','rona-ar-doc-note',
+      'Отправка через ЛК агента не выполняется. Подписанный обеими сторонами PDF можно зарегистрировать вручную после его фактического получения.'));
+  }else if(stage==='SIGNED_ARCHIVED')
+    card.append(el('div','rona-ar-doc-note','Акт с обеими подписями находится в защищённом реестре и доступен для скачивания.'));
   return card
 }
 
