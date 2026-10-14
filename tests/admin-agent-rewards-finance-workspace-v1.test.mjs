@@ -22,6 +22,10 @@ const jsonbScalarGuard=readFileSync('supabase/migrations/20261014145000_agent_re
 const bnkIdentityV21=readFileSync('supabase/migrations/20261014153000_agent_rewards_source_locked_payment_identity_v21.sql','utf8');
 const bnkIdentityFixture=readFileSync('tests/fixtures/agent-rewards-bnk-identity-v21-integration.sql','utf8');
 const ui=readFileSync('functions/portal/agent-rewards-v1-ui.js','utf8');
+const agentActMigration=readFileSync('supabase/migrations/20261014190500_agent_rewards_deal_addenda_act_workflow_v1.sql','utf8');
+const agentActEdge=readFileSync('supabase/functions/rona-agent-reward-workflow/index.ts','utf8');
+const agentActStages=readFileSync('supabase/functions/rona-agent-reward-workflow/acts.ts','utf8');
+const agentActProxy=readFileSync('functions/portal/agent-reward-workflow.js','utf8');
 const ownerApi=readFileSync('functions/portal/owner-api.js','utf8');
 const shell=readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
 const remaining=readFileSync('functions/portal/remaining-sections-ui.js','utf8');
@@ -570,4 +574,38 @@ test('BNK v21 resolves verified PAYMENT evidence but preserves canonical ambigui
   assert.match(ui,/inp\.disabled=!enabled\|\|!x\.resolved/);
   assert.match(ui,/canonicalCounterpartyId/);
   assert.match(ownerApi,/rona_admin_agent_rewards_correct_v9/);
+});
+
+test('Agent Rewards document workflow binds signed DS, source Owner version and protected services acts without payout mutation',()=>{
+  assert.match(agentActMigration,/agent_reward_deal_addenda_v1/);
+  assert.match(agentActMigration,/agent_reward_act_requests_v1/);
+  assert.match(agentActMigration,/agent_reward_act_documents_v1/);
+  assert.match(agentActMigration,/owner_correction_key uuid not null references portal_private\.agent_reward_owner_corrections_v1/);
+  assert.match(agentActMigration,/agency_document_key uuid not null references portal_private\.agent_agency_contract_documents/);
+  assert.match(agentActMigration,/addendum_key uuid not null references portal_private\.agent_reward_deal_addenda_v1/);
+  assert.match(agentActMigration,/finance_review_record_id uuid references portal_private\.ai_coordination_records/);
+  assert.match(agentActMigration,/legal_review_record_id uuid references portal_private\.ai_coordination_records/);
+  assert.match(agentActMigration,/alter table portal_private\.agent_reward_act_requests_v1 enable row level security/);
+  assert.match(agentActMigration,/revoke all on portal_private\.agent_reward_act_documents_v1 from public,anon,authenticated/);
+  assert.match(agentActEdge,/resolve_portal_auth/);
+  assert.match(agentActEdge,/ADMIN_IMPERSONATION_DENIED/);
+  assert.match(agentActEdge,/SIGNED_ADDENDUM_WRONG_AGENT/);
+  assert.match(agentActEdge,/SAVE_OWNER_CORRECTION_FIRST/);
+  assert.match(agentActEdge,/LINK_SIGNED_DEAL_ADDENDUM_FIRST/);
+  assert.match(agentActEdge,/AGENT_SERVICES_ACT_REVIEW_REQUESTED/);
+  assert.match(agentActStages,/FINANCE_LEGAL_ACT_REVIEW_REQUIRED/);
+  assert.match(agentActStages,/AGENT_PORTAL_RECIPIENT_NOT_ACTIVE/);
+  assert.match(agentActStages,/ACT_CORRECTION_OUTDATED|OWNER_CORRECTION_SUPERSEDED/);
+  assert.match(agentActStages,/AGENT_ACT_ACCESS_DENIED/);
+  assert.match(agentActStages,/BOTH_SIGNED/);
+  assert.match(agentActStages,/AGENT_PORTAL_INBOX/);
+  assert.match(agentActProxy,/originAllowed\(request\)/);
+  assert.match(agentActProxy,/action==='agent-inbox'&&request.method==='GET'/);
+  assert.match(ui,/Загрузить и привязать подписанное ДС/);
+  assert.match(ui,/Акт выполненных работ/);
+  assert.match(ui,/await saveCorrection\(deal\.dealId,deal\.assignmentId,payload,''\)/);
+  assert.match(ui,/send\.disabled=true/);
+  for(const source of [agentActMigration,agentActEdge,agentActStages]){
+    assert.doesNotMatch(source,/\b(?:update|insert into|delete from)\s+portal_private\.(?:agent_settlements|payments|agent_deal_terms)\b/i);
+  }
 });
