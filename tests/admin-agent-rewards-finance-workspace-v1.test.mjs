@@ -365,7 +365,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/function renderDealPulse\(root,deal\)/);
   assert.match(ui,/База агента — чистая прибыль после расчётных 10%/);
   assert.match(ui,/PLAN · прибыль RONA/);
-  assert.match(ui,/FACT · чистая прибыль/);
+  assert.match(ui,/ФАКТИЧЕСКИЙ РЕЗУЛЬТАТ · чистая прибыль/);
   assert.match(ui,/PLAN · агентское вознаграждение/);
   assert.match(ui,/\.rona-ar-flow\{/);
   assert.match(ui,/\.rona-ar-pulse\{/);
