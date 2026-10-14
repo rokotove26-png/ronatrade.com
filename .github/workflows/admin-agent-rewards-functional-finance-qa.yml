@@ -7,6 +7,9 @@ on:
     paths:
       - 'supabase/migrations/*agent_rewards_current_finance_reconciled*.sql'
       - 'supabase/migrations/*agent_rewards_reconciled_owner_correction*.sql'
+      - 'supabase/migrations/*agent_rewards_current_finance_effective_chains*.sql'
+      - 'supabase/migrations/*agent_rewards_effective_chain_owner_correction*.sql'
+      - 'tests/fixtures/agent-rewards-finance-v18-effective-chains-integration.sql'
       - 'tests/fixtures/agent-rewards-finance-v16-integration.sql'
       - 'functions/portal/agent-rewards-v1-ui.js'
       - 'functions/portal/owner-api.js'
@@ -47,11 +50,11 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-client
-      - name: Execute real v16 read model and v17 correction gate in isolated PostgreSQL
+      - name: Test v16 baseline and corrected v18+v19 chain selection with 009, 010 and 011 fixtures
         shell: bash
         run: |
           set -euo pipefail
-          psql -X -v ON_ERROR_STOP=1 -f tests/fixtures/agent-rewards-finance-v16-integration.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/fixtures/agent-rewards-finance-v18-effective-chains-integration.sql
       - name: Install Chromium for Agent Rewards grouped counterparty interface
         run: |
           npm install --no-save --no-package-lock playwright@1.55.0
