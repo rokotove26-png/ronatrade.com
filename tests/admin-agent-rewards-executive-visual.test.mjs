@@ -98,9 +98,18 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         const unit=root.querySelector('.rona-ar-input-currency');
         const sections=cols.map(el=>el.querySelector('.rona-ar-col-title')?.textContent);
         const planRows=[...root.querySelectorAll('.rona-ar-col.plan .rona-ar-row')];
-        const planNet=planRows.find(el=>el.querySelector('.rona-ar-name')?.textContent==='Итого чистая прибыль');
+        const planNet=planRows.find(el=>el.querySelector('.rona-ar-name')?.textContent==='Чистая прибыль');
         const ownerActual=root.querySelector('[data-owner-computed="actualFinancialResult"] .rona-ar-value');
         const ownerReward=root.querySelector('[data-owner-computed="agentReward"] .rona-ar-value');
+        const financialLabels=['Доходы','Расходы','Прибыль до налогообложения','Налоги и платежи (10%)','Чистая прибыль','Агентское вознаграждение','Прибыль RONA'];
+        const pnlByColumn=Object.fromEntries(['plan','fact','owner'].map(k=>{
+          const rootCol=root.querySelector('.rona-ar-col.'+k);
+          const items=[...rootCol.querySelectorAll('.rona-ar-row')].map(el=>({
+            label:el.querySelector('.rona-ar-name')?.firstChild?.textContent||'',
+            value:el.querySelector('.rona-ar-value')?.textContent||null
+          }));
+          return [k,items.filter(v=>financialLabels.includes(v.label))]
+        }));
         const agreementWarning=root.querySelector('.rona-ar-col.owner .rona-ar-agent-contract-flag');
         const factGroupNames=[...root.querySelectorAll('.rona-ar-col.fact .rona-ar-exp-name')].map(n=>n.textContent);
         const ownerGroupNames=[...root.querySelectorAll('.rona-ar-col.owner .rona-ar-exp-name')].map(n=>n.textContent);
@@ -117,6 +126,7 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         const meaning=sel=>root.querySelector(sel)?.dataset.financeMeaning||null;
         return {version:window.__RONA_AGENT_REWARDS_PRESENTATION__,names,values,sections,
           gridColumns:grid.gridTemplateColumns,nameFont,valueFont,columns:cols.map(el=>el.getBoundingClientRect().toJSON()),
+          pnlByColumn,financialLabels,
           hiddenRows:{
             planFx:planRows.filter(el=>el.querySelector('.rona-ar-name')?.textContent==='Курсовая разница').length,
             ownerAgentBasis:root.querySelectorAll('.rona-ar-col.owner [data-owner-computed="agentBasis"]').length,
@@ -178,27 +188,47 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         'PLAN · агентское вознаграждение',
         'РАСЧЁТ · агентское вознаграждение',
         'PLAN · прибыль RONA',
-        'FACT · чистый ДДС'
-      ],'Reward first, then owner calculation, profit and cash at '+width);
-      assert.equal(result.values[0],'500,0 USD','Plan reward retains exact canonical input at '+width);
-      assert.equal(result.values[1],width===650?'400,0 USD':'198,0 USD',
+        'FACT · чистая прибыль'
+      ],'Management KPIs reflect net profit, not pre-tax DDS, at '+width);
+      for(const [column,rows] of Object.entries(result.pnlByColumn)){
+        assert.deepEqual(rows.map(x=>x.label),result.financialLabels,
+          'Same seven main financial calculation labels in PLAN, FACT and OWNER at '+width+' column '+column);
+      }
+      const management=(column,label)=>result.pnlByColumn[column].find(x=>x.label===label)?.value;
+      assert.equal(management('plan','Доходы'),'5 000,0 USD');
+      assert.equal(management('plan','Расходы'),'3 000,0 USD');
+      assert.equal(management('plan','Прибыль до налогообложения'),'+2 000,0 USD');
+      assert.equal(management('plan','Налоги и платежи (10%)'),'200,0 USD');
+      assert.equal(management('plan','Чистая прибыль'),'+1 800,0 USD');
+      assert.equal(management('fact','Доходы'),'5 000,0 USD');
+      assert.equal(management('fact','Расходы'),'3 020,0 USD');
+      assert.equal(management('fact','Прибыль до налогообложения'),'+1 980,0 USD');
+      assert.equal(management('fact','Налоги и платежи (10%)'),'198,0 USD');
+      assert.equal(management('fact','Чистая прибыль'),'+1 782,0 USD');
+      assert.equal(management('owner','Налоги и платежи (10%)'),'198,0 USD');
+      assert.equal(management('owner','Чистая прибыль'),'+1 782,0 USD');
+      assert.equal(management('owner','Агентское вознаграждение'),width===650?'+400,0 USD':'+178,2 USD');
+      assert.equal(management('fact','Агентское вознаграждение'),width===650?'400,0 USD':'178,2 USD');
+      assert.equal(management('fact','Прибыль RONA'),width===650?'+1 382,0 USD':'+1 603,8 USD');
+      assert.equal(result.values[0],width===650?'400,0 USD':'180,0 USD','Plan reward is recalculated using after-tax net profit, not stale approved plan amount at '+width);
+      assert.equal(result.values[1],width===650?'400,0 USD':'178,2 USD',
         'Owner calculation uses full actual financial result for confirmed percentage terms at '+width);
       assert.equal(result.hiddenRows.planFx,0,'Plan FX row must not appear at '+width);
       assert.equal(result.hiddenRows.ownerAgentBasis,0,'Separate agent basis row must not appear at '+width);
-      assert.equal(result.hiddenRows.planNetValue,'+1 760,0 USD',
-        'Hiding Plan FX must not silently change authoritative net profit formula at '+width);
+      assert.equal(result.hiddenRows.planNetValue,'+1 800,0 USD',
+        'PLAN net is pre-tax 2000 less 10% management provision (no re-added FX or historical tax input) at '+width);
       assert.equal(result.hiddenRows.ownerActual,'+1 980,0 USD',
         'Approved actual financial result is the agent calculation basis at '+width);
-      assert.equal(result.hiddenRows.ownerReward,width===650?'+400,0 USD':'+198,0 USD',
-        'Owner agent reward must use actual result without subtracting realized FX at '+width);
+      assert.equal(result.hiddenRows.ownerReward,width===650?'+400,0 USD':'+178,2 USD',
+        'OWNER agent reward must use net profit after 10% provision, not pre-tax profit at '+width);
       assert.equal(result.hiddenRows.contractWarnings,width===650?0:1,
         'Special signed FX-exclusion terms must not silently lose warning at '+width);
       if(width!==650){
         assert.equal(result.hiddenRows.warningText,'Условие FX · сверить договор');
-        assert.match(result.hiddenRows.warningTooltip||'',/Внутренняя база — фактический финансовый результат/);
+        assert.match(result.hiddenRows.warningTooltip||'',/Внутренняя база — чистая прибыль после расчётного налога 10%/);
       }
-      assert.equal(result.values[3],'1 980,0 USD'.replace(/\u00a0/g,' '),'Fact value must retain canonical numeric formatting');
-      assert.deepEqual(result.sections,['Ожидаемый результат','ДДС по сделке','Фактический результат']);
+      assert.equal(result.values[3],'1 782,0 USD','Fact KPI must show after-tax profit, not cash DDS');
+      assert.deepEqual(result.sections,['Ожидаемый результат','Расчёт по фактическим платежам','Фактический результат']);
       assert(result.technicalCount>=1&&result.hasHiddenTech,'Source code must be disclosed, not displayed by default');
       assert.equal(result.summary,'Источник и статус');
       assert(result.nameFont>=12&&result.valueFont>=14,'Financial primary type is too small at '+width);
