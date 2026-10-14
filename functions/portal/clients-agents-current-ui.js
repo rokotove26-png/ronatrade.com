@@ -62,12 +62,12 @@ function currentUiRuntime(){
   async function notice(msg,title='Клиенты и агенты'){if(window.RONA_ADMIN_DIALOGS?.message)return window.RONA_ADMIN_DIALOGS.message(String(msg),{title});const b=el('div','ca-modal-backdrop'),m=el('section','rona-owner-card ca-modal'),h=el('h2','',title),p=el('div','ca-copy',String(msg)),ok=el('button','ca-primary','Закрыть');ok.type='button';return new Promise(resolve=>{const close=()=>{b.remove();resolve(true)};ok.onclick=close;b.onclick=e=>{if(e.target===b)close()};m.append(h,p,ok);b.append(m);document.body.append(b)})}
   async function confirmBox(msg,title='Подтверждение'){if(window.RONA_ADMIN_DIALOGS?.confirm)return window.RONA_ADMIN_DIALOGS.confirm(String(msg),{title,confirmLabel:'Подтвердить',cancelLabel:'Отмена'});const b=el('div','ca-modal-backdrop'),m=el('section','rona-owner-card ca-modal'),h=el('h2','',title),p=el('div','ca-copy',String(msg)),a=el('div','ca-modal-actions'),cancel=el('button','ca-btn','Отмена'),ok=el('button','ca-primary','Подтвердить');cancel.type=ok.type='button';return new Promise(resolve=>{const close=v=>{b.remove();resolve(v===true)};cancel.onclick=()=>close(false);ok.onclick=()=>close(true);b.onclick=e=>{if(e.target===b)close(false)};a.append(cancel,ok);m.append(h,p,a);b.append(m);document.body.append(b)})}
   async function json(url,opts={}){const init={credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'},...opts},r=await fetch(url,init),raw=await r.text(),j=(()=>{try{return raw?JSON.parse(raw):{}}catch{return{}}})();if(!r.ok||j?.ok===false){const code=txt(j?.code)||('ACCESS_HTTP_'+r.status+(raw&&!j?.code?'_NON_JSON':'')),e=new Error(code);e.code=code;e.status=r.status;e.payload=j;throw e}return j?.data??j}
-  const owner=(path,opts={})=>json(OWNER_API+'?path='+encodeURIComponent(path),opts),auth=(path,opts={})=>json(AUTH+path,opts);
+  const owner=(path,opts={})=>json(OWNER_API+'?path='+encodeURIComponent(path),opts),auth=(path,opts={})=>json(AUTH+path,opts),agency=(path='',opts={})=>json('/portal/agency-contracts'+path,opts);
 
   async function loadAll(reason='manual'){
     const source=String(reason||'manual').toUpperCase().replace(/[^A-Z0-9_-]+/g,'_').slice(0,48);
     const headers={accept:'application/json','x-rona-client-source':'ADMIN_ACCESS_REFRESH','x-rona-client-refresh-reason':'ADMIN_ACCESS_'+source};
-    const [b,a,w,g]=await Promise.all([owner('/admin/bootstrap',{headers}),auth('/bootstrap',{headers}),owner('/admin/access-workspace',{headers}).catch(()=>null),owner('/admin/agency-contracts',{headers})]);
+    const [b,a,w,g]=await Promise.all([owner('/admin/bootstrap',{headers}),auth('/bootstrap',{headers}),owner('/admin/access-workspace',{headers}).catch(()=>null),agency('',{headers})]);
     business=b||{};authority=a||{};workspace=w&&typeof w==='object'?w:null;agencyArchive=g||{};
     window.__RONA_OWNER_ADMIN_SNAPSHOT__=business;
     window.__RONA_ADMIN_LIVE_SNAPSHOT__={...(window.__RONA_ADMIN_LIVE_SNAPSHOT__||{}),authority,accessWorkspace:workspace,at:new Date().toISOString()};
@@ -122,8 +122,8 @@ function currentUiRuntime(){
   async function downloadAgencyDocument(company,doc,button){
     if(button)button.disabled=true;
     try{
-      const d=await owner('/admin/agency-contracts/'+encodeURIComponent(company.agentCompanyId)+
-        '/documents/'+encodeURIComponent(doc.documentId)+'/download');
+      const d=await agency('?action=download&companyId='+encodeURIComponent(company.agentCompanyId)+
+        '&documentId='+encodeURIComponent(doc.documentId));
       if(!d?.url||!/^https:\/\//.test(d.url))throw new Error('SIGNED_URL_FAILED');
       const a=el('a');a.href=d.url;a.target='_blank';a.rel='noopener noreferrer';a.download=d.filename||doc.filename||'agreement.pdf';
       document.body.append(a);a.click();a.remove();
@@ -160,7 +160,7 @@ function currentUiRuntime(){
       try{
         const formData=new FormData();formData.append('file',file);formData.append('kind',kind.value);
         formData.append('reference',reference.value.trim());formData.append('attestedSigned','true');
-        await owner('/admin/agency-contracts/'+encodeURIComponent(company.agentCompanyId)+'/documents',{
+        await agency('?action=upload&companyId='+encodeURIComponent(company.agentCompanyId),{
           method:'POST',body:formData
         });
         close();await refresh('agent-agreement-upload');
