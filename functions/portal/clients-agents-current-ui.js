@@ -73,7 +73,7 @@ function currentUiRuntime(){
   async function loadAll(reason='manual'){
     const source=String(reason||'manual').toUpperCase().replace(/[^A-Z0-9_-]+/g,'_').slice(0,48);
     const headers={accept:'application/json','x-rona-client-source':'ADMIN_ACCESS_REFRESH','x-rona-client-refresh-reason':'ADMIN_ACCESS_'+source};
-    const [b,a,w,g]=await Promise.all([owner('/admin/bootstrap',{headers}),auth('/bootstrap',{headers}),owner('/admin/access-workspace',{headers}).catch(()=>null),(S.view==='agents'?agency('',{headers}).catch(()=>null):Promise.resolve(agencyArchive))]);
+    const [b,a,w,g]=await Promise.all([owner('/admin/bootstrap',{headers}),auth('/bootstrap',{headers}),owner('/admin/access-workspace',{headers}).catch(()=>null),(S.view==='agents'?agency('',{headers}).catch(error=>({error:txt(error?.code||error?.message)||'AGENCY_ARCHIVE_UNAVAILABLE',agents:[]})).catch(()=>null):Promise.resolve(agencyArchive))]);
     business=b||{};authority=a||{};workspace=w&&typeof w==='object'?w:null;agencyArchive=g&&Array.isArray(g.agents)?g:null;
     window.__RONA_OWNER_ADMIN_SNAPSHOT__=business;
     window.__RONA_ADMIN_LIVE_SNAPSHOT__={...(window.__RONA_ADMIN_LIVE_SNAPSHOT__||{}),authority,accessWorkspace:workspace,at:new Date().toISOString()};
