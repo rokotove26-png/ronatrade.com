@@ -90,18 +90,17 @@ async function listAgents(){
                                     'SUPERSEDED'::portal_private.authority_state_enum)
     group by le.id order by le.legal_name`;
   const docs=await sql`
-    select ale.agent_legal_entity_id as agent_company_id,
-      d.document_id,d.authoritative_filename as filename,link.document_kind,link.contract_reference,
-      link.uploaded_at,d.authority_state::text as document_authority,
-      v.sha256,so.byte_size
-    from portal_private.agent_agency_contract_documents link
-    join portal_private.agent_legal_entities ale on ale.id=link.agent_legal_entity_key
-    join portal_private.documents d on d.id=link.document_key
-    join portal_private.document_versions v on v.id=d.current_version_id and v.document_key=d.id
-    join portal_private.storage_objects so on so.document_version_key=v.id
+    select le.agent_legal_entity_id as agent_company_id,
+      ad.document_id,ad.authoritative_filename as filename,
+      ad.document_kind,ad.contract_reference,ad.uploaded_at,
+      ad.authority_state::text as document_authority,
+      ad.sha256,ad.byte_size
+    from portal_private.agent_agency_contract_documents ad
+    join portal_private.agent_legal_entities le on le.id=ad.agent_legal_entity_key
+    join portal_private.storage_objects so on so.id=ad.storage_object_key
       and so.storage_state='VERIFIED'
-    where d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and v.is_current
-    order by link.uploaded_at desc`;
+    where ad.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    order by ad.uploaded_at desc`;
   return{agents:agents.map(a=>({
     agentCompanyId:String(a.agent_legal_entity_id),
     legalName:String(a.legal_name),
@@ -134,10 +133,8 @@ async function upload(ctx:{userId:string},req:Request,companyId:string){
   const digest=await crypto.subtle.digest("SHA-256",bytes);
   const sha256=[...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,"0")).join("");
   const previous=await sql`
-    select d.document_id from portal_private.agent_agency_contract_documents ad
-    join portal_private.documents d on d.id=ad.document_key
-    join portal_private.document_versions v on v.id=d.current_version_id
-    where ad.agent_legal_entity_key=${agent.id}::uuid and v.sha256=${sha256}
+    select document_id from portal_private.agent_agency_contract_documents
+    where agent_legal_entity_key=${agent.id}::uuid and sha256=${sha256}
     limit 1`;
   if(previous.length)throw deny("AGENCY_DOCUMENT_ALREADY_ARCHIVED",409);
   const objectName=`agent-companies/${companyId}/signed/${crypto.randomUUID()}.pdf`;
@@ -149,32 +146,21 @@ async function upload(ctx:{userId:string},req:Request,companyId:string){
     if(raw.length!==1)throw deny("STORAGE_OBJECT_ID_MISSING",502);
     const documentId=`AGENCY-${companyId}-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
     await sql.begin(async tx=>{
-      const docKey=crypto.randomUUID(),versionKey=crypto.randomUUID();
-      await tx`insert into portal_private.documents(
-        id,document_id,document_type,counterparty_code,authoritative_filename,
-        source_system,source_version,source_timestamp,authority_state,lifecycle_state)
-      values(${docKey}::uuid,${documentId},${kind},${companyId},${filename},
-        'ADMIN_PORTAL','AGENCY_SIGNED_PDF_ARCHIVE_V1',now(),
-        'SOURCE_RECEIVED'::portal_private.authority_state_enum,
-        'ACTIVE'::portal_private.lifecycle_state_enum)`;
-      await tx`insert into portal_private.document_versions(
-        id,document_key,version_number,authoritative_filename,sha256,storage_path,uploaded_by,
-        is_current,is_effective,source_system,source_version,source_timestamp,authority_state,lifecycle_state)
-      values(${versionKey}::uuid,${docKey}::uuid,1,${filename},${sha256},${objectName},
-        ${ctx.userId}::uuid,true,false,'ADMIN_PORTAL','AGENCY_SIGNED_PDF_ARCHIVE_V1',now(),
-        'SOURCE_RECEIVED'::portal_private.authority_state_enum,
-        'ACTIVE'::portal_private.lifecycle_state_enum)`;
-      await tx`insert into portal_private.storage_objects(
-        bucket_id,object_name,storage_object_id,object_kind,document_version_key,
+      const objects=await tx`insert into portal_private.storage_objects(
+        bucket_id,object_name,storage_object_id,object_kind,
         content_type,byte_size,sha256,storage_state,created_by,verified_by,verified_at)
-      values(${BUCKET},${objectName},${raw[0].id}::uuid,'DOCUMENT',${versionKey}::uuid,
+      values(${BUCKET},${objectName},${raw[0].id}::uuid,'DOCUMENT',
         'application/pdf',${file.size},${sha256},'VERIFIED',
-        ${ctx.userId}::uuid,${ctx.userId}::uuid,now())`;
-      await tx`update portal_private.documents set current_version_id=${versionKey}::uuid,
-        updated_at=now() where id=${docKey}::uuid`;
+        ${ctx.userId}::uuid,${ctx.userId}::uuid,now())
+      returning id`;
+      if(objects.length!==1)throw deny("AGENCY_ARCHIVE_STORAGE_REGISTRATION_FAILED",500);
       await tx`insert into portal_private.agent_agency_contract_documents(
-        agent_legal_entity_key,document_key,document_kind,contract_reference,uploaded_by)
-      values(${agent.id}::uuid,${docKey}::uuid,${kind},${reference||null},${ctx.userId}::uuid)`;
+        document_id,agent_legal_entity_key,storage_object_key,
+        document_kind,contract_reference,authoritative_filename,
+        sha256,byte_size,uploaded_by)
+      values(${documentId},${agent.id}::uuid,${objects[0].id}::uuid,
+        ${kind},${reference||null},${filename},
+        ${sha256},${file.size},${ctx.userId}::uuid)`;
       await audit(tx,ctx,req,"AGENCY_SIGNED_PDF_ARCHIVED",companyId,{
         documentId,kind,reference:reference||null,sha256,byteSize:file.size,
         signedAttestation:true,legalApprovalAutomatic:false,externalPayableCreated:false
@@ -188,20 +174,19 @@ async function upload(ctx:{userId:string},req:Request,companyId:string){
 }
 async function download(ctx:{userId:string},req:Request,companyId:string,documentId:string){
   const agent=await legalAgent(companyId);
-  const rows=await sql`select d.document_id,d.authoritative_filename,v.storage_path,so.bucket_id
+  const rows=await sql`
+    select ad.document_id,ad.authoritative_filename,so.object_name,so.bucket_id
     from portal_private.agent_agency_contract_documents ad
-    join portal_private.documents d on d.id=ad.document_key
-    join portal_private.document_versions v on v.id=d.current_version_id and v.document_key=d.id
-    join portal_private.storage_objects so on so.document_version_key=v.id and so.storage_state='VERIFIED'
+    join portal_private.storage_objects so on so.id=ad.storage_object_key
+      and so.storage_state='VERIFIED'
     where ad.agent_legal_entity_key=${agent.id}::uuid
-      and d.document_id=${documentId}
-      and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-      and v.is_current
+      and ad.document_id=${documentId}
+      and ad.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
     limit 1`;
   if(rows.length!==1)throw deny("AGENCY_DOCUMENT_NOT_FOUND",404);
   const row=rows[0];
   const {data,error}=await service.storage.from(String(row.bucket_id||BUCKET))
-    .createSignedUrl(String(row.storage_path),120,{download:String(row.authoritative_filename)});
+    .createSignedUrl(String(row.object_name),120,{download:String(row.authoritative_filename)});
   if(error||!data?.signedUrl)throw deny("SIGNED_URL_FAILED",502);
   await sql.begin(async tx=>audit(tx,ctx,req,"AGENCY_SIGNED_PDF_DOWNLOAD",companyId,
     {documentId:String(row.document_id),ttlSeconds:120}));
