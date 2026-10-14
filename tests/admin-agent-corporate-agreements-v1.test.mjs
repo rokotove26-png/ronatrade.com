@@ -123,10 +123,8 @@ test('Rendered corporate agent list, secure download and signed upload workflow'
       await page.addScriptTag({content:script});
       await page.waitForSelector('#rona-ca4 .ca-agreement-archive',{timeout:15000});
       const titles=await page.locator('#ca-current-body .ca-name').allTextContents();
-      assert.deepEqual(titles,[companyB.legalName,companyA.legalName].sort((a,b)=>a.localeCompare(b,'ru')).length===2
-        ?[companyB.legalName,companyA.legalName] : titles); // Check exact legal titles independent of browser sort.
-      assert(titles.includes(companyA.legalName));
-      assert(titles.includes(companyB.legalName));
+      assert.deepEqual(new Set(titles),new Set([companyA.legalName,companyB.legalName]),
+        'Agent card titles must be legal entity names, not persons');
       assert(!titles.includes('Артем Белов'));
       assert(!titles.includes('Егор Кузнецов'));
       assert.equal(await page.locator('.rona-owner-kpi').nth(1).textContent(),'2');
