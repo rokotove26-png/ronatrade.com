@@ -52,6 +52,37 @@ jobs:
           if grep -Fxq 'functions/portal/agent-rewards-v1-ui.js' /tmp/agent-rewards-ui-files.txt; then
             grep -Fxq 'tests/admin-agent-rewards-executive-visual.test.mjs' /tmp/agent-rewards-ui-files.txt
             echo 'FINANCE_UI_SCOPE=PASS'
+          elif grep -Fxq 'supabase/functions/rona-agent-reward-workflow/index.ts' /tmp/agent-rewards-ui-files.txt; then
+            # Edge-only signed DS archive hotfix: fail closed on unrelated changes.
+            grep -Fxq 'tests/admin-agent-rewards-finance-workspace-v1.test.mjs' /tmp/agent-rewards-ui-files.txt
+            if grep -Ev '^(supabase/functions/rona-agent-reward-workflow/index\.ts|tests/admin-agent-rewards-finance-workspace-v1\.test\.mjs|\.github/workflows/admin-agent-rewards-executive-visual-qa\.yml)
+              # Read-only BNK binding: require independent PostgreSQL, source-contract tests.
+              grep -Fxq 'tests/fixtures/agent-rewards-bnk-identity-v21-integration.sql' /tmp/agent-rewards-ui-files.txt
+              grep -Fxq 'tests/admin-agent-rewards-finance-workspace-v1.test.mjs' /tmp/agent-rewards-ui-files.txt
+              echo 'FINANCE_BNK_SOURCE_IDENTITY_SCOPE=PASS'
+            else
+              # Existing v20 JSONB-only incident pathway remains unchanged.
+              grep -Fxq 'supabase/migrations/20261014145000_agent_rewards_source_current_jsonb_scalar_guard_v20.sql' /tmp/agent-rewards-ui-files.txt
+              grep -Fxq 'tests/fixtures/agent-rewards-jsonb-scalar-guard-v20-integration.sql' /tmp/agent-rewards-ui-files.txt
+              grep -Fxq 'tests/admin-agent-rewards-finance-workspace-v1.test.mjs' /tmp/agent-rewards-ui-files.txt
+              echo 'FINANCE_DB_SCALAR_HOTFIX_SCOPE=PASS'
+            fi
+          fi
+      - name: Verify finance P&L contract and unchanged authority
+        run: |
+          node --check functions/portal/agent-rewards-v1-ui.js
+          node --test tests/admin-agent-rewards-finance-workspace-v1.test.mjs
+      - name: Install Chromium for rendered Admin finance view
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Render dashboard and verify expense grouping
+        run: node --test tests/admin-agent-rewards-executive-visual.test.mjs
+ /tmp/agent-rewards-ui-files.txt; then
+              echo 'AGENT_DS_ARCHIVE_HOTFIX_SCOPE_VIOLATION' >&2
+              exit 1
+            fi
+            echo 'AGENT_DS_ARCHIVE_HOTFIX_SCOPE=PASS'
           else
             if grep -Fxq 'supabase/migrations/20261014153000_agent_rewards_source_locked_payment_identity_v21.sql' /tmp/agent-rewards-ui-files.txt; then
               # Read-only BNK binding: require independent PostgreSQL, source-contract tests.
