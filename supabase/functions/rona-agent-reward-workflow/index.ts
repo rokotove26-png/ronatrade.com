@@ -105,7 +105,12 @@ async function scope(dealId:string,assignmentId:string){
  join portal_private.agent_legal_entities l on l.id=a.agent_legal_entity_key
  join portal_private.agent_persons p on p.id=a.agent_person_key
  where d.deal_id=${dealId} and d.lifecycle_state::text not in ('ARCHIVED','SUPERSEDED')
- and exists(select 1 from portal_private.agent_deal_terms t where t.deal_key=d.id and t.assignment_id=a.id)
+ and (
+   (a.status::text='ACTIVE' and a.lifecycle_state::text='ACTIVE'
+     and a.authority_state::text in ('CONFIRMED','VERIFIED','AUTHORITATIVE'))
+   or exists(select 1 from portal_private.agent_deal_terms t
+     where t.deal_key=d.id and t.assignment_id=a.id)
+ )
  limit 2`;
  if(rows.length!==1)throw deny("DEAL_AGENT_SOURCE_MISSING",404);
  return rows[0]
