@@ -54,7 +54,7 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
     ],
     ownerResultBridge:{recognition_status:'APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE',open_settlement_adjustment:{amount:0}},
     ownerCorrectionAuthority:{status:'NOT_APPROVED',contract:'PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'},
-    settlementPositions:[]
+    settlementPositions:[{balance_type:'PAYABLE',status:'CONFIRMED',counterparty:'QA Supplier',balance_amount:300,currency:'USD'}]
   };
   const data={ok:true,data:{deals:[deal]}};
   const markup='<!doctype html><html lang="ru"><head><meta charset="utf-8"/></head><body>'
@@ -95,6 +95,8 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         const source=technical.find(n=>n.textContent.includes('APPROVED_FINANCE_MANAGEMENT_PLAN'));
         const first=source?.querySelector('summary');
         const inp=root.querySelector('[data-owner-key="openSettlementAdjustment"]');
+        const settlementInsideExpenses=!!root.querySelector('.rona-ar-col.fact .rona-ar-table>.rona-ar-balances');
+        const oldBottomSettlement=!!root.querySelector('.rona-ar>.rona-ar-balances');
         const unit=root.querySelector('.rona-ar-input-currency');
         const sections=cols.map(el=>el.querySelector('.rona-ar-col-title')?.textContent);
         const planRows=[...root.querySelectorAll('.rona-ar-col.plan .rona-ar-row')];
@@ -124,7 +126,7 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
           return n?getComputedStyle(n).color:null
         };
         const meaning=sel=>root.querySelector(sel)?.dataset.financeMeaning||null;
-        return {version:window.__RONA_AGENT_REWARDS_PRESENTATION__,names,values,sections,
+        return {version:window.__RONA_AGENT_REWARDS_PRESENTATION__,names,values,sections,settlementInsideExpenses,oldBottomSettlement,
           gridColumns:grid.gridTemplateColumns,nameFont,valueFont,columns:cols.map(el=>el.getBoundingClientRect().toJSON()),
           pnlByColumn,financialLabels,
           hiddenRows:{
@@ -235,6 +237,8 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       assert(result.visibleRewardRow,'Reward rows must have visible priority at '+width);
       assert(result.inputExists&&result.inputCurrency==='USD','Currency displayed beside editable numeric amount');
       assert.equal(result.inputDisabled,true,'Unauthorized test must not unlock owner correction');
+      assert.equal(result.settlementInsideExpenses,true,'Settlement balances must appear inside FACT expenses at '+width);
+      assert.equal(result.oldBottomSettlement,false,'No detached settlement panel at '+width);
       assert.deepEqual(result.grouping.factNames,['Поставщик'],'FACT must show one canonical counterparty, not two payment rows at '+width);
       assert.deepEqual(result.grouping.ownerNames,['Поставщик'],'Owner must have only one editable aggregate per canonical counterparty at '+width);
       assert.equal(result.grouping.ownerInputCount,1,'One input per canonical supplier at '+width);
@@ -250,7 +254,7 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       assert.equal(result.ledger.planExpenseTooltip,'APPROVED_FINANCE_MANAGEMENT_PLAN','Nonvisual source details must be retained in a label tooltip at '+width);
       assert.equal(result.ledger.planExpenseDetail,1,'The original approved transportation expense article remains in the plan at '+width);
       assert.match(result.ledger.actualPaidTooltip||'',/VISUAL-QA-PAYMENT/,'Payment provenance remains accessible by hover at '+width);
-      assert.match(result.ledger.ownerInputTooltip||'',/Незакрытые расчёты/,'Owner correction retains its accessible label at '+width);
+      assert.match(result.ledger.ownerInputTooltip||'',/Корректировка взаиморасчётов/,'Owner correction retains its accessible label at '+width);
       assert.equal(result.fxCount,1,'One FX reference strip, not duplicate rows, at '+width);
       assert.equal(result.fxInsideTables,0,'FX strip must be OUTSIDE finance tables at '+width);
       assert.equal(result.fxRows,0,'Neither FACT nor Owner table may contain realized FX at '+width);
