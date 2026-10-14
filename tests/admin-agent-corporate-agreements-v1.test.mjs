@@ -289,6 +289,7 @@ test('Rendered company master-detail keeps verified PDF and agent assignment wor
       assert.equal(await page.locator('.ca-company-agent-form select').count(),0,'Unknown agent registry must not imply edit rights');
       await page.getByRole('button',{name:'Загрузить реестр агентов'}).click();
       const agentSelect=page.getByRole('combobox',{name:'Агент компании'});
+      await agentSelect.waitFor({state:'visible',timeout:10000});
       assert.equal(await agentSelect.count(),1);
       await agentSelect.selectOption('AGP-2026-001');
       await page.getByRole('button',{name:'Сохранить назначение'}).click();
