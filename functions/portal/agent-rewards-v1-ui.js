@@ -1182,7 +1182,7 @@ async function requestAgentAct(deal,button){
     const result=await docCall(deal,'request-act',{method:'POST'});
     await refreshDealDocuments(deal);
     docNotice('Заявка на акт выполненных работ зарегистрирована: '+String(result.requestId||'')+
-      '. Проверка Finance и Legal необходима перед подготовкой PDF и отправкой агенту.')
+      '. Проект акта можно подготовить для проверки. Подписание требует фактических заключений Finance и Legal.')
   }catch(e){docNotice('Акт не запрошен: '+String(e.message||e))}
   finally{button.disabled=false}
 }
@@ -1203,8 +1203,8 @@ async function uploadAgentActStage(deal,requestId,stage,fileInput,attest,button)
     const data=await res.json().catch(()=>({}));
     if(!res.ok||data.ok===false)throw new Error(data.code||'ACT_UPLOAD_FAILED');
     await refreshDealDocuments(deal);
-    docNotice(stage==='FINANCE_LEGAL_DRAFT'?'Проверенный проект акта сохранён в закрытом архиве.':
-      stage==='OWNER_SIGNED'?'PDF с подписью RONA сохранён. Можно передавать агенту через его кабинет.':
+    docNotice(stage==='FINANCE_LEGAL_DRAFT'?'Проект акта сохранён для внутреннего согласования.':
+      stage==='OWNER_SIGNED'?'PDF с подписью RONA сохранён. Передача через ЛК агента не выполняется.':
       'Акт с подписями обеих сторон архивирован и доступен для скачивания.')
   }catch(e){docNotice('Загрузка акта: '+String(e.message||e))}
   finally{button.disabled=false}
@@ -1219,17 +1219,50 @@ async function downloadAgentAct(deal,requestId,documentId){
   if(!/^https:\/\//.test(String(url||'')))throw new Error('ACT_SIGNED_URL_INVALID');
   window.open(url,'_blank','noopener,noreferrer')
 }
-async function dispatchAgentAct(deal,requestId,button){
-  button.disabled=true;
-  try{
-    const res=await fetch(docUrl(deal,'dispatch-act')+'&requestId='+encodeURIComponent(requestId),
-      {method:'POST',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
-    const result=await res.json().catch(()=>({}));
-    if(!res.ok||result.ok===false)throw new Error(result.code||'ACT_DISPATCH_FAILED');
-    await refreshDealDocuments(deal);
-    docNotice('Акт опубликован для назначенного агента в его защищённом личном кабинете.');
-  }catch(e){docNotice('Отправка агенту: '+String(e.message||e))}
-  finally{button.disabled=false}
+function openAgentActDraft(deal,docs,act){
+  if(!docs.currentAddendum||docs.ownerCorrection?.sourceId!==act.owner_correction_key)
+    return docNotice('Проект недоступен: подтверждённое ДС или актуальная OWNER-корректировка отсутствуют.');
+  const clean=value=>String(value??'—').replace(/[&<>"']/g,ch=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[ch]);
+  const w=window.open('','_blank');
+  if(!w)return docNotice('Разрешите открытие окна для просмотра проекта акта.');
+  w.opener=null;
+  const term=docs.term,terms=term?.mode==='PERCENT'&&num(term.rate)!==null
+    ?fmt(num(term.rate)*100)+'% от подлежащей подтверждению базы'
+    :term?.mode==='FIXED'?money(term.fixedAmount,term.currency||currencyOf(deal))
+    :term?.mode==='PER_TONNE'?money(term.rate,term.currency||currencyOf(deal))+' / т':'TO_VERIFY';
+  const reviewed=act.review?.approved===true?'Finance и Legal: APPROVED':'Finance и Legal: проверка не завершена';
+  const today=new Date().toLocaleDateString('ru-RU');
+  const body=`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Проект акта ${clean(deal.dealId)}</title>
+  <style>@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font-family:"Arial Narrow",Arial,sans-serif;color:#202328}
+  .page{position:relative;width:210mm;height:297mm;overflow:hidden}.letterhead{position:absolute;left:0;top:0;width:210mm;height:297mm;object-fit:fill}
+  .content{position:absolute;left:23mm;right:23mm;top:48mm;bottom:24mm;font-size:12.5pt;line-height:1.32;text-align:justify}
+  h1{font-size:15pt;text-align:center;margin:0 0 9mm;font-weight:700}h2{font-size:12.5pt;text-align:center;margin:8mm 0 4mm}
+  p{margin:3mm 0}table{width:100%;border-collapse:collapse;margin:5mm 0}td{border:1px solid #555;padding:2.5mm;font-size:11.5pt;vertical-align:top}
+  .notice{font-weight:700;border:1px solid #a44;padding:3mm;color:#7c2525;text-align:center;font-size:11pt}
+  .signatures{display:flex;gap:10mm;margin-top:18mm}.signatures div{flex:1;border-top:1px solid #777;padding-top:2mm;font-size:10.5pt}
+  .controls{position:fixed;top:10px;right:10px;z-index:9;background:#102b43;color:white;border:0;padding:11px;cursor:pointer}
+  @media print{.controls{display:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+  <button class="controls" id="ronaDraftPrint" type="button">Печать / сохранить в PDF</button><div class="page">
+  <img class="letterhead" alt="RONA Trade canonical letterhead v2" src="/portal/agent-reward-workflow?action=canonical-letterhead">
+  <main class="content"><h1>ПРОЕКТ АКТА ОКАЗАННЫХ АГЕНТСКИХ УСЛУГ</h1>
+  <p class="notice">ВНУТРЕННИЙ ПРОЕКТ ДЛЯ ПРОВЕРКИ. НЕ ПОДПИСАН. НЕ ЯВЛЯЕТСЯ ОСНОВАНИЕМ ДЛЯ ВЫПЛАТЫ.</p>
+  <p>Дата формирования проекта: ${clean(today)}. Номер и дата юридического акта: подлежат согласованию.</p>
+  <p><b>Заказчик:</b> RONA Trade (полные реквизиты проверяются Legal).<br><b>Исполнитель:</b> ${clean(docs.agentLegalName||'TO_VERIFY')}.</p>
+  <table><tr><td>Сделка</td><td>${clean(deal.dealId)}</td></tr>
+  <tr><td>Контрагент по товарной сделке</td><td>${clean(deal.clientName||'TO_VERIFY')}</td></tr>
+  <tr><td>Подписанное ДС</td><td>${clean(docs.currentAddendum.reference||'TO_VERIFY')}</td></tr>
+  <tr><td>Сохранённая OWNER-корректировка</td><td>№ ${clean(act.correction_version)}; ID ${clean(act.owner_correction_key)}</td></tr>
+  <tr><td>Договорные условия вознаграждения</td><td>${clean(terms)}</td></tr>
+  <tr><td>Подтверждённая сумма вознаграждения и валюта</td><td>TO_VERIFY — определяется Finance по фактическим данным</td></tr></table>
+  <p><b>Согласование:</b> ${clean(reviewed)}. Объём и факт услуг, расчёт суммы, реквизиты и текст обязательств требуют профильной проверки.</p>
+  <h2>Подписи после согласования</h2><div class="signatures"><div>Заказчик — RONA Trade</div><div>Исполнитель — ${clean(docs.agentLegalName||'агент')}</div></div>
+  <p style="font-size:9pt;margin-top:12mm">RONA-DOC-STANDARD v2: канонический бланк; подпись и печать не проставляются автоматически. Проект не является окончательным внешним документом.</p>
+  </main></div></body></html>`;
+  w.document.open();w.document.write(body);w.document.close();
+  const control=w.document.getElementById('ronaDraftPrint');
+  if(control)control.addEventListener('click',()=>w.print());
 }
 function actUploadForm(deal,act,stage,title,attestation){
   const field=el('div','rona-ar-doc-field'),input=el('input');
@@ -1238,7 +1271,9 @@ function actUploadForm(deal,act,stage,title,attestation){
   let ack=null;
   if(attestation){
     const label=el('label','rona-ar-doc-ack');ack=el('input');ack.type='checkbox';
-    label.append(ack,el('span','','Подтверждаю, что загруженный акт содержит требуемые подписи.'));
+    label.append(ack,el('span','',stage==='BOTH_SIGNED'?
+      'Подтверждаю, что PDF содержит подписи обеих сторон.':
+      'Подтверждаю наличие подписи уполномоченного представителя RONA Trade.'));
     field.append(label)
   }
   const upload=docButton('Загрузить PDF',()=>void uploadAgentActStage(
@@ -1264,25 +1299,21 @@ function renderActRecord(deal,docs,act){
     card.append(download)
   }
   if(!current)return card;
-  if(!approved){
-    card.append(el('div','rona-ar-doc-note',
-      'Подготовка корпоративного акта ожидает подтверждённые заключения Finance и Legal, привязанные к ID этой заявки.'));
-    return card
-  }
+  card.append(docButton('Открыть проект акта · печать в PDF',()=>openAgentActDraft(deal,docs,act)));
+  if(!approved)card.append(el('div','rona-ar-doc-note',
+    'Finance и Legal: PENDING. Внутренний проект можно сохранить для согласования; подписание до фактического подтверждения не разрешено.'));
   if(stage==='REVIEW_REQUESTED'||stage==='FINANCE_LEGAL_REVIEW')
-    card.append(actUploadForm(deal,act,'FINANCE_LEGAL_DRAFT','Подготовленный Finance и Legal проект акта (PDF)',false));
-  else if(stage==='DRAFT_READY')
-    card.append(actUploadForm(deal,act,'OWNER_SIGNED','Акт с подписью RONA Trade (PDF)',true));
-  else if(stage==='OWNER_SIGNED'){
-    const dispatch=docButton('Отправить агенту на подписание',()=>{},true);
-    dispatch.disabled=true;
-    dispatch.title='Входящие акты в ЛК Агента ещё не активированы.';
-    card.append(dispatch,el('div','rona-ar-doc-note',
-      'Отправка отключена до подтверждения доставки через защищённый кабинет агента.'));
-  }else if(stage==='AWAITING_AGENT_SIGNATURE')
-    card.append(actUploadForm(deal,act,'BOTH_SIGNED','Акт, возвращённый с подписями обеих сторон (PDF)',true));
-  else if(stage==='SIGNED_ARCHIVED')
-    card.append(el('div','rona-ar-doc-note','Акт подписан обеими сторонами. PDF хранится в закрытом архиве.'));
+    card.append(actUploadForm(deal,act,'FINANCE_LEGAL_DRAFT','Проект акта для внутренней проверки (PDF)',false));
+  else if(stage==='DRAFT_READY'){
+    if(approved)card.append(actUploadForm(deal,act,'OWNER_SIGNED','Акт с подписью RONA Trade (PDF)',true));
+    else card.append(el('div','rona-ar-doc-note','Проект сохранён. Дождитесь действительных заключений Finance и Legal для подписи.'));
+  }else if(stage==='OWNER_SIGNED'||stage==='AWAITING_AGENT_SIGNATURE'){
+    if(approved)card.append(actUploadForm(deal,act,'BOTH_SIGNED',
+      'Акт с подписями обеих сторон, полученный вне ЛК агента (PDF)',true));
+    card.append(el('div','rona-ar-doc-note',
+      'Отправка через ЛК агента не выполняется. Подписанный обеими сторонами PDF можно зарегистрировать вручную после его фактического получения.'));
+  }else if(stage==='SIGNED_ARCHIVED')
+    card.append(el('div','rona-ar-doc-note','Акт с обеими подписями находится в защищённом реестре и доступен для скачивания.'));
   return card
 }
 

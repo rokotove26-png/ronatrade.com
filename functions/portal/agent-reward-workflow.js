@@ -45,7 +45,9 @@ export async function onRequest({request}){
     stage=url.searchParams.get('stage')||'';
   const uuid=/^[0-9a-f-]{36}$/i,deal=/^DEAL-20[0-9]{2}-[0-9]{3,}$/;
   let route='';
-  if(action==='agent-inbox'&&request.method==='GET'){
+  if(action==='canonical-letterhead'&&request.method==='GET'){
+    route='/admin/assets/canonical-letterhead';
+  }else if(action==='agent-inbox'&&request.method==='GET'){
     route='/agent/acts';
   }else if(action==='agent-download-act'&&request.method==='GET'&&uuid.test(requestId)&&uuid.test(documentId)){
     route='/agent/acts/'+requestId+'/documents/'+documentId+'/download';

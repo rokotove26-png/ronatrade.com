@@ -62,13 +62,18 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
  if(!['FINANCE_LEGAL_DRAFT','OWNER_SIGNED','BOTH_SIGNED'].includes(stage))deny('ACT_STAGE_INVALID',400);
  await assertCurrent(sql,row);
  const reviews=await reviewState(sql,String(row.id));
- if(!reviews.approved)deny('FINANCE_LEGAL_ACT_REVIEW_REQUIRED');
+ // An unsigned working draft can be filed for review. Only post-approval
+ // stages require BOTH authoritative functional conclusions.
+ if(stage!=='FINANCE_LEGAL_DRAFT'&&!reviews.approved)deny('FINANCE_LEGAL_ACT_REVIEW_REQUIRED');
  if(stage==='FINANCE_LEGAL_DRAFT'&&!['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW'].includes(row.request_status))
    deny('ACT_DRAFT_WRONG_STAGE');
  if(stage==='OWNER_SIGNED'&&(row.request_status!=='DRAFT_READY'||!await stageExists(sql,row.id,'FINANCE_LEGAL_DRAFT')))
    deny('FINANCE_LEGAL_DRAFT_REQUIRED');
- if(stage==='BOTH_SIGNED'&&(row.request_status!=='AWAITING_AGENT_SIGNATURE'||!await stageExists(sql,row.id,'OWNER_SIGNED')))
-   deny('AGENT_SIGNATURE_REQUEST_REQUIRED');
+ // Owner may register a PDF signed by both parties through the Admin cabinet.
+ // No delivery to the unimplemented Agent cabinet is implied or recorded.
+ if(stage==='BOTH_SIGNED'&&(!['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'].includes(row.request_status)
+    ||!await stageExists(sql,row.id,'OWNER_SIGNED')))
+   deny('OWNER_SIGNED_ACT_REQUIRED');
  let form:FormData;try{form=await req.formData()}catch{deny('INVALID_MULTIPART',400)}
  const file=form!.get('file');
  if(!(file instanceof File)||file.size<1||file.size>MAX)deny('PDF_SIZE_INVALID',400);
@@ -91,6 +96,15 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
    const state=stage==='FINANCE_LEGAL_DRAFT'?'DRAFT_READY':
      stage==='OWNER_SIGNED'?'OWNER_SIGNED':'SIGNED_ARCHIVED';
    const rows=await sql.begin(async(tx:any)=>{
+     const locked=await tx`select request_status from portal_private.agent_reward_act_requests_v1
+       where id=${row.id}::uuid for update`;
+     const previous=String(locked[0]?.request_status||'');
+     const allowed=stage==='FINANCE_LEGAL_DRAFT'
+       ? ['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW'].includes(previous)
+       :stage==='OWNER_SIGNED'
+         ? previous==='DRAFT_READY'
+         : ['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'].includes(previous);
+     if(!allowed)deny('ACT_STAGE_CHANGED');
      const registered=await tx`insert into portal_private.storage_objects(
        bucket_id,object_name,storage_object_id,object_kind,content_type,byte_size,sha256,storage_state,
        created_by,verified_by,verified_at) values(${BUCKET},${objectName},${store[0].id}::uuid,'DOCUMENT',
