@@ -242,6 +242,27 @@ Deno.serve(async req=>{
      return send(200,{ok:true,data:await agentDownload(req,sql,service,agent,agentFile[1],agentFile[2])})
    }
    const ctx=await context(req);
+   if(path==='/admin/assets/canonical-letterhead'&&req.method==='GET'){
+     // The image is taken verbatim from Owner-approved RONA-DOC-STANDARD v2 assets.
+     // Never redraw the corporate letterhead or substitute another graphic.
+     const assets=await sql`select a.content,a.mime_type,a.sha256
+       from portal_private.owner_canonical_document_assets a
+       join portal_private.owner_canonical_document_standards st
+         on st.standard_key='RONA-DOC-STANDARD' and st.version=2 and st.status='ACTIVE'
+       where a.asset_key='RONA-CANONICAL-LETTERHEAD' and a.status='ACTIVE'
+         and a.owner_approved_at is not null
+         and a.sha256=(st.rules->'letterhead'->>'sha256')
+       order by a.version desc limit 2`;
+     if(assets.length!==1||assets[0].mime_type!=='image/png')
+       throw deny('CANONICAL_LETTERHEAD_UNAVAILABLE',409);
+     const content=new Uint8Array(assets[0].content);
+     const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',content)))
+       .map(x=>x.toString(16).padStart(2,'0')).join('');
+     if(hash!==assets[0].sha256)throw deny('CANONICAL_LETTERHEAD_HASH_MISMATCH',409);
+     return new Response(content,{status:200,headers:{
+       'content-type':'image/png','cache-control':'private, no-store',
+       'x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
+   }
    const matched=path.match(/^\/admin\/deals\/(DEAL-20[0-9]{2}-[0-9]{3,})\/assignments\/([0-9a-f-]{36})(?:\/(addendum|acts|acts\/[0-9a-f-]{36}\/(?:upload|dispatch|documents\/[0-9a-f-]{36}\/download)))?$/i);
    if(!matched)return send(404,{ok:false,code:"ROUTE_NOT_FOUND"});
    const s=await scope(matched[1],matched[2]),action=matched[3]||"";
