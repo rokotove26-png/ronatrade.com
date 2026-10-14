@@ -274,6 +274,12 @@ function installStyle(){
 `;document.head.append(s)
 }
 
+function installExecutiveCockpitStyle(){
+  let style=q('#ronaArExecutiveCockpitStyle');
+  if(!style){style=el('style');style.id='ronaArExecutiveCockpitStyle';document.head.append(style)}
+  style.textContent="\n/* executive-cockpit-v1: presentation only. Financial arithmetic, correction and payout gates are unchanged. */\n#page-agent-settlements .rona-ar-canonical-head{width:min(100%,1810px)}\n#page-agent-settlements .rona-ar-canonical-head>.rona-ar-hero{min-height:145px;border-radius:20px;border-color:rgba(112,195,228,.23);background:radial-gradient(580px 240px at 95% 0%,rgba(40,140,180,.17),transparent 75%),linear-gradient(115deg,rgba(7,21,34,.98),rgba(6,24,37,.98) 67%,rgba(10,37,48,.94))}\n#page-agent-settlements .rona-ar-canonical-head .rona-visual-title{font-size:clamp(27px,2.8vw,43px);line-height:1.08}\n#page-agent-settlements .rona-ar-canonical-head .rona-ar-sub{max-width:610px;font-size:12px}\n#page-agent-settlements .rona-ar-flow-step{min-height:69px;padding:10px 11px;border-radius:11px}\n#page-agent-settlements .rona-ar{width:min(100%,1810px);gap:0;min-width:0}\n#page-agent-settlements .rona-ar-workspace{display:grid;grid-template-columns:minmax(260px,294px) minmax(0,1fr);align-items:start;gap:16px;min-width:0}\n#page-agent-settlements .rona-ar-directory{position:sticky;top:76px;display:flex;flex-direction:column;gap:13px;min-width:0;max-height:calc(100vh - 92px);padding:17px;border:1px solid rgba(105,167,203,.22);border-radius:19px;background:linear-gradient(167deg,rgba(9,28,44,.97),rgba(4,16,28,.96));box-shadow:0 18px 46px rgba(1,7,18,.27)}\n#page-agent-settlements .rona-ar-directory-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:3px 1px 12px;border-bottom:1px solid rgba(118,178,212,.15)}\n#page-agent-settlements .rona-ar-directory-kicker{color:#76cbe7;font-size:10px;letter-spacing:.14em;font-weight:900}\n#page-agent-settlements .rona-ar-directory-title{margin:5px 0 0;color:#edf9ff;font-weight:900;font-size:18px;letter-spacing:-.02em}\n#page-agent-settlements .rona-ar-directory-count{flex:0 0 auto;padding:6px 9px;border:1px solid rgba(120,190,223,.19);border-radius:999px;color:#a8d5e4;font-size:11px;font-weight:800}\n#page-agent-settlements .rona-ar-deals{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:1px 3px 2px 0;scrollbar-width:thin;scrollbar-color:rgba(81,170,206,.35) transparent}\n#page-agent-settlements .rona-ar-deal{min-height:101px;padding:12px 13px;gap:6px;border-radius:12px;box-shadow:none;min-width:0}\n#page-agent-settlements .rona-ar-deal.is-active{border-color:rgba(104,214,240,.67);box-shadow:inset 3px 0 0 #67cfe7,0 0 0 1px rgba(75,206,240,.06);background:linear-gradient(112deg,rgba(15,63,83,.63),rgba(8,24,40,.91))}\n#page-agent-settlements .rona-ar-deal:focus-visible,#page-agent-settlements .rona-ar-btn:focus-visible{outline:2px solid #8ae9ff;outline-offset:2px}\n#page-agent-settlements .rona-ar-deal-id{font-size:12px;letter-spacing:.025em}\n#page-agent-settlements .rona-ar-deal-top .rona-ar-chip{font-size:8px;max-width:110px;overflow-wrap:anywhere}\n#page-agent-settlements .rona-ar-deal-client{font-size:11px;min-height:0;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}\n#page-agent-settlements .rona-ar-deal-result{font-size:12.25px;line-height:1.4}\n#page-agent-settlements .rona-ar-directory-footer{margin-top:auto;padding:12px 2px 0;border-top:1px solid rgba(114,176,208,.13);color:#819cab;line-height:1.5;font-size:10.5px}\n#page-agent-settlements .rona-ar-focus{display:flex;flex-direction:column;gap:15px;min-width:0}\n#page-agent-settlements .rona-ar-focus-intro{order:-1;display:flex;align-items:center;justify-content:space-between;gap:20px;min-width:0;padding:21px 24px;border:1px solid rgba(119,184,221,.25);border-radius:18px;background:radial-gradient(360px 170px at 95% 0%,rgba(68,168,198,.14),transparent 80%),linear-gradient(120deg,rgba(10,36,53,.93),rgba(5,19,34,.97));box-shadow:0 16px 35px rgba(1,10,18,.22)}\n#page-agent-settlements .rona-ar-focus-kicker{font-weight:950;font-size:10px;letter-spacing:.14em;color:#78d2e8}\n#page-agent-settlements .rona-ar-focus-title{font-size:clamp(17px,1.5vw,24px);line-height:1.28;letter-spacing:-.016em;color:#f2faff;font-weight:920;margin:7px 0 0;overflow-wrap:anywhere}\n#page-agent-settlements .rona-ar-focus-agent{font-size:12px;color:#a6c3d1;line-height:1.45;margin-top:8px;overflow-wrap:anywhere}\n#page-agent-settlements .rona-ar-focus-tags{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:240px}\n#page-agent-settlements .rona-ar-focus-tags>.rona-ar-chip{padding:6px 9px;font-size:10px}\n#page-agent-settlements .rona-ar-status{order:0;min-width:0;font-size:11px;border-radius:11px;background:rgba(6,21,33,.78);border-color:rgba(119,180,215,.19);overflow-wrap:anywhere}\n#page-agent-settlements .rona-ar-status>span{min-width:0;overflow-wrap:anywhere}\n#page-agent-settlements .rona-ar-pulse{order:1;gap:11px;min-width:0}\n#page-agent-settlements .rona-ar-metric{min-height:116px;border-radius:15px;padding:16px 17px;box-shadow:0 12px 28px rgba(1,8,18,.17)}\n#page-agent-settlements .rona-ar-metric::before{content:\"\";position:absolute;inset:0 auto 0 0;width:3px;background:#73beea}\n#page-agent-settlements .rona-ar-metric.agent::before{background:#d0aaff}\n#page-agent-settlements .rona-ar-metric.agent-calculated::before{background:#51d7b0}\n#page-agent-settlements .rona-ar-metric.fact::before{background:#4ddaa9}\n#page-agent-settlements .rona-ar-metric-label{font-size:10.5px;line-height:1.4}\n#page-agent-settlements .rona-ar-metric-value{font-size:clamp(17px,1.55vw,26px)}\n#page-agent-settlements .rona-ar-fx-reference{order:2;min-width:0;padding:10px 15px;border-radius:10px}\n#page-agent-settlements .rona-ar-fx-value{font-size:14px}\n#page-agent-settlements .rona-ar-insights{order:3;display:grid;grid-template-columns:minmax(0,1.38fr) minmax(285px,.86fr);gap:13px;min-width:0}\n#page-agent-settlements .rona-ar-insights-header{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:0 2px}\n#page-agent-settlements .rona-ar-insights-eyebrow{font-size:10px;letter-spacing:.13em;font-weight:950;color:#81cce5}\n#page-agent-settlements .rona-ar-insights-note{font-size:10.5px;color:#98b1c0;line-height:1.4}\n#page-agent-settlements .rona-ar-insight-card{min-width:0;overflow:hidden;padding:20px;border:1px solid rgba(113,172,206,.23);border-radius:16px;background:linear-gradient(155deg,rgba(9,29,44,.96),rgba(5,17,30,.96));box-shadow:0 15px 34px rgba(0,5,15,.16)}\n#page-agent-settlements .rona-ar-insight-title{font-size:15px;line-height:1.3;font-weight:900;color:#effaff;margin:0}\n#page-agent-settlements .rona-ar-insight-subtitle{font-size:11px;line-height:1.5;color:#9fb8c9;margin:6px 0 0}\n#page-agent-settlements .rona-ar-compare{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0;padding:10px;border:1px solid rgba(119,177,206,.17);border-radius:12px;background:rgba(4,14,26,.56)}\n#page-agent-settlements .rona-ar-compare-cell{min-width:0;padding:6px 8px;border-right:1px solid rgba(126,177,208,.14)}\n#page-agent-settlements .rona-ar-compare-cell:last-child{border-right:0}\n#page-agent-settlements .rona-ar-compare-label{font-size:9px;font-weight:850;color:#90adbd;line-height:1.4}\n#page-agent-settlements .rona-ar-compare-value{margin-top:8px;font-size:clamp(12px,1vw,17px);font-weight:950;color:#f0fbff;line-height:1.35;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}\n#page-agent-settlements .rona-ar-compare-cell.delta .rona-ar-compare-value.positive{color:#6be6b6}\n#page-agent-settlements .rona-ar-compare-cell.delta .rona-ar-compare-value.negative{color:#ff9dad}\n#page-agent-settlements .rona-ar-cascade{display:grid;gap:8px;margin-top:4px}\n#page-agent-settlements .rona-ar-cascade-row{display:grid;grid-template-columns:minmax(102px,1.05fr) minmax(65px,1.3fr) minmax(100px,.82fr);gap:9px;align-items:center;min-width:0;min-height:25px}\n#page-agent-settlements .rona-ar-cascade-name{color:#c4d8e4;font-size:10px;font-weight:750;line-height:1.35}\n#page-agent-settlements .rona-ar-cascade-track{position:relative;height:12px;border-radius:4px;background:rgba(81,134,158,.095);overflow:hidden}\n#page-agent-settlements .rona-ar-cascade-zero{position:absolute;left:var(--ar-zero,0%);top:0;bottom:0;width:1px;background:rgba(224,248,255,.42);z-index:2}\n#page-agent-settlements .rona-ar-cascade-bar{position:absolute;height:100%;min-width:1px;left:0;border-radius:2px;background:linear-gradient(90deg,rgba(66,163,208,.68),rgba(111,203,234,.92))}\n#page-agent-settlements .rona-ar-cascade-row.expense .rona-ar-cascade-bar{background:linear-gradient(90deg,rgba(177,116,107,.64),rgba(225,155,130,.9))}\n#page-agent-settlements .rona-ar-cascade-row.agent .rona-ar-cascade-bar{background:linear-gradient(90deg,rgba(132,94,187,.75),rgba(192,153,238,.92))}\n#page-agent-settlements .rona-ar-cascade-row.subtotal .rona-ar-cascade-bar{background:#5bbde1}\n#page-agent-settlements .rona-ar-cascade-row.final .rona-ar-cascade-bar{background:linear-gradient(90deg,#299b87,#59e0ba)}\n#page-agent-settlements .rona-ar-cascade-row.unknown .rona-ar-cascade-track{background:repeating-linear-gradient(125deg,rgba(108,144,162,.08) 0 5px,rgba(108,144,162,.16) 5px 7px)}\n#page-agent-settlements .rona-ar-cascade-value{text-align:right;color:#dff5fe;font-size:10.5px;font-weight:900;line-height:1.3;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}\n#page-agent-settlements .rona-ar-cascade-row.final .rona-ar-cascade-value.positive{color:#6de9bd}\n#page-agent-settlements .rona-ar-cascade-value.negative{color:#ff9eae}\n#page-agent-settlements .rona-ar-evidence{display:flex;flex-direction:column;gap:14px;border-color:rgba(164,137,224,.26);background:linear-gradient(148deg,rgba(27,26,47,.84),rgba(7,21,34,.97) 67%)}\n#page-agent-settlements .rona-ar-evidence-list{display:grid;gap:0}\n#page-agent-settlements .rona-ar-evidence-row{display:grid;gap:4px;min-width:0;padding:12px 0;border-top:1px solid rgba(134,166,200,.16)}\n#page-agent-settlements .rona-ar-evidence-row:first-child{border-top:0}\n#page-agent-settlements .rona-ar-evidence-label{font-size:10px;color:#9db6c7;font-weight:800}\n#page-agent-settlements .rona-ar-evidence-value{font-size:12.25px;font-weight:880;color:#e9f5ff;overflow-wrap:anywhere;line-height:1.5}\n#page-agent-settlements .rona-ar-evidence-value.verify{color:#f2c77c}\n#page-agent-settlements .rona-ar-evidence-value.ok{color:#9be5c9}\n#page-agent-settlements .rona-ar-evidence-ref{font-size:10.5px;line-height:1.45;color:#adbdce;overflow-wrap:anywhere;word-break:break-word}\n#page-agent-settlements .rona-ar-evidence-guard{padding:12px;border:1px solid rgba(192,159,225,.26);border-radius:11px;background:rgba(91,64,128,.12);color:#c7bed8;font-size:10.5px;line-height:1.6}\n#page-agent-settlements .rona-ar-pnl-grid{order:4;min-width:0}\n#page-agent-settlements .rona-ar-col{min-width:0}\n#page-agent-settlements .rona-ar-col-head{padding:18px 17px 16px}\n#page-agent-settlements .rona-ar-col-title{font-size:17px}\n#page-agent-settlements .rona-ar-pnl-grid>.rona-ar-col{box-shadow:0 17px 38px rgba(0,6,15,.22)}\n@media(max-width:1630px){#page-agent-settlements .rona-ar-pulse{grid-template-columns:repeat(2,minmax(0,1fr))}#page-agent-settlements .rona-ar-pnl-grid{grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible}#page-agent-settlements .rona-ar-pnl-grid>.rona-ar-col.owner{grid-column:1/-1}}\n@media(min-width:1631px){#page-agent-settlements .rona-ar-pnl-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#page-agent-settlements .rona-ar-pnl-grid>.rona-ar-col.owner{grid-column:auto}}\n@media(max-width:1250px){#page-agent-settlements .rona-ar-workspace{grid-template-columns:minmax(235px,250px) minmax(0,1fr);gap:12px}#page-agent-settlements .rona-ar-insights{grid-template-columns:minmax(0,1fr)}#page-agent-settlements .rona-ar-insights-header{grid-column:1}#page-agent-settlements .rona-ar-cascade-row{grid-template-columns:minmax(105px,1fr) minmax(95px,1.2fr) minmax(95px,.9fr)}}\n@media(max-width:1080px){#page-agent-settlements .rona-ar-workspace{grid-template-columns:minmax(0,1fr)}#page-agent-settlements .rona-ar-directory{position:static;max-height:none}#page-agent-settlements .rona-ar-deals{grid-template-columns:repeat(2,minmax(0,1fr));max-height:360px}#page-agent-settlements .rona-ar-directory-footer{display:none}#page-agent-settlements .rona-ar-insights{grid-template-columns:minmax(0,1.38fr) minmax(270px,.9fr)}#page-agent-settlements .rona-ar-insights-header{grid-column:1/-1}#page-agent-settlements .rona-ar-pnl-grid{grid-template-columns:minmax(0,1fr)}#page-agent-settlements .rona-ar-pnl-grid>.rona-ar-col.owner{grid-column:auto}}\n@media(max-width:740px){#page-agent-settlements .rona-ar-workspace{gap:13px}#page-agent-settlements .rona-ar-directory{padding:13px;border-radius:14px}#page-agent-settlements .rona-ar-focus-intro{padding:17px;flex-wrap:wrap}#page-agent-settlements .rona-ar-focus-tags{max-width:none;justify-content:flex-start}#page-agent-settlements .rona-ar-deals{grid-template-columns:1fr;max-height:305px}#page-agent-settlements .rona-ar-pulse{grid-template-columns:repeat(2,minmax(0,1fr))}#page-agent-settlements .rona-ar-insights{grid-template-columns:minmax(0,1fr)}#page-agent-settlements .rona-ar-insights-header{grid-column:1}#page-agent-settlements .rona-ar-insight-card{padding:15px}#page-agent-settlements .rona-ar-compare{padding:8px;gap:4px}#page-agent-settlements .rona-ar-compare-cell{padding:5px 6px}#page-agent-settlements .rona-ar-compare-value{font-size:12px}#page-agent-settlements .rona-ar-metric{padding:13px;min-height:113px}#page-agent-settlements .rona-ar-metric-value{font-size:17px}}\n@media(max-width:480px){#page-agent-settlements .rona-ar-pulse{grid-template-columns:minmax(0,1fr)}#page-agent-settlements .rona-ar-cascade-row{grid-template-columns:minmax(92px,.94fr) minmax(66px,1fr) minmax(95px,1fr);gap:5px}#page-agent-settlements .rona-ar-cascade-name{font-size:9px}#page-agent-settlements .rona-ar-cascade-value{font-size:9.5px}#page-agent-settlements .rona-ar-compare-label{font-size:8.5px}#page-agent-settlements .rona-ar-compare-value{font-size:10.5px}#page-agent-settlements .rona-ar-status{flex-direction:column;align-items:flex-start}}\n@media(prefers-reduced-motion:reduce){#page-agent-settlements .rona-ar-deal{transition:none}}\n";
+}
+
 function page(){return document.getElementById('page-agent-settlements')}
 function rewardsSelected(){const p=page();return document.documentElement.dataset.ronaAdminPage==='agent-settlements'||!!p?.classList.contains('active')}
 function ensureCanonicalLayout(){
@@ -896,7 +902,8 @@ function renderOwner(deal){
     else inp.disabled=!editable;
     inp.addEventListener('input',()=>{
       if(inp.hasAttribute('data-owner-payment-group-key'))inp.dataset.groupDirty='1';
-      recomputeOwner(col,deal,fact,cur)
+      const preview=recomputeOwner(col,deal,fact,cur);
+      updateExecutiveInsightsForDraft(col,deal,preview)
     })
   });
   const actions=el('div','rona-ar-actions'),save=el('button','rona-ar-btn primary','Сохранить корректировку'),send=el('button','rona-ar-btn send','Отправить агенту');
@@ -946,7 +953,7 @@ function renderFxReference(root,deal){
 function renderDealCards(root,deals){
   const grid=el('div','rona-ar-deals');
   for(const d of deals){
-    const card=el('button','rona-ar-deal');card.type='button';if(rowKey(d)===state.selectedKey)card.classList.add('is-active');
+    const card=el('button','rona-ar-deal');card.type='button';card.dataset.ronaArDealSelect=rowKey(d);card.setAttribute('aria-pressed',String(rowKey(d)===state.selectedKey));if(rowKey(d)===state.selectedKey)card.classList.add('is-active');
     const top=el('div','rona-ar-deal-top');top.append(el('div','rona-ar-deal-id',d.dealId||'Deal'),chip(d.businessStatus||'—',upper(d.businessStatus)==='CANCELLED'?'warn':''));
     const fm=cashFactModel(d),actual=ownerModel(d,fm),resultTone=tone(actual.netProfit);card.classList.add(resultTone||'verify');
     card.append(top,el('div','rona-ar-deal-client',(d.clientName||'—')+' · '+(d.agentName||'Агент не указан')),el('div','rona-ar-deal-result',actual.netProfit===null?'Чистая прибыль: TO_VERIFY':'Чистая прибыль: '+signedMoney(actual.netProfit,fm.cur)));
@@ -954,20 +961,191 @@ function renderDealCards(root,deals){
   }
   root.append(grid)
 }
+
+function executiveInfoRow(label,value,{kind='',reference=''}={}){
+  const row=el('div','rona-ar-evidence-row'),title=el('div','rona-ar-evidence-label',label),
+    content=el('div','rona-ar-evidence-value'+(kind?' '+kind:''),value);
+  row.append(title,content);
+  if(reference){
+    const ref=el('div','rona-ar-evidence-ref',reference);
+    ref.title=reference;row.append(ref)
+  }
+  return row
+}
+function financialCascadeSteps(owner){
+  return [
+    {label:'Доходы',amount:owner.income,start:0,end:owner.income,type:'income'},
+    {label:'Расходы',amount:owner.expenses,start:owner.income,end:owner.actualFinancialResult,type:'expense'},
+    {label:'Прибыль до налога',amount:owner.actualFinancialResult,start:0,end:owner.actualFinancialResult,type:'subtotal'},
+    {label:'Налоги (10%)',amount:owner.taxes,start:owner.actualFinancialResult,end:owner.netProfit,type:'expense'},
+    {label:'Чистая прибыль',amount:owner.netProfit,start:0,end:owner.netProfit,type:'subtotal'},
+    {label:'Расчёт агенту',amount:owner.reward?.value,start:owner.netProfit,end:owner.ronaProfit,type:'agent',unknownText:agentStatusText(owner.reward?.status)},
+    {label:'Прибыль RONA',amount:owner.ronaProfit,start:0,end:owner.ronaProfit,type:'final'}
+  ]
+}
+function renderExecutiveInsights(root,deal,ownerDraft=null){
+  const plan=planModel(deal),fact=cashFactModel(deal),owner=ownerDraft||ownerModel(deal,fact),
+    cur=currencyOf(deal),pnlCur=plan.cur&&fact.cur&&plan.cur===fact.cur?plan.cur:null;
+  const section=el('section','rona-ar-insights');
+  section.dataset.ronaArInsights='source-only-v1';
+  section.setAttribute('aria-label','Сравнение и документальные основания выбранной сделки');
+  const label=el('div','rona-ar-insights-header');
+  label.append(el('div','rona-ar-insights-eyebrow','АНАЛИТИКА · ЕДИНЫЙ УПРАВЛЕНЧЕСКИЙ РЕЗУЛЬТАТ'),
+    el('div','rona-ar-insights-note','Суммы только из текущих PLAN, FACT и OWNER · без создания права на выплату'));
+  section.append(label);
+  const waterfall=el('section','rona-ar-insight-card rona-ar-waterfall');
+  waterfall.append(el('h3','rona-ar-insight-title','Финансовый каскад'),
+    el('p','rona-ar-insight-subtitle','Доходы → расходы → расчётный налог → чистая прибыль → расчёт агенту → результат RONA'));
+  const compare=el('div','rona-ar-compare');
+  const canCompare=pnlCur!==null&&num(plan.netProfit)!==null&&num(owner.netProfit)!==null;
+  const delta=canCompare?num(owner.netProfit)-num(plan.netProfit):null;
+  for(const [title,value,kind,formatted] of [
+    ['PLAN · чистая прибыль',plan.netProfit,'plan',pnlCur&&num(plan.netProfit)!==null?money(plan.netProfit,pnlCur):'TO_VERIFY'],
+    ['OWNER · чистая прибыль',owner.netProfit,'owner',pnlCur&&num(owner.netProfit)!==null?money(owner.netProfit,pnlCur):'TO_VERIFY'],
+    ['Отклонение OWNER − PLAN',delta,'delta',pnlCur&&delta!==null?signedMoney(delta,pnlCur):'TO_VERIFY']
+  ]){
+    const cell=el('div','rona-ar-compare-cell '+kind),
+      valueNode=el('div','rona-ar-compare-value '+(tone(value)||'verify'),formatted);
+    cell.append(el('div','rona-ar-compare-label',title),valueNode);
+    compare.append(cell)
+  }
+  waterfall.append(compare);
+  const steps=financialCascadeSteps(owner),known=steps
+    .filter(s=>num(s.start)!==null&&num(s.end)!==null&&num(s.amount)!==null);
+  const coords=known.flatMap(s=>[num(s.start),num(s.end)]).concat([0]);
+  const minimum=Math.min(...coords),maximum=Math.max(...coords);
+  const spread=maximum-minimum,zero=spread>0?100*(0-minimum)/spread:0;
+  const bars=el('div','rona-ar-cascade');
+  bars.setAttribute('role','img');
+  bars.setAttribute('aria-label','Финансовый каскад из источников OWNER; неподтверждённые суммы отмечены TO_VERIFY');
+  for(const step of steps){
+    const amount=num(step.amount),a=num(step.start),b=num(step.end),
+      exists=amount!==null&&a!==null&&b!==null,
+      row=el('div','rona-ar-cascade-row '+step.type+(exists?'':' unknown')),
+      title=el('span','rona-ar-cascade-name',step.label),
+      track=el('div','rona-ar-cascade-track'),
+      zeroLine=el('span','rona-ar-cascade-zero'),
+      result=el('span','rona-ar-cascade-value '+(tone(amount)||'verify'),
+        exists?(step.type==='expense'||step.type==='agent'?money(amount,cur):signedMoney(amount,cur))
+          :(step.unknownText||'TO_VERIFY'));
+    row.dataset.ronaArCascadeStep=step.type;
+    zeroLine.style.setProperty('--ar-zero',zero.toFixed(4)+'%');
+    zeroLine.setAttribute('aria-hidden','true');
+    track.append(zeroLine);
+    if(exists){
+      const bar=el('span','rona-ar-cascade-bar');
+      const start=spread>0?(Math.min(a,b)-minimum)/spread*100:zero;
+      const length=spread>0?Math.abs(b-a)/spread*100:0;
+      bar.style.left=Math.max(0,Math.min(100,start)).toFixed(4)+'%';
+      bar.style.width=Math.max(0,Math.min(100,length)).toFixed(4)+'%';
+      bar.setAttribute('aria-hidden','true');
+      track.append(bar)
+    }
+    row.append(title,track,result);bars.append(row)
+  }
+  waterfall.append(bars);
+  const evidence=el('aside','rona-ar-insight-card rona-ar-evidence');
+  evidence.append(el('h3','rona-ar-insight-title','Основание и статус расчёта'),
+    el('p','rona-ar-insight-subtitle','Источники показаны раздельно. Управленческий прогноз не равен подтверждённому обязательству.'));
+  const list=el('div','rona-ar-evidence-list'),p=deal?.planInputs||{},t=deal?.agentTerm||{},
+    planAuthoritative=p.revenueStatus==='APPROVED_FINANCE_MANAGEMENT_PLAN'
+      &&upper(p.expenseStatus).startsWith('APPROVED_FINANCE_MANAGEMENT_PLAN')
+      &&Boolean(deal?.planAuthority?.financeProposalRecordId)
+      &&Boolean(deal?.planAuthority?.operationsApprovalRecordId),
+    termActive=validTerm(deal),ref=upper(t.reference),
+    pendingClosing=termActive&&ref.includes('FINAL LOADING AND CLOSING DOCUMENTS')
+      &&!['COMPLETED','CLOSED'].includes(upper(deal.businessStatus));
+  list.append(
+    executiveInfoRow('PLAN · источник',planAuthoritative?'Finance + Operations · подтверждено':'TO_VERIFY / источник не подтверждён',
+      {kind:planAuthoritative?'ok':'verify'}),
+    executiveInfoRow('FACT · движение денежных средств',fact.approved?'ДДС · подтверждённый источник':'TO_VERIFY / ДДС не подтверждён',
+      {kind:fact.approved?'ok':'verify'}),
+    executiveInfoRow('OWNER · управленческий мост',ownerBridgeApproved(deal)?'Подтверждён':'TO_VERIFY / мост не подтверждён',
+      {kind:ownerBridgeApproved(deal)?'ok':'verify'})
+  );
+  let termDescription='ДС не привязано / источник не подтверждён';
+  if(termActive){
+    const mode=upper(t.mode);
+    termDescription=mode==='PERCENT'&&num(t.rate)!==null
+      ?'Ставка по действующему ДС: '+fmt(num(t.rate)*100)+'%'
+      :mode==='FIXED'&&num(t.fixedAmount)!==null
+        ?'Действующее ДС · фиксировано: '+money(t.fixedAmount,t.currency||cur)
+        :mode==='PER_TONNE'&&num(t.rate)!==null
+          ?'Действующее ДС · ставка за тонну: '+money(t.rate,t.currency||cur)
+          :'Действующее ДС · условия требуют проверки';
+  }
+  list.append(executiveInfoRow('Договорное основание агента',
+    termDescription,{kind:termActive?'ok':'verify',reference:termActive?String(t.reference||''):''}));
+  if(pendingClosing)list.append(executiveInfoRow('Условие действующего ДС',
+    'Закрывающие документы ещё ожидаются · только внутренний прогноз',{kind:'verify'}));
+  const settlement=deal?.settlement||{},settlementState=upper(settlement.state),
+    confirmedSettlement=['APPROVED','PAYABLE_CONFIRMED','PAID'].includes(settlementState)
+      &&['CONFIRMED','VERIFIED','AUTHORITATIVE'].includes(upper(settlement.authorityState))
+      &&num(settlement.amount)!==null
+      &&String(settlement.currency||'').trim()===cur;
+  list.append(executiveInfoRow('Подтверждённое состояние settlement',
+    confirmedSettlement?'Источник: '+settlementState+' · '+money(settlement.amount,cur)
+      :'Не подтверждено в текущем источнике',{kind:confirmedSettlement?'ok':'verify'}));
+  evidence.append(list,el('div','rona-ar-evidence-guard',
+    'Важно: расчёт PLAN / OWNER и график не создают начисление, платёж или право агента на выплату. Решение определяется только действующими документами и отдельным авторизованным settlement.'));
+  section.append(waterfall,evidence);
+  const existing=q('.rona-ar-insights',root);
+  if(existing)existing.replaceWith(section);else root.append(section);
+  return section
+}
+function updateExecutiveInsightsForDraft(col,deal,draft){
+  const root=col.closest('.rona-ar');
+  if(!root||!q('.rona-ar-insights',root))return;
+  const reward=ownerAgentReward(deal,draft.netProfit);
+  renderExecutiveInsights(root,deal,{
+    income:draft.income,expenses:draft.expenses,actualFinancialResult:draft.actualFinancialResult,
+    taxes:draft.taxes,netProfit:draft.netProfit,
+    reward:{value:draft.reward,status:reward.status},ronaProfit:draft.ronaProfit
+  })
+}
+function renderExecutiveWorkspace(root,deals,deal){
+  const workspace=el('div','rona-ar-workspace'),nav=el('aside','rona-ar-directory'),right=el('main','rona-ar-focus');
+  nav.setAttribute('aria-label','Реестр агентских сделок');
+  right.setAttribute('aria-label','Аналитика выбранной сделки');
+  const top=el('div','rona-ar-directory-header'),copy=el('div');
+  copy.append(el('div','rona-ar-directory-kicker','RONA TRADE · DEALS'),
+    el('h2','rona-ar-directory-title','Сделки агентов'));
+  top.append(copy,el('span','rona-ar-directory-count',String(deals.length)));
+  nav.append(top);
+  const cards=q('.rona-ar-deals',root);
+  if(cards)nav.append(cards);
+  nav.append(el('div','rona-ar-directory-footer',
+    'Выберите сделку. Все показатели справа относятся только к её текущему контексту.'));
+  const intro=el('section','rona-ar-focus-intro'),profile=el('div'),tags=el('div','rona-ar-focus-tags');
+  profile.append(el('div','rona-ar-focus-kicker','ВЫБРАННАЯ СДЕЛКА · УПРАВЛЕНЧЕСКИЙ ОБЗОР'),
+    el('h2','rona-ar-focus-title',String(deal.clientName||'Контрагент не указан')),
+    el('div','rona-ar-focus-agent','Агент: '+String(deal.agentName||'Не указан')));
+  tags.append(chip(String(deal.dealId||'Сделка'),''),
+    chip(String(deal.businessStatus||'TO_VERIFY'),''),chip(currencyOf(deal)||'TO_VERIFY',''));
+  intro.append(profile,tags);right.append(intro);
+  for(const selector of ['.rona-ar-status','.rona-ar-pulse','.rona-ar-fx-reference','.rona-ar-pnl-grid','.rona-ar-insights']){
+    const element=q(selector,root);
+    if(element)right.append(element)
+  }
+  workspace.append(nav,right);root.replaceChildren(workspace)
+}
+
 function render(){
-  installStyle();const root=el('div','rona-ar'),data=state.data;root.dataset.ronaAgentRewardsVisual='premium-fintech-v2';
+  installStyle();installExecutiveCockpitStyle();const root=el('div','rona-ar'),data=state.data;root.dataset.ronaAgentRewardsVisual='premium-fintech-v2';root.dataset.ronaAgentRewardsCockpit='executive-cockpit-v1';
   if(!data){root.append(el('div','rona-ar-loader','Загрузка финансового P&L-контура…'));replace(root);return}
   const deals=Array.isArray(data.deals)?data.deals:[];
   if(state.selectedKey&&!deals.some(d=>rowKey(d)===state.selectedKey))state.selectedKey=null;
   if(!deals.length){root.append(el('div','rona-ar-loader','Сделок в агентском контуре пока нет.'));replace(root);return}
-  renderDealCards(root,deals);
   if(!state.selectedKey)state.selectedKey=rowKey(deals[0]);
+  renderDealCards(root,deals);
   const deal=selectedDeal();
   if(deal){
     const st=el('div','rona-ar-status');st.append(el('span','',deal.dealId+' · '+deal.clientName+' · '+(deal.agentName||'Агент')),el('strong','','Валюта: '+(currencyOf(deal)||'TO_VERIFY')));root.append(st);
     renderDealPulse(root,deal);
     renderFxReference(root,deal);
-    const grid=el('div','rona-ar-pnl-grid');grid.append(renderPlan(deal),renderFact(deal),renderOwner(deal));root.append(grid)
+    const grid=el('div','rona-ar-pnl-grid');grid.append(renderPlan(deal),renderFact(deal),renderOwner(deal));root.append(grid);
+    renderExecutiveInsights(root,deal);
+    renderExecutiveWorkspace(root,deals,deal);
   }
   replace(root)
 }
