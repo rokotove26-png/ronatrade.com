@@ -226,6 +226,20 @@ function installStyle(){
  #page-agent-settlements .rona-ar-fx-value{font-size:17px;text-align:left}
 }
 
+
+/* executive-finance-v1.2: clean finance ledger with no per-item microcomments. */
+#page-agent-settlements .rona-ar-table .rona-ar-row{min-height:52px;padding:10px 18px}
+#page-agent-settlements .rona-ar-table .rona-ar-row:has(.rona-ar-input){min-height:59px}
+#page-agent-settlements .rona-ar-table .rona-ar-exp-line{min-height:42px;padding:7px 0}
+#page-agent-settlements .rona-ar-table .rona-ar-hint,
+#page-agent-settlements .rona-ar-table .rona-ar-exp-sub,
+#page-agent-settlements .rona-ar-table .rona-ar-transport{display:none!important}
+#page-agent-settlements .rona-ar-table .rona-ar-row:has(.rona-ar-tariff-flag) .rona-ar-name{flex-wrap:wrap;gap:5px 8px}
+#page-agent-settlements .rona-ar-table .rona-ar-tariff-flag{flex:0 0 auto;margin:0;font-size:10px;line-height:1.3;white-space:normal;color:#ffd17d}
+@media(max-width:720px){
+ #page-agent-settlements .rona-ar-table .rona-ar-row{padding:10px 13px}
+}
+
 `;document.head.append(s)
 }
 
@@ -499,7 +513,7 @@ function pnlRow(label,value,cur,{hint='',total=false,final=false,signed=false,st
   const r=el('div','rona-ar-row'+(total?' total':'')+(final?' final':'')),left=el('div'),right=el('div','rona-ar-value '+tone(value));
   r.dataset.rowIcon=rowVisualIcon(label);
   r.dataset.financeMeaning=financeMeaning(label);
-  left.append(el('div','rona-ar-name',label));if(hint)left.append(financeMetaNode(hint));
+  const labelNode=el('div','rona-ar-name',label);if(hint)labelNode.title=String(hint);left.append(labelNode);
   if(label==='Агентское вознаграждение')r.classList.add('rona-ar-reward-focus');
   right.textContent=num(value)===null?'TO_VERIFY':(signed?signedMoney(value,cur):money(value,cur));
   if(status&&num(value)===null)right.title=status;
@@ -510,42 +524,10 @@ function expenseLines(lines,emptyText){
   if(!lines.length){box.append(el('div','rona-ar-empty',emptyText));return box}
   for(const x of lines){
     const row=el('div','rona-ar-exp-line'),name=el('div'),amount=el('div','rona-ar-exp-amount',money(x.amount,x.currency));row.dataset.financeMeaning='outflow';
-    name.append(el('div','rona-ar-exp-name',x.label||x.counterparty||x.paymentId||'Расход'));
+    const labelNode=el('div','rona-ar-exp-name',x.label||x.counterparty||x.paymentId||'Расход');
     const sub=[x.paymentId,(x.native||[]).join(' · '),x.source].filter(Boolean).join(' · ');
-    if(sub)name.append(financeMetaNode(sub,'rona-ar-exp-sub',{force:!!x.paymentId||!!x.source}));
+    if(sub)labelNode.title=sub;name.append(labelNode);
     row.append(name,amount);box.append(row)
-  }
-  return box
-}
-function transportBreakdownView(breakdown,status){
-  const box=el('div','rona-ar-transport');
-  const head=el('div','rona-ar-transport-head');
-  head.append(el('div','rona-ar-transport-title','Транспортировка · тарифный состав'),chip(status||'TO_VERIFY',(String(status||'').includes('CONFLICT')||String(status||'').includes('TO_VERIFY'))?'warn':'good'));
-  box.append(head);
-  if(!breakdown||!Array.isArray(breakdown.components)||!breakdown.components.length){
-    box.append(el('div','rona-ar-empty','Тарифная декомпозиция не материализована · TO_VERIFY'));return box
-  }
-  const meta=[breakdown.basis_type,breakdown.note].filter(Boolean).join(' · ');
-  if(meta)box.append(financeMetaNode(meta,'rona-ar-transport-meta'));
-  for(const x of breakdown.components){
-    const row=el('div','rona-ar-transport-row'),left=el('div'),right=el('div');row.dataset.financeMeaning='outflow';
-    const label=el('div','rona-ar-transport-name',x.label||x.key||'Компонент тарифа');
-    const formula=[];
-    if(num(x.unit_rate)!==null&&x.unit)formula.push(fmt(x.unit_rate,4)+' '+x.unit);
-    if(num(x.quantity)!==null)formula.push('× '+fmt(x.quantity,3));
-    left.append(label);
-    if(formula.length)left.append(el('div','rona-ar-transport-formula',formula.join(' ')));
-    if(x.status)left.append(financeMetaNode(x.status,'rona-ar-transport-status '+(String(x.status).includes('CONFLICT')||String(x.status).includes('TO_VERIFY')?'warn':''),{force:true}));
-    right.append(el('div','rona-ar-transport-amount',money(x.amount,x.currency||breakdown.currency)));
-    row.append(left,right);box.append(row)
-  }
-  if(breakdown.conflict){
-    const cf=breakdown.conflict,alert=el('div','rona-ar-transport-conflict');
-    alert.append(el('div','rona-ar-transport-conflict-title','⚠ Тарифное расхождение'));
-    const txt=[cf.scope, num(cf.plan_rate)!==null?'PLAN '+fmt(cf.plan_rate,4)+' '+(cf.unit||''):null, num(cf.rail_matrix_rate)!==null?'Rail authority '+fmt(cf.rail_matrix_rate,4)+' '+(cf.unit||''):null].filter(Boolean).join(' · ');
-    alert.append(el('div','',txt));
-    if(cf.action)alert.append(el('div','rona-ar-transport-conflict-action',cf.action));
-    box.append(alert)
   }
   return box
 }
@@ -557,8 +539,14 @@ function renderPlan(deal){
   col.append(columnHead('1 · ПЛАН','Ожидаемый результат','Расчёт только по доступным параметрам сделки','PLAN',''));
   const table=el('div','rona-ar-table');
   table.append(pnlRow('Итого выручка',m.revenue,m.cur,{hint:m.revenueStatus,total:true}));
-  table.append(pnlRow('Расходы постатейно',m.expTotal,m.cur,{hint:m.expenseStatus}));
-  table.append(expenseLines(m.lines,'Плановые статьи затрат не материализованы · TO_VERIFY'));table.append(transportBreakdownView(m.transportBreakdown,m.transportBreakdownStatus));
+  const expensesTotal=pnlRow('Расходы постатейно',m.expTotal,m.cur,{hint:m.expenseStatus});
+  // Preserve the authoritative tariff-conflict warning without showing tariff composition.
+  if(m.transportBreakdown?.conflict||upper(m.transportBreakdownStatus).includes('CONFLICT')){
+    const warning=chip('Тарифное расхождение','warn');warning.classList.add('rona-ar-tariff-flag');
+    q('.rona-ar-name',expensesTotal)?.append(warning)
+  }
+  table.append(expensesTotal);
+  table.append(expenseLines(m.lines,'Плановые статьи затрат не материализованы · TO_VERIFY'));
   table.append(pnlRow('Итого финансовый результат',m.financialResult,m.cur,{hint:'Выручка − плановые расходы',total:true,signed:true}));
   table.append(pnlRow('Налоги и платежи',m.taxes,m.cur,{hint:m.taxStatus,status:m.taxStatus}));
   table.append(pnlRow('Курсовая разница',m.fx,m.cur,{hint:m.fxStatus,signed:true,status:m.fxStatus}));
@@ -620,7 +608,7 @@ function renderFact(deal){
 }
 function ownerInputRow(label,key,value,cur,hint){
   const r=el('div','rona-ar-row'),left=el('div'),inp=el('input','rona-ar-input');r.dataset.financeMeaning=financeMeaning(label);
-  left.append(el('div','rona-ar-name',label));if(hint)left.append(financeMetaNode(hint));
+  const labelNode=el('div','rona-ar-name',label);if(hint)labelNode.title=String(hint);left.append(labelNode);
   inp.type='number';inp.step='0.1';inp.inputMode='decimal';inp.value=num(value)===null?'':round1(value).toFixed(1);inp.placeholder='TO_VERIFY';inp.dataset.ownerKey=key;
   inp.setAttribute('aria-label',label+(cur?' ('+cur+')':''));
   const edit=el('div','rona-ar-edit-amount');edit.append(inp,el('span','rona-ar-input-currency',cur||''));
@@ -632,13 +620,13 @@ function ownerPaymentLines(lines,enabled){
   for(const x of lines){
     const key=String(x.paymentId||'').trim();
     const row=el('div','rona-ar-exp-line'),name=el('div'),inp=el('input','rona-ar-input');row.dataset.financeMeaning='outflow';
-    name.append(el('div','rona-ar-exp-name',x.counterparty||x.paymentId||'Расход'));
+    const labelNode=el('div','rona-ar-exp-name',x.counterparty||x.paymentId||'Расход');
     const sub=[
       x.paymentId,
       'FACT '+money(x.factAmount,x.currency),
       (x.native||[]).join(' · ')
     ].filter(Boolean).join(' · ');
-    if(sub)name.append(financeMetaNode(sub,'rona-ar-exp-sub',{force:!!x.paymentId}));
+    if(sub)labelNode.title=sub;name.append(labelNode);
     inp.type='number';inp.step='0.1';inp.min='0';inp.inputMode='decimal';
     inp.value=num(x.correctedAmount)===null?'':round1(x.correctedAmount).toFixed(1);
     inp.placeholder='TO_VERIFY';inp.dataset.ownerPaymentKey=key;inp.disabled=!enabled;
@@ -687,9 +675,10 @@ function recomputeOwner(col,deal,fact,cur){
   set('agentBasis',reward.basis);
   set('agentReward',reward.value);
   set('ronaProfit',ronaProfit);
-  const basisHint=q('[data-owner-computed="agentBasis"] .rona-ar-hint',col);
-  if(basisHint)updateFinanceMeta(basisHint,upper(deal?.agentTerm?.reference).includes('EXCLUDING FX')?'Фактический результат − реализованный FX (по условию агента)':'База по подтверждённому условию агента');
-  const rewardHint=q('[data-owner-computed="agentReward"] .rona-ar-hint',col);if(rewardHint)updateFinanceMeta(rewardHint,reward.status);
+  const basisLabel=q('[data-owner-computed="agentBasis"] .rona-ar-name',col);
+  if(basisLabel)basisLabel.title=upper(deal?.agentTerm?.reference).includes('EXCLUDING FX')?'Фактический результат − реализованный FX (по условию агента)':'База по подтверждённому условию агента';
+  const rewardLabel=q('[data-owner-computed="agentReward"] .rona-ar-name',col);
+  if(rewardLabel)rewardLabel.title=reward.status;
   return{paymentLineAmounts,counterpartyCashOut,netCashFlow,openSettlementAdjustment,actualFinancialResult,agentBasis:reward.basis,reward:reward.value,ronaProfit}
 }
 function renderOwner(deal){
