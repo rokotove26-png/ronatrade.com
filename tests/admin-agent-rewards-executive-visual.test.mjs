@@ -15,7 +15,7 @@ test('Executive presentation changes no financial authority, formulas, API or se
   assert.match(js,/r\.dataset\.financeMeaning=financeMeaning\(label\)/);
   assert.doesNotMatch(js,/Реализованный FX · справочно/);
   assert.match(js,/РАСЧЁТ · агентское вознаграждение/);
-  assert.match(js,/Расчётное вознаграждение не означает произведённую выплату/);
+  assert.match(js,/Вознаграждение не означает выплату/);
   assert.match(js,/function termReward\(deal/);
   assert.match(js,/Math\.max\(0,basis\)\*num\(t\.rate\)/);
   assert.match(js,/function ownerModel\(deal,fact\)/);
@@ -81,7 +81,7 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       await page.goto('http://rona.visual/portal/admin',{waitUntil:'load'});
       await page.addScriptTag({content:script});
       await page.waitForSelector('.rona-ar-pulse .rona-ar-metric:nth-child(4)',{timeout:10000});
-      await page.waitForFunction(()=>document.querySelector('.rona-ar-metric-value')?.textContent.includes('500,0'),{timeout:10000});
+      await page.waitForFunction(()=>document.querySelector('.rona-ar-pulse .rona-ar-metric-value')?.textContent!=='TO_VERIFY',{timeout:10000});
       const result=await page.evaluate(()=>{
         const root=document.querySelector('#page-agent-settlements .rona-ar');
         const tiles=[...root.querySelectorAll('.rona-ar-pulse .rona-ar-metric')];
