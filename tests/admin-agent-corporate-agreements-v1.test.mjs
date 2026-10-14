@@ -139,21 +139,29 @@ test('Rendered corporate agent list, secure download and signed upload workflow'
         }));
         throw new Error('CORPORATE_AGENT_VIEW_BOOTSTRAP_FAILED: '+JSON.stringify({state,errors,operations,requests,failures}),{cause:e})
       }
-      const titles=await page.locator('#ca-current-body .ca-name').allTextContents();
+      const titles=await page.locator('#ca-current-body .ca-agent-choice .ca-name').allTextContents();
       assert.deepEqual(new Set(titles),new Set([companyA.legalName,companyB.legalName]),
-        'Agent card titles must be legal entity names, not persons');
+        'Agent list entries must be legal entity names, not persons');
       assert(!titles.includes('Артем Белов'));
       assert(!titles.includes('Егор Кузнецов'));
       assert.equal(await page.locator('.rona-owner-kpi').nth(1).textContent(),'2');
       assert.equal(await page.locator('.rona-owner-kpi').nth(2).textContent(),'4');
+      assert.equal(await page.locator('.ca-agents-workspace').count(),1);
+      assert.equal(await page.locator('.ca-agent-choice').count(),2);
+      assert.equal(await page.locator('.ca-agent-detail').count(),1);
       assert.equal(await page.locator('.ca-agreement-item').count(),1);
-      assert.equal(await page.locator('[data-rona-agent-company-upload]').count(),2);
-      await page.locator('[data-rona-agency-document]').count(); // Documents are real actions.
+      assert.equal(await page.locator('[data-rona-agent-company-upload]').count(),1);
+      const widths=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,inner:window.innerWidth}));
+      assert(widths.scroll<=widths.inner+2,'Workspace must not overflow viewport: '+JSON.stringify(widths));
       const download=page.locator('[data-rona-agency-document="AGENCY-S-005-AAAA0001"]');
       await download.click();
       await page.waitForFunction(()=>document.querySelector('[data-rona-agency-document="AGENCY-S-005-AAAA0001"]')?.disabled===false);
       assert(operations.some(o=>o.action==='download'&&o.company==='S-005'&&o.doc==='AGENCY-S-005-AAAA0001'));
 
+      await page.locator('[data-rona-agent-select="S-010"]').click();
+      assert.equal(await page.locator('[data-rona-agent-select="S-010"]').getAttribute('aria-pressed'),'true');
+      assert.equal(await page.locator('.ca-agent-title').textContent(),companyB.legalName);
+      assert.equal(await page.locator('.ca-agreement-item').count(),0);
       const add=page.locator('[data-rona-agent-company-upload="S-010"]');
       await add.click();
       const dialog=page.locator('.ca-modal-backdrop [role="dialog"]');
@@ -164,7 +172,7 @@ test('Rendered corporate agent list, secure download and signed upload workflow'
       });
       await dialog.locator('input[type="checkbox"]').check();
       await dialog.getByRole('button',{name:'Сохранить документ'}).click();
-      await page.waitForFunction(()=>document.querySelectorAll('.ca-agreement-item').length===2,{timeout:10000});
+      await page.waitForFunction(()=>document.querySelectorAll('.ca-agreement-item').length===1,{timeout:10000});
       assert(operations.some(o=>o.action==='upload'&&o.company==='S-010'&&o.method==='POST'));
       assert.deepEqual(errors,[]);
       await page.close();
