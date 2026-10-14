@@ -2,7 +2,6 @@ const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const UPSTREAM=`${SUPABASE_URL}/functions/v1/rona-owner-acceptance`;
 const AI_SYNC_UPSTREAM=`${SUPABASE_URL}/functions/v1/rona-owner-ai-sync`;
-const AGENCY_UPSTREAM=`${SUPABASE_URL}/functions/v1/rona-agent-agreements`;
 const PROD_RPC_UPSTREAM=`${SUPABASE_URL}/rest/v1/rpc`;
 function qaRpcUpstream(){const env=globalThis.process?.env;if(env?.RONA_QA_RPC_MODE!=='LOCAL_EPHEMERAL_POSTGREST')return'';const value=String(env.RONA_QA_RPC_UPSTREAM||'').trim().replace(/\/$/,'');if(!/^http:\/\/(127\.0\.0\.1|localhost):\d+\/rpc$/.test(value))throw new Error('QA_RPC_UPSTREAM_DENIED');return value}
 const RPC_UPSTREAM=qaRpcUpstream()||PROD_RPC_UPSTREAM;
@@ -25,7 +24,7 @@ function impersonationEnded(code='IMPERSONATION_SESSION_INVALID'){const h=header
 function sameOriginPost(request){const url=new URL(request.url),origin=request.headers.get('origin');if(origin)return origin===url.origin;const ref=request.headers.get('referer');if(!ref)return false;try{return new URL(ref).origin===url.origin}catch{return false}}
 async function authRefresh(refreshToken){try{const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const data=await r.json().catch(()=>({}));return{ok:r.ok,status:r.status,data}}catch(_){return{ok:false,status:503,data:{}}}}
 function allowedPath(path){return /^\/(admin|client|agent)\//.test(path)||['/admin/bootstrap','/client/bootstrap','/agent/bootstrap','/agent/price-list.pdf','/admin/ai-sync','/agent/ai-sync','/presence/heartbeat'].includes(path)}
-function upstreamFor(path){if(path==='/admin/agency-contracts'||path.startsWith('/admin/agency-contracts/'))return`${AGENCY_UPSTREAM}${path}`;if(path==='/admin/ai-sync')return`${AI_SYNC_UPSTREAM}/admin/sync`;if(path==='/admin/payments-v7/owner-decision')return`${AI_SYNC_UPSTREAM}/admin/payments-v7/owner-decision`;if(path==='/agent/ai-sync')return`${AI_SYNC_UPSTREAM}/agent/sync`;return`${UPSTREAM}${path}`}
+function upstreamFor(path){if(path==='/admin/ai-sync')return`${AI_SYNC_UPSTREAM}/admin/sync`;if(path==='/admin/payments-v7/owner-decision')return`${AI_SYNC_UPSTREAM}/admin/payments-v7/owner-decision`;if(path==='/agent/ai-sync')return`${AI_SYNC_UPSTREAM}/agent/sync`;return`${UPSTREAM}${path}`}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function safePrice(p){return{id:p?.id??null,product:p?.product??null,producer:p?.producer??null,basis:p?.basis??null,final_station:p?.final_station??null,sale_price:p?.sale_price??null,currency:p?.currency??null,payment_terms:p?.payment_terms??null,commercial_terms:p?.commercial_terms??null,agreed_at:p?.agreed_at??null}}
 function safeClientCompany(c){return{client_id:c?.client_id??null,legal_name:c?.legal_name??null,contract_id:c?.contract_id??null,current_external_contract_number:c?.current_external_contract_number??null,contract_document_id:c?.contract_document_id??null,contract_filename:c?.contract_filename??null,verification_status:c?.current_external_contract_number?'CONFIRMED_CURRENT':'TO_VERIFY'}}
