@@ -718,7 +718,7 @@ test('Authorized final agent act renders official numbered document, canonical s
     assert.doesNotMatch(content,/ВНУТРЕННИЙ ПРОЕКТ|TO_VERIFY/);
     assert.equal(await popup.locator('img.sig').count(),1);
     assert.equal(await popup.locator('img.stamp').count(),1);
-    assert.match(await popup.locator('style').innerText(),/\.stamp\{width:35mm;height:35mm/);
+    assert.match(await popup.locator('style').textContent(),/\.stamp\{width:35mm;height:35mm/);
     assert.equal(posted.length,1);
     assert.deepEqual(posted[0],{ownerConfirmsSigning:true,ownerConfirmsFacsimile:true});
     assert.deepEqual(errors,[]);
