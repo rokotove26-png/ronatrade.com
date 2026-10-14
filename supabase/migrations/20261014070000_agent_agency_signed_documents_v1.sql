@@ -18,13 +18,6 @@ create table if not exists portal_private.agent_agency_contract_documents (
 );
 create index if not exists agent_agency_docs_legal_uploaded
   on portal_private.agent_agency_contract_documents(agent_legal_entity_key, uploaded_at desc);
--- Exact signed files in the canonical 351C/2026 registry include an original
--- approximately 65 MB scanned PDF. Extend only this existing private bucket;
--- the global Storage plan limit must permit it (checked during rollout).
--- This is a size allowance, not a change to its private/public access.
-update storage.buckets set file_size_limit=100*1024*1024
-where id='rona-portal-private'
-  and file_size_limit is not null and file_size_limit<100*1024*1024;
 alter table portal_private.agent_agency_contract_documents enable row level security;
 revoke all on portal_private.agent_agency_contract_documents from public, anon, authenticated;
 comment on table portal_private.agent_agency_contract_documents is
