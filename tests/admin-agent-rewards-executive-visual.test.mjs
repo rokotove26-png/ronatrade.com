@@ -10,6 +10,10 @@ test('Executive presentation changes no financial authority, formulas, API or se
   assert.match(js,/__RONA_AGENT_REWARDS_PRESENTATION__='executive-finance-v1'/);
   assert.match(js,/function financeMetaNode\(value/);
   assert.match(js,/function renderDealPulse\(root,deal\)/);
+  assert.match(js,/function renderFxReference\(root,deal\)/);
+  assert.match(js,/renderFxReference\(root,deal\)/);
+  assert.match(js,/r\.dataset\.financeMeaning=financeMeaning\(label\)/);
+  assert.doesNotMatch(js,/Реализованный FX · справочно/);
   assert.match(js,/РАСЧЁТ · агентское вознаграждение/);
   assert.match(js,/Расчётное вознаграждение не означает произведённую выплату/);
   assert.match(js,/function termReward\(deal/);
@@ -51,6 +55,7 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
   const browser=await chromium.launch({headless:true});
   try{
     for(const width of [1750,1440,950,650]){
+      deal.cashFlow.realizedFxReference=width===950?-10:10;
       const page=await browser.newPage({viewport:{width,height:1000},deviceScaleFactor:1});
       const errors=[];const calls=[];
       page.on('pageerror',err=>errors.push(err.message));
@@ -78,12 +83,42 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         const inp=root.querySelector('[data-owner-key="openSettlementAdjustment"]');
         const unit=root.querySelector('.rona-ar-input-currency');
         const sections=cols.map(el=>el.querySelector('.rona-ar-col-title')?.textContent);
+        const fx=root.querySelector('[data-rona-ar-fx-reference="1"]');
+        const fxValue=fx?.querySelector('.rona-ar-fx-value');
+        const fxTableRows=[...root.querySelectorAll('.rona-ar-pnl-grid .rona-ar-row')]
+          .filter(n=>n.textContent.includes('Реализованный FX'));
+        const valColor=sel=>{
+          const n=root.querySelector(sel);
+          return n?getComputedStyle(n).color:null
+        };
+        const meaning=sel=>root.querySelector(sel)?.dataset.financeMeaning||null;
         return {version:window.__RONA_AGENT_REWARDS_PRESENTATION__,names,values,sections,
           gridColumns:grid.gridTemplateColumns,nameFont,valueFont,columns:cols.map(el=>el.getBoundingClientRect().toJSON()),
           technicalCount:technical.length,hasHiddenTech:!!source&&!source.open,
           summary:first?.textContent,displayTechnical:source?.open??null,
           inputExists:!!inp,inputDisabled:inp?.disabled,inputCurrency:unit?.textContent,
-          width:root.getBoundingClientRect().width,scrollWidth:root.scrollWidth,visibleRewardRow:!!root.querySelector('.rona-ar-reward-focus')
+          width:root.getBoundingClientRect().width,scrollWidth:root.scrollWidth,visibleRewardRow:!!root.querySelector('.rona-ar-reward-focus'),
+          fxCount:root.querySelectorAll('[data-rona-ar-fx-reference="1"]').length,
+          fxAmount:fxValue?.textContent,fxColor:fxValue?getComputedStyle(fxValue).color:null,
+          fxMeaning:fx?.querySelector('.rona-ar-fx-label')?.textContent,
+          fxNote:fx?.querySelector('.rona-ar-fx-description')?.textContent,
+          fxPrecedesTables:!!fx&&!!fx.nextElementSibling?.classList.contains('rona-ar-pnl-grid'),
+          fxAfterSummary:!!fx&&!!fx.previousElementSibling?.classList.contains('rona-ar-summary-note'),
+          fxInsideTables:root.querySelectorAll('.rona-ar-pnl-grid [data-rona-ar-fx-reference]').length,
+          fxRows:fxTableRows.length,
+          colors:{
+            factReceipt:valColor('.rona-ar-col.fact .rona-ar-row[data-finance-meaning="inflow"] .rona-ar-value'),
+            factOutflow:valColor('.rona-ar-col.fact .rona-ar-row[data-finance-meaning="outflow"] .rona-ar-value'),
+            ownerAgent:valColor('.rona-ar-col.owner .rona-ar-row[data-finance-meaning="agent"] .rona-ar-value'),
+            planRevenue:valColor('.rona-ar-col.plan .rona-ar-row[data-finance-meaning="inflow"] .rona-ar-value'),
+            factResult:valColor('.rona-ar-col.fact .rona-ar-row[data-finance-meaning="result"] .rona-ar-value'),
+            expenseDetail:valColor('.rona-ar-col.fact .rona-ar-exp-amount')
+          },
+          rowMeanings:{
+            receipt:meaning('.rona-ar-col.fact .rona-ar-row[data-finance-meaning="inflow"]'),
+            outflow:meaning('.rona-ar-col.fact .rona-ar-row[data-finance-meaning="outflow"]'),
+            agent:meaning('.rona-ar-col.owner .rona-ar-row[data-finance-meaning="agent"]')
+          }
         }
       });
       assert.equal(result.version,'executive-finance-v1');
@@ -103,6 +138,21 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       assert(result.visibleRewardRow,'Reward rows must have visible priority at '+width);
       assert(result.inputExists&&result.inputCurrency==='USD','Currency displayed beside editable numeric amount');
       assert.equal(result.inputDisabled,true,'Unauthorized test must not unlock owner correction');
+      assert.equal(result.fxCount,1,'One FX reference strip, not duplicate rows, at '+width);
+      assert.equal(result.fxInsideTables,0,'FX strip must be OUTSIDE finance tables at '+width);
+      assert.equal(result.fxRows,0,'Neither FACT nor Owner table may contain realized FX at '+width);
+      assert(result.fxPrecedesTables&&result.fxAfterSummary,'FX strip must follow KPI group and precede table columns at '+width);
+      assert.match(result.fxNote,/Повторно к Чистому ДДС и финансовому результату не прибавляется/);
+      assert.equal(result.fxMeaning,'Валютная справка · реализованный FX');
+      assert.equal(result.fxAmount,(width===950?'-10,0 USD':'+10,0 USD'),'FX amount must be read from approved FACT without recomputation');
+      assert.equal(result.fxColor,width===950?'rgb(255, 156, 172)':'rgb(145, 227, 193)','FX sign color must describe benefit/loss at '+width);
+      assert.deepEqual(result.rowMeanings,{receipt:'inflow',outflow:'outflow',agent:'agent'});
+      assert.equal(result.colors.factReceipt,'rgb(141, 231, 197)','Confirmed receipt = teal green at '+width);
+      assert.equal(result.colors.factOutflow,'rgb(219, 200, 173)','Positive expense amount must NOT be green at '+width);
+      assert.equal(result.colors.expenseDetail,'rgb(219, 200, 173)','Expense breakdown shares outflow palette at '+width);
+      assert.equal(result.colors.ownerAgent,'rgb(217, 197, 255)','Agent amount = violet at '+width);
+      assert.equal(result.colors.planRevenue,'rgb(169, 209, 253)','Planned income = blue, not confirmed green at '+width);
+      assert.equal(result.colors.factResult,'rgb(133, 237, 198)','Positive cash result = green at '+width);
       assert(result.width<=width+1,'Root panel must fit browser viewport');
       if(width>=1600)assert(result.columns[1].x>result.columns[0].x,'Wide view: 3 comparable columns');
       if(width>=1070&&width<=1550)assert(result.columns[2].y>result.columns[0].y,'Medium view: owner receives readable second row');
@@ -110,6 +160,14 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       await page.locator('.rona-ar-disclosure summary').first().click();
       const isOpen=await page.locator('.rona-ar-disclosure').first().evaluate(n=>n.open);
       assert(isOpen,'Source details must be keyboard/mouse accessible');
+      if(width===1440){
+        deal.cashFlow.realizedFxReference=null;
+        await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
+        await page.waitForFunction(()=>!document.querySelector('[data-rona-ar-fx-reference]'));
+        assert.equal(await page.locator('[data-rona-ar-fx-reference]').count(),0,'Absent/unapproved FX must not be fabricated as zero');
+        assert.equal(await page.locator('.rona-ar-pnl-grid .rona-ar-row').filter({hasText:'Реализованный FX'}).count(),0,
+          'FX reference must not return to table when source becomes unavailable');
+      }
       assert.deepEqual(errors,[],'No runtime exceptions at '+width);
       assert(!calls.some(v=>!v.startsWith('GET ')),'Read-only visual QA must never POST anything');
       await page.close()

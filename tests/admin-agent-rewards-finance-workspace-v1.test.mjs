@@ -383,7 +383,11 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Незакрытые расчёты/);
   assert.match(ui,/Фактический финансовый результат/);
   assert.match(ui,/База агентского вознаграждения/);
-  assert.match(ui,/Уже отражён в фактических платежах · повторно в результат не прибавляется/);
+  assert.match(ui,/function renderFxReference\(root,deal\)/);
+  assert.match(ui,/if\(!fact\.approved\|\|fact\.realizedFxReference===null\)return/);
+  assert.match(ui,/Уже отражён в фактических платежах\. Повторно к Чистому ДДС и финансовому результату не прибавляется/);
+  assert.doesNotMatch(ui,/Реализованный FX · справочно/);
+  assert.match(ui,/renderDealPulse\(root,deal\);\s*renderFxReference\(root,deal\);/);
   assert.match(ui,/netCashFlow\+openSettlementAdjustment/);
   assert.match(ui,/basis=result-fx/);
   assert.match(ui,/actualFinancialResult-reward\.value/);
