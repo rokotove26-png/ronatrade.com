@@ -89,12 +89,12 @@ test('Rendered corporate agent list, secure download and signed upload workflow'
       page.on('request',r=>requests.push(r.method()+' '+r.url()));
       page.on('requestfailed',r=>failures.push({url:r.url(),error:r.failure()?.errorText}));
       page.on('popup',p=>void p.close());
-      await page.route('http://rona.test/portal/admin**',r=>r.fulfill({
+      await page.route(/^http:\/\/rona\.test\/portal\/admin(?:\?.*)?$/,r=>r.fulfill({
         status:200,contentType:'text/html',
         body:'<!doctype html><html lang="ru"><head><meta charset="UTF-8"></head><body><section id="page-access"></section></body></html>'}));
       await page.route('http://rona.test/portal/owner-api**',r=>r.fulfill({status:200,contentType:'application/json',
         body:JSON.stringify({ok:true,data:decodeURIComponent(new URL(r.request().url()).searchParams.get('path')||'').includes('access-workspace')?{users:[],events:[]} : business})}));
-      await page.route('http://rona.test/portal/admin-authority**',r=>r.fulfill({
+      await page.route(/^http:\/\/rona\.test\/portal\/admin-authority\/.*$/,r=>r.fulfill({
         status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{contracts:[],accessUsers:[]}})}));
       await page.route('http://rona.test/portal/agency-contracts**',async r=>{
         const u=new URL(r.request().url()),action=u.searchParams.get('action')||'list';
