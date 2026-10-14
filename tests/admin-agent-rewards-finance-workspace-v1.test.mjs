@@ -470,8 +470,6 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/ДС не привязано/);
   assert.doesNotMatch(ui,/Нет действующего условия/);
   assert.doesNotMatch(ui,/Расчёт после закрытия/);
-  assert.match(ui,/Нет действующего условия/);
-  assert.match(ui,/Расчёт после закрытия/);
   assert.match(ui,/После расчёта агента/);
   assert.match(ui,/minimumFractionDigits:1,maximumFractionDigits:1/);
   assert.match(ui,/inp\.step='0\.1'/);
