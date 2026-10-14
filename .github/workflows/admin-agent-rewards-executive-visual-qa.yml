@@ -1,0 +1,50 @@
+name: Agent Rewards Executive Financial UI QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/agent-rewards-v1-ui.js'
+      - 'tests/admin-agent-rewards-finance-workspace-v1.test.mjs'
+      - 'tests/admin-agent-rewards-executive-visual.test.mjs'
+      - '.github/workflows/admin-agent-rewards-executive-visual-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  financial-presentation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify delta-only finance presentation and frozen sources
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git diff --name-only "$BASE_SHA" HEAD > /tmp/agent-rewards-ui-files.txt
+          cat /tmp/agent-rewards-ui-files.txt
+          if grep -Ev '^(functions/portal/agent-rewards-v1-ui\.js|tests/admin-agent-rewards-executive-visual\.test\.mjs|\.github/workflows/admin-agent-rewards-executive-visual-qa\.yml)$' /tmp/agent-rewards-ui-files.txt; then
+            echo "FINANCE_UI_SCOPE_VIOLATION" >&2
+            exit 1
+          fi
+          test "$(wc -l < /tmp/agent-rewards-ui-files.txt | tr -d ' ')" = 3
+          echo 'FINANCE_PRESENTATION_DELTA_ONLY=PASS'
+      - name: Verify finance P&L contract and unchanged authority
+        run: |
+          node --check functions/portal/agent-rewards-v1-ui.js
+          node --test tests/admin-agent-rewards-finance-workspace-v1.test.mjs
+      - name: Install Chromium for rendered Admin finance view
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Render real dashboard and verify typography, hierarchy, disclosures and safe inputs
+        run: node --test tests/admin-agent-rewards-executive-visual.test.mjs

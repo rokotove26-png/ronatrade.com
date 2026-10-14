@@ -3,6 +3,7 @@ const VERSION='20261007-agent-rewards-finance-v20-correction-gate-v3';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='premium-fintech-v2';
+window.__RONA_AGENT_REWARDS_PRESENTATION__='executive-finance-v1';
 if(location.pathname!=='/portal/admin')return;
 
 const API='/portal/owner-api';
@@ -106,6 +107,83 @@ function installStyle(){
 .rona-ar-transport{border-radius:13px}.rona-ar-transport-title::before{content:"⇢";margin-right:7px;color:var(--ar-plan)}.rona-ar-transport-conflict{border-color:rgba(255,201,106,.3);box-shadow:inset 3px 0 0 rgba(255,201,106,.45)}
 @media(max-width:1260px){.rona-ar-pnl-grid{grid-template-columns:repeat(3,minmax(410px,1fr))}.rona-ar-col{min-width:410px}}
 @media(max-width:720px){.rona-ar-status{align-items:flex-start;flex-direction:column}.rona-ar-metric{min-height:98px}.rona-ar-pnl-grid{gap:11px}}
+
+/* executive-finance-v1: presentation-only financial hierarchy, scoped to Agent Rewards. */
+#page-agent-settlements .rona-ar{--ar-muted:#b3c5d1;gap:18px}
+#page-agent-settlements .rona-ar::before,#page-agent-settlements .rona-ar::after{opacity:.24}
+#page-agent-settlements .rona-ar-finance-banner{border-color:rgba(120,178,207,.24);box-shadow:0 8px 26px rgba(0,0,0,.12)}
+#page-agent-settlements .rona-ar-finance-banner::after{opacity:.18}
+#page-agent-settlements .rona-ar-finance-banner .rona-ar-sub{font-size:13px;line-height:1.5;color:#c4d7e3}
+#page-agent-settlements .rona-ar-deal{box-shadow:0 5px 15px rgba(0,0,0,.12);min-height:110px}
+#page-agent-settlements .rona-ar-deal-client{font-size:12.5px;line-height:1.5;color:#b6cbd8}
+#page-agent-settlements .rona-ar-deal-result{font-size:16px}
+#page-agent-settlements .rona-ar-status{font-size:12.5px;color:#b8cad7}
+#page-agent-settlements .rona-ar-pulse{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+#page-agent-settlements .rona-ar-metric{min-height:134px;padding:17px;border-color:rgba(130,184,209,.24);box-shadow:0 7px 20px rgba(0,0,0,.12)}
+#page-agent-settlements .rona-ar-metric.agent-primary{border-color:rgba(198,167,255,.48);background:linear-gradient(160deg,rgba(42,36,75,.92),rgba(10,22,36,.98))}
+#page-agent-settlements .rona-ar-metric.agent-calculated{border-color:rgba(73,231,180,.34);background:linear-gradient(160deg,rgba(12,60,54,.61),rgba(9,25,35,.96))}
+#page-agent-settlements .rona-ar-metric-label{font-size:11px;letter-spacing:.045em;line-height:1.3;min-height:30px;color:#b5cbd8}
+#page-agent-settlements .rona-ar-metric-value{font-size:clamp(20px,1.75vw,27px);line-height:1.16;overflow-wrap:anywhere}
+#page-agent-settlements .rona-ar-metric-meta{font-size:11px;line-height:1.5;color:#a1b8c8}
+#page-agent-settlements .rona-ar-summary-note{font-size:11.5px;line-height:1.45;margin-top:-6px;padding:0 3px;color:#a5baca}
+#page-agent-settlements .rona-ar-pnl-grid{gap:16px;overflow:visible}
+#page-agent-settlements .rona-ar-col{min-width:0;border-color:rgba(135,191,213,.25);box-shadow:0 9px 28px rgba(0,0,0,.15)}
+#page-agent-settlements .rona-ar-col:hover{transform:none}
+#page-agent-settlements .rona-ar-col-head{min-height:106px;padding:20px 19px 17px}
+#page-agent-settlements .rona-ar-col-label{font-size:11px;letter-spacing:.075em}
+#page-agent-settlements .rona-ar-col-title{font-size:19px;line-height:1.25}
+#page-agent-settlements .rona-ar-col-meta{font-size:12px;line-height:1.5;color:#aec3cf}
+#page-agent-settlements .rona-ar-row{grid-template-columns:minmax(0,1fr) max-content;gap:12px;min-height:66px;padding:13px 18px}
+#page-agent-settlements .rona-ar-name{font-size:13px;font-weight:750;line-height:1.4;letter-spacing:0;color:#e0edf3}
+#page-agent-settlements .rona-ar-row[data-row-icon] .rona-ar-name::before{display:none}
+#page-agent-settlements .rona-ar-hint{margin-left:0;font-size:11.5px;color:#a2b9c9;line-height:1.48}
+#page-agent-settlements .rona-ar-value{font-size:17px;font-weight:850;line-height:1.25;font-variant-numeric:tabular-nums;white-space:nowrap;color:#f3faff}
+#page-agent-settlements .rona-ar-value.positive{color:#84ebc4;text-shadow:none}
+#page-agent-settlements .rona-ar-value.negative{color:#f3a1ae;text-shadow:none}
+#page-agent-settlements .rona-ar-row.total{background:rgba(56,135,170,.045)}
+#page-agent-settlements .rona-ar-row.final{margin:8px;border-color:rgba(73,231,180,.4);background:rgba(19,92,74,.18);box-shadow:inset 3px 0 0 rgba(73,231,180,.58)}
+#page-agent-settlements .rona-ar-row.final .rona-ar-value{font-size:19px}
+#page-agent-settlements .rona-ar-row.rona-ar-reward-focus{background:rgba(183,148,250,.08);box-shadow:inset 3px 0 0 rgba(185,167,255,.5)}
+#page-agent-settlements .rona-ar-row.rona-ar-reward-focus .rona-ar-name{font-weight:880;color:#f4efff}
+#page-agent-settlements .rona-ar-expenses{padding:10px 18px 12px}
+#page-agent-settlements .rona-ar-exp-line{gap:10px;min-height:48px}
+#page-agent-settlements .rona-ar-exp-name,#page-agent-settlements .rona-ar-transport-name{font-size:12.5px;line-height:1.4;color:#d8e8ef}
+#page-agent-settlements .rona-ar-exp-amount,#page-agent-settlements .rona-ar-transport-amount{font-size:12.5px;font-variant-numeric:tabular-nums}
+#page-agent-settlements .rona-ar-exp-sub,#page-agent-settlements .rona-ar-transport-meta{padding-left:0;font-size:11px;line-height:1.45;color:#a8bac5}
+#page-agent-settlements .rona-ar-transport-row{min-height:53px}
+#page-agent-settlements .rona-ar-settlement-counterparty{font-size:12px}
+#page-agent-settlements .rona-ar-settlement-v,#page-agent-settlements .rona-ar-settlement-k{font-size:11px}
+#page-agent-settlements .rona-ar-balance-name{font-size:12px}
+#page-agent-settlements .rona-ar-balance-right strong{font-size:13px}
+#page-agent-settlements .rona-ar-edit-amount{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+#page-agent-settlements .rona-ar-input{width:132px;min-width:0;font-size:14px}
+#page-agent-settlements .rona-ar-input-currency{font-size:11px;font-weight:800;color:#aec2d2;white-space:nowrap}
+#page-agent-settlements .rona-ar-disclosure{display:block;max-width:100%}
+#page-agent-settlements .rona-ar-disclosure-summary{display:list-item;width:max-content;max-width:100%;font-size:11.25px;line-height:1.4;color:#a4c7d7;cursor:pointer;overflow-wrap:anywhere}
+#page-agent-settlements .rona-ar-disclosure-summary:hover,#page-agent-settlements .rona-ar-disclosure-summary:focus-visible{color:#d9f5ff}
+#page-agent-settlements .rona-ar-disclosure-body{margin-top:6px;padding:8px 9px;border:1px solid rgba(117,175,206,.21);border-radius:7px;background:rgba(5,13,22,.65);color:#b4c9d6;font-size:10.5px;line-height:1.5;overflow-wrap:anywhere;user-select:text}
+#page-agent-settlements .rona-ar-disclosure summary:focus-visible{outline:2px solid #a0ddf4;outline-offset:3px}
+#page-agent-settlements .rona-ar-actions{flex-wrap:wrap}
+#page-agent-settlements .rona-ar-btn{font-size:12.5px}
+@media(max-width:1550px){
+  #page-agent-settlements .rona-ar-pulse{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #page-agent-settlements .rona-ar-pnl-grid{grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible}
+  #page-agent-settlements .rona-ar-pnl-grid>.rona-ar-col.owner{grid-column:1/-1}
+}
+@media(max-width:1070px){
+  #page-agent-settlements .rona-ar-pnl-grid{grid-template-columns:minmax(0,1fr)}
+  #page-agent-settlements .rona-ar-pnl-grid>.rona-ar-col.owner{grid-column:auto}
+}
+@media(max-width:720px){
+  #page-agent-settlements .rona-ar-pulse{grid-template-columns:minmax(0,1fr)}
+  #page-agent-settlements .rona-ar-row{padding:12px 13px;gap:8px}
+  #page-agent-settlements .rona-ar-name{font-size:12.5px}
+  #page-agent-settlements .rona-ar-value{font-size:14px}
+  #page-agent-settlements .rona-ar-metric{min-height:120px}
+}
+@media(prefers-reduced-motion:reduce){
+  #page-agent-settlements .rona-ar-col,#page-agent-settlements .rona-ar-deal,#page-agent-settlements .rona-ar-btn{transition:none}
+}
 
 `;document.head.append(s)
 }
@@ -347,10 +425,28 @@ function rowVisualIcon(label){
   if(s.includes('НАЛОГ'))return'§';
   return'·'
 }
+// Presentation-only disclosure of machine-readable financial source codes.
+function financeMetaNode(value,klass='rona-ar-hint',{force=false}={}){
+  const raw=String(value??'').trim(),node=el('div',klass);
+  if(!raw)return node;
+  const isCode=/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/.test(raw);
+  if(!force&&!isCode){node.textContent=raw;return node}
+  const warning=/(?:TO_VERIFY|NOT_MATERIALIZED|MISSING|REQUIRED|CONFLICT|BLOCKED|NOT_ACTIVE|UNAVAILABLE)/i.test(raw);
+  const details=el('details','rona-ar-disclosure');
+  details.append(el('summary','rona-ar-disclosure-summary',warning?'Требует проверки · подробности':'Источник и статус'),
+    el('div','rona-ar-disclosure-body',raw));
+  node.append(details);return node
+}
+function updateFinanceMeta(node,value){
+  if(!node)return;
+  const fresh=financeMetaNode(value,node.className);
+  node.replaceChildren(...Array.from(fresh.childNodes))
+}
 function pnlRow(label,value,cur,{hint='',total=false,final=false,signed=false,status=''}={}){
   const r=el('div','rona-ar-row'+(total?' total':'')+(final?' final':'')),left=el('div'),right=el('div','rona-ar-value '+tone(value));
   r.dataset.rowIcon=rowVisualIcon(label);
-  left.append(el('div','rona-ar-name',label));if(hint)left.append(el('div','rona-ar-hint',hint));
+  left.append(el('div','rona-ar-name',label));if(hint)left.append(financeMetaNode(hint));
+  if(label==='Агентское вознаграждение')r.classList.add('rona-ar-reward-focus');
   right.textContent=num(value)===null?'TO_VERIFY':(signed?signedMoney(value,cur):money(value,cur));
   if(status&&num(value)===null)right.title=status;
   r.append(left,right);return r
@@ -362,7 +458,7 @@ function expenseLines(lines,emptyText){
     const row=el('div','rona-ar-exp-line'),name=el('div'),amount=el('div','rona-ar-exp-amount',money(x.amount,x.currency));
     name.append(el('div','rona-ar-exp-name',x.label||x.counterparty||x.paymentId||'Расход'));
     const sub=[x.paymentId,(x.native||[]).join(' · '),x.source].filter(Boolean).join(' · ');
-    if(sub)name.append(el('div','rona-ar-exp-sub',sub));
+    if(sub)name.append(financeMetaNode(sub,'rona-ar-exp-sub',{force:!!x.paymentId||!!x.source}));
     row.append(name,amount);box.append(row)
   }
   return box
@@ -376,7 +472,7 @@ function transportBreakdownView(breakdown,status){
     box.append(el('div','rona-ar-empty','Тарифная декомпозиция не материализована · TO_VERIFY'));return box
   }
   const meta=[breakdown.basis_type,breakdown.note].filter(Boolean).join(' · ');
-  if(meta)box.append(el('div','rona-ar-transport-meta',meta));
+  if(meta)box.append(financeMetaNode(meta,'rona-ar-transport-meta'));
   for(const x of breakdown.components){
     const row=el('div','rona-ar-transport-row'),left=el('div'),right=el('div');
     const label=el('div','rona-ar-transport-name',x.label||x.key||'Компонент тарифа');
@@ -385,7 +481,7 @@ function transportBreakdownView(breakdown,status){
     if(num(x.quantity)!==null)formula.push('× '+fmt(x.quantity,3));
     left.append(label);
     if(formula.length)left.append(el('div','rona-ar-transport-formula',formula.join(' ')));
-    if(x.status)left.append(el('div','rona-ar-transport-status '+(String(x.status).includes('CONFLICT')||String(x.status).includes('TO_VERIFY')?'warn':''),x.status));
+    if(x.status)left.append(financeMetaNode(x.status,'rona-ar-transport-status '+(String(x.status).includes('CONFLICT')||String(x.status).includes('TO_VERIFY')?'warn':''),{force:true}));
     right.append(el('div','rona-ar-transport-amount',money(x.amount,x.currency||breakdown.currency)));
     row.append(left,right);box.append(row)
   }
@@ -400,7 +496,7 @@ function transportBreakdownView(breakdown,status){
   return box
 }
 function columnHead(kind,title,meta,badge,badgeKind){
-  const h=el('div','rona-ar-col-head'),c=el('div');c.append(el('div','rona-ar-col-label',kind),el('div','rona-ar-col-title',title),el('div','rona-ar-col-meta',meta));h.append(c,chip(badge,badgeKind));return h
+  const h=el('div','rona-ar-col-head'),c=el('div');c.append(el('div','rona-ar-col-label',kind),el('div','rona-ar-col-title',title),financeMetaNode(meta,'rona-ar-col-meta'));h.append(c,chip(badge,badgeKind));return h
 }
 function renderPlan(deal){
   const m=planModel(deal),col=el('section','rona-ar-col plan');
@@ -471,9 +567,11 @@ function renderFact(deal){
 }
 function ownerInputRow(label,key,value,cur,hint){
   const r=el('div','rona-ar-row'),left=el('div'),inp=el('input','rona-ar-input');
-  left.append(el('div','rona-ar-name',label));if(hint)left.append(el('div','rona-ar-hint',hint));
+  left.append(el('div','rona-ar-name',label));if(hint)left.append(financeMetaNode(hint));
   inp.type='number';inp.step='0.1';inp.inputMode='decimal';inp.value=num(value)===null?'':round1(value).toFixed(1);inp.placeholder='TO_VERIFY';inp.dataset.ownerKey=key;
-  r.append(left,inp);return r
+  inp.setAttribute('aria-label',label+(cur?' ('+cur+')':''));
+  const edit=el('div','rona-ar-edit-amount');edit.append(inp,el('span','rona-ar-input-currency',cur||''));
+  r.append(left,edit);return r
 }
 function ownerPaymentLines(lines,enabled){
   const box=el('div','rona-ar-expenses');
@@ -487,11 +585,13 @@ function ownerPaymentLines(lines,enabled){
       'FACT '+money(x.factAmount,x.currency),
       (x.native||[]).join(' · ')
     ].filter(Boolean).join(' · ');
-    if(sub)name.append(el('div','rona-ar-exp-sub',sub));
+    if(sub)name.append(financeMetaNode(sub,'rona-ar-exp-sub',{force:!!x.paymentId}));
     inp.type='number';inp.step='0.1';inp.min='0';inp.inputMode='decimal';
     inp.value=num(x.correctedAmount)===null?'':round1(x.correctedAmount).toFixed(1);
     inp.placeholder='TO_VERIFY';inp.dataset.ownerPaymentKey=key;inp.disabled=!enabled;
-    row.append(name,inp);box.append(row)
+    inp.setAttribute('aria-label',(x.counterparty||x.paymentId||'Платёж')+(x.currency?' ('+x.currency+')':''));
+    const edit=el('div','rona-ar-edit-amount');edit.append(inp,el('span','rona-ar-input-currency',x.currency||''));
+    row.append(name,edit);box.append(row)
   }
   return box
 }
@@ -535,8 +635,8 @@ function recomputeOwner(col,deal,fact,cur){
   set('agentReward',reward.value);
   set('ronaProfit',ronaProfit);
   const basisHint=q('[data-owner-computed="agentBasis"] .rona-ar-hint',col);
-  if(basisHint)basisHint.textContent=upper(deal?.agentTerm?.reference).includes('EXCLUDING FX')?'Фактический результат − реализованный FX (по условию агента)':'База по подтверждённому условию агента';
-  const rewardHint=q('[data-owner-computed="agentReward"] .rona-ar-hint',col);if(rewardHint)rewardHint.textContent=reward.status;
+  if(basisHint)updateFinanceMeta(basisHint,upper(deal?.agentTerm?.reference).includes('EXCLUDING FX')?'Фактический результат − реализованный FX (по условию агента)':'База по подтверждённому условию агента');
+  const rewardHint=q('[data-owner-computed="agentReward"] .rona-ar-hint',col);if(rewardHint)updateFinanceMeta(rewardHint,reward.status);
   return{paymentLineAmounts,counterpartyCashOut,netCashFlow,openSettlementAdjustment,actualFinancialResult,agentBasis:reward.basis,reward:reward.value,ronaProfit}
 }
 function renderOwner(deal){
@@ -592,18 +692,20 @@ function renderOwner(deal){
 }
 function metricCard(label,value,cur,meta,kind=''){
   const t=tone(value),card=el('div','rona-ar-metric '+kind+' '+(t||'verify'));
-  card.append(el('div','rona-ar-metric-label',label),el('div','rona-ar-metric-value',num(value)===null?'TO_VERIFY':money(value,cur)),el('div','rona-ar-metric-meta',meta||''));
+  card.append(el('div','rona-ar-metric-label',label),el('div','rona-ar-metric-value',num(value)===null?'TO_VERIFY':money(value,cur)),financeMetaNode(meta||'','rona-ar-metric-meta'));
   return card
 }
 function renderDealPulse(root,deal){
-  const p=planModel(deal),f=cashFactModel(deal),pulse=el('div','rona-ar-pulse');
+  const p=planModel(deal),f=cashFactModel(deal),o=ownerModel(deal,f),pulse=el('div','rona-ar-pulse');
+  pulse.setAttribute('aria-label','Ключевые финансовые показатели выбранной сделки');
+  // P&L and payment sources are unchanged. An Owner calculation is NOT a paid reward.
   pulse.append(
-    metricCard('PLAN · выручка',p.revenue,p.cur,p.revenueStatus,'plan'),
-    metricCard('PLAN · прибыль RONA',p.ronaProfit,p.cur,'После налогов/платежей и агентского вознаграждения','plan'),
-    metricCard('FACT · чистый ДДС',f.netCashFlow,f.cur,f.approved?'Поступления − выплаты − комиссии':'TO_VERIFY','fact'),
-    metricCard('PLAN · агентское вознаграждение',p.reward.value,p.cur,p.reward.status,'agent')
+    metricCard('PLAN · агентское вознаграждение',p.reward.value,p.cur,p.reward.status,'agent agent-primary'),
+    metricCard('РАСЧЁТ · агентское вознаграждение',o.reward.value,f.cur,o.reward.value===null?agentStatusText(o.reward.status):o.reward.status,'agent agent-calculated'),
+    metricCard('PLAN · прибыль RONA',p.ronaProfit,p.cur,'PLAN · выручка: '+(num(p.revenue)===null?'TO_VERIFY':money(p.revenue,p.cur)),'plan'),
+    metricCard('FACT · чистый ДДС',f.netCashFlow,f.cur,f.approved?'Поступления − выплаты − комиссии':'TO_VERIFY','fact')
   );
-  root.append(pulse)
+  root.append(pulse,el('div','rona-ar-summary-note','Расчётное вознаграждение не означает произведённую выплату. Неподтверждённые показатели обозначены отдельно.'))
 }
 function renderDealCards(root,deals){
   const grid=el('div','rona-ar-deals');
@@ -622,8 +724,8 @@ function render(){
   const deals=Array.isArray(data.deals)?data.deals:[];
   if(state.selectedKey&&!deals.some(d=>rowKey(d)===state.selectedKey))state.selectedKey=null;
   const hero=el('div','rona-ar-finance-banner'),copy=el('div');
-  copy.append(el('div','rona-ar-sub','Финансовый паспорт сделки: ПЛАН → ФАКТ ДДС → ФАКТИЧЕСКИЙ РЕЗУЛЬТАТ / АГЕНТ. В третьем столбце корректируются постатейные выплаты и «Незакрытые расчёты»; FACT и FX остаются неизменными. Все суммы отображаются с точностью 0,1.'));
-  hero.append(copy,el('div','rona-ar-live','FINANCE P&L'));root.append(hero);
+  copy.append(el('div','rona-ar-sub','План агентского вознаграждения, денежные потоки и расчётный результат выбранной сделки. ПЛАН и ФАКТ представлены отдельно; доступные корректировки находятся в колонке «OWNER / АГЕНТ». Точность сумм — 0,1.'));
+  hero.append(copy,el('div','rona-ar-live','Финансовая модель'));root.append(hero);
   if(!deals.length){root.append(el('div','rona-ar-loader','Сделок в агентском контуре пока нет.'));replace(root);return}
   renderDealCards(root,deals);
   if(!state.selectedKey)state.selectedKey=rowKey(deals[0]);
