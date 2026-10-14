@@ -646,7 +646,7 @@ function renderFact(deal){
       label:x.counterparty,
       amount:x.amount,
       currency:x.currency,
-      paymentId:x.paymentId,
+      paymentId:x.paymentIds.join(', '),
       native:x.native,
       source:Array.from(new Set(x.source)).join(' · ')
     })),
@@ -667,25 +667,44 @@ function ownerInputRow(label,key,value,cur,hint){
 }
 function ownerPaymentLines(lines,enabled){
   const box=el('div','rona-ar-expenses');
-  if(!lines.length){box.append(el('div','rona-ar-empty','Нет FACT-детализации выплат для корректировки.'));return box}
+  if(!lines.length){box.append(el('div','rona-ar-empty','Нет сверенной детализации выплат для корректировки.'));return box}
   for(const x of lines){
-    const key=String(x.paymentId||'').trim();
-    const row=el('div','rona-ar-exp-line'),name=el('div'),inp=el('input','rona-ar-input');row.dataset.financeMeaning='outflow';
-    const labelNode=el('div','rona-ar-exp-name',x.counterparty||x.paymentId||'Расход');
-    const sub=[
-      x.paymentId,
-      'FACT '+money(x.factAmount,x.currency),
-      (x.native||[]).join(' · ')
-    ].filter(Boolean).join(' · ');
-    if(sub)labelNode.title=sub;name.append(labelNode);
+    const row=el('div','rona-ar-exp-line'),name=el('div'),inp=el('input','rona-ar-input');
+    row.dataset.financeMeaning='outflow';
+    const labelNode=el('div','rona-ar-exp-name',x.counterparty||'Контрагент');
+    const origin=x.parts.map(p=>p.paymentId+': '+money(p.amount,x.currency)).join(' · ');
+    labelNode.title=(x.resolved?'Подтверждённый контрагент':'Контрагент требует идентификации')+' · '+origin;
+    name.append(labelNode);
+    if(x.parts.length>1){
+      const count=el('span','rona-ar-payment-count',' · '+x.parts.length+' платежа');
+      count.title=origin;name.append(count)
+    }
     inp.type='number';inp.step='0.1';inp.min='0';inp.inputMode='decimal';
     inp.value=num(x.correctedAmount)===null?'':round1(x.correctedAmount).toFixed(1);
-    inp.placeholder='TO_VERIFY';inp.dataset.ownerPaymentKey=key;inp.disabled=!enabled;
-    inp.setAttribute('aria-label',(x.counterparty||x.paymentId||'Платёж')+(x.currency?' ('+x.currency+')':''));
-    const edit=el('div','rona-ar-edit-amount');edit.append(inp,el('span','rona-ar-input-currency',x.currency||''));
+    inp.placeholder='TO_VERIFY';
+    inp.dataset.ownerPaymentGroupKey=x.key;
+    inp.dataset.groupDirty='0';
+    inp.disabled=!enabled||!x.resolved;
+    inp.setAttribute('aria-label',(x.counterparty||'Контрагент')+' · итого ('+x.currency+')');
+    const edit=el('div','rona-ar-edit-amount');edit.append(inp,el('span','rona-ar-input-currency',x.currency));
     row.append(name,edit);box.append(row)
   }
   return box
+}
+function distributeCounterpartyTotal(parts,amount){
+  const total=round1(amount);
+  if(total===null||total<0||!parts.length)return null;
+  const originals=parts.map(p=>num(p.amount));
+  if(originals.some(x=>x===null||x<0))return null;
+  const whole=originals.reduce((a,b)=>a+b,0),targetUnits=Math.round(total*10);
+  const values={},last=parts.length-1;let allocated=0;
+  for(let i=0;i<parts.length;i++){
+    const remaining=targetUnits-allocated;
+    const unit=i===last?remaining:Math.min(remaining,Math.max(0,
+      Math.round(whole>0?targetUnits*originals[i]/whole:0)));
+    values[parts[i].paymentId]=unit/10;allocated+=unit
+  }
+  return values
 }
 function ownerComputedRow(label,key,value,cur,hint,final=false,signed=true,nullText='TO_VERIFY'){
   const r=pnlRow(label,value,cur,{hint,total:!final,final,signed});
@@ -705,16 +724,35 @@ function agentStatusText(status){
   return'Расчёт не завершён'
 }
 function recomputeOwner(col,deal,fact,cur){
-  const paymentLineAmounts={};let paymentDelta=0,paymentComplete=fact.approved;
-  for(const x of fact.paymentLines||[]){
-    const key=String(x.paymentId||'').trim(),inp=q('[data-owner-payment-key="'+CSS.escape(key)+'"]',col);
-    const corrected=round1(inp?.value),original=num(x.amount);
-    if(!key||corrected===null||original===null){paymentComplete=false;continue}
-    paymentLineAmounts[key]=corrected;
-    paymentDelta+=corrected-original
+  const paymentLineAmounts={};
+  const saved=deal?.ownerCorrection?.payload?.paymentLineAmounts||{};
+  const allowed=new Set((fact.paymentLines||[]).flatMap(g=>g.parts.map(p=>p.paymentId)));
+  let paymentDelta=0,paymentComplete=fact.approved
+    &&Object.keys(saved).every(key=>allowed.has(key));
+  for(const group of fact.paymentLines||[]){
+    const inp=q('[data-owner-payment-group-key="'+CSS.escape(group.key)+'"]',col);
+    if(!inp){paymentComplete=false;continue}
+    let values={};
+    if(inp.dataset.groupDirty==='1'){
+      if(!group.resolved){paymentComplete=false;continue}
+      values=distributeCounterpartyTotal(group.parts,inp.value);
+      if(values===null){paymentComplete=false;continue}
+    }else{
+      for(const part of group.parts){
+        values[part.paymentId]=correctionPaymentValue(deal,part.paymentId,part.amount)
+      }
+    }
+    for(const part of group.parts){
+      const corrected=num(values[part.paymentId]),original=num(part.amount);
+      if(corrected===null||original===null){paymentComplete=false;continue}
+      paymentDelta+=corrected-original;
+      if(inp.dataset.groupDirty==='1'||Object.prototype.hasOwnProperty.call(saved,part.paymentId))
+        paymentLineAmounts[part.paymentId]=corrected
+    }
   }
   const counterpartyCashOut=fact.counterpartyCashOut===null||!paymentComplete?null:fact.counterpartyCashOut+paymentDelta;
-  const netCashFlow=fact.cashReceived===null||counterpartyCashOut===null||fact.bankFees===null?null:fact.cashReceived-counterpartyCashOut-fact.bankFees;
+  const netCashFlow=fact.cashReceived===null||counterpartyCashOut===null||fact.bankFees===null
+    ?null:fact.cashReceived-counterpartyCashOut-fact.bankFees;
   const openSettlementAdjustment=round1(q('[data-owner-key="openSettlementAdjustment"]',col)?.value);
   const actualFinancialResult=netCashFlow===null||openSettlementAdjustment===null?null:netCashFlow+openSettlementAdjustment;
   const reward=ownerAgentReward(deal,actualFinancialResult);
@@ -727,12 +765,14 @@ function recomputeOwner(col,deal,fact,cur){
   set('ronaProfit',ronaProfit);
   const rewardLabel=q('[data-owner-computed="agentReward"] .rona-ar-name',col);
   if(rewardLabel)rewardLabel.title=reward.status;
-  return{paymentLineAmounts,counterpartyCashOut,netCashFlow,openSettlementAdjustment,actualFinancialResult,agentBasis:reward.basis,reward:reward.value,ronaProfit}
+  return{paymentLineAmounts,counterpartyCashOut,netCashFlow,openSettlementAdjustment,
+    actualFinancialResult,agentBasis:reward.basis,reward:reward.value,ronaProfit,
+    paymentComplete}
 }
 function renderOwner(deal){
   const fact=cashFactModel(deal),base=ownerModel(deal,fact),cur=fact.cur,col=el('section','rona-ar-col owner');
   const correctionApproved=ownerCorrectionApproved(deal);
-  const editable=base.bridgeApproved&&fact.approved&&correctionApproved;
+  const editable=base.bridgeApproved&&fact.approved&&correctionApproved&&base.correctionScopeValid;
   const saved=editable&&deal.ownerCorrection;
   col.append(columnHead(
     '3 · OWNER / АГЕНТ',
@@ -773,7 +813,14 @@ function renderOwner(deal){
   table.append(rewardRow);
   table.append(ownerComputedRow('Итого прибыль RONA','ronaProfit',base.ronaProfit,cur,'Фактический результат − агентское вознаграждение',true,true,base.reward.value===null?'После расчёта агента':'TO_VERIFY'));
   col.append(table);
-  qa('[data-owner-payment-key],[data-owner-key]',col).forEach(inp=>{inp.disabled=!editable;inp.addEventListener('input',()=>recomputeOwner(col,deal,fact,cur))});
+  qa('[data-owner-payment-group-key],[data-owner-key]',col).forEach(inp=>{
+    if(inp.hasAttribute('data-owner-payment-group-key'))inp.disabled=!editable||inp.disabled;
+    else inp.disabled=!editable;
+    inp.addEventListener('input',()=>{
+      if(inp.hasAttribute('data-owner-payment-group-key'))inp.dataset.groupDirty='1';
+      recomputeOwner(col,deal,fact,cur)
+    })
+  });
   const note=el('div','rona-ar-owner-note'),ta=el('textarea');ta.placeholder='Комментарий к корректировке (необязательно)';ta.value=deal.ownerCorrection?.note||'';ta.dataset.correctionNote='1';note.append(ta);col.append(note);
   const actions=el('div','rona-ar-actions'),save=el('button','rona-ar-btn primary','Сохранить корректировку'),send=el('button','rona-ar-btn send','Отправить агенту');
   save.type='button';save.disabled=!editable;send.type='button';send.disabled=true;send.title='Функция подготовлена к будущему подключению агентского кабинета';
@@ -781,6 +828,7 @@ function renderOwner(deal){
     if(state.saving||!editable)return;state.saving=true;save.disabled=true;save.textContent='Сохраняю…';
     try{
       const m=recomputeOwner(col,deal,fact,cur);
+      if(!m.paymentComplete||m.actualFinancialResult===null)throw new Error('Расчёт и детализация платежей требуют сверки Finance');
       const payload={paymentLineAmounts:m.paymentLineAmounts,openSettlementAdjustment:m.openSettlementAdjustment};
       await saveCorrection(deal.dealId,deal.assignmentId,payload,ta.value);
       await getWorkspace({force:true});state.selectedKey=rowKey(deal);render()
