@@ -2,6 +2,7 @@ function currentUiRuntime(){
   'use strict';
   if(window.__RONA_CLIENTS_AGENTS_CURRENT__)return;
   window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5';
+  window.__RONA_AGENCY_COMPANY_CONTRACT_UI__='legal-entity-signed-archive-v1';
   window.__RONA_CLIENTS_AGENTS_CURRENT_READY__=false;
   window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING';
   window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5';
@@ -12,7 +13,7 @@ function currentUiRuntime(){
   const requestedAccessView=new URL(location.href).searchParams.get('accessView');
   const accessViews=new Set(['companies','agents','users','history']);
   const S={view:accessViews.has(requestedAccessView)?requestedAccessView:'companies',search:''};
-  let business=null,authority=null,workspace=null,refreshPromise=null,rootGuard=null,rootRepairQueued=false,lastRefreshAt=0;
+  let business=null,authority=null,workspace=null,agencyArchive=null,refreshPromise=null,rootGuard=null,rootRepairQueued=false,lastRefreshAt=0;
   const AUTO_REPAIR_COOLDOWN_MS=60000;
   const q=(s,r=document)=>r.querySelector(s);
   const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
@@ -53,6 +54,12 @@ function currentUiRuntime(){
     ].join('')
   }
 
+  function agencyArchiveStyle(){
+    let st=q('#ronaAgencyArchiveStyleV1');
+    if(!st){st=el('style');st.id='ronaAgencyArchiveStyleV1';document.head.append(st)}
+    st.textContent='#rona-ca4 .ca-agreement-archive{display:grid;gap:9px;margin-top:14px;padding-top:13px;border-top:1px solid rgba(145,190,214,.16)}#rona-ca4 .ca-agreement-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12px}#rona-ca4 .ca-agreement-item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px;border:1px solid rgba(145,190,214,.14);border-radius:10px;background:rgba(8,20,33,.58)}#rona-ca4 .ca-agreement-item>div{min-width:0}#rona-ca4 .ca-agreement-label{font-size:11px;color:#90bfd9}#rona-ca4 .ca-agreement-filename{overflow-wrap:anywhere;font-size:12px;font-weight:700;margin:4px 0}#rona-ca4 .ca-agreement-item button{flex:0 0 auto}';
+  }
+
   function ensureRoot(){const p=page();if(!p)return null;style();let r=q('#rona-ca4',p);if(!r){r=el('section','ca-current');r.id='rona-ca4';p.prepend(r)}r.style.removeProperty('display');r.removeAttribute('aria-hidden');for(const x of Array.from(p.children)){if(x!==r){x.style.setProperty('display','none','important');x.setAttribute('aria-hidden','true')}}return r}
   function accessRootHealthy(){const p=page(),r=p&&q(':scope > #rona-ca4',p);return !!(r&&r.querySelector('[data-rona-create-access="primary"]'))}
   function installRootGuard(){const p=page();if(!p||rootGuard)return;rootGuard=new MutationObserver(()=>{if(!window.__RONA_CLIENTS_AGENTS_CURRENT_READY__||accessRootHealthy()||rootRepairQueued)return;rootRepairQueued=true;queueMicrotask(()=>{rootRepairQueued=false;if(!accessRootHealthy()&&window.__RONA_CLIENTS_AGENTS_CURRENT_READY__)render()})});rootGuard.observe(p,{childList:true});window.__RONA_CLIENTS_AGENTS_CURRENT_ROOT_GUARD__=rootGuard}
@@ -61,13 +68,13 @@ function currentUiRuntime(){
   async function notice(msg,title='Клиенты и агенты'){if(window.RONA_ADMIN_DIALOGS?.message)return window.RONA_ADMIN_DIALOGS.message(String(msg),{title});const b=el('div','ca-modal-backdrop'),m=el('section','rona-owner-card ca-modal'),h=el('h2','',title),p=el('div','ca-copy',String(msg)),ok=el('button','ca-primary','Закрыть');ok.type='button';return new Promise(resolve=>{const close=()=>{b.remove();resolve(true)};ok.onclick=close;b.onclick=e=>{if(e.target===b)close()};m.append(h,p,ok);b.append(m);document.body.append(b)})}
   async function confirmBox(msg,title='Подтверждение'){if(window.RONA_ADMIN_DIALOGS?.confirm)return window.RONA_ADMIN_DIALOGS.confirm(String(msg),{title,confirmLabel:'Подтвердить',cancelLabel:'Отмена'});const b=el('div','ca-modal-backdrop'),m=el('section','rona-owner-card ca-modal'),h=el('h2','',title),p=el('div','ca-copy',String(msg)),a=el('div','ca-modal-actions'),cancel=el('button','ca-btn','Отмена'),ok=el('button','ca-primary','Подтвердить');cancel.type=ok.type='button';return new Promise(resolve=>{const close=v=>{b.remove();resolve(v===true)};cancel.onclick=()=>close(false);ok.onclick=()=>close(true);b.onclick=e=>{if(e.target===b)close(false)};a.append(cancel,ok);m.append(h,p,a);b.append(m);document.body.append(b)})}
   async function json(url,opts={}){const init={credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'},...opts},r=await fetch(url,init),raw=await r.text(),j=(()=>{try{return raw?JSON.parse(raw):{}}catch{return{}}})();if(!r.ok||j?.ok===false){const code=txt(j?.code)||('ACCESS_HTTP_'+r.status+(raw&&!j?.code?'_NON_JSON':'')),e=new Error(code);e.code=code;e.status=r.status;e.payload=j;throw e}return j?.data??j}
-  const owner=(path,opts={})=>json(OWNER_API+'?path='+encodeURIComponent(path),opts),auth=(path,opts={})=>json(AUTH+path,opts);
+  const owner=(path,opts={})=>json(OWNER_API+'?path='+encodeURIComponent(path),opts),auth=(path,opts={})=>json(AUTH+path,opts),agency=(path='',opts={})=>json('/portal/agency-contracts'+path,opts);
 
   async function loadAll(reason='manual'){
     const source=String(reason||'manual').toUpperCase().replace(/[^A-Z0-9_-]+/g,'_').slice(0,48);
     const headers={accept:'application/json','x-rona-client-source':'ADMIN_ACCESS_REFRESH','x-rona-client-refresh-reason':'ADMIN_ACCESS_'+source};
-    const [b,a,w]=await Promise.all([owner('/admin/bootstrap',{headers}),auth('/bootstrap',{headers}),owner('/admin/access-workspace',{headers}).catch(()=>null)]);
-    business=b||{};authority=a||{};workspace=w&&typeof w==='object'?w:null;
+    const [b,a,w,g]=await Promise.all([owner('/admin/bootstrap',{headers}),auth('/bootstrap',{headers}),owner('/admin/access-workspace',{headers}).catch(()=>null),(S.view==='agents'?agency('',{headers}).catch(()=>null):Promise.resolve(agencyArchive))]);
+    business=b||{};authority=a||{};workspace=w&&typeof w==='object'?w:null;agencyArchive=g&&Array.isArray(g.agents)?g:null;
     window.__RONA_OWNER_ADMIN_SNAPSHOT__=business;
     window.__RONA_ADMIN_LIVE_SNAPSHOT__={...(window.__RONA_ADMIN_LIVE_SNAPSHOT__||{}),authority,accessWorkspace:workspace,at:new Date().toISOString()};
     return{business,authority,workspace}
@@ -75,6 +82,8 @@ function currentUiRuntime(){
 
   const clients=()=>Array.isArray(business?.clients)?business.clients:Array.isArray(business?.companies)?business.companies:[];
   const agents=()=>Array.isArray(business?.agents)?business.agents:[];
+  const agentCompanies=()=>Array.isArray(agencyArchive?.agents)?agencyArchive.agents:[];
+  const companyAgent=(clientId)=>agentCompanies().find(a=>Array.isArray(a.clientIds)&&a.clientIds.includes(String(clientId||'')))||null;
   const users=()=>Array.isArray(workspace?.users)?workspace.users:Array.isArray(authority?.accessUsers)?authority.accessUsers:[];
   const events=()=>Array.isArray(workspace?.events)?workspace.events:[];
   const contracts=()=>Array.isArray(authority?.contracts)?authority.contracts:[];
@@ -85,12 +94,141 @@ function currentUiRuntime(){
 
   function hero(){const h=el('section','rona-visual-hero ca-hero'),c=el('div','ca-hero-copy'),a=el('div','ca-hero-actions');c.append(el('div','rona-visual-kicker','RONA TRADE · CLIENTS'),el('h1','rona-visual-title','Клиенты и агенты'),el('div','rona-visual-sub','Компании, агенты, пользователи, договорные права и история изменений доступа.'));const addCompany=el('button','ca-primary','Добавить компанию'),b=el('button','ca-primary','Создать пользователя');addCompany.type='button';addCompany.dataset.ronaAddCompany='primary';addCompany.onclick=openCompanyModal;b.type='button';b.dataset.ronaCreateAccess='primary';b.onclick=openAccessModal;a.append(addCompany,b);h.append(c,a);return h}
   function cell(l,v){const c=el('div','ca-cell');c.append(el('span','',l),el('strong','',v||'—'));return c}
-  function kpis(){const cs=clients(),as=agents(),us=users(),assigned=cs.filter(x=>String(x.agent_person_id||'').trim()).length,active=us.filter(x=>String(x.status||'').toUpperCase()==='ACTIVE').length,g=el('div','ca-kpis');[['Компаний',cs.length,'Текущий контур'],['Агентов',as.length,'Зарегистрированные агенты'],['С агентом',assigned,'Закрепление по компании'],['Активных доступов',active,'Серверная авторизация']].forEach(([t,v,s])=>g.append(card(t,el('div','rona-owner-kpi',v),el('div','rona-owner-muted',s))));return g}
-  function toolbar(){const b=card(''),row=el('div','ca-toolbar'),search=el('input','ca-search');search.type='search';search.placeholder='Поиск по компании, Client ID, договору, агенту, пользователю или истории';search.value=S.search;search.oninput=()=>{S.search=search.value;drawBody()};const tabs=el('div','ca-tabs');[['companies','Компании'],['agents','Агенты'],['users','Пользователи и доступы'],['history','История и права']].forEach(([v,t])=>{const x=el('button','',t);x.type='button';x.setAttribute('aria-pressed',String(S.view===v));x.onclick=()=>{S.view=v;const u=new URL(location.href);u.searchParams.set('accessView',v);history.replaceState(history.state,'',u);render()};tabs.append(x)});const reload=el('button','ca-btn','Обновить');reload.type='button';reload.onclick=refresh;row.append(search,tabs,reload);b.append(row);return b}
+  function kpis(){const cs=clients(),as=agentCompanies(),us=users(),assigned=cs.filter(x=>!!companyAgent(x.client_id)).length,active=us.filter(x=>String(x.status||'').toUpperCase()==='ACTIVE').length,g=el('div','ca-kpis');[['Компаний',cs.length,'Текущий контур'],['Агентов',agencyArchive?as.length:'—','Зарегистрированные агенты'],['С агентом',agencyArchive?assigned:'—','Закрепление по компании'],['Активных доступов',active,'Серверная авторизация']].forEach(([t,v,s])=>g.append(card(t,el('div','rona-owner-kpi',v),el('div','rona-owner-muted',s))));return g}
+  function toolbar(){const b=card(''),row=el('div','ca-toolbar'),search=el('input','ca-search');search.type='search';search.placeholder='Поиск по компании, Client ID, договору, агенту, пользователю или истории';search.value=S.search;search.oninput=()=>{S.search=search.value;drawBody()};const tabs=el('div','ca-tabs');[['companies','Компании'],['agents','Агенты'],['users','Пользователи и доступы'],['history','История и права']].forEach(([v,t])=>{const x=el('button','',t);x.type='button';x.setAttribute('aria-pressed',String(S.view===v));x.onclick=()=>{S.view=v;const u=new URL(location.href);u.searchParams.set('accessView',v);history.replaceState(history.state,'',u);render();if(v==='agents'&&!agencyArchive)void refresh('open-agents')};tabs.append(x)});const reload=el('button','ca-btn','Обновить');reload.type='button';reload.onclick=refresh;row.append(search,tabs,reload);b.append(row);return b}
 
-  function companyCard(x){const head=el('div','ca-head'),left=el('div'),right=el('div','ca-hero-actions'),assigned=String(x.agent_person_id||'').trim(),contract=companyRows().find(r=>txt(r.client_id)===txt(x.client_id)||txt(r.contract_id)===txt(x.contract_id))||null;left.append(el('div','ca-name',x.legal_name||'Компания'),el('div','ca-id',x.client_id||'—'));const options=el('button','ca-btn ca-option','Опция');options.type='button';options.dataset.ronaEntityOptions='company';options.onclick=()=>openEntityOptions('COMPANY',String(x.client_id||''),String(x.legal_name||x.client_id||'Компания'));right.append(pill(assigned?'Агент назначен':'Без агента',assigned?'success':'neutral'),options);head.append(left,right);const meta=el('div','ca-meta');meta.append(cell('Договор',x.current_external_contract_number||x.contract_id||contract?.external||'—'),cell('Contract ID',x.contract_id||contract?.contract_id||'—'));const row=el('div','ca-actions'),sel=el('select');sel.append(new Option('Без агента',''));for(const a of agents())sel.append(new Option(a.agent_name||a.display_name||a.full_name||a.agent_person_id||'Агент',a.agent_person_id||a.id||''));sel.value=x.agent_person_id||'';const save=el('button','ca-primary','Сохранить');save.type='button';save.onclick=async()=>{save.disabled=true;try{await owner('/admin/clients/'+encodeURIComponent(x.client_id)+'/agent',{method:'POST',headers:{'content-type':'application/json',accept:'application/json'},body:JSON.stringify({agentPersonId:sel.value||null})});await refresh();await notice('Закрепление агента сохранено.')}catch(e){await notice(errorText(e.code||e.message),'Ошибка')}finally{save.disabled=false}};row.append(sel,save);if(contract){const contractState=el('span','rona-current-state '+(contract.ready?'ready':contract.attached?'wait':'missing'),contract.ready?'Договор доступен клиенту':contract.attached?'PDF ожидает подтверждения':'Договор не прикреплён');row.append(contractState);if(!contract.ready){const attach=el('button','ca-btn','Прикрепить договор');attach.type='button';attach.dataset.ronaCompanyContractAttach='true';attach.onclick=()=>void pickCompanyPdf(contract,attach);row.append(attach)}}return card('',head,meta,row)}
-  function companiesView(){const s=norm(S.search),xs=clients().filter(x=>!s||norm([x.legal_name,x.client_id,x.contract_id,x.current_external_contract_number,x.agent_name].join(' ')).includes(s)),g=el('div','ca-grid');if(!xs.length)return el('div','ca-empty','По выбранному фильтру компаний нет.');xs.forEach(x=>g.append(companyCard(x)));return g}
-  function agentsView(){const s=norm(S.search),xs=agents().filter(a=>{if(!s)return true;const id=String(a.agent_person_id||a.id||''),owned=clients().filter(x=>String(x.agent_person_id||'')===id).map(x=>x.legal_name).join(' ');return norm([a.agent_name,a.display_name,a.full_name,id,owned].join(' ')).includes(s)}),g=el('div','ca-grid');if(!xs.length)return el('div','ca-empty','По выбранному фильтру агентов нет.');for(const a of xs){const id=String(a.agent_person_id||a.id||''),owned=clients().filter(x=>String(x.agent_person_id||'')===id),head=el('div','ca-head'),left=el('div'),right=el('div','ca-hero-actions');left.append(el('div','ca-name',a.agent_name||a.display_name||a.full_name||'Агент'),el('div','ca-id',id||'—'));const options=el('button','ca-btn ca-option','Опция');options.type='button';options.dataset.ronaEntityOptions='agent';options.onclick=()=>openEntityOptions('AGENT',id,String(a.agent_name||a.display_name||a.full_name||id||'Агент'));right.append(pill(owned.length?owned.length+' клиент(ов)':'Без клиентов',owned.length?'success':'neutral'),options);head.append(left,right);const chips=el('div','ca-chips');owned.forEach(x=>chips.append(el('span','ca-chip',x.legal_name||x.client_id||'Клиент')));g.append(card('',head,chips.childNodes.length?chips:el('div','ca-copy','Компании пока не закреплены.')))}return g}
+  function companyCard(x){const head=el('div','ca-head'),left=el('div'),right=el('div','ca-hero-actions'),assignedCompany=companyAgent(x.client_id),assigned=!!assignedCompany,contract=companyRows().find(r=>txt(r.client_id)===txt(x.client_id)||txt(r.contract_id)===txt(x.contract_id))||null;left.append(el('div','ca-name',x.legal_name||'Компания'),el('div','ca-id',x.client_id||'—'));const options=el('button','ca-btn ca-option','Опция');options.type='button';options.dataset.ronaEntityOptions='company';options.onclick=()=>openEntityOptions('COMPANY',String(x.client_id||''),String(x.legal_name||x.client_id||'Компания'));right.append(pill(!agencyArchive?'Реестр агентов недоступен':assigned?'Агент назначен':'Без агента',agencyArchive&&assigned?'success':'neutral'),options);head.append(left,right);const meta=el('div','ca-meta');meta.append(cell('Договор',x.current_external_contract_number||x.contract_id||contract?.external||'—'),cell('Contract ID',x.contract_id||contract?.contract_id||'—'));const row=el('div','ca-actions'),sel=el('select');sel.append(new Option('Без агента',''));for(const a of agentCompanies()){
+    const reps=Array.isArray(a.representatives)?a.representatives:[];
+    const option=new Option(String(a.legalName||a.agentCompanyId),reps.length===1?String(reps[0].agent_person_id):'');
+    if(reps.length!==1){option.disabled=true;option.textContent=String(a.legalName||a.agentCompanyId)+' — требуется представитель'}
+    sel.append(option)
+  }sel.value=x.agent_person_id||'';if(!agencyArchive)sel.disabled=true;const save=el('button','ca-primary','Сохранить');save.type='button';if(!agencyArchive)save.disabled=true;save.onclick=async()=>{save.disabled=true;try{await owner('/admin/clients/'+encodeURIComponent(x.client_id)+'/agent',{method:'POST',headers:{'content-type':'application/json',accept:'application/json'},body:JSON.stringify({agentPersonId:sel.value||null})});await refresh();await notice('Закрепление агента сохранено.')}catch(e){await notice(errorText(e.code||e.message),'Ошибка')}finally{save.disabled=false}};row.append(sel,save);if(contract){const contractState=el('span','rona-current-state '+(contract.ready?'ready':contract.attached?'wait':'missing'),contract.ready?'Договор доступен клиенту':contract.attached?'PDF ожидает подтверждения':'Договор не прикреплён');row.append(contractState);if(!contract.ready){const attach=el('button','ca-btn','Прикрепить договор');attach.type='button';attach.dataset.ronaCompanyContractAttach='true';attach.onclick=()=>void pickCompanyPdf(contract,attach);row.append(attach)}}return card('',head,meta,row)}
+  function companiesView(){const s=norm(S.search),xs=clients().filter(x=>!s||norm([x.legal_name,x.client_id,x.contract_id,x.current_external_contract_number,companyAgent(x.client_id)?.legalName].join(' ')).includes(s)),g=el('div','ca-grid');if(!xs.length)return el('div','ca-empty','По выбранному фильтру компаний нет.');xs.forEach(x=>g.append(companyCard(x)));if(!agencyArchive){const panel=el('div','ca-actions'),retry=el('button','ca-btn','Загрузить юридических агентов');retry.type='button';retry.onclick=()=>{S.view='agents';const u=new URL(location.href);u.searchParams.set('accessView','agents');history.replaceState(history.state,'',u);void refresh('companies-agent-link')};panel.append(retry);g.prepend(panel)}return g}
+
+  function agencyDocumentLabel(doc){
+    return doc?.kind==='AGENCY_ADDENDUM'?'Подписанное дополнительное соглашение':'Подписанный агентский договор'
+  }
+  function agencyError(error){
+    const errors={
+      PDF_REQUIRED:'Выберите PDF-файл.',
+      PDF_TYPE_INVALID:'Допускаются только подписанные документы в формате PDF.',
+      PDF_SIZE_INVALID:'Файл должен быть не больше 20 МБ.',
+      PDF_SIGNATURE_INVALID:'Выбранный файл не является PDF.',
+      SIGNED_DOCUMENT_ATTESTATION_REQUIRED:'Подтвердите, что договор подписан сторонами.',
+      AGENCY_DOCUMENT_ALREADY_ARCHIVED:'Такой PDF уже хранится у выбранной агентской компании.',
+      AGENCY_DOCUMENT_KIND_INVALID:'Выберите тип документа.',
+      AGENT_COMPANY_NOT_FOUND:'Компания не найдена в действующем реестре.',
+      AGENCY_DOCUMENT_NOT_FOUND:'Документ не найден в защищённом архиве.',
+      STORAGE_UPLOAD_FAILED:'Не удалось сохранить PDF в защищённом хранилище.',
+      ROLE_MISMATCH:'Загрузка и скачивание доступны только администратору.',
+      PORTAL_ACCESS_DENIED:'Сессия истекла. Войдите заново.'
+    };
+    return errors[txt(error?.code||error?.message)]||'Операция не выполнена. Проверьте подключение и повторите.'
+  }
+  async function downloadAgencyDocument(company,doc,button){
+    if(button)button.disabled=true;
+    try{
+      const d=await agency('?action=download&companyId='+encodeURIComponent(company.agentCompanyId)+
+        '&documentId='+encodeURIComponent(doc.documentId));
+      if(!d?.url||!/^https:\/\//.test(d.url))throw new Error('SIGNED_URL_FAILED');
+      const a=el('a');a.href=d.url;a.target='_blank';a.rel='noopener noreferrer';a.download=d.filename||doc.filename||'agreement.pdf';
+      document.body.append(a);a.click();a.remove();
+    }catch(e){await notice(agencyError(e),'Скачивание документа')}
+    finally{if(button)button.disabled=false}
+  }
+  function openAgencyDocumentModal(company){
+    const original=document.activeElement,m=modal('Подписанный договор — '+company.legalName);
+    m.box.setAttribute('role','dialog');m.box.setAttribute('aria-modal','true');
+    const close=()=>{m.close();document.removeEventListener('keydown',onKey,true);try{original?.focus?.()}catch(_){}};
+    const onKey=e=>{if(e.key==='Escape'){e.preventDefault();close()}};
+    document.addEventListener('keydown',onKey,true);
+    m.back.onclick=e=>{if(e.target===m.back)close()};
+    const form=el('div','ca-form'),kind=el('select'),reference=el('input'),fileInput=el('input');
+    kind.append(new Option('Агентский договор','AGENCY_CONTRACT'),
+      new Option('Дополнительное соглашение','AGENCY_ADDENDUM'));
+    reference.placeholder='Например, 351C/2026';reference.maxLength=180;
+    fileInput.type='file';fileInput.accept='application/pdf,.pdf';
+    const acknowledgement=el('label','ca-check'),agree=el('input'),statement=el('span','',
+      'Подтверждаю, что загружаемый PDF подписан сторонами и относится к выбранной агентской компании.');
+    agree.type='checkbox';acknowledgement.append(agree,statement);
+    form.append(label('Тип подписанного документа',kind),label('Номер договора / ДС (при наличии)',reference),
+      label('Подписанный PDF (до 20 МБ)',fileInput),acknowledgement);
+    const actions=el('div','ca-modal-actions'),cancel=el('button','ca-btn','Отмена'),
+      upload=el('button','ca-primary','Сохранить документ');
+    cancel.type=upload.type='button';cancel.onclick=close;
+    upload.onclick=async()=>{
+      const file=fileInput.files?.[0];if(!file)return notice('Выберите подписанный PDF.','Проверка');
+      if(file.size<=0||file.size>20*1024*1024)return notice('Размер PDF должен быть до 20 МБ.','Проверка');
+      if(!agree.checked)return notice('Подтвердите подписание документа.','Проверка');
+      if(!/\.pdf$/i.test(file.name)||(file.type&&file.type!=='application/pdf'))
+        return notice('Допускается только файл PDF.','Проверка');
+      upload.disabled=true;cancel.disabled=true;
+      try{
+        const formData=new FormData();formData.append('file',file);formData.append('kind',kind.value);
+        formData.append('reference',reference.value.trim());formData.append('attestedSigned','true');
+        await agency('?action=upload&companyId='+encodeURIComponent(company.agentCompanyId),{
+          method:'POST',body:formData
+        });
+        close();await refresh('agent-agreement-upload');
+        await notice('Подписанный документ сохранён в защищённом архиве. Его можно скачать из карточки агентской компании.',
+          'Документ сохранён');
+      }catch(e){await notice(agencyError(e),'Загрузка документа')}
+      finally{upload.disabled=false;cancel.disabled=false}
+    };
+    actions.append(cancel,upload);m.box.append(form,actions);kind.focus()
+  }
+  function agentsView(){
+    if(!agencyArchive){
+      const retry=el('button','ca-primary','Повторить загрузку');retry.type='button';
+      retry.onclick=()=>void refresh('agency-retry');
+      return card('Агентские компании',el('div','ca-empty','Реестр агентских юридических лиц временно недоступен. Назначения клиентов не изменены.'),retry)
+    }
+    const filter=norm(S.search),list=agentCompanies().filter(a=>{
+      const owners=clients().filter(c=>Array.isArray(a.clientIds)&&a.clientIds.includes(String(c.client_id)));
+      return !filter||norm([a.legalName,a.agentCompanyId,
+        ...owners.map(c=>c.legal_name),...(a.representatives||[]).map(r=>r.agent_name)].join(' ')).includes(filter)
+    }),grid=el('div','ca-grid');
+    if(!list.length)return el('div','ca-empty','Агентских юридических лиц по выбранному фильтру нет.');
+    for(const a of list){
+      const assigned=clients().filter(c=>Array.isArray(a.clientIds)&&a.clientIds.includes(String(c.client_id)));
+      const head=el('div','ca-head'),left=el('div'),right=el('div','ca-hero-actions');
+      left.append(el('div','ca-name',a.legalName||'Агентская компания'),
+        el('div','ca-id',a.agentCompanyId||'—'));
+      const reps=Array.isArray(a.representatives)?a.representatives:[];
+      if(reps.length)left.append(el('div','ca-copy','Представитель: '+reps.map(r=>r.agent_name||r.agent_person_id).join(', ')));
+      right.append(pill(assigned.length?assigned.length+' клиент(ов)':'Без клиентов',
+        assigned.length?'success':'neutral'));
+      if(reps.length===1){
+        const options=el('button','ca-btn ca-option','Кабинет представителя');
+        options.type='button';options.dataset.ronaEntityOptions='agent';
+        options.onclick=()=>openEntityOptions('AGENT',String(reps[0].agent_person_id),String(a.legalName));
+        right.append(options)
+      }
+      head.append(left,right);
+      const chips=el('div','ca-chips');
+      assigned.forEach(c=>chips.append(el('span','ca-chip',c.legal_name||c.client_id||'Клиент')));
+      const section=el('div','ca-agreement-archive'),title=el('div','ca-agreement-head'),
+        docsTitle=el('strong','','Подписанные агентские документы');
+      const add=el('button','ca-primary','Прикрепить подписанный PDF');add.type='button';
+      add.dataset.ronaAgentCompanyUpload=a.agentCompanyId;
+      add.onclick=()=>openAgencyDocumentModal(a);
+      title.append(docsTitle,add);section.append(title);
+      const docs=Array.isArray(a.documents)?a.documents:[];
+      if(!docs.length)section.append(el('div','ca-copy','Документы ещё не загружены в этот раздел.'));
+      for(const doc of docs){
+        const row=el('div','ca-agreement-item'),info=el('div'),heading=el('div','ca-agreement-label',
+          agencyDocumentLabel(doc)),filename=el('div','ca-agreement-filename',doc.filename||'PDF');
+        info.append(heading,filename);
+        if(doc.reference)info.append(el('div','ca-id','№ '+doc.reference));
+        const download=el('button','ca-btn','Скачать');download.type='button';
+        download.dataset.ronaAgencyDocument=doc.documentId;
+        download.onclick=()=>void downloadAgencyDocument(a,doc,download);
+        row.append(info,download);section.append(row)
+      }
+      grid.append(card('',head,chips.childNodes.length?chips:el('div','ca-copy','Компании пока не закреплены.'),section))
+    }
+    return grid
+  }
 
   function bindingStatus(v){const s=String(v||'').toUpperCase();return s==='ACTIVE'?pill('Активен','success'):s==='SUSPENDED'?pill('Приостановлен','warn'):s==='PENDING'?pill('Ожидает договор','warn'):s==='REVOKED'?pill('Отозван','neutral'):pill(s||'—','neutral')}
   async function mutate(path,body={}){return auth(path,{method:'POST',headers:{'content-type':'application/json',accept:'application/json'},body:JSON.stringify(body)})}
@@ -307,7 +445,7 @@ function currentUiRuntime(){
   function repair(){const r=ensureRoot();if(!r)return false;if(window.__RONA_CLIENTS_AGENTS_CURRENT_READY__&&accessRootHealthy()){delete r.dataset.ronaAccessDegraded;window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY';installRootGuard();return true}void refresh('auto-repair');return true}
   window.__RONA_CLIENTS_AGENTS_TRAFFIC_POLICY__={version:'ADMIN_TRAFFIC_STABILIZATION_V1',autoRepairCooldownMs:AUTO_REPAIR_COOLDOWN_MS,source:'ADMIN_ACCESS_REFRESH'};
   window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair;
-  async function boot(){for(let i=0;i<80&&!page();i++)await sleep(50);await refresh('boot')}
+  async function boot(){agencyArchiveStyle();for(let i=0;i<80&&!page();i++)await sleep(50);await refresh('boot')}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.addEventListener('rona:admin-pagechange',e=>{if(String(e?.detail?.page||'')==='access')repair()});
 }
