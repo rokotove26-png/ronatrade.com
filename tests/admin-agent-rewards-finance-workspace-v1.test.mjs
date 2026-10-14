@@ -423,8 +423,8 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
 
 test('Owner API routes Agent Rewards to correction-authority V13 read RPC and correction V7',()=>{
   assert.match(ownerApi,/\/admin\/agent-rewards-v1/);
-  assert.match(ownerApi,/rona_admin_agent_rewards_workspace_v14/);
-  assert.match(ownerApi,/rona_admin_agent_rewards_correct_v8/);
+  assert.match(ownerApi,/rona_admin_agent_rewards_workspace_v15/);
+  assert.match(ownerApi,/rona_admin_agent_rewards_correct_v9/);
   assert.match(reconciledRead,/create or replace function public\.rona_admin_agent_rewards_workspace_v14\(\)/);
   assert.match(reconciledRead,/payment_resource_chains_effective_v8/);
   assert.match(reconciledRead,/deal_finance_authority_payments_v8_read_v1/);
