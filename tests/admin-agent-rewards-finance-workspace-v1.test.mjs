@@ -19,6 +19,8 @@ const correctionAuthority=readFileSync('supabase/migrations/20261007091500_admin
 const reconciledRead=readFileSync('supabase/migrations/20261014113000_agent_rewards_current_finance_reconciled_v16.sql','utf8');
 const reconciledCorrection=readFileSync('supabase/migrations/20261014114500_agent_rewards_reconciled_owner_correction_v17.sql','utf8');
 const jsonbScalarGuard=readFileSync('supabase/migrations/20261014145000_agent_rewards_source_current_jsonb_scalar_guard_v20.sql','utf8');
+const bnkIdentityV21=readFileSync('supabase/migrations/20261014153000_agent_rewards_source_locked_payment_identity_v21.sql','utf8');
+const bnkIdentityFixture=readFileSync('tests/fixtures/agent-rewards-bnk-identity-v21-integration.sql','utf8');
 const ui=readFileSync('functions/portal/agent-rewards-v1-ui.js','utf8');
 const ownerApi=readFileSync('functions/portal/owner-api.js','utf8');
 const shell=readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
@@ -540,4 +542,32 @@ test('Live Agent Rewards v15 guards JSON null and scalar owner corrections witho
   assert.match(ownerApi,/rona_admin_agent_rewards_correct_v9/);
   assert.match(jsonbScalarGuard,/SECURITY DEFINER/);
   assert.match(jsonbScalarGuard,/SET search_path TO 'pg_catalog', 'public', 'portal_private', 'auth'/);
+});
+
+test('BNK v21 resolves verified PAYMENT evidence but preserves canonical ambiguity and authorization',()=>{
+  const functionSource=bnkIdentityV21.slice(
+    bnkIdentityV21.indexOf('CREATE OR REPLACE FUNCTION public.rona_admin_agent_rewards_workspace_v15_legacy_source_v1()'));
+  assert.match(bnkIdentityV21,/RONA_BNK_LEGACY_SOURCE_CHANGED/);
+  assert.match(bnkIdentityV21,/RONA_BNK_V15_SOURCE_CHANGED/);
+  assert.match(bnkIdentityV21,/b57df00f3d5fa819e736e482b0417468/);
+  assert.match(bnkIdentityV21,/6eed7c3b37fbc92d989b62d0e83ed540/);
+  assert.match(functionSource,/v_actor := portal_private\.owner_r1_actor\('ADMIN'\)/);
+  assert.match(functionSource,/v_base := public\.rona_admin_agent_rewards_workspace_v13\(\)/);
+  assert.match(functionSource,/i\.source_locked=true and i\.lifecycle_state='ACTIVE'/);
+  assert.match(functionSource,/count\(distinct (?:i\.)?canonical_counterparty_id\)=1/);
+  assert.equal((functionSource.match(/i\.evidence_refs @> jsonb_build_array\('PAYMENT:'/g)||[]).length,2,
+    'current and legacy DDS projections must verify exact payment evidence');
+  assert.match(functionSource,/p\.payment_id/);
+  assert.match(functionSource,/x\.value->>'paymentId'/);
+  assert.doesNotMatch(functionSource,/\b(?:UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+portal_private\./i);
+  assert.doesNotMatch(functionSource,/CREATE OR REPLACE FUNCTION public\.rona_admin_agent_rewards_workspace_v15\(\)/);
+  assert.match(bnkIdentityFixture,/TWO_EVIDENCE_IDS/);
+  assert.match(bnkIdentityFixture,/NAME_VS_EVIDENCE_AMBIGUITY/);
+  assert.match(bnkIdentityFixture,/INVALID_SOURCE_LOCK/);
+  assert.match(bnkIdentityFixture,/SGTRANS_EXACT/);
+  assert.match(bnkIdentityFixture,/ORIENT_EXACT/);
+  assert.match(bnkIdentityFixture,/BNK_PAYMENT_EVIDENCE/);
+  assert.match(ui,/inp\.disabled=!enabled\|\|!x\.resolved/);
+  assert.match(ui,/canonicalCounterpartyId/);
+  assert.match(ownerApi,/rona_admin_agent_rewards_correct_v9/);
 });
