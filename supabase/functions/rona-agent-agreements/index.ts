@@ -54,7 +54,7 @@ async function audit(tx:any,ctx:{userId:string},req:Request,action:string,entity
     actor_user_id,actor_role,action,entity_type,entity_id,request_id,metadata
   ) values(
     ${ctx.userId}::uuid,'ADMIN',${action},'AGENT_LEGAL_ENTITY',${entityId},
-    ${requestId}::uuid,${sql.json(meta)}
+    ${requestId}::uuid,${sql.json(meta as any)}
   )`
 }
 function nameOf(v:string){const name=String(v||"").normalize("NFC").split(/[\\/]/).pop()?.replace(/[\u0000-\u001f\u007f]/g,"").trim().slice(0,180)||"";
