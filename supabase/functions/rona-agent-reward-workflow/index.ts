@@ -189,11 +189,7 @@ async function bind(actor:{userId:string},req:Request,s:any,body:any){
    const currentDeal=await tx`select b.id,a.document_id from portal_private.agent_reward_deal_addenda_v1 b
      join portal_private.agent_agency_contract_documents a on a.id=b.agency_document_key
      where b.deal_key=${s.deal_key}::uuid and b.is_current=true limit 2`;
-   if(currentDeal.length){
-     if(currentDeal.length===1&&currentDeal[0].document_id===docId&&old?.id===currentDeal[0].id)
-       return;
-     throw deny("DEAL_SIGNED_ADDENDUM_ALREADY_LINKED",409);
-   }
+   if(currentDeal.length)throw deny("DEAL_SIGNED_ADDENDUM_ALREADY_LINKED",409);
    const b=await tx`insert into portal_private.agent_reward_deal_addenda_v1(
        deal_key,assignment_id,agent_legal_entity_key,agency_document_key,term_key,document_reference,linked_by)
      values(${s.deal_key}::uuid,${s.assignment_id}::uuid,${s.agent_legal_entity_key}::uuid,
