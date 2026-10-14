@@ -92,8 +92,7 @@ async function listAgents(){
   const docs=await sql`
     select le.agent_legal_entity_id as agent_company_id,
       ad.document_id,ad.authoritative_filename as filename,
-      ad.document_kind,ad.contract_reference,ad.uploaded_at,ad.uploaded_by,
-
+      ad.document_kind,ad.contract_reference,ad.uploaded_at,
       ad.authority_state::text as document_authority,
       ad.sha256,ad.byte_size
     from portal_private.agent_agency_contract_documents ad
@@ -102,9 +101,6 @@ async function listAgents(){
       and so.storage_state='VERIFIED'
     where ad.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
     order by ad.uploaded_at desc`;
-  const owners=await sql`select distinct owner_portal_user_id
-    from portal_private.mcp_oauth_tokens where owner_portal_user_id is not null limit 2`;
-  const ownerId=owners.length===1?String(owners[0].owner_portal_user_id):'';
   return{agents:agents.map(a=>({
     agentCompanyId:String(a.agent_legal_entity_id),
     legalName:String(a.legal_name),
@@ -115,15 +111,9 @@ async function listAgents(){
       documentId:String(d.document_id),filename:String(d.filename),
       kind:String(d.document_kind),reference:d.contract_reference||null,
       uploadedAt:d.uploaded_at,authority:String(d.document_authority),
-      sha256:String(d.sha256),bytes:Number(d.byte_size),
-      ownerApprovedByUpload:!!ownerId&&String(d.uploaded_by)===ownerId
+      sha256:String(d.sha256),bytes:Number(d.byte_size)
     }))
   }))};
-}
-async function uploadedByCanonicalOwner(tx:any,userId:string){
- const owners=await tx`select distinct owner_portal_user_id
-   from portal_private.mcp_oauth_tokens where owner_portal_user_id is not null limit 2`;
- return owners.length===1&&String(owners[0].owner_portal_user_id)===String(userId);
 }
 async function upload(ctx:{userId:string},req:Request,companyId:string){
   const agent=await legalAgent(companyId);
@@ -171,12 +161,6 @@ async function upload(ctx:{userId:string},req:Request,companyId:string){
       values(${documentId},${agent.id}::uuid,${objects[0].id}::uuid,
         ${kind},${reference||null},${filename},
         ${sha256},${file.size},${ctx.userId}::uuid)`;
-      const ownerApproved=await uploadedByCanonicalOwner(tx,ctx.userId);
-      if(ownerApproved)await audit(tx,ctx,req,"AGENCY_DOCUMENT_OWNER_APPROVED_ON_UPLOAD",companyId,{
-        documentId,kind,sha256,reference:reference||null,
-        authorityScope:"OWNER_APPROVAL_OF_EXACT_UPLOADED_BYTES",
-        doesNotImpersonateFinanceLegal:true,doesNotCreatePayable:true
-      });
       await audit(tx,ctx,req,"AGENCY_SIGNED_PDF_ARCHIVED",companyId,{
         documentId,kind,reference:reference||null,sha256,byteSize:file.size,
         signedAttestation:true,legalApprovalAutomatic:false,externalPayableCreated:false
