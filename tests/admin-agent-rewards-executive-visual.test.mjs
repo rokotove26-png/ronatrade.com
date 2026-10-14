@@ -401,6 +401,49 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
           'Deal selector net profit must also derive from saved OWNER actual result');
         delete deal.ownerCorrection;
         deal.ownerCorrectionAuthority.status='NOT_APPROVED';
+
+        // Regression: 009 has Finance+Ops approved management PLAN, but NO linked
+        // signed per-deal payable term. Forecast PLAN only; actual reward stays gated.
+        delete deal.agentTerm;
+        deal.planAuthority={financeProposalRecordId:'FINANCE-APPROVED-QA',operationsApprovalRecordId:'OPS-APPROVED-QA'};
+        deal.planInputs.agentPlan={mode:'PERCENT',rate:0.5,authority:'MANAGEMENT_PLAN_MODEL_ONLY_NOT_EXTERNAL_PAYABLE_AUTHORITY'};
+        deal.planInputs.agentRewardStatus='APPROVED_FINANCE_PLAN_PERCENT';
+        await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
+        assert.equal(await page.locator('.rona-ar-metric.agent-primary .rona-ar-metric-value').textContent(),'900,0 USD',
+          '009 management PLAN must use authorized projected 50% only, not a made-up payable');
+        assert.equal(await page.locator('.rona-ar-col.plan .rona-ar-reward-focus .rona-ar-value').textContent(),'900,0 USD');
+        assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-value').textContent(),'ДС не привязано',
+          'A missing deal term must be described precisely, not as no agent/contract');
+        assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'ДС не привязано');
+        assert.equal(await page.locator('.rona-ar-col.fact .rona-ar-reward-focus .rona-ar-value').textContent(),'ДС не привязано');
+
+        // Regression: 010 has a Finance-approved NONE plan because DS4 was
+        // invalidated. Respect the zero PLAN forecast, but never invent a current term.
+        deal.planInputs.agentPlan={mode:'NONE',rate:0,authority:'DS4_INVALIDATED_BY_CURRENT_DS5'};
+        deal.planInputs.agentRewardStatus='APPROVED_PLAN_NO_CURRENT_EFFECTIVE_TERM';
+        await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
+        assert.equal(await page.locator('.rona-ar-metric.agent-primary .rona-ar-metric-value').textContent(),'0,0 USD',
+          '010 approved current Finance PLAN shows zero only as a management plan');
+        assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-value').textContent(),'ДС не привязано',
+          '010 external agent calculation must stay gated without current effective DS');
+
+        // Regression: 011 has a signed DS5 50% term, but payable awaits closing.
+        // Internal management after-tax estimate must calculate before final closure.
+        deal.agentTerm={mode:'PERCENT',status:'ACTIVE',lifecycleState:'ACTIVE',
+          authorityState:'CONFIRMED',rate:0.5,reference:'50% margin after FINAL LOADING AND CLOSING DOCUMENTS'};
+        deal.businessStatus='REGISTERED';
+        deal.planInputs.agentPlan={mode:'PERCENT',rate:0.5,authority:'SIGNED_CURRENT_DS5_PLAN_PROJECTION_NOT_PAYABLE_STATE'};
+        deal.planInputs.agentRewardStatus='APPROVED_FINANCE_PLAN_PERCENT';
+        await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
+        assert.equal(await page.locator('.rona-ar-metric.agent-primary .rona-ar-metric-value').textContent(),'900,0 USD');
+        assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'891,0 USD',
+          '011 provisional 50% OWNER estimate calculates before closing, not an external payable');
+        assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-value').textContent(),'+891,0 USD');
+        assert.match(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-name').getAttribute('title'),
+          /MANAGEMENT_FORECAST_PENDING_CONTRACTUAL_CLOSING/,
+          'Unfulfilled DS5 closing remains recorded as a forecast state');
+        assert.equal(await page.locator('.rona-ar-btn.send').isDisabled(),true,
+          'A management projection must never enable an external payable or agent send');
       }
       if(width===950){
         const formerRevenue=deal.planInputs.revenue,oldCash=deal.cashFlow.cashReceived,
