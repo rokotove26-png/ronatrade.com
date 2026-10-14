@@ -156,13 +156,15 @@ async function agentScope(ctx) {
 async function adminSnapshot() {
   const clients = await sql`
     select cl.id client_key,cl.client_id,cl.legal_name,ct.id contract_key,ct.contract_id,ct.current_external_contract_number,ct.contract_status,
-           ap.agent_person_id,coalesce(ap.display_alias,ap.full_name,ap.agent_person_id) agent_name
+           ap.agent_person_id,coalesce(ap.display_alias,ap.full_name,ap.agent_person_id) agent_name,
+           ale.agent_legal_entity_id,ale.legal_name agent_legal_name
     from portal_private.clients cl
     left join lateral (
       select * from portal_private.contracts x where x.client_key=cl.id and x.lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum) order by x.updated_at desc limit 1
     ) ct on true
     left join portal_private.agent_client_assignments aca on aca.client_key=cl.id and aca.status='ACTIVE'::portal_private.binding_status_enum and aca.valid_to is null and aca.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
     left join portal_private.agent_persons ap on ap.id=aca.agent_person_key
+    left join portal_private.agent_legal_entities ale on ale.id=aca.agent_legal_entity_key
     where cl.lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
     order by cl.client_id`;
 
@@ -322,60 +324,81 @@ async function publishPrice(ctx, req, id) {
 }
 
 async function setAgentAssignment(ctx, req, clientId) {
-  const b=await jsonBody(req), agentPersonId=String(b.agentPersonId||'').trim();
+  const body=await jsonBody(req),agentLegalEntityId=String(body.agentLegalEntityId||"").trim(),agentPersonId=String(body.agentPersonId||"").trim();
+  if(agentLegalEntityId&&agentPersonId)throw Object.assign(new Error("AGENT_ASSIGNMENT_IDENTITY_AMBIGUOUS"),{status:400});
   const clientRows=await sql`select id,client_id from portal_private.clients where client_id=${clientId} limit 1`;
-  if(!clientRows.length) throw Object.assign(new Error("CLIENT_NOT_FOUND"),{status:404});
+  if(!clientRows.length)throw Object.assign(new Error("CLIENT_NOT_FOUND"),{status:404});
   let identity=null;
-  if(agentPersonId){
+  if(agentLegalEntityId){
+    const mapped=await sql`
+      select distinct ap.id as agent_person_key,ap.agent_person_id,ale.id as agent_legal_entity_key,
+                      ale.agent_legal_entity_id
+      from portal_private.agent_legal_entities ale
+      join portal_private.agent_client_assignments aca on aca.agent_legal_entity_key=ale.id
+      join portal_private.agent_persons ap on ap.id=aca.agent_person_key
+      where ale.agent_legal_entity_id=${agentLegalEntityId}
+        and ale.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and ale.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+        and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and ap.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+      limit 2
+    `;
+    if(mapped.length!==1)throw Object.assign(new Error("AGENT_COMPANY_REPRESENTATIVE_UNRESOLVED"),{status:409});
+    identity=mapped[0];
+  }else if(agentPersonId){
+    // Legacy compatibility: current Admin UI submits legal-entity identity instead.
     const rows=await sql`
-      select ap.id agent_person_key,ap.agent_person_id,
-             legacy.agent_legal_entity_key
+      select ap.id agent_person_key,ap.agent_person_id,legacy.agent_legal_entity_key,
+             ale.agent_legal_entity_id
       from portal_private.agent_persons ap
       left join lateral (
-        select aca.agent_legal_entity_key
-        from portal_private.agent_client_assignments aca
-        where aca.agent_person_key=ap.id
-          and aca.agent_legal_entity_key is not null
-        order by (aca.status='ACTIVE'::portal_private.binding_status_enum) desc,aca.updated_at desc
-        limit 1
+        select aca.agent_legal_entity_key from portal_private.agent_client_assignments aca
+        where aca.agent_person_key=ap.id and aca.agent_legal_entity_key is not null
+        order by (aca.status='ACTIVE'::portal_private.binding_status_enum) desc,aca.updated_at desc limit 1
       ) legacy on true
+      left join portal_private.agent_legal_entities ale on ale.id=legacy.agent_legal_entity_key
       where ap.agent_person_id=${agentPersonId}
         and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
         and ap.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
       limit 1
     `;
-    if(!rows.length) throw Object.assign(new Error("AGENT_IDENTITY_NOT_FOUND"),{status:404});
+    if(!rows.length)throw Object.assign(new Error("AGENT_IDENTITY_NOT_FOUND"),{status:404});
     identity=rows[0];
   }
   return sql.begin(async tx=>{
+    const current=await tx`
+      select id,agent_legal_entity_key,agent_person_key
+      from portal_private.agent_client_assignments where client_key=${clientRows[0].id}::uuid
+      and status='ACTIVE'::portal_private.binding_status_enum and valid_to is null
+      for update
+    `;
+    if(identity&&current.length===1&&String(current[0].agent_legal_entity_key)===String(identity.agent_legal_entity_key)){
+      return {clientId,agentLegalEntityId:String(identity.agent_legal_entity_id||""),unchanged:true};
+    }
+    if(!identity&&current.length===0)return {clientId,agentLegalEntityId:null,unchanged:true};
     await tx`
       update portal_private.agent_client_assignments
-      set status='REVOKED'::portal_private.binding_status_enum,
-          valid_to=now(),
-          lifecycle_state='CLOSED'::portal_private.lifecycle_state_enum,
-          updated_at=now()
+      set status='REVOKED'::portal_private.binding_status_enum,valid_to=now(),
+          lifecycle_state='CLOSED'::portal_private.lifecycle_state_enum,updated_at=now()
       where client_key=${clientRows[0].id}::uuid
-        and status='ACTIVE'::portal_private.binding_status_enum
-        and valid_to is null
+        and status='ACTIVE'::portal_private.binding_status_enum and valid_to is null
     `;
-    if(identity) await tx`
+    if(identity)await tx`
       insert into portal_private.agent_client_assignments(
         agent_person_key,agent_legal_entity_key,client_key,status,valid_from,assignment_reference,
         source_system,source_version,source_timestamp,authority_state,lifecycle_state
       ) values(
         ${identity.agent_person_key}::uuid,${identity.agent_legal_entity_key}::uuid,${clientRows[0].id}::uuid,
         'ACTIVE'::portal_private.binding_status_enum,now(),
-        'Admin Portal owner acceptance assignment',
-        'ADMIN_PORTAL','AGENT_PERSON_ASSIGNMENT_V2',now(),
-        'CONFIRMED'::portal_private.authority_state_enum,
-        'ACTIVE'::portal_private.lifecycle_state_enum
+        'Admin Portal: agent legal entity assignment','ADMIN_PORTAL','AGENT_LEGAL_ENTITY_ASSIGNMENT_V1',
+        now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum
       )
     `;
     await audit(tx,ctx,'OWNER_AGENT_COMPANY_ASSIGNMENT_UPDATED','CLIENT',clientId,req,{
-      agentPersonId:identity?String(identity.agent_person_id):null,
-      agentLegalEntityInherited:Boolean(identity?.agent_legal_entity_key)
+      agentLegalEntityId:identity?String(identity.agent_legal_entity_id||""):null,
+      agentPersonId:identity?String(identity.agent_person_id):null
     });
-    return {clientId,agentPersonId:identity?String(identity.agent_person_id):null};
+    return {clientId,agentLegalEntityId:identity?String(identity.agent_legal_entity_id||""):null};
   });
 }
 
