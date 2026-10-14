@@ -1,7 +1,7 @@
 // RONA Trade agent-company signed agreement archive.
 // Administrative document evidence only: never mutates deal terms, payables,
 // representative identities, or a signed agreement's legal approval state.
-import {adminActAction,actFiles,reviewState,agentInbox,agentDownload} from "./acts.ts";
+import {adminActAction,actFiles,reviewState,agentInbox,agentDownload,approvedActIssue} from "./acts.ts";
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
 
@@ -263,7 +263,38 @@ Deno.serve(async req=>{
        'content-type':'image/png','cache-control':'private, no-store',
        'x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
    }
-   const matched=path.match(/^\/admin\/deals\/(DEAL-20[0-9]{2}-[0-9]{3,})\/assignments\/([0-9a-f-]{36})(?:\/(addendum|acts|acts\/[0-9a-f-]{36}\/(?:upload|dispatch|documents\/[0-9a-f-]{36}\/download)))?$/i);
+   // Canonical signature and seal cannot be fetched for a pending/unapproved act.
+   const finalAsset=path.match(/^\/admin\/acts\/([0-9a-f-]{36})\/assets\/(signature|seal)$/i);
+   if(finalAsset&&req.method==='GET'){
+     const act=await approvedActIssue(sql,ctx,finalAsset[1]);
+     const proofs=await sql`select id from portal_private.audit_events
+       where actor_user_id=${ctx.userId}::uuid
+         and action='AGENT_ACT_CANONICAL_FACSIMILE_RENDER_AUTHORIZED'
+         and entity_type='DEAL' and entity_id=${act.dealId}
+         and metadata->>'documentNumber'=${act.documentNumber}
+       order by created_at desc limit 1`;
+     if(proofs.length!==1)throw deny('ACT_OWNER_SIGNING_ATTESTATION_REQUIRED',403);
+     const kind=finalAsset[2].toLowerCase();
+     const key=kind==='signature'?'RONA-CANONICAL-SIGNATURE':'RONA-CANONICAL-SEAL';
+     const expected=kind==='signature'?'image/png':'image/jpeg';
+     const assets=await sql`select a.content,a.mime_type,a.sha256
+       from portal_private.owner_canonical_document_assets a
+       join portal_private.owner_canonical_document_standards st
+         on st.standard_key='RONA-DOC-STANDARD' and st.version=2 and st.status='ACTIVE'
+       where a.asset_key=${key} and a.status='ACTIVE'
+         and a.owner_approved_at is not null and a.mime_type=${expected}
+         and a.sha256=(st.rules -> ${kind}::text ->> 'sha256')
+       order by a.version desc limit 2`;
+     if(assets.length!==1)throw deny('CANONICAL_SIGNING_ASSET_UNAVAILABLE',409);
+     const raw=new Uint8Array(assets[0].content);
+     const sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',raw)))
+       .map(x=>x.toString(16).padStart(2,'0')).join('');
+     if(sha!==assets[0].sha256)throw deny('CANONICAL_SIGNING_ASSET_HASH_MISMATCH',409);
+     return new Response(raw,{status:200,headers:{
+       'content-type':expected,'cache-control':'private, no-store',
+       'x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
+   }
+   const matched=path.match(/^\/admin\/deals\/(DEAL-20[0-9]{2}-[0-9]{3,})\/assignments\/([0-9a-f-]{36})(?:\/(addendum|acts|acts\/[0-9a-f-]{36}\/(?:upload|dispatch|finalize|documents\/[0-9a-f-]{36}\/download)))?$/i);
    if(!matched)return send(404,{ok:false,code:"ROUTE_NOT_FOUND"});
    const s=await scope(matched[1],matched[2]),action=matched[3]||"";
    if(req.method==="GET"&&!action)return send(200,{ok:true,data:await list(s)});
