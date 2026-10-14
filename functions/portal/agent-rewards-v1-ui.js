@@ -857,7 +857,7 @@ function renderDealPulse(root,deal){
     o=ownerModel(deal,f),pulse=el('div','rona-ar-pulse');
   pulse.setAttribute('aria-label','Ключевые управленческие показатели выбранной сделки');
   pulse.append(
-    metricCard('PLAN · агентское вознаграждение',p.reward.value,p.cur,p.reward.status,'agent agent-primary'),
+    metricCard('PLAN · агентское вознаграждение',p.reward.value,p.cur,'База — Чистая прибыль; проверенные источники: '+p.revenueStatus+' / '+p.expenseStatus+'; условие агента: '+p.reward.status,'agent agent-primary'),
     metricCard('РАСЧЁТ · агентское вознаграждение',o.reward.value,f.cur,o.reward.value===null?agentStatusText(o.reward.status):o.reward.status,'agent agent-calculated'),
     metricCard('PLAN · прибыль RONA',p.ronaProfit,p.cur,'База агента — чистая прибыль после расчётных 10%','plan'),
     metricCard('FACT · чистая прибыль',fp.netProfit,f.cur,f.approved?'Подтверждённые денежные операции · налог 10% расчётно':'TO_VERIFY','fact')
