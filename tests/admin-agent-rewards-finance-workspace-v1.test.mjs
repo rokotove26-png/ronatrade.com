@@ -606,6 +606,18 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(agentActStages,/AGENT_ACT_ACCESS_DENIED/);
   assert.match(agentActStages,/BOTH_SIGNED/);
   assert.match(agentActStages,/AGENT_PORTAL_INBOX/);
+  // Owner 2026-10-15: Agent LK/delivery deferred; Admin draft and offline signed return only.
+  assert.match(agentActStages,/stage!=='FINANCE_LEGAL_DRAFT'\&\&!reviews\.approved/);
+  assert.match(agentActStages,/\['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'\]\.includes\(row\.request_status\)/);
+  assert.match(agentActStages,/ACT_STAGE_CHANGED/);
+  assert.match(agentActStages,/AGENT_PORTAL_INBOX_UI_NOT_DEPLOYED/);
+  assert.match(ui,/Открыть проект акта · печать в PDF/);
+  assert.match(ui,/RONA-DOC-STANDARD v2/);
+  assert.match(ui,/Подтверждаю, что PDF содержит подписи обеих сторон/);
+  assert.doesNotMatch(ui,/Отправить агенту на подписание/);
+  assert.match(agentActProxy,/action==='canonical-letterhead'\&\&request\.method==='GET'/);
+  assert.match(agentActEdge,/CANONICAL_LETTERHEAD_HASH_MISMATCH/);
+  assert.match(agentActEdge,/await context\(req\)/);
   assert.match(agentActProxy,/originAllowed\(request\)/);
   assert.match(agentActProxy,/action==='agent-inbox'&&request.method==='GET'/);
   assert.match(ui,/Загрузить и привязать подписанное ДС/);
