@@ -636,7 +636,7 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.equal(await finalAct.isDisabled(),true,'No approved Finance/Legal source: must not apply signature/seal');
       const [printDraft]=await Promise.all([
         page.waitForEvent('popup'),
-        box.getByRole('button',{name:'Открыть проект акта · печать в PDF'}).click()
+        box.getByRole('button',{name:'Открыть внутренний проект для согласования'}).click()
       ]);
       await printDraft.locator('#ronaDraftPrint').waitFor({timeout:5000});
       assert.match(await printDraft.locator('.content').innerText(),/ПРОЕКТ АКТА ОКАЗАННЫХ АГЕНТСКИХ УСЛУГ/);
