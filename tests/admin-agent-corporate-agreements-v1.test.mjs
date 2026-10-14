@@ -121,7 +121,17 @@ test('Rendered corporate agent list, secure download and signed upload workflow'
       });
       await page.goto('http://rona.test/portal/admin?accessView=agents',{waitUntil:'load'});
       await page.addScriptTag({content:script});
-      await page.waitForSelector('#rona-ca4 .ca-agreement-archive',{timeout:15000});
+      try{
+        await page.waitForSelector('#rona-ca4 .ca-agreement-archive',{timeout:12000});
+      }catch(e){
+        const state=await page.evaluate(()=>({
+          url:location.href,ready:window.__RONA_CLIENTS_AGENTS_CURRENT_READY__,
+          status:window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__,
+          root:document.querySelector('#page-access')?.outerHTML?.slice(0,1900),
+          body:document.body?.textContent?.slice(0,1300)
+        }));
+        throw new Error('CORPORATE_AGENT_VIEW_BOOTSTRAP_FAILED: '+JSON.stringify({state,errors,operations}),{cause:e})
+      }
       const titles=await page.locator('#ca-current-body .ca-name').allTextContents();
       assert.deepEqual(new Set(titles),new Set([companyA.legalName,companyB.legalName]),
         'Agent card titles must be legal entity names, not persons');
