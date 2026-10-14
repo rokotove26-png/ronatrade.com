@@ -629,7 +629,7 @@ function renderPlan(deal){
     hint:'База — Чистая прибыль · '+m.reward.status,
     nullText:agentStatusText(m.reward.status)
   }));
-  table.append(pnlRow('Прибыль RONA',m.ronaProfit,m.cur,{hint:'Чистая прибыль − Агентское вознаграждение',final:true,signed:true}));
+  table.append(pnlRow('Прибыль RONA',m.ronaProfit,m.cur,{hint:'Чистая прибыль − Агентское вознаграждение',final:true,signed:true,nullText:'—'}));
   col.append(table);return col
 }
 function balanceKind(x){
@@ -699,7 +699,7 @@ function renderFact(deal){
     hint:'База — Чистая прибыль · '+pnl.reward.status,
     nullText:agentStatusText(pnl.reward.status)
   }));
-  table.append(pnlRow('Прибыль RONA',pnl.ronaProfit,m.cur,{hint:'Чистая прибыль − Агентское вознаграждение',final:true,signed:true}));
+  table.append(pnlRow('Прибыль RONA',pnl.ronaProfit,m.cur,{hint:'Чистая прибыль − Агентское вознаграждение',final:true,signed:true,nullText:'—'}));
   col.append(table);return col
 }
 // Visual-only sign convention for the expense ledger: + expense, - income.
@@ -779,14 +779,16 @@ function agentStatusText(status){
   if(s==='ACTUAL_RESULT_REQUIRED'||s==='NET_PROFIT_REQUIRED'||s==='OPEN_SETTLEMENT_BRIDGE_REQUIRED')return'Нет чистой прибыли для расчёта';
   return'Расчёт не завершён'
 }
-function updateOwnerKpiPreview(col,netProfit,agentReward,cur){
+function updateOwnerKpiPreview(col,netProfit,agentReward,cur,rewardStatus){
   // Preview derives from exactly the same OWNER calculations as the visible table.
   const root=col.closest('.rona-ar');
   if(!root)return;
   for(const [key,value] of [['owner-net-profit',netProfit],['owner-calculated-reward',agentReward]]){
     const card=q('.rona-ar-metric.'+key,root),display=card&&q('.rona-ar-metric-value',card);
     if(!display)continue;
-    display.textContent=num(value)===null?'TO_VERIFY':money(value,cur);
+    display.textContent=num(value)===null
+      ?(key==='owner-calculated-reward'?agentStatusText(rewardStatus):'—')
+      :money(value,cur);
     card.classList.remove('positive','negative','verify');
     card.classList.add(tone(value)||'verify')
   }
@@ -839,7 +841,7 @@ function recomputeOwner(col,deal,fact,cur){
   set('netProfit',pnl.netProfit);
   set('agentReward',reward.value);
   set('ronaProfit',ronaProfit);
-  updateOwnerKpiPreview(col,pnl.netProfit,reward.value,cur);
+  updateOwnerKpiPreview(col,pnl.netProfit,reward.value,cur,reward.status);
   const rewardLabel=q('[data-owner-computed="agentReward"] .rona-ar-name',col);
   if(rewardLabel)rewardLabel.title=reward.status;
   return{paymentLineAmounts,counterpartyCashOut,netCashFlow,openSettlementAdjustment,
