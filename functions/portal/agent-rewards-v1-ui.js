@@ -246,6 +246,26 @@ function installStyle(){
 #page-agent-settlements .rona-ar-col.owner .rona-ar-owner-adjustment-note{
  margin:0 15px 11px;padding:9px 11px;border:1px solid rgba(185,167,255,.18);border-radius:9px;
  background:rgba(133,100,225,.055);color:#b9cde0;font-size:11.25px;line-height:1.48;overflow-wrap:anywhere}
+
+/* OWNER correction details: accessible native top-layer dialog. */
+#page-agent-settlements .rona-ar-owner-adjustment-left{display:flex;align-items:center;gap:9px;justify-content:space-between;flex-wrap:wrap}
+#page-agent-settlements .rona-ar-details-btn{font:inherit;font-size:11.5px;font-weight:800;line-height:1.2;border:1px solid rgba(185,167,255,.4);border-radius:8px;background:rgba(119,82,208,.16);color:#e5dbff;padding:7px 11px;cursor:pointer}
+#page-agent-settlements .rona-ar-details-btn:hover{background:rgba(119,82,208,.3);border-color:rgba(185,167,255,.7)}
+#page-agent-settlements .rona-ar-details-btn:focus-visible,#page-agent-settlements .rona-ar-details-close:focus-visible{outline:2px solid #c8b8ff;outline-offset:3px}
+#page-agent-settlements .rona-ar-settlement-dialog{box-sizing:border-box;position:fixed;inset:0;margin:auto;padding:0;width:min(690px,calc(100vw - 30px));max-width:calc(100vw - 30px);max-height:min(78dvh,760px);overflow:auto;border:1px solid rgba(185,167,255,.35);border-radius:16px;background:linear-gradient(160deg,#0c2033,#0a1527 80%);color:#eef8ff;box-shadow:0 26px 90px rgba(0,0,0,.6)}
+#page-agent-settlements .rona-ar-settlement-dialog::backdrop{background:rgba(1,8,19,.78);backdrop-filter:blur(5px)}
+#page-agent-settlements .rona-ar-settlement-dialog-head{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:19px 21px;border-bottom:1px solid rgba(128,191,222,.2);background:#0d2032}
+#page-agent-settlements .rona-ar-settlement-dialog-title{margin:0;font-size:19px;line-height:1.3;font-weight:850;color:#eef8ff}
+#page-agent-settlements .rona-ar-details-close{font:inherit;font-size:12.5px;font-weight:750;border:1px solid rgba(150,183,205,.3);border-radius:8px;background:rgba(130,155,184,.1);padding:8px 12px;color:#e6f4ff;cursor:pointer}
+#page-agent-settlements .rona-ar-settlement-dialog-body{padding:8px 15px 18px}
+#page-agent-settlements .rona-ar-settlement-dialog .rona-ar-balances-list{display:grid;grid-template-columns:1fr}
+#page-agent-settlements .rona-ar-settlement-dialog .rona-ar-balance-row{padding:15px 7px;gap:14px;border-right:0;border-top:1px solid rgba(128,191,222,.13)}
+#page-agent-settlements .rona-ar-settlement-dialog .rona-ar-balance-row:first-child{border-top:0}
+#page-agent-settlements .rona-ar-settlement-dialog .rona-ar-balance-name{font-size:13px;white-space:normal;overflow-wrap:anywhere}
+#page-agent-settlements .rona-ar-settlement-dialog .rona-ar-balance-right strong{font-size:14px}
+#page-agent-settlements .rona-ar-settlement-dialog .rona-ar-balance-status{font-size:10px;color:#f7d48c}
+@media(max-width:720px){#page-agent-settlements .rona-ar-settlement-dialog-head{padding:15px}#page-agent-settlements .rona-ar-settlement-dialog-title{font-size:16px}#page-agent-settlements .rona-ar-settlement-dialog-body{padding:7px 12px 14px}#page-agent-settlements .rona-ar-settlement-dialog .rona-ar-balance-row{flex-wrap:wrap}}
+
 /* Owner result is the internal agent base; an external EXCLUDING FX term needs distinct review. */
 #page-agent-settlements .rona-ar-col.owner .rona-ar-agent-contract-flag{display:inline-flex;margin-left:7px;
  padding:3px 7px;font-size:10px;line-height:1.3;letter-spacing:0;color:#ffdb90;
@@ -530,23 +550,6 @@ function rowVisualIcon(label){
   if(s.includes('НАЛОГ'))return'§';
   return'·'
 }
-// Presentation-only disclosure of machine-readable financial source codes.
-function financeMetaNode(value,klass='rona-ar-hint',{force=false}={}){
-  const raw=String(value??'').trim(),node=el('div',klass);
-  if(!raw)return node;
-  const isCode=/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/.test(raw);
-  if(!force&&!isCode){node.textContent=raw;return node}
-  const warning=/(?:TO_VERIFY|NOT_MATERIALIZED|MISSING|REQUIRED|CONFLICT|BLOCKED|NOT_ACTIVE|UNAVAILABLE)/i.test(raw);
-  const details=el('details','rona-ar-disclosure');
-  details.append(el('summary','rona-ar-disclosure-summary',warning?'Требует проверки · подробности':'Источник и статус'),
-    el('div','rona-ar-disclosure-body',raw));
-  node.append(details);return node
-}
-function updateFinanceMeta(node,value){
-  if(!node)return;
-  const fresh=financeMetaNode(value,node.className);
-  node.replaceChildren(...Array.from(fresh.childNodes))
-}
 // Classify the financial meaning of a displayed row; signs alone do not mean profit.
 // Expenditure is not a gain merely because its absolute amount is positive.
 function financeMeaning(label){
@@ -582,7 +585,7 @@ function expenseLines(lines,emptyText){
   return box
 }
 function columnHead(kind,title,meta,badge,badgeKind){
-  const h=el('div','rona-ar-col-head'),c=el('div');c.append(el('div','rona-ar-col-label',kind),el('div','rona-ar-col-title',title),financeMetaNode(meta,'rona-ar-col-meta'));h.append(c,chip(badge,badgeKind));return h
+  const h=el('div','rona-ar-col-head'),c=el('div');c.append(el('div','rona-ar-col-label',kind),el('div','rona-ar-col-title',title));h.append(c,chip(badge,badgeKind));return h
 }
 function renderPlan(deal){
   const m=planModel(deal),col=el('section','rona-ar-col plan');
@@ -614,24 +617,33 @@ function balanceKind(x){
 }
 function balancesView(deal){
   const rows=Array.isArray(deal?.settlementPositions)?deal.settlementPositions:[];
-  if(!rows.length)return null;
-  const box=el('section','rona-ar-balances');
-  const head=el('div','rona-ar-balances-head'),copy=el('div');
-  copy.append(el('div','rona-ar-balances-title','Задолженность и авансы по контрагентам'),el('div','rona-ar-balances-sub','Кредиторская / дебиторская задолженность · авансы · справочно'));
-  head.append(copy,chip('САЛЬДО',''));box.append(head);
   const list=el('div','rona-ar-balances-list');
+  if(!rows.length){list.append(el('div','rona-ar-empty','Нет данных по взаиморасчётам.'));return list}
   for(const x of rows){
-    const status=String(x.status||'TO_VERIFY'),kind=balanceKind(x),warn=upper(status).includes('TO_VERIFY')||upper(status).includes('PROVISIONAL');
+    const status=upper(x.status),kind=balanceKind(x),warn=status.includes('TO_VERIFY')||status.includes('PROVISIONAL');
     const row=el('div','rona-ar-balance-row'),left=el('div','rona-ar-balance-left'),right=el('div','rona-ar-balance-right');
     left.append(chip(kind,warn?'warn':kind==='ДЗ'?'good':''),el('div','rona-ar-balance-name',x.counterparty||x.side||'Контрагент'));
-    right.append(el('strong','',money(x.balance_amount,x.currency)),el('span','',status));
+    right.append(el('strong','',money(x.balance_amount,x.currency)));
+    if(warn)right.append(el('span','rona-ar-balance-status','Требует проверки'));
     row.append(left,right);list.append(row)
   }
-  box.append(list,el('div','rona-ar-balances-note','Справочные остатки: не являются подтверждёнными расходами или платежами, не включаются повторно в сумму расходов и управленческую прибыль.'));
-  if(Array.isArray(deal?.conditionalPositions)&&deal.conditionalPositions.length){
-    box.append(el('div','rona-ar-balances-note','Условные претензии и HOLD-позиции в ДЗ/КЗ не включены.'));
-  }
-  return box
+  return list
+}
+function settlementDetailsDialog(deal,trigger){
+  const dialog=el('dialog','rona-ar-settlement-dialog'),head=el('div','rona-ar-settlement-dialog-head'),title=el('h2','rona-ar-settlement-dialog-title','Детали корректировки');
+  dialog.id='rona-ar-settlement-dialog';
+  dialog.dataset.ronaArSettlementDialog='1';
+  title.id='rona-ar-settlement-dialog-title';
+  dialog.setAttribute('aria-labelledby',title.id);
+  const close=el('button','rona-ar-details-close','Закрыть');close.type='button';close.onclick=()=>dialog.close();
+  head.append(title,close);
+  const body=el('div','rona-ar-settlement-dialog-body');body.append(balancesView(deal));
+  dialog.append(head,body);
+  trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-controls',dialog.id);
+  trigger.onclick=()=>dialog.showModal();
+  dialog.addEventListener('close',()=>trigger.focus());
+  dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});
+  return dialog
 }
 function renderFact(deal){
   const m=cashFactModel(deal),pnl=factManagementModel(deal,m),col=el('section','rona-ar-col fact');
@@ -654,8 +666,6 @@ function renderFact(deal){
     m.approved?'Подтверждённых выплат контрагентам нет.':'Выплаты TO_VERIFY.'
   ));
   table.append(pnlRow('Банковские комиссии',m.bankFees,m.cur,{hint:'Фактически списанные комиссии, уже включены в Расходы'}));
-  const settlements=balancesView(deal);
-  if(settlements)table.append(settlements);
   table.append(pnlRow('Прибыль до налогообложения',pnl.preTaxProfit,m.cur,{hint:'Доходы − Расходы',total:true,signed:true}));
   table.append(pnlRow('Налоги и платежи (10%)',pnl.taxes,m.cur,{hint:'Управленческое начисление · 10% от положительной прибыли'}));
   table.append(pnlRow('Чистая прибыль',pnl.netProfit,m.cur,{hint:'Прибыль до налогообложения − расчётный налог',total:true,signed:true}));
@@ -822,11 +832,11 @@ function renderOwner(deal){
     'openSettlementAdjustment',
     expenseDeltaFromSource(base.openSettlementAdjustment),
     cur,
-    editable?'Плюс — дополнительный расход, минус — дополнительный доход. Управленческая корректировка, не банковский платёж.':'TO_VERIFY: нужен подтверждённый расчётный мост'
+    ''
   ));
-  adjustmentGroup.append(el('div','rona-ar-owner-adjustment-note',
-    'Плюс — дополнительный расход, минус — дополнительный доход. Это управленческая корректировка, она не является банковским платежом и не изменяет подтверждённые оплаты контрагентам.'
-  ));
+  const detailsButton=el('button','rona-ar-details-btn','Детали');detailsButton.type='button';
+  const adjustmentLeft=q('.rona-ar-name',adjustmentGroup)?.parentElement;
+  if(adjustmentLeft){adjustmentLeft.classList.add('rona-ar-owner-adjustment-left');adjustmentLeft.append(detailsButton)}
   table.append(adjustmentGroup);
   table.append(ownerComputedRow('Прибыль до налогообложения','actualFinancialResult',base.actualFinancialResult,cur,'Доходы − Расходы'));
   table.append(ownerComputedRow('Налоги и платежи (10%)','taxes',base.taxes,cur,'Управленческий расчёт 10% от положительной прибыли',false,false));
@@ -843,7 +853,7 @@ function renderOwner(deal){
   }
   table.append(rewardRow);
   table.append(ownerComputedRow('Прибыль RONA','ronaProfit',base.ronaProfit,cur,'Чистая прибыль − Агентское вознаграждение',true,true,base.reward.value===null?'После расчёта агента':'TO_VERIFY'));
-  col.append(table);
+  col.append(table,settlementDetailsDialog(deal,detailsButton));
   qa('[data-owner-payment-group-key],[data-owner-key]',col).forEach(inp=>{
     if(inp.hasAttribute('data-owner-payment-group-key'))inp.disabled=!editable||inp.disabled;
     else inp.disabled=!editable;
@@ -852,7 +862,6 @@ function renderOwner(deal){
       recomputeOwner(col,deal,fact,cur)
     })
   });
-  const note=el('div','rona-ar-owner-note'),ta=el('textarea');ta.placeholder='Комментарий к корректировке (необязательно)';ta.value=deal.ownerCorrection?.note||'';ta.dataset.correctionNote='1';note.append(ta);col.append(note);
   const actions=el('div','rona-ar-actions'),save=el('button','rona-ar-btn primary','Сохранить корректировку'),send=el('button','rona-ar-btn send','Отправить агенту');
   save.type='button';save.disabled=!editable;send.type='button';send.disabled=true;send.title='Функция подготовлена к будущему подключению агентского кабинета';
   save.onclick=async()=>{
@@ -861,7 +870,7 @@ function renderOwner(deal){
       const m=recomputeOwner(col,deal,fact,cur);
       if(!m.paymentComplete||m.netProfit===null)throw new Error('Расчёт и детализация платежей требуют сверки Finance');
       const payload={paymentLineAmounts:m.paymentLineAmounts,openSettlementAdjustment:m.openSettlementAdjustment};
-      await saveCorrection(deal.dealId,deal.assignmentId,payload,ta.value);
+      await saveCorrection(deal.dealId,deal.assignmentId,payload,'');
       await getWorkspace({force:true});state.selectedKey=rowKey(deal);render()
     }catch(e){window.RONA_ADMIN_DIALOGS?.message?window.RONA_ADMIN_DIALOGS.message(String(e.message||e),{title:'Корректировка не сохранена'}):alert(e.message||e)}
     finally{state.saving=false}
@@ -870,7 +879,7 @@ function renderOwner(deal){
 }
 function metricCard(label,value,cur,meta,kind=''){
   const t=tone(value),card=el('div','rona-ar-metric '+kind+' '+(t||'verify'));
-  card.append(el('div','rona-ar-metric-label',label),el('div','rona-ar-metric-value',num(value)===null?'TO_VERIFY':money(value,cur)),financeMetaNode(meta||'','rona-ar-metric-meta'));
+  card.append(el('div','rona-ar-metric-label',label),el('div','rona-ar-metric-value',num(value)===null?'TO_VERIFY':money(value,cur)));
   return card
 }
 function renderDealPulse(root,deal){
@@ -883,8 +892,7 @@ function renderDealPulse(root,deal){
     metricCard('PLAN · прибыль RONA',p.ronaProfit,p.cur,'База агента — чистая прибыль после расчётных 10%','plan'),
     metricCard('FACT · чистая прибыль',fp.netProfit,f.cur,f.approved?'Подтверждённые денежные операции · налог 10% расчётно':'TO_VERIFY','fact')
   );
-  root.append(pulse,el('div','rona-ar-summary-note',
-    'Единая управленческая формула: Доходы − Расходы = Прибыль до налогообложения; налоги 10% от положительной прибыли; чистая прибыль — база агента. 10% не означает фактическую уплату налогов. Вознаграждение не означает выплату.'))
+  root.append(pulse)
 }
 // Informational, source-locked value only: no inclusion in P&L or cash formulas.
 function renderFxReference(root,deal){
@@ -894,10 +902,7 @@ function renderFxReference(root,deal){
   fx.dataset.ronaArFxReference='1';
   fx.setAttribute('aria-label','Валютная справка по сделке');
   const copy=el('div','rona-ar-fx-copy');
-  copy.append(
-    el('div','rona-ar-fx-label','Валютная справка · реализованный FX'),
-    el('div','rona-ar-fx-description','Уже отражён в фактических платежах. Повторно к Чистому ДДС и финансовому результату не прибавляется.')
-  );
+  copy.append(el('div','rona-ar-fx-label','FX'));
   const value=el('strong','rona-ar-fx-value '+tone(fact.realizedFxReference),signedMoney(fact.realizedFxReference,fact.cur));
   fx.append(copy,value);root.append(fx)
 }
@@ -917,15 +922,12 @@ function render(){
   if(!data){root.append(el('div','rona-ar-loader','Загрузка финансового P&L-контура…'));replace(root);return}
   const deals=Array.isArray(data.deals)?data.deals:[];
   if(state.selectedKey&&!deals.some(d=>rowKey(d)===state.selectedKey))state.selectedKey=null;
-  const hero=el('div','rona-ar-finance-banner'),copy=el('div');
-  copy.append(el('div','rona-ar-sub','ПЛАН, ФАКТ и OWNER используют одну управленческую формулу прибыли. ФАКТ основан на подтверждённых денежных операциях, а не на бухгалтерском признании выручки. Налоги 10% — расчётная величина, не налоговое обязательство. Точность отображения — 0,1.'));
-  hero.append(copy,el('div','rona-ar-live','Финансовая модель'));root.append(hero);
   if(!deals.length){root.append(el('div','rona-ar-loader','Сделок в агентском контуре пока нет.'));replace(root);return}
   renderDealCards(root,deals);
   if(!state.selectedKey)state.selectedKey=rowKey(deals[0]);
   const deal=selectedDeal();
   if(deal){
-    const st=el('div','rona-ar-status');st.append(el('span','',deal.dealId+' · '+deal.clientName+' · '+(deal.agentName||'Агент')),el('strong','','Валюта P&L: '+(currencyOf(deal)||'TO_VERIFY')));root.append(st);
+    const st=el('div','rona-ar-status');st.append(el('span','',deal.dealId+' · '+deal.clientName+' · '+(deal.agentName||'Агент')),el('strong','','Валюта: '+(currencyOf(deal)||'TO_VERIFY')));root.append(st);
     renderDealPulse(root,deal);
     renderFxReference(root,deal);
     const grid=el('div','rona-ar-pnl-grid');grid.append(renderPlan(deal),renderFact(deal),renderOwner(deal));root.append(grid)
