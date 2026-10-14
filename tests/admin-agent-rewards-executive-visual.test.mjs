@@ -114,7 +114,7 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         const factGroupNames=[...root.querySelectorAll('.rona-ar-col.fact .rona-ar-exp-name')].map(n=>n.textContent);
         const ownerGroupNames=[...root.querySelectorAll('.rona-ar-col.owner .rona-ar-exp-name')].map(n=>n.textContent);
         const groupInputs=[...root.querySelectorAll('.rona-ar-col.owner [data-owner-payment-group-key]')];
-        const expenseTotal=[...root.querySelectorAll('.rona-ar-col.plan .rona-ar-row')].find(el=>el.querySelector('.rona-ar-name')?.textContent.startsWith('Расходы постатейно'));
+        const expenseTotal=[...root.querySelectorAll('.rona-ar-col.plan .rona-ar-row')].find(el=>el.querySelector('.rona-ar-name')?.textContent.startsWith('Расходы'));
         const fx=root.querySelector('[data-rona-ar-fx-reference="1"]');
         const fxValue=fx?.querySelector('.rona-ar-fx-value');
         const fxTableRows=[...root.querySelectorAll('.rona-ar-pnl-grid .rona-ar-row')]
@@ -281,7 +281,70 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         assert.equal(await page.locator('.rona-ar-pnl-grid .rona-ar-row').filter({hasText:'Реализованный FX'}).count(),0,
           'FX reference must not return to table when source becomes unavailable');
         assert.equal(await page.locator('[data-owner-computed="agentReward"] .rona-ar-value').textContent(),
-          '+198,0 USD','Internal owner reward basis does not require separate realized-FX reference');
+          '+178,2 USD','Internal owner reward remains based on after-tax profit without realized FX');
+      }
+      if(width===1440){
+        // Signed OPEN owner adjustments must change the correct side of the shared
+        // Income - Expense equation AND recompute 10% and the agent share live.
+        deal.ownerCorrectionAuthority.status='APPROVED_FOR_OWNER_CORRECTION';
+        await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
+        const adjust=page.locator('[data-owner-key="openSettlementAdjustment"]');
+        await page.waitForFunction(()=>!document.querySelector('[data-owner-key="openSettlementAdjustment"]').disabled);
+        await adjust.fill('200');
+        const afterPositive=await page.evaluate(()=>{
+          const labels=['Доходы','Расходы','Прибыль до налогообложения','Налоги и платежи (10%)','Чистая прибыль','Агентское вознаграждение'];
+          const rows=[...document.querySelectorAll('.rona-ar-col.owner .rona-ar-row')];
+          return Object.fromEntries(labels.map(label=>{
+            const row=rows.find(x=>x.querySelector('.rona-ar-name')?.firstChild?.textContent===label);
+            return[label,row?.querySelector('.rona-ar-value')?.textContent||null]
+          }))
+        });
+        assert.equal(afterPositive['Доходы'],'+5 200,0 USD');
+        assert.equal(afterPositive['Расходы'],'+3 020,0 USD');
+        assert.equal(afterPositive['Прибыль до налогообложения'],'+2 180,0 USD');
+        assert.equal(afterPositive['Налоги и платежи (10%)'],'+218,0 USD');
+        assert.equal(afterPositive['Чистая прибыль'],'+1 962,0 USD');
+        assert.equal(afterPositive['Агентское вознаграждение'],'+196,2 USD');
+        await adjust.fill('-50');
+        const afterNegative=await page.evaluate(()=>{
+          const labels=['Доходы','Расходы','Прибыль до налогообложения','Налоги и платежи (10%)','Чистая прибыль','Агентское вознаграждение'];
+          const rows=[...document.querySelectorAll('.rona-ar-col.owner .rona-ar-row')];
+          return Object.fromEntries(labels.map(label=>{
+            const row=rows.find(x=>x.querySelector('.rona-ar-name')?.firstChild?.textContent===label);
+            return[label,row?.querySelector('.rona-ar-value')?.textContent||null]
+          }))
+        });
+        assert.equal(afterNegative['Доходы'],'+5 000,0 USD');
+        assert.equal(afterNegative['Расходы'],'+3 070,0 USD');
+        assert.equal(afterNegative['Прибыль до налогообложения'],'+1 930,0 USD');
+        assert.equal(afterNegative['Налоги и платежи (10%)'],'+193,0 USD');
+        assert.equal(afterNegative['Чистая прибыль'],'+1 737,0 USD');
+        assert.equal(afterNegative['Агентское вознаграждение'],'+173,7 USD');
+        deal.ownerCorrectionAuthority.status='NOT_APPROVED';
+      }
+      if(width===950){
+        const formerRevenue=deal.planInputs.revenue,oldCash=deal.cashFlow.cashReceived,
+          oldDds=deal.cashFlow.netCashFlow;
+        deal.planInputs.revenue=100;
+        deal.cashFlow.cashReceived=100;
+        deal.cashFlow.netCashFlow=-2920;
+        await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
+        const negative=await page.evaluate(()=>{
+          return Object.fromEntries(['plan','fact','owner'].map(k=>{
+            const rows=[...document.querySelectorAll('.rona-ar-col.'+k+' .rona-ar-row')];
+            const value=label=>rows.find(r=>r.querySelector('.rona-ar-name')?.firstChild?.textContent===label)?.querySelector('.rona-ar-value')?.textContent||'';
+            return[k,{preTax:value('Прибыль до налогообложения'),tax:value('Налоги и платежи (10%)'),net:value('Чистая прибыль'),agent:value('Агентское вознаграждение')}]
+          }))
+        });
+        for(const [k,row] of Object.entries(negative)){
+          assert.match(row.preTax,/^[−-]/,'Negative pre-tax value must be negative at '+k);
+          assert.equal(row.tax,'0,0 USD','Negative profits do not generate fictional tax refunds at '+k);
+          assert.match(row.net,/^[−-]/,'Net profit must remain a loss at '+k);
+          assert.equal(row.agent,'0,0 USD','No positive agent percentage on a loss at '+k);
+        }
+        deal.planInputs.revenue=formerRevenue;
+        deal.cashFlow.cashReceived=oldCash;
+        deal.cashFlow.netCashFlow=oldDds;
       }
       assert.deepEqual(errors,[],'No runtime exceptions at '+width);
       assert(!calls.some(v=>!v.startsWith('GET ')),'Read-only visual QA must never POST anything');
