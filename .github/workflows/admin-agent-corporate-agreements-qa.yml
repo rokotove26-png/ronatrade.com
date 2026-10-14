@@ -40,5 +40,5 @@ jobs:
         run: |
           npm install --no-save --no-package-lock playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Real browser company cards, upload and download actions
-        run: node --test --test-name-pattern='Rendered corporate' tests/admin-agent-corporate-agreements-v1.test.mjs
+      - name: Real browser agent and company master-detail, signed PDFs, assignments
+        run: node --test --test-name-pattern='Rendered corporate|Rendered company' tests/admin-agent-corporate-agreements-v1.test.mjs

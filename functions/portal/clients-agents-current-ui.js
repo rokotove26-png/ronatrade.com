@@ -4,6 +4,7 @@ function currentUiRuntime(){
   window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5';
   window.__RONA_AGENCY_COMPANY_CONTRACT_UI__='legal-entity-signed-archive-v1';
   window.__RONA_CLIENTS_AGENTS_UX__='master-detail-v1';
+  window.__RONA_COMPANIES_WORKSPACE_UX__='company-master-detail-v1';
   window.__RONA_CLIENTS_AGENTS_CURRENT_READY__=false;
   window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING';
   window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5';
@@ -13,7 +14,7 @@ function currentUiRuntime(){
   const OWNER_API='/portal/owner-api',AUTH='/portal/admin-authority';
   const requestedAccessView=new URL(location.href).searchParams.get('accessView');
   const accessViews=new Set(['companies','agents','users','history']);
-  const S={view:accessViews.has(requestedAccessView)?requestedAccessView:'companies',search:'',selectedAgentId:null};
+  const S={view:accessViews.has(requestedAccessView)?requestedAccessView:'companies',search:'',selectedAgentId:null,selectedCompanyId:null};
   let business=null,authority=null,workspace=null,agencyArchive=null,refreshPromise=null,rootGuard=null,rootRepairQueued=false,lastRefreshAt=0;
   const AUTO_REPAIR_COOLDOWN_MS=60000;
   const q=(s,r=document)=>r.querySelector(s);
@@ -59,6 +60,12 @@ function currentUiRuntime(){
     let st=q('#ronaCaPremiumStyleV1');
     if(!st){st=el('style');st.id='ronaCaPremiumStyleV1';document.head.append(st)}
     st.textContent="\n/* RONA Clients & Agents: owner-requested, role-safe visual hierarchy only. */\n#page-access>#rona-ca4{width:min(100%,1640px)!important;max-width:1640px;padding:clamp(16px,2vw,30px) clamp(14px,2vw,30px) 52px!important;gap:16px!important;box-sizing:border-box!important}\n#rona-ca4,#rona-ca4 *{box-sizing:border-box}\n#rona-ca4 .ca-hero{align-items:center;min-height:140px;padding:clamp(20px,2.4vw,32px)!important;border:1px solid rgba(102,173,211,.22);border-radius:20px!important;background:radial-gradient(ellipse 65% 110% at 96% 10%,rgba(23,86,128,.28),transparent 74%),linear-gradient(112deg,rgba(5,19,33,.97),rgba(7,26,43,.93) 58%,rgba(12,46,69,.76));box-shadow:0 18px 42px rgba(1,7,17,.2),inset 0 1px 0 rgba(255,255,255,.035)}\n#rona-ca4 .ca-hero .rona-visual-title{font-size:clamp(24px,2.2vw,34px);line-height:1.15;letter-spacing:-.025em}\n#rona-ca4 .ca-hero .rona-visual-sub{max-width:670px;line-height:1.55}\n#rona-ca4 .ca-hero-actions{gap:10px}\n#rona-ca4 .ca-hero-actions .ca-primary{min-height:42px;padding:10px 15px;border-radius:11px}\n#rona-ca4 .ca-hero-actions .ca-primary:last-child{border-color:rgba(238,76,98,.62);background:linear-gradient(120deg,rgba(192,29,53,.94),rgba(112,14,36,.94));box-shadow:0 7px 24px rgba(172,29,53,.13)}\n#rona-ca4 .ca-kpis{gap:13px}\n#rona-ca4 .ca-kpis .ca-kpi-tile{position:relative;min-width:0;min-height:121px;display:flex;flex-direction:column;justify-content:center;gap:5px;padding:16px 76px 16px 18px!important;overflow:hidden;border:1px solid rgba(91,159,201,.19)!important;border-radius:16px!important;background:linear-gradient(130deg,rgba(6,27,43,.92),rgba(4,17,29,.86))!important;box-shadow:0 10px 27px rgba(0,7,17,.18)}\n#rona-ca4 .ca-kpis .ca-kpi-tile:after{content:\"\";position:absolute;inset:0 auto 0 0;width:3px;background:var(--ca-accent,#43baf1)}\n#rona-ca4 .ca-kpis .ca-kpi-tile:nth-child(2){--ca-accent:#42d8b3}\n#rona-ca4 .ca-kpis .ca-kpi-tile:nth-child(3){--ca-accent:#72a3f8}\n#rona-ca4 .ca-kpis .ca-kpi-tile:nth-child(4){--ca-accent:#efc07b}\n#rona-ca4 .ca-kpis .ca-kpi-tile h2{margin:0;font-size:10px;line-height:1.45;letter-spacing:.11em;font-weight:850;text-transform:uppercase;color:#9bbfd4}\n#rona-ca4 .ca-kpis .ca-kpi-tile .rona-owner-kpi{font-size:31px;line-height:1.08;font-weight:850;color:#f4faff;font-variant-numeric:tabular-nums}\n#rona-ca4 .ca-kpis .ca-kpi-tile .rona-owner-muted{font-size:11px;line-height:1.4;color:#96acba}\n#rona-ca4 .ca-kpis .ca-kpi-symbol{position:absolute;top:23px;right:18px;width:45px;height:45px;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--ca-accent,#43baf1) 28%,transparent);border-radius:13px;background:color-mix(in srgb,var(--ca-accent,#43baf1) 9%,transparent);color:var(--ca-accent,#43baf1);font-size:23px;font-weight:400}\n#rona-ca4 .ca-toolbar-card{margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important}\n#rona-ca4 .ca-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px}\n#rona-ca4 .ca-tabs{order:0;gap:5px;padding:5px;border:1px solid rgba(102,161,198,.13);border-radius:13px;background:rgba(4,14,25,.74)}\n#rona-ca4 .ca-tabs button{border:0!important;background:transparent!important;color:#adc3d2;padding:10px 14px;border-radius:9px}\n#rona-ca4 .ca-tabs button:hover{color:#fff;background:rgba(83,146,191,.10)!important}\n#rona-ca4 .ca-tabs button[aria-pressed=\"true\"]{color:#fff!important;background:linear-gradient(115deg,rgba(173,25,51,.92),rgba(103,18,39,.94))!important;box-shadow:0 4px 17px rgba(201,30,53,.18),inset 0 1px 0 rgba(255,255,255,.08)}\n#rona-ca4 .ca-search{order:1;min-height:43px;min-width:220px;flex:1 1 280px;background:rgba(5,18,31,.87)}\n#rona-ca4 .ca-toolbar>.ca-btn{order:2;min-height:43px}\n#rona-ca4 .ca-search:focus-visible,#rona-ca4 button:focus-visible{outline:2px solid #69bff1;outline-offset:2px}\n#rona-ca4 .ca-grid>.ca-card{border-color:rgba(103,172,208,.19);border-radius:16px;box-shadow:0 12px 30px rgba(0,8,20,.15)}\n#rona-ca4 .ca-agents-workspace{display:grid;grid-template-columns:minmax(270px,325px) minmax(0,1fr);gap:16px;align-items:start}\n#rona-ca4 .ca-agent-directory,#rona-ca4 .ca-agent-detail{min-width:0;border:1px solid rgba(113,179,217,.2);border-radius:17px;background:linear-gradient(175deg,rgba(8,24,39,.96),rgba(5,16,28,.9));box-shadow:0 18px 46px rgba(0,8,20,.24);overflow:hidden}\n#rona-ca4 .ca-agent-directory{padding:16px;display:grid;gap:11px;position:sticky;top:82px}\n#rona-ca4 .ca-directory-top{display:flex;align-items:center;justify-content:space-between;gap:9px}\n#rona-ca4 .ca-directory-kicker,#rona-ca4 .ca-agent-eyebrow{font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:850;color:#69bfeb}\n#rona-ca4 .ca-directory-title{font-size:17px;line-height:1.25;font-weight:850;color:#eef8ff;margin:4px 0 0}\n#rona-ca4 .ca-directory-count{font-size:11px;color:#8caabb;padding:6px 10px;border:1px solid rgba(124,174,206,.16);border-radius:999px}\n#rona-ca4 .ca-agent-list{display:grid;gap:8px}\n#rona-ca4 .ca-agent-choice{width:100%;display:flex;gap:11px;align-items:center;text-align:left;min-width:0;min-height:92px;padding:12px 13px;border-radius:13px;border:1px solid rgba(131,177,206,.17);background:rgba(4,15,27,.65);color:#eaf5fc;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s}\n#rona-ca4 .ca-agent-choice:hover{background:rgba(24,49,69,.6);border-color:rgba(107,184,233,.4)}\n#rona-ca4 .ca-agent-choice[aria-pressed=\"true\"]{border-color:rgba(236,58,81,.74);background:linear-gradient(110deg,rgba(72,18,35,.6),rgba(15,28,46,.86));box-shadow:inset 3px 0 0 #e83d5b,0 0 0 1px rgba(224,48,77,.08)}\n#rona-ca4 .ca-agent-avatar{width:43px;height:43px;flex:0 0 43px;display:grid;place-items:center;border:1px solid rgba(108,174,219,.22);border-radius:13px;background:linear-gradient(140deg,#1f425f,#0b2139);color:#bde2ff;font-weight:850;font-size:15px;letter-spacing:.015em}\n#rona-ca4 .ca-agent-avatar.ca-agent-avatar-lg{width:56px;height:56px;flex-basis:56px;font-size:19px;border-radius:16px}\n#rona-ca4 .ca-agent-choice-text{display:grid;gap:5px;min-width:0;flex:1}\n#rona-ca4 .ca-agent-choice .ca-name{font-size:13px;line-height:1.35;font-weight:800;overflow-wrap:anywhere}\n#rona-ca4 .ca-agent-choice .ca-id{font-size:11px}\n#rona-ca4 .ca-agent-choice-meta{font-size:10.5px;color:#95b6c9}\n#rona-ca4 .ca-agent-chevron{color:#74a2c3;font-size:20px;margin-left:auto}\n#rona-ca4 .ca-directory-foot{border-top:1px solid rgba(114,173,204,.13);padding-top:12px;font-size:11px;line-height:1.55;color:#849eaf}\n#rona-ca4 .ca-agent-detail{display:grid;gap:0}\n#rona-ca4 .ca-agent-profile{display:flex;align-items:center;gap:14px;min-width:0;padding:22px 22px 19px;border-bottom:1px solid rgba(114,173,204,.15);background:linear-gradient(110deg,rgba(10,38,59,.83),rgba(7,21,37,.52))}\n#rona-ca4 .ca-agent-profile-copy{flex:1;min-width:0;display:grid;gap:6px}\n#rona-ca4 .ca-agent-title{font-size:clamp(18px,1.35vw,23px);line-height:1.25;color:#f1faff;font-weight:850;overflow-wrap:anywhere;margin:0}\n#rona-ca4 .ca-agent-profile-tags{display:flex;gap:7px;align-items:center;flex-wrap:wrap}\n#rona-ca4 .ca-agent-profile .ca-btn{flex-shrink:0;white-space:normal}\n#rona-ca4 .ca-agent-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border-bottom:1px solid rgba(114,173,204,.15);background:rgba(7,23,38,.52)}\n#rona-ca4 .ca-agent-metric{display:grid;gap:4px;min-width:0;padding:15px 22px;border-right:1px solid rgba(114,173,204,.12)}\n#rona-ca4 .ca-agent-metric:last-child{border-right:0}\n#rona-ca4 .ca-agent-metric span{font-size:10.5px;letter-spacing:.04em;color:#9fb7c7}\n#rona-ca4 .ca-agent-metric strong{font-size:18px;font-variant-numeric:tabular-nums;color:#e8f8ff}\n#rona-ca4 .ca-agent-panels{padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;align-items:start}\n#rona-ca4 .ca-agent-panel{min-width:0;display:grid;gap:12px;padding:17px;border-radius:14px;border:1px solid rgba(111,173,211,.17);background:linear-gradient(155deg,rgba(12,33,50,.68),rgba(6,20,33,.79));box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}\n#rona-ca4 .ca-panel-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}\n#rona-ca4 .ca-panel-heading{display:grid;gap:4px;min-width:0}\n#rona-ca4 .ca-panel-title{margin:0;font-size:14px;font-weight:850;color:#f1f8ff}\n#rona-ca4 .ca-panel-subtitle{font-size:11px;line-height:1.4;color:#8daabd}\n#rona-ca4 .ca-agent-panel .ca-primary{font-size:11px;line-height:1.25}\n#rona-ca4 .ca-agent-entry{display:flex;align-items:flex-start;gap:10px;min-width:0;padding:11px 0;border-top:1px solid rgba(111,173,211,.13)}\n#rona-ca4 .ca-agent-entry:first-child{border-top:0}\n#rona-ca4 .ca-agent-entry-icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border:1px solid rgba(79,162,208,.21);border-radius:10px;background:rgba(42,111,151,.13);color:#92d7f7;font-size:14px}\n#rona-ca4 .ca-agent-entry-icon.ca-pdf-icon{border-color:rgba(235,76,96,.21);background:rgba(188,34,56,.13);color:#ff8da0;font-size:12px;font-weight:850}\n#rona-ca4 .ca-agent-entry-main{flex:1;min-width:0;display:grid;gap:4px}\n#rona-ca4 .ca-agent-entry-name{font-weight:800;font-size:12.5px;line-height:1.4;color:#e7f3fc;overflow-wrap:anywhere}\n#rona-ca4 .ca-agent-entry-secondary{font-size:11px;line-height:1.45;color:#91adbf;overflow-wrap:anywhere}\n#rona-ca4 .ca-agent-panel .ca-agreement-item{padding:0!important;border:0!important;border-radius:0!important;background:none!important;gap:10px}\n#rona-ca4 .ca-agent-panel .ca-agreement-archive{margin:0!important;padding:0!important;border:0!important;gap:0!important}\n#rona-ca4 .ca-agent-panel .ca-agreement-item{padding:12px 0!important;border-top:1px solid rgba(111,173,211,.13)!important}\n#rona-ca4 .ca-agent-panel .ca-agreement-filename{font-size:11px;font-weight:650;color:#9fbccf}\n#rona-ca4 .ca-agent-panel .ca-agreement-label{font-size:12.5px;font-weight:850;color:#ebf4ff}\n#rona-ca4 .ca-agent-panel .ca-agreement-item .ca-btn{min-height:35px;white-space:nowrap}\n#rona-ca4 .ca-agent-panel .ca-copy{color:#9ab6c8}\n#rona-ca4 .ca-agent-panel .ca-empty{padding:16px;font-size:11.5px}\n#rona-ca4 .ca-panel-representatives{grid-column:1/-1}\n#rona-ca4 .ca-panel-representatives .ca-representative-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,265px),1fr));gap:10px}\n#rona-ca4 .ca-panel-representatives .ca-agent-entry{border:1px solid rgba(111,173,211,.13);border-radius:10px;padding:11px;background:rgba(3,14,27,.4)}\n#rona-ca4 .ca-agents-workspace .ca-chip{margin:0;border-color:rgba(113,185,216,.16);color:#a9d2e7;background:rgba(33,87,120,.13)}\n#rona-ca4 .ca-agent-empty{font-size:11.5px;color:#9ab6c8;line-height:1.55}\n@media(max-width:1380px){#rona-ca4 .ca-agents-workspace{grid-template-columns:minmax(255px,290px) minmax(0,1fr)}#rona-ca4 .ca-agent-profile{flex-wrap:wrap}#rona-ca4 .ca-agent-profile .ca-btn{margin-left:70px}}\n@media(max-width:1120px){#rona-ca4 .ca-agents-workspace{grid-template-columns:1fr}#rona-ca4 .ca-agent-directory{position:static}#rona-ca4 .ca-agent-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr))}#rona-ca4 .ca-agent-profile .ca-btn{margin-left:auto}}\n@media(max-width:720px){#rona-ca4 .ca-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}#rona-ca4 .ca-tabs{width:100%;display:flex!important;flex-wrap:wrap}#rona-ca4 .ca-tabs button{flex:1 1 130px}#rona-ca4 .ca-search{min-width:0;flex:1 1 100%;width:100%}#rona-ca4 .ca-agent-profile{padding:18px;gap:11px}#rona-ca4 .ca-agent-metric{padding:12px 11px}#rona-ca4 .ca-agent-panels{padding:11px;gap:11px}}\n@media(max-width:480px){#rona-ca4 .ca-kpis .ca-kpi-tile{padding:13px 12px!important;min-height:108px}#rona-ca4 .ca-kpis .ca-kpi-tile .rona-owner-kpi{font-size:26px}#rona-ca4 .ca-kpis .ca-kpi-symbol{position:static;width:27px;height:27px;font-size:15px;order:1;margin-top:5px}#rona-ca4 .ca-kpis .ca-kpi-tile{display:block}#rona-ca4 .ca-kpis .ca-kpi-tile h2{font-size:9px}#rona-ca4 .ca-kpis .ca-kpi-tile .rona-owner-muted{font-size:10px}#rona-ca4 .ca-agent-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}#rona-ca4 .ca-agent-metric span{font-size:9.5px}#rona-ca4 .ca-agent-metric strong{font-size:15px}#rona-ca4 .ca-agent-profile .ca-btn{width:100%;margin-left:0}}\n@media(prefers-reduced-motion:reduce){#rona-ca4 .ca-agent-choice{transition:none}}\n";
+  }
+
+  function companiesPremiumStyle(){
+    let st=q('#ronaCaCompaniesPremiumV1');
+    if(!st){st=el('style');st.id='ronaCaCompaniesPremiumV1';document.head.append(st)}
+    st.textContent="\n/* Owner-approved Companies directory/detail: genuine source data, no invented status. */\n#rona-ca4 .ca-company-workspace{grid-template-columns:minmax(285px,335px) minmax(0,1fr)}\n#rona-ca4 .ca-company-directory{background:linear-gradient(164deg,rgba(9,32,48,.98),rgba(5,17,30,.93));border-color:rgba(103,187,225,.26)}\n#rona-ca4 .ca-company-choice{align-items:flex-start;min-height:104px}\n#rona-ca4 .ca-company-choice .ca-agent-avatar{background:linear-gradient(135deg,rgba(41,120,154,.5),rgba(16,48,72,.8));color:#b4f1f6}\n#rona-ca4 .ca-company-choice .ca-name{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.32}\n#rona-ca4 .ca-company-choice[aria-pressed=\"true\"]{border-color:rgba(91,211,241,.68);background:linear-gradient(112deg,rgba(11,66,88,.66),rgba(10,29,47,.92));box-shadow:inset 3px 0 0 #4abfeb,0 0 0 1px rgba(53,162,204,.09)}\n#rona-ca4 .ca-company-choice-meta{display:flex;flex-wrap:wrap;gap:5px 12px;font-size:10.5px;color:#a1c0d2;line-height:1.4}\n#rona-ca4 .ca-company-detail{border-color:rgba(108,178,212,.25)}\n#rona-ca4 .ca-company-profile{background:linear-gradient(112deg,rgba(10,46,63,.90),rgba(10,26,42,.52));border-bottom-color:rgba(117,188,218,.2)}\n#rona-ca4 .ca-company-profile .ca-agent-avatar{background:linear-gradient(133deg,#1d5b71,#113049);color:#d0f3ff;border-color:rgba(122,224,239,.24)}\n#rona-ca4 .ca-company-profile .ca-agent-title{font-size:clamp(18px,1.43vw,24px);max-width:900px;line-height:1.37}\n#rona-ca4 .ca-company-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}\n#rona-ca4 .ca-company-metrics .ca-agent-metric{padding:17px 19px;gap:6px}\n#rona-ca4 .ca-company-metrics .ca-agent-metric strong{font-size:17px;overflow-wrap:anywhere;line-height:1.3}\n#rona-ca4 .ca-company-metrics .ca-agent-metric:nth-child(2) strong{color:#70d9db}\n#rona-ca4 .ca-company-metrics .ca-agent-metric:nth-child(3) strong{color:#b3d2ff}\n#rona-ca4 .ca-company-panels{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}\n#rona-ca4 .ca-company-panel{border-color:rgba(105,176,213,.18);background:linear-gradient(146deg,rgba(12,37,55,.71),rgba(6,18,32,.86))}\n#rona-ca4 .ca-company-panel .ca-panel-title{font-size:15px}\n#rona-ca4 .ca-company-contract-panel{grid-column:1/-1}\n#rona-ca4 .ca-company-contract-list{display:grid;gap:10px}\n#rona-ca4 .ca-company-contract-row{display:flex;align-items:center;gap:15px;flex-wrap:wrap;padding:16px;border:1px solid rgba(103,177,212,.19);border-radius:13px;background:linear-gradient(95deg,rgba(15,44,64,.61),rgba(7,23,38,.77))}\n#rona-ca4 .ca-company-contract-icon{flex:0 0 43px;width:43px;height:43px;border:1px solid rgba(126,196,225,.22);border-radius:12px;background:rgba(25,90,127,.22);display:grid;place-items:center;font-size:22px;color:#79d4ee}\n#rona-ca4 .ca-company-contract-info{display:grid;gap:5px;flex:1 1 225px;min-width:0}\n#rona-ca4 .ca-company-contract-kicker{color:#72bedc;font-size:10px;letter-spacing:.09em;font-weight:850;text-transform:uppercase}\n#rona-ca4 .ca-company-contract-title{font-size:14px;font-weight:850;line-height:1.35;color:#edf8ff;overflow-wrap:anywhere}\n#rona-ca4 .ca-company-contract-id{font-size:11px;line-height:1.45;color:#8baebe;overflow-wrap:anywhere}\n#rona-ca4 .ca-company-contract-right{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:9px;min-width:175px}\n#rona-ca4 .ca-company-contract-right .ca-btn{min-height:36px;font-size:11px}\n#rona-ca4 .ca-company-primary-contract{border-left:3px solid rgba(75,201,235,.76)}\n#rona-ca4 .ca-company-field-label{display:block;font-size:11px;color:#9cc6da;font-weight:750;margin-bottom:7px}\n#rona-ca4 .ca-company-agent-current{display:grid;gap:5px;padding:12px 13px;border-radius:11px;border:1px solid rgba(109,183,213,.17);background:rgba(6,20,32,.6)}\n#rona-ca4 .ca-company-agent-name{font-size:13px;font-weight:850;line-height:1.4;color:#eef8ff;overflow-wrap:anywhere}\n#rona-ca4 .ca-company-agent-note{font-size:11px;color:#94b2c4;line-height:1.5}\n#rona-ca4 .ca-company-agent-form{display:flex;align-items:stretch;flex-wrap:wrap;gap:9px}\n#rona-ca4 .ca-company-agent-form select{flex:1 1 245px;min-height:41px;min-width:0;max-width:100%;width:100%;font-size:12px}\n#rona-ca4 .ca-company-agent-form .ca-primary{min-height:41px;white-space:normal}\n#rona-ca4 .ca-company-rep-list{display:grid;gap:0}\n#rona-ca4 .ca-company-rep-list .ca-agent-entry{align-items:center}\n#rona-ca4 .ca-company-rep-list .ca-agent-entry-name{font-size:13px}\n#rona-ca4 .ca-company-access-action{padding-top:4px}\n#rona-ca4 .ca-company-access-action .ca-btn{min-height:37px}\n#rona-ca4 .ca-company-source-note{font-size:10.5px;color:#829eaf;line-height:1.5}\n@media(max-width:1290px){#rona-ca4 .ca-company-workspace{grid-template-columns:minmax(260px,290px) minmax(0,1fr)}}\n@media(max-width:1120px){#rona-ca4 .ca-company-workspace{grid-template-columns:1fr}#rona-ca4 .ca-company-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr))}}\n@media(max-width:850px){#rona-ca4 .ca-company-panels{grid-template-columns:1fr}#rona-ca4 .ca-company-contract-panel{grid-column:1}}\n@media(max-width:680px){#rona-ca4 .ca-company-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}#rona-ca4 .ca-company-metrics .ca-agent-metric:nth-child(2){border-right:0}#rona-ca4 .ca-company-metrics .ca-agent-metric:nth-child(-n+2){border-bottom:1px solid rgba(114,173,204,.12)}#rona-ca4 .ca-company-contract-right{width:100%;min-width:0;align-items:flex-start}#rona-ca4 .ca-company-contract-right .ca-btn{width:100%}}\n@media(max-width:420px){#rona-ca4 .ca-company-metrics .ca-agent-metric{padding:11px}#rona-ca4 .ca-company-metrics .ca-agent-metric strong{font-size:15px}#rona-ca4 .ca-company-contract-row{padding:12px;gap:10px}#rona-ca4 .ca-company-agent-form .ca-primary{width:100%}}\n";
   }
 
   function agencyArchiveStyle(){
@@ -110,7 +117,213 @@ function currentUiRuntime(){
     if(reps.length!==1){option.disabled=true;option.textContent=String(a.legalName||a.agentCompanyId)+' — требуется представитель'}
     sel.append(option)
   }sel.value=x.agent_person_id||'';if(!agencyArchive)sel.disabled=true;const save=el('button','ca-primary','Сохранить');save.type='button';if(!agencyArchive)save.disabled=true;save.onclick=async()=>{save.disabled=true;try{await owner('/admin/clients/'+encodeURIComponent(x.client_id)+'/agent',{method:'POST',headers:{'content-type':'application/json',accept:'application/json'},body:JSON.stringify({agentPersonId:sel.value||null})});await refresh();await notice('Закрепление агента сохранено.')}catch(e){await notice(errorText(e.code||e.message),'Ошибка')}finally{save.disabled=false}};row.append(sel,save);if(contract){const contractState=el('span','rona-current-state '+(contract.ready?'ready':contract.attached?'wait':'missing'),contract.ready?'Договор доступен клиенту':contract.attached?'PDF ожидает подтверждения':'Договор не прикреплён');row.append(contractState);if(!contract.ready){const attach=el('button','ca-btn','Прикрепить договор');attach.type='button';attach.dataset.ronaCompanyContractAttach='true';attach.onclick=()=>void pickCompanyPdf(contract,attach);row.append(attach)}}return card('',head,meta,row)}
-  function companiesView(){const s=norm(S.search),xs=clients().filter(x=>!s||norm([x.legal_name,x.client_id,x.contract_id,x.current_external_contract_number,companyAgent(x.client_id)?.legalName].join(' ')).includes(s)),g=el('div','ca-grid');if(!xs.length)return el('div','ca-empty','По выбранному фильтру компаний нет.');xs.forEach(x=>g.append(companyCard(x)));if(!agencyArchive){const panel=el('div','ca-actions'),retry=el('button','ca-btn','Загрузить юридических агентов');retry.type='button';retry.onclick=()=>{S.view='agents';const u=new URL(location.href);u.searchParams.set('accessView','agents');history.replaceState(history.state,'',u);void refresh('companies-agent-link')};panel.append(retry);g.prepend(panel)}return g}
+
+  function companyAccessPeople(client){
+    if(!workspace||!Array.isArray(workspace.users))return null;
+    const target=txt(client?.client_id);
+    return users().filter(u=>Array.isArray(u.bindings)&&u.bindings.some(b=>
+      txt(b.clientId||b.client_id)===target&&String(b.status||'').toUpperCase()==='ACTIVE'));
+  }
+  function companyCurrentContracts(client){
+    const id=txt(client?.client_id),reference=txt(client?.contract_id);
+    return companyRows().filter(row=>txt(row.client_id)===id||(reference&&txt(row.contract_id)===reference));
+  }
+  function companySummaryName(company){
+    const name=txt(company?.legal_name)||'Компания';
+    const quoted=name.match(/[«“"]([^»”"]+)[»”"]/);
+    return quoted?quoted[1]:name;
+  }
+  function companyChangeTab(view){
+    S.view=view;
+    S.search='';
+    const u=new URL(location.href);
+    u.searchParams.set('accessView',view);
+    history.replaceState(history.state,'',u);
+    render();
+    if(view==='agents'&&!agencyArchive)void refresh('open-agents')
+  }
+  function companiesView(){
+    const filter=norm(S.search),list=clients().filter(x=>!filter||norm([
+      x.legal_name,x.client_id,x.contract_id,x.current_external_contract_number,
+      companyAgent(x.client_id)?.legalName,
+      ...companyCurrentContracts(x).map(row=>[row.external,row.contract_id].join(' '))
+    ].join(' ')).includes(filter));
+    if(!list.length)return el('div','ca-empty','По выбранному фильтру компаний нет.');
+    if(!list.some(x=>String(x.client_id)===S.selectedCompanyId))
+      S.selectedCompanyId=String(list[0].client_id);
+    const selected=list.find(x=>String(x.client_id)===S.selectedCompanyId)||list[0],
+      root=el('section','ca-agents-workspace ca-company-workspace'),
+      directory=el('aside','ca-agent-directory ca-company-directory'),
+      top=el('div','ca-directory-top'),topText=el('div'),nav=el('div','ca-agent-list ca-company-list');
+    directory.setAttribute('aria-label','Компании и контрагенты');
+    topText.append(el('div','ca-directory-kicker','РЕЕСТР КОНТРАГЕНТОВ'),
+      el('h2','ca-directory-title','Компании'));
+    top.append(topText,el('span','ca-directory-count',list.length+' из '+clients().length));
+    directory.append(top,nav);
+    for(const x of list){
+      const id=String(x.client_id),contractsForCompany=companyCurrentContracts(x),
+        linked=companyAgent(id),choice=el('button','ca-agent-choice ca-company-choice'),
+        monogram=el('span','ca-agent-avatar',agentMonogram(companySummaryName(x))),
+        copy=el('span','ca-agent-choice-text'),
+        info=el('span','ca-company-choice-meta');
+      choice.type='button';choice.dataset.ronaCompanySelect=id;
+      choice.setAttribute('aria-pressed',String(id===S.selectedCompanyId));
+      monogram.setAttribute('aria-hidden','true');
+      copy.append(el('span','ca-name',x.legal_name||'Компания'),el('span','ca-id',id||'—'));
+      info.append(el('span','',contractsForCompany.length+' договор(ов)'));
+      if(agencyArchive&&linked)info.append(el('span','','С агентом'));
+      copy.append(info);
+      const arrow=el('span','ca-agent-chevron','›');arrow.setAttribute('aria-hidden','true');
+      choice.append(monogram,copy,arrow);
+      choice.onclick=()=>{
+        if(S.selectedCompanyId===id)return;
+        S.selectedCompanyId=id;drawBody();
+        qa('#rona-ca4 .ca-company-choice').find(e=>e.dataset.ronaCompanySelect===id)?.focus()
+      };
+      nav.append(choice)
+    }
+    directory.append(el('div','ca-directory-foot','Выберите компанию для просмотра договоров, подписанных PDF, агента и действующих доступов.'));
+    const x=selected,cid=txt(x.client_id),allContracts=companyCurrentContracts(x),
+      assignedCompany=companyAgent(cid),people=companyAccessPeople(x),
+      ready=allContracts.filter(row=>row.ready).length,
+      detail=el('article','ca-agent-detail ca-company-detail'),
+      header=el('header','ca-agent-profile ca-company-profile'),
+      avatar=el('span','ca-agent-avatar ca-agent-avatar-lg',agentMonogram(companySummaryName(x))),
+      headText=el('div','ca-agent-profile-copy'),tags=el('div','ca-agent-profile-tags');
+    avatar.setAttribute('aria-hidden','true');
+    headText.append(el('div','ca-agent-eyebrow','КАРТОЧКА КОНТРАГЕНТА'),
+      el('h2','ca-agent-title',x.legal_name||'Компания'));
+    tags.append(el('span','ca-chip',cid||'—'),
+      el('span','ca-chip',!agencyArchive?'Агентский реестр не загружен':assignedCompany?'С агентом':'Без агента'));
+    headText.append(tags);
+    const options=el('button','ca-btn ca-option','Опция');
+    options.type='button';options.title='Управление компанией и просмотр её кабинета';
+    options.dataset.ronaEntityOptions='company';
+    options.onclick=()=>openEntityOptions('COMPANY',String(x.client_id||''),String(x.legal_name||x.client_id||'Компания'));
+    header.append(avatar,headText,options);
+    const metrics=el('div','ca-agent-metrics ca-company-metrics');
+    [['Действующих договоров',allContracts.length],
+     ['PDF подтверждено',ready],
+     ['Агент',!agencyArchive?'—':assignedCompany?'Назначен':'Не назначен'],
+     ['Пользователей',people?people.length:'—']].forEach(([label,value])=>{
+      const tile=el('div','ca-agent-metric');
+      tile.append(el('span','',label),el('strong','',value));
+      metrics.append(tile)
+    });
+    const panels=el('div','ca-agent-panels ca-company-panels'),
+      contractPanel=agentPanel('Договоры и подписанные PDF','Источник: текущий договорный контур и серверное подтверждение подписи');
+    contractPanel.panel.classList.add('ca-company-panel','ca-company-contract-panel');
+    const contractList=el('div','ca-company-contract-list');
+    if(allContracts.length){
+      allContracts.forEach((contract,index)=>{
+        const row=el('div','ca-company-contract-row'+(index===0?' ca-company-primary-contract':'')),
+          icon=el('span','ca-company-contract-icon','▤'),
+          info=el('div','ca-company-contract-info'),
+          actions=el('div','ca-company-contract-right');
+        icon.setAttribute('aria-hidden','true');
+        info.append(el('div','ca-company-contract-kicker','ДЕЙСТВУЮЩИЙ ДОГОВОР'),
+          el('div','ca-company-contract-title',contract.external||contract.contract_id||'Договор'),
+          el('div','ca-company-contract-id','Contract ID: '+(contract.contract_id||'—')));
+        actions.append(el('span','rona-current-state '+(contract.ready?'ready':contract.attached?'wait':'missing'),
+          contract.ready?'PDF подтверждён':contract.attached?'PDF загружен · ожидает подтверждения':'Подтверждённого PDF нет'));
+        if(!contract.ready){
+          const attach=el('button','ca-btn','Прикрепить договор');
+          attach.type='button';attach.dataset.ronaCompanyContractAttach='true';
+          attach.dataset.ronaContractId=contract.contract_id;
+          attach.onclick=()=>void pickCompanyPdf(contract,attach);
+          actions.append(attach)
+        }
+        row.append(icon,info,actions);contractList.append(row)
+      });
+    }else {
+      contractList.append(el('div','ca-agent-empty',
+        x.contract_id?'По карточке указан Contract ID '+x.contract_id+'. Действующий договорный контур или статус подписанного PDF не получен.':'В текущем договорном контуре компании договоры не найдены.'));
+    }
+    contractPanel.panel.append(contractList);
+    const agentPanelData=agentPanel('Назначенный агент','Привязка юридического лица и его уполномоченного представителя');
+    agentPanelData.panel.classList.add('ca-company-panel');
+    const agentInfo=el('div','ca-company-agent-current');
+    agentInfo.append(el('div','ca-company-field-label','Текущее назначение'));
+    agentInfo.append(el('div','ca-company-agent-name',
+      !agencyArchive?'Реестр агентских компаний не загружен':assignedCompany?.legalName||'Агент не назначен'));
+    if(agencyArchive&&assignedCompany){
+      agentInfo.append(el('div','ca-company-agent-note',String(assignedCompany.agentCompanyId||'—')));
+    }
+    agentPanelData.panel.append(agentInfo);
+    if(agencyArchive){
+      const labelNode=el('label','ca-company-field-label','Агент компании'),select=el('select','ca-company-agent-select'),
+        form=el('div','ca-company-agent-form'),save=el('button','ca-primary','Сохранить назначение');
+      select.id='rona-ca-company-agent-select';
+      labelNode.htmlFor=select.id;
+      select.append(new Option('Без агента',''));
+      for(const agent of agentCompanies()){
+        const reps=Array.isArray(agent.representatives)?agent.representatives:[],
+          opt=new Option(String(agent.legalName||agent.agentCompanyId),reps.length===1?String(reps[0].agent_person_id):'');
+        if(reps.length!==1){opt.disabled=true;opt.textContent=String(agent.legalName||agent.agentCompanyId)+' — требуется представитель'}
+        select.append(opt)
+      }
+      select.value=x.agent_person_id||'';
+      save.type='button';
+      save.onclick=async()=>{
+        save.disabled=true;
+        try{
+          await owner('/admin/clients/'+encodeURIComponent(x.client_id)+'/agent',{
+            method:'POST',headers:{'content-type':'application/json',accept:'application/json'},
+            body:JSON.stringify({agentPersonId:select.value||null})
+          });
+          const updated=await agency().catch(()=>null);
+          agencyArchive=updated&&Array.isArray(updated.agents)?updated:null;
+          await refresh('company-agent-assignment');
+          await notice('Закрепление агента сохранено.');
+        }catch(e){await notice(errorText(e.code||e.message),'Ошибка')}
+        finally{save.disabled=false}
+      };
+      form.append(select,save);
+      agentPanelData.panel.append(labelNode,form,
+        el('div','ca-company-source-note','Назначение выполняется только для агента с одним подтверждённым представителем.'))
+    }else{
+      const load=el('button','ca-btn','Загрузить реестр агентов');
+      load.type='button';
+      load.onclick=async()=>{
+        load.disabled=true;
+        try{
+          const registry=await agency();
+          if(!registry||!Array.isArray(registry.agents))throw new Error('AGENCY_REGISTRY_UNAVAILABLE');
+          agencyArchive=registry;render()
+        }catch(e){await notice('Не удалось загрузить реестр агентов. Назначения компаний не менялись.','Агентский реестр')}
+        finally{load.disabled=false}
+      };
+      agentPanelData.panel.append(el('div','ca-company-agent-note',
+        'Для просмотра и изменения назначения требуется действующий серверный реестр агентов.'),load)
+    }
+    const accessPanel=agentPanel('Пользователи и доступы','Действующие привязки пользователей к выбранной компании');
+    accessPanel.panel.classList.add('ca-company-panel');
+    const accessList=el('div','ca-company-rep-list');
+    if(people===null){
+      accessList.append(el('div','ca-agent-empty','Список доступов временно недоступен.'));
+    }else if(!people.length){
+      accessList.append(el('div','ca-agent-empty','Пользователей с действующими привязками к компании не найдено.'));
+    }else{
+      for(const u of people){
+        const row=el('div','ca-agent-entry'),body=el('div','ca-agent-entry-main'),
+          itemStatus=String(u.status||'').toUpperCase();
+        body.append(el('div','ca-agent-entry-name',u.name||u.login||'Пользователь'),
+          el('div','ca-agent-entry-secondary',[u.login,roleOf(u)].filter(Boolean).join(' · ')));
+        row.append(agentEntryIcon('◎'),body,bindingStatus(itemStatus));
+        accessList.append(row)
+      }
+    }
+    const viewAccess=el('button','ca-btn','Открыть управление доступами');
+    viewAccess.type='button';
+    viewAccess.onclick=()=>companyChangeTab('users');
+    const accessActions=el('div','ca-company-access-action');
+    accessActions.append(viewAccess);
+    accessPanel.panel.append(accessList,accessActions);
+    panels.append(contractPanel.panel,agentPanelData.panel,accessPanel.panel);
+    detail.append(header,metrics,panels);
+    root.append(directory,detail);
+    return root
+  }
 
   function agencyDocumentLabel(doc){
     return doc?.kind==='AGENCY_ADDENDUM'?'Подписанное дополнительное соглашение':'Подписанный агентский договор'
@@ -525,7 +738,7 @@ function currentUiRuntime(){
   function repair(){const r=ensureRoot();if(!r)return false;if(window.__RONA_CLIENTS_AGENTS_CURRENT_READY__&&accessRootHealthy()){delete r.dataset.ronaAccessDegraded;window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY';installRootGuard();return true}void refresh('auto-repair');return true}
   window.__RONA_CLIENTS_AGENTS_TRAFFIC_POLICY__={version:'ADMIN_TRAFFIC_STABILIZATION_V1',autoRepairCooldownMs:AUTO_REPAIR_COOLDOWN_MS,source:'ADMIN_ACCESS_REFRESH'};
   window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair;
-  async function boot(){agencyArchiveStyle();agencyPremiumStyle();for(let i=0;i<80&&!page();i++)await sleep(50);await refresh('boot')}
+  async function boot(){agencyArchiveStyle();agencyPremiumStyle();companiesPremiumStyle();for(let i=0;i<80&&!page();i++)await sleep(50);await refresh('boot')}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.addEventListener('rona:admin-pagechange',e=>{if(String(e?.detail?.page||'')==='access')repair()});
 }
