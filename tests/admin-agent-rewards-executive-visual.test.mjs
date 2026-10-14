@@ -8,19 +8,21 @@ const file=readFileSync(new URL('../functions/portal/agent-rewards-v1-ui.js',imp
 test('Executive presentation changes no financial authority, formulas, API or session handling',async()=>{
   const js=await(await onRequest()).text();
   assert.match(js,/__RONA_AGENT_REWARDS_PRESENTATION__='executive-finance-v1'/);
-  assert.match(js,/function financeMetaNode\(value/);
+  assert.doesNotMatch(js,/function financeMetaNode\(value/);
+  assert.match(js,/function settlementDetailsDialog\(deal,trigger\)/);
+  assert.match(js,/dialog\.showModal\(\)/);
   assert.match(js,/function renderDealPulse\(root,deal\)/);
   assert.match(js,/function renderFxReference\(root,deal\)/);
   assert.match(js,/renderFxReference\(root,deal\)/);
   assert.match(js,/r\.dataset\.financeMeaning=financeMeaning\(label\)/);
   assert.doesNotMatch(js,/Реализованный FX · справочно/);
   assert.match(js,/РАСЧЁТ · агентское вознаграждение/);
-  assert.match(js,/Вознаграждение не означает выплату/);
+  assert.doesNotMatch(js,/Вознаграждение не означает выплату/);
   assert.match(js,/function termReward\(deal/);
   assert.match(js,/Math\.max\(0,basis\)\*num\(t\.rate\)/);
   assert.match(js,/function ownerModel\(deal,fact\)/);
   assert.match(js,/Math\.max\(0,openSettlementAdjustment\)/);
-  assert.match(js,/await saveCorrection\(deal\.dealId,deal\.assignmentId,payload,ta\.value\)/);
+  assert.match(js,/await saveCorrection\(deal\.dealId,deal\.assignmentId,payload,''\)/);
   assert.match(js,/payload=\{paymentLineAmounts:m\.paymentLineAmounts,openSettlementAdjustment:m\.openSettlementAdjustment\}/);
   assert.match(file,/minimumFractionDigits:1,maximumFractionDigits:1/);
   assert.match(file,/function ownerCorrectionApproved\(deal\)/);
@@ -29,7 +31,7 @@ test('Executive presentation changes no financial authority, formulas, API or se
   assert.doesNotMatch(js,/function.*new.*finance.*schema|fetch\(['"]https?:\/\//i);
 });
 
-test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on demand, legibility and responsive grid',async()=>{
+test('Real executable Agent Rewards UI: clean financial hierarchy, functional details dialog and responsive grid',async()=>{
   const {chromium}=await import('playwright');
   const script=await(await onRequest()).text();
   const deal={
@@ -92,13 +94,10 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
         const nameFont=parseFloat(getComputedStyle(root.querySelector('.rona-ar-name')).fontSize);
         const valueFont=parseFloat(getComputedStyle(root.querySelector('.rona-ar-value')).fontSize);
         const technical=[...root.querySelectorAll('.rona-ar-disclosure')];
-        const source=technical.find(n=>n.textContent.includes('APPROVED_FINANCE_MANAGEMENT_PLAN'));
-        const first=source?.querySelector('summary');
         const inp=root.querySelector('[data-owner-key="openSettlementAdjustment"]');
         const adjustmentGroup=root.querySelector('.rona-ar-col.owner .rona-ar-owner-adjustment');
-        const adjustmentNote=adjustmentGroup?.querySelector('.rona-ar-owner-adjustment-note');
-        const settlementInsideExpenses=!!root.querySelector('.rona-ar-col.fact .rona-ar-table>.rona-ar-balances');
-        const oldBottomSettlement=!!root.querySelector('.rona-ar>.rona-ar-balances');
+        const detailsButton=adjustmentGroup?.querySelector('.rona-ar-details-btn');
+        const dialog=root.querySelector('dialog.rona-ar-settlement-dialog');
         const unit=root.querySelector('.rona-ar-input-currency');
         const sections=cols.map(el=>el.querySelector('.rona-ar-col-title')?.textContent);
         const planRows=[...root.querySelectorAll('.rona-ar-col.plan .rona-ar-row')];
@@ -128,7 +127,7 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
           return n?getComputedStyle(n).color:null
         };
         const meaning=sel=>root.querySelector(sel)?.dataset.financeMeaning||null;
-        return {version:window.__RONA_AGENT_REWARDS_PRESENTATION__,names,values,sections,settlementInsideExpenses,oldBottomSettlement,
+        return {version:window.__RONA_AGENT_REWARDS_PRESENTATION__,names,values,sections,
           gridColumns:grid.gridTemplateColumns,nameFont,valueFont,columns:cols.map(el=>el.getBoundingClientRect().toJSON()),
           pnlByColumn,financialLabels,
           hiddenRows:{
@@ -140,15 +139,24 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
             warningText:agreementWarning?.textContent||null,
             warningTooltip:agreementWarning?.title||null
           },
-          technicalCount:technical.length,hasHiddenTech:!!source&&!source.open,
-          summary:first?.textContent,displayTechnical:source?.open??null,
+          technicalCount:technical.length,
           inputExists:!!inp,inputDisabled:inp?.disabled,inputCurrency:unit?.textContent,
-          adjustmentNote:{
-            count:root.querySelectorAll('.rona-ar-col.owner .rona-ar-owner-adjustment-note').length,
-            directlyBelowInput:adjustmentNote?.previousElementSibling===inp?.closest('.rona-ar-row'),
-            visible:!!adjustmentNote&&getComputedStyle(adjustmentNote).display!=='none'&&adjustmentNote.getBoundingClientRect().height>0,
-            wraps:!!adjustmentNote&&adjustmentNote.scrollWidth<=adjustmentNote.clientWidth+1,
-            text:adjustmentNote?.textContent||''
+          details:{
+            buttonCount:root.querySelectorAll('.rona-ar-col.owner .rona-ar-owner-adjustment .rona-ar-details-btn').length,
+            insideAdjustmentRow:detailsButton?.closest('.rona-ar-row')===inp?.closest('.rona-ar-row'),
+            dialogCount:root.querySelectorAll('dialog.rona-ar-settlement-dialog').length,
+            initiallyClosed:!!dialog&&!dialog.open,
+            inlineFactBalances:root.querySelectorAll('.rona-ar-col.fact .rona-ar-balances').length,
+            oldBottomBalances:root.querySelectorAll('.rona-ar>.rona-ar-balances').length
+          },
+          surface:{
+            columnMetaCount:root.querySelectorAll('.rona-ar-col-meta').length,
+            metricMetaCount:root.querySelectorAll('.rona-ar-metric-meta').length,
+            summaryNoteCount:root.querySelectorAll('.rona-ar-summary-note').length,
+            adjustmentNoteCount:root.querySelectorAll('.rona-ar-owner-adjustment-note').length,
+            commentFieldCount:root.querySelectorAll('.rona-ar-owner-note textarea').length,
+            technicalBannerCount:root.querySelectorAll('.rona-ar-finance-banner').length,
+            fxDescriptionCount:root.querySelectorAll('.rona-ar-fx-description').length
           },
           width:root.getBoundingClientRect().width,scrollWidth:root.scrollWidth,visibleRewardRow:!!root.querySelector('.rona-ar-reward-focus'),
           grouping:{
@@ -176,7 +184,7 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
           fxMeaning:fx?.querySelector('.rona-ar-fx-label')?.textContent,
           fxNote:fx?.querySelector('.rona-ar-fx-description')?.textContent,
           fxPrecedesTables:!!fx&&!!fx.nextElementSibling?.classList.contains('rona-ar-pnl-grid'),
-          fxAfterSummary:!!fx&&!!fx.previousElementSibling?.classList.contains('rona-ar-summary-note'),
+          fxAfterPulse:!!fx&&!!fx.previousElementSibling?.classList.contains('rona-ar-pulse'),
           fxInsideTables:root.querySelectorAll('.rona-ar-pnl-grid [data-rona-ar-fx-reference]').length,
           fxRows:fxTableRows.length,
           colors:{
@@ -240,14 +248,20 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       }
       assert.equal(result.values[3],'1 782,0 USD','Fact KPI must show after-tax profit, not cash DDS');
       assert.deepEqual(result.sections,['Ожидаемый результат','Расчёт по фактическим платежам','Фактический результат']);
-      assert(result.technicalCount>=1&&result.hasHiddenTech,'Source code must be disclosed, not displayed by default');
-      assert.equal(result.summary,'Источник и статус');
+      assert.equal(result.technicalCount,0,'No technical source disclosure in the financial layout at '+width);
+      for(const [item,count] of Object.entries(result.surface)){
+        assert.equal(count,0,'No unnecessary '+item+' rendered at '+width);
+      }
       assert(result.nameFont>=12&&result.valueFont>=14,'Financial primary type is too small at '+width);
       assert(result.visibleRewardRow,'Reward rows must have visible priority at '+width);
       assert(result.inputExists&&result.inputCurrency==='USD','Currency displayed beside editable numeric amount');
       assert.equal(result.inputDisabled,true,'Unauthorized test must not unlock owner correction');
-      assert.equal(result.settlementInsideExpenses,true,'Settlement balances must appear inside FACT expenses at '+width);
-      assert.equal(result.oldBottomSettlement,false,'No detached settlement panel at '+width);
+      assert.equal(result.details.buttonCount,1,'Exactly one Details action in OWNER adjustment at '+width);
+      assert.equal(result.details.insideAdjustmentRow,true,'Details action belongs inside OWNER adjustment line at '+width);
+      assert.equal(result.details.dialogCount,1,'Render exactly one separate details dialog at '+width);
+      assert.equal(result.details.initiallyClosed,true,'Details must start closed at '+width);
+      assert.equal(result.details.inlineFactBalances,0,'No inline settlement balances inside FACT at '+width);
+      assert.equal(result.details.oldBottomBalances,0,'No detached settlement block at '+width);
       assert.deepEqual(result.grouping.factNames,['Поставщик'],'FACT must show one canonical counterparty, not two payment rows at '+width);
       assert.deepEqual(result.grouping.ownerNames,['Поставщик'],'Owner must have only one editable aggregate per canonical counterparty at '+width);
       assert.equal(result.grouping.ownerInputCount,1,'One input per canonical supplier at '+width);
@@ -264,18 +278,13 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       assert.equal(result.ledger.planExpenseDetail,1,'The original approved transportation expense article remains in the plan at '+width);
       assert.match(result.ledger.actualPaidTooltip||'',/VISUAL-QA-PAYMENT/,'Payment provenance remains accessible by hover at '+width);
       assert.match(result.ledger.ownerInputTooltip||'',/Корректировка расходов \(доходов\)/,'Owner correction retains its accessible label at '+width);
-      assert.equal(result.adjustmentNote.count,1,'Show one OWNER adjustment note at '+width);
-      assert.equal(result.adjustmentNote.directlyBelowInput,true,'Place the note immediately under the adjustment row at '+width);
-      assert.equal(result.adjustmentNote.visible,true,'OWNER adjustment explanation must stay visible at '+width);
-      assert.equal(result.adjustmentNote.wraps,true,'OWNER adjustment note must wrap without horizontal overflow at '+width);
-      assert.equal(result.adjustmentNote.text,
-        'Плюс — дополнительный расход, минус — дополнительный доход. Это управленческая корректировка, она не является банковским платежом и не изменяет подтверждённые оплаты контрагентам.');
+      assert.equal(result.surface.adjustmentNoteCount,0,'OWNER correction must have no standalone note at '+width);
       assert.equal(result.fxCount,1,'One FX reference strip, not duplicate rows, at '+width);
       assert.equal(result.fxInsideTables,0,'FX strip must be OUTSIDE finance tables at '+width);
       assert.equal(result.fxRows,0,'Neither FACT nor Owner table may contain realized FX at '+width);
-      assert(result.fxPrecedesTables&&result.fxAfterSummary,'FX strip must follow KPI group and precede table columns at '+width);
-      assert.match(result.fxNote,/Повторно к Чистому ДДС и финансовому результату не прибавляется/);
-      assert.equal(result.fxMeaning,'Валютная справка · реализованный FX');
+      assert(result.fxPrecedesTables&&result.fxAfterPulse,'Compact FX amount follows KPI group and precedes tables at '+width);
+      assert.equal(result.fxNote,undefined,'No technical FX explanation at '+width);
+      assert.equal(result.fxMeaning,'FX');
       assert.equal(result.fxAmount,(width===950?'-10,0 USD':'+10,0 USD'),'FX amount must be read from approved FACT without recomputation');
       assert.equal(result.fxColor,width===950?'rgb(255, 156, 172)':'rgb(145, 227, 193)','FX sign color must describe benefit/loss at '+width);
       assert.deepEqual(result.rowMeanings,{receipt:'inflow',outflow:'outflow',agent:'agent'});
@@ -289,9 +298,21 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
       if(width>=1600)assert(result.columns[1].x>result.columns[0].x,'Wide view: 3 comparable columns');
       if(width>=1070&&width<=1550)assert(result.columns[2].y>result.columns[0].y,'Medium view: owner receives readable second row');
       if(width<1070)assert(result.columns[1].y>result.columns[0].y,'Narrow view: one column');
-      await page.locator('.rona-ar-disclosure summary').first().click();
-      const isOpen=await page.locator('.rona-ar-disclosure').first().evaluate(n=>n.open);
-      assert(isOpen,'Source details must be keyboard/mouse accessible');
+      const detailsButton=page.locator('.rona-ar-col.owner .rona-ar-owner-adjustment .rona-ar-details-btn');
+      const settlementDialog=page.locator('.rona-ar-settlement-dialog');
+      await detailsButton.click();
+      assert.equal(await settlementDialog.evaluate(n=>n.open),true,'Details opens a native modal at '+width);
+      assert.equal(await settlementDialog.locator('.rona-ar-settlement-dialog-title').textContent(),'Детали корректировки');
+      assert.equal(await settlementDialog.locator('.rona-ar-balance-row').count(),1,'Only source-backed balance row in Details at '+width);
+      assert.match(await settlementDialog.locator('.rona-ar-balance-row').textContent(),/QA Supplier/);
+      assert.match(await settlementDialog.locator('.rona-ar-balance-row').textContent(),/300,0 USD/);
+      assert.equal(await settlementDialog.locator('.rona-ar-balances-note').count(),0,'No explanatory footnotes in Details at '+width);
+      const modalFits=await settlementDialog.evaluate(d=>{const r=d.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1});
+      assert.equal(modalFits,true,'Modal must fit viewport at '+width);
+      if(width===1440)await settlementDialog.locator('.rona-ar-details-close').click();
+      else await page.keyboard.press('Escape');
+      await page.waitForFunction(()=>!document.querySelector('.rona-ar-settlement-dialog')?.open);
+      assert.equal(await detailsButton.evaluate(n=>document.activeElement===n),true,'Focus returns to Details button at '+width);
       if(width===1440){
         deal.cashFlow.realizedFxReference=null;
         await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
