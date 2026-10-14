@@ -631,6 +631,9 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.equal(await box.getByText(/Finance: PENDING · Legal: PENDING/).count(),1);
       assert.equal(await box.getByRole('button',{name:'Отправить агенту на подписание'}).count(),0);
       assert.equal(await box.getByRole('button',{name:'Загрузить PDF'}).count(),1);
+      const finalAct=box.getByRole('button',{name:'Сформировать акт с подписью и печатью RONA Trade'});
+      assert.equal(await finalAct.count(),1);
+      assert.equal(await finalAct.isDisabled(),true,'No approved Finance/Legal source: must not apply signature/seal');
       const [printDraft]=await Promise.all([
         page.waitForEvent('popup'),
         box.getByRole('button',{name:'Открыть проект акта · печать в PDF'}).click()
