@@ -590,10 +590,13 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(agentActEdge,/resolve_portal_auth/);
   assert.match(agentActEdge,/ADMIN_IMPERSONATION_DENIED/);
   assert.match(agentActEdge,/SIGNED_ADDENDUM_WRONG_AGENT/);
-  // Regression for the 2026-10-14 production 500: both signed PDF archive and
-  // private storage registry have sha256, so this read MUST alias its source.
-  assert.match(agentActEdge,/select a\.document_id,a\.authoritative_filename as filename,a\.contract_reference,\s+a\.uploaded_at,a\.sha256 from portal_private\.agent_agency_contract_documents a/);
-  assert.doesNotMatch(agentActEdge,/\buploaded_at,sha256 from portal_private\.agent_agency_contract_documents a/);
+  // Deal-scoped singleton: one signed DS, no company archive projection or silent replacement.
+  assert.doesNotMatch(agentActEdge,/signedAddenda:existing\.map|const existing=await sql/);
+  assert.match(agentActEdge,/DEAL_SIGNED_ADDENDUM_ALREADY_LINKED/);
+  assert.match(agentActEdge,/from portal_private\.deals where id=\$\{s\.deal_key\}::uuid for update/);
+  assert.match(agentActEdge,/if\(old\?\.document_id===docId\)return\{bindingId:old.id,status:"ALREADY_LINKED"\}/);
+  assert.doesNotMatch(agentActEdge,/set is_current=false,evidence_status='SUPERSEDED'/);
+  assert.doesNotMatch(ui,/Привязать архивное ДС|Архив подписанных ДС|ДС из архива агентской компании/);
   assert.match(agentActEdge,/SAVE_OWNER_CORRECTION_FIRST/);
   assert.match(agentActEdge,/LINK_SIGNED_DEAL_ADDENDUM_FIRST/);
   assert.match(agentActEdge,/AGENT_SERVICES_ACT_REVIEW_REQUESTED/);

@@ -1152,17 +1152,9 @@ async function signedAgencyDownload(companyId,documentId){
   if(!/^https:\/\//.test(String(url||'')))throw new Error('SIGNED_URL_INVALID');
   window.open(url,'_blank','noopener,noreferrer')
 }
-async function bindDealAddendum(deal,documentId,button){
-  button.disabled=true;
-  try{
-    await docCall(deal,'bind',{method:'POST',headers:{accept:'application/json','content-type':'application/json'},
-      body:JSON.stringify({documentId})});
-    await refreshDealDocuments(deal);
-    docNotice('Подписанное ДС привязано к сделке. Finance и Legal должны подтвердить договорную базу.')
-  }catch(e){docNotice('Не удалось привязать ДС: '+String(e.message||e))}
-  finally{button.disabled=false}
-}
 async function uploadDealAddendum(deal,companyId,fileControl,refControl,ackControl,button){
+  if(state.docCache.get(docKey(deal))?.currentAddendum)
+    return docNotice('Для этой сделки ДС уже привязано. Повторная загрузка недоступна.');
   const file=fileControl.files?.[0],reference=refControl.value.trim();
   if(!file||!/\.pdf$/i.test(file.name)||!file.size||file.size>20*1024*1024)
     return docNotice('Выберите PDF-файл до 20 МБ.');
@@ -1180,7 +1172,7 @@ async function uploadDealAddendum(deal,companyId,fileControl,refControl,ackContr
     await docCall(deal,'bind',{method:'POST',headers:{accept:'application/json','content-type':'application/json'},
       body:JSON.stringify({documentId:j.data.documentId})});
     await refreshDealDocuments(deal);
-    docNotice('ДС загружено в защищённый архив и привязано к выбранной сделке.')
+    docNotice('Подписанное ДС загружено и привязано к выбранной сделке.')
   }catch(e){await refreshDealDocuments(deal);docNotice('Ошибка сохранения ДС: '+String(e.message||e))}
   finally{button.disabled=false}
 }
@@ -1300,7 +1292,7 @@ function renderDealDocuments(root,deal){
   section.dataset.ronaArDealDocuments='v1';
   section.append(el('div','rona-ar-doc-head'));
   const head=q('.rona-ar-doc-head',section);
-  head.append(el('h3','rona-ar-doc-title','Агент · подписанные ДС · акты'),
+  head.append(el('h3','rona-ar-doc-title','Агент · подписанное ДС · акты'),
     el('span','rona-ar-doc-kicker','Документальный контур'));
   const key=docKey(deal),docs=state.docCache.get(key);
   if(!docs){
@@ -1327,23 +1319,17 @@ function renderDealDocuments(root,deal){
         ' · '+String(current.evidenceStatus||'TO_VERIFY')));
     l.append(docButton('Скачать подписанное ДС',()=>void signedAgencyDownload(
       docs.agentCompanyId,current.documentId).catch(e=>docNotice(String(e.message||e)))));
-  }else l.append(el('div','rona-ar-doc-note','Подписанное ДС для этой сделки ещё не привязано.'));
-  const available=Array.isArray(docs.signedAddenda)?docs.signedAddenda:[];
-  if(available.length){
-    const choose=el('select');choose.setAttribute('aria-label','ДС из архива агентской компании');
-    choose.append(new Option('Выберите ДС из архива',''));
-    for(const d of available)choose.append(new Option(String(d.reference||d.filename||d.documentId),d.documentId));
-    const bind=docButton('Привязать архивное ДС',()=>{if(choose.value)void bindDealAddendum(deal,choose.value,bind)});
-    l.append(docField('Архив подписанных ДС',choose),bind)
+  }else{
+    l.append(el('div','rona-ar-doc-note','Подписанное ДС для этой сделки ещё не привязано.'));
+    const file=el('input');file.type='file';file.accept='application/pdf,.pdf';
+    const reference=el('input');reference.type='text';reference.maxLength=180;
+    reference.placeholder='ДС №... от ...';
+    const ackLabel=el('label','rona-ar-doc-ack'),ack=el('input');ack.type='checkbox';
+    ackLabel.append(ack,el('span','','Подтверждаю наличие подписей обеих сторон на PDF.'));
+    const upload=docButton('Загрузить и привязать подписанное ДС',
+      ()=>void uploadDealAddendum(deal,docs.agentCompanyId,file,reference,ack,upload),true);
+    l.append(docField('Подписанный PDF (до 20 МБ)',file),docField('Номер и дата ДС',reference),ackLabel,upload)
   }
-  const file=el('input');file.type='file';file.accept='application/pdf,.pdf';
-  const reference=el('input');reference.type='text';reference.maxLength=180;
-  reference.placeholder='ДС №... от ...';
-  const ackLabel=el('label','rona-ar-doc-ack'),ack=el('input');ack.type='checkbox';
-  ackLabel.append(ack,el('span','','Подтверждаю наличие подписей обеих сторон на PDF.'));
-  const upload=docButton('Загрузить и привязать подписанное ДС',
-    ()=>void uploadDealAddendum(deal,docs.agentCompanyId,file,reference,ack,upload),true);
-  l.append(docField('Подписанный PDF (до 20 МБ)',file),docField('Номер и дата ДС',reference),ackLabel,upload);
   const term=docs.term;
   r.append(el('div','rona-ar-doc-kicker','Параметры вознаграждения'));
   if(term){

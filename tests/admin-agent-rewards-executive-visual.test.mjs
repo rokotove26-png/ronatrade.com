@@ -553,7 +553,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
 });
 
 
-test('Deal-specific DS archive and act request stay tied to saved Owner source, across desktop and mobile',async()=>{
+test('One signed DS per deal, no archive or replacement controls, and act tied to saved Owner source across desktop and mobile',async()=>{
   const {chromium}=await import('playwright');
   const script=await(await onRequest()).text();
   const dealId='DEAL-2026-004',assignmentId='11111111-1111-4111-8111-111111111111';
@@ -581,15 +581,16 @@ test('Deal-specific DS archive and act request stay tied to saved Owner source, 
     agentName:'Представитель агента',assignmentStatus:'ACTIVE',
     term:{termId:'TERM-QA',mode:'PERCENT',rate:0.5,
       reference:'Договор №351C / ДС №2',authority:'CONFIRMED'},
-    signedAddenda:[{documentId:'AGENCY-S-005-A1B2C3D4',filename:'Signed_QA.pdf',reference:'ДС №2 от 12.08.2026'}],
-    currentAddendum:null,
+    currentAddendum:{bindingId:'b1111111-1111-4111-8111-111111111111',
+      documentId:'AGENCY-S-005-A1B2C3D4',filename:'Signed_QA.pdf',
+      reference:'ДС №2 от 12.08.2026',evidenceStatus:'RECEIVED_NOT_LEGALLY_VERIFIED'},
     ownerCorrection:{sourceId:'c1111111-1111-4111-8111-111111111111',version:3},
     acts:[]
   };
   const browser=await chromium.launch({headless:true});
   try{
     for(const width of [1440,390]){
-      doc.currentAddendum=null;doc.acts=[];
+      doc.acts=[];
       const page=await browser.newPage({viewport:{width,height:1000}});
       const errors=[],mutations=[];
       page.on('pageerror',e=>errors.push(e.message));
@@ -600,13 +601,7 @@ test('Deal-specific DS archive and act request stay tied to saved Owner source, 
         status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{deals:[deal]}})}));
       await page.route('http://rona.docs/portal/agent-reward-workflow**',async r=>{
         const u=new URL(r.request().url()),action=u.searchParams.get('action')||'state';
-        if(action==='bind'&&r.request().method()==='POST'){
-          const b=JSON.parse(r.request().postData()||'{}');
-          mutations.push({action,b});
-          doc.currentAddendum={bindingId:'b1111111-1111-4111-8111-111111111111',
-            documentId:b.documentId,filename:'Signed_QA.pdf',
-            reference:'ДС №2 от 12.08.2026',evidenceStatus:'RECEIVED_NOT_LEGALLY_VERIFIED'};
-        }else if(action==='request-act'&&r.request().method()==='POST'){
+        if(action==='request-act'&&r.request().method()==='POST'){
           mutations.push({action});
           doc.acts=[{id:'a1111111-1111-4111-8111-111111111111',correction_version:3,
             owner_correction_key:doc.ownerCorrection.sourceId,request_status:'REVIEW_REQUESTED',
@@ -616,24 +611,23 @@ test('Deal-specific DS archive and act request stay tied to saved Owner source, 
         await r.fulfill({status:200,contentType:'application/json',
           body:JSON.stringify({ok:true,data:action==='request-act'?
             {requestId:doc.acts[0].id,status:'REVIEW_REQUESTED'}:
-            action==='bind'?{bindingId:doc.currentAddendum.bindingId}:doc})})
+            doc})})
       });
       await page.goto('http://rona.docs/portal/admin');
       await page.addScriptTag({content:script});
       const box=page.locator('.rona-ar-documents');
       await box.getByText('ООО «ИнКом»').waitFor({timeout:12000});
-      assert.equal(await box.locator('input[type=file]').count(),1);
-      assert.equal(await box.getByRole('button',{name:'Акт выполненных работ'}).isDisabled(),true);
-      await box.getByRole('combobox',{name:'ДС из архива агентской компании'}).selectOption('AGENCY-S-005-A1B2C3D4');
-      await box.getByRole('button',{name:'Привязать архивное ДС'}).click();
-      await box.getByText('Signed_QA.pdf',{exact:true}).waitFor({timeout:7000});
+      assert.equal(await box.locator('input[type=file]').count(),0);
+      assert.equal(await box.getByRole('button',{name:'Скачать подписанное ДС'}).count(),1);
+      assert.equal(await box.getByRole('button',{name:'Загрузить и привязать подписанное ДС'}).count(),0);
+      assert.equal(await box.getByRole('combobox',{name:'ДС из архива агентской компании'}).count(),0);
+      assert.equal(await box.getByRole('button',{name:'Привязать архивное ДС'}).count(),0);
       assert.equal(await box.getByRole('button',{name:'Акт выполненных работ'}).isDisabled(),false);
       const notice=page.locator('.rona-admin-dialog-backdrop');
       if(await notice.count())await notice.last().getByRole('button',{name:'Закрыть'}).click();
       await box.getByRole('button',{name:'Акт выполненных работ'}).click();
       await box.getByText(/REVIEW_REQUESTED/).waitFor({timeout:7000});
-      assert.deepEqual(mutations.map(x=>x.action),['bind','request-act']);
-      assert.equal(mutations[0].b.documentId,'AGENCY-S-005-A1B2C3D4');
+      assert.deepEqual(mutations.map(x=>x.action),['request-act']);
       assert.equal(await box.getByText(/Finance: PENDING · Legal: PENDING/).count(),1);
       assert.equal(await box.getByRole('button',{name:'Отправить агенту на подписание'}).count(),0);
       assert.equal(await box.getByRole('button',{name:'Загрузить PDF'}).count(),0);
