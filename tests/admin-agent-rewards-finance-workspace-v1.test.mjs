@@ -18,6 +18,7 @@ const authoritativeDds=readFileSync('supabase/migrations/20261007002500_admin_ag
 const correctionAuthority=readFileSync('supabase/migrations/20261007091500_admin_agent_rewards_correction_authority_parity_v15.sql','utf8');
 const reconciledRead=readFileSync('supabase/migrations/20261014113000_agent_rewards_current_finance_reconciled_v16.sql','utf8');
 const reconciledCorrection=readFileSync('supabase/migrations/20261014114500_agent_rewards_reconciled_owner_correction_v17.sql','utf8');
+const jsonbScalarGuard=readFileSync('supabase/migrations/20261014145000_agent_rewards_source_current_jsonb_scalar_guard_v20.sql','utf8');
 const ui=readFileSync('functions/portal/agent-rewards-v1-ui.js','utf8');
 const ownerApi=readFileSync('functions/portal/owner-api.js','utf8');
 const shell=readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
@@ -523,4 +524,20 @@ test('Watchdog requires the P&L owner and legacy owners cannot reclaim the page'
   assert.match(adminHtml,/portal-admin-runtime-watchdog-v1\.js\?v=20261007-agent-rewards-bootstrap-v18-correction-gate-v3/);
   assert.match(retiredLegacy,/RETIRED_BY_FINANCE_WORKSPACE_V2/);
   assert.doesNotMatch(retiredLegacy,/MutationObserver|setInterval|Активные агенты|Закреплено клиентов|Реестр|agentRewardsFragment/);
+});
+
+test('Live Agent Rewards v15 guards JSON null and scalar owner corrections without changing Finance or payable authority',()=>{
+  assert.match(jsonbScalarGuard,/CREATE OR REPLACE FUNCTION public\.rona_admin_agent_rewards_workspace_v15\(\)/);
+  assert.match(jsonbScalarGuard,/jsonb_typeof\(s\.item->'ownerCorrection'\) = 'object'\s+and jsonb_typeof\(s\.item->'ownerCorrection'->'payload'\) = 'object'/);
+  assert.doesNotMatch(jsonbScalarGuard,/and s\.item->'ownerCorrection' is not null/);
+  assert.match(jsonbScalarGuard,/then jsonb_set\([\s\S]*?\{payload,openSettlementAdjustment\}/);
+  assert.match(jsonbScalarGuard,/ownerCorrectionRaw',s\.item->'ownerCorrection'/);
+  assert.match(jsonbScalarGuard,/FINANCE_OPEN_SETTLEMENT_FROM_DOCUMENTED_EXPENSE_V1/);
+  assert.match(jsonbScalarGuard,/AUTHORITY|sourceCurrentness|sourceCreatedAt|source_created_at/i);
+  assert.match(jsonbScalarGuard,/md5\(pg_get_functiondef\('public\.rona_admin_agent_rewards_workspace_v15\(\)'::regprocedure\)\)/);
+  assert.doesNotMatch(jsonbScalarGuard,/\b(?:update|delete\s+from|insert\s+into)\s+portal_private\./i);
+  assert.match(ownerApi,/rona_admin_agent_rewards_workspace_v15/);
+  assert.match(ownerApi,/rona_admin_agent_rewards_correct_v9/);
+  assert.match(jsonbScalarGuard,/SECURITY DEFINER/);
+  assert.match(jsonbScalarGuard,/SET search_path TO 'pg_catalog', 'public', 'portal_private', 'auth'/);
 });
