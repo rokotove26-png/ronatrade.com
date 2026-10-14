@@ -1305,7 +1305,10 @@ function renderDealDocuments(root,deal){
     const err=state.docError.get(key);
     section.append(el('div','rona-ar-doc-note',err?'Реестр документов недоступен: '+err:
       'Загрузка агентских документов по сделке…'));
-    if(!state.docLoading.has(key))setTimeout(()=>void refreshDealDocuments(deal),0);
+    const sourceId=String(deal.assignmentId||'');
+    if(!err&&!state.docLoading.has(key)&&/^[0-9a-f-]{36}$/i.test(sourceId)&&/^DEAL-20[0-9]{2}-[0-9]{3,}$/.test(String(deal.dealId||'')))
+      setTimeout(()=>void refreshDealDocuments(deal),0);
+    if(err)section.append(docButton('Повторить загрузку документов',()=>{state.docError.delete(key);void refreshDealDocuments(deal)}));
     root.append(section);return
   }
   const layout=el('div','rona-ar-doc-columns'),l=el('div','rona-ar-doc-card'),
