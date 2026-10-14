@@ -180,3 +180,136 @@ test('Rendered corporate agent list, secure download and signed upload workflow'
     }
   }finally{await browser.close()}
 });
+
+
+test('Rendered company master-detail keeps verified PDF and agent assignment workflows',async()=>{
+  const {chromium}=await import('playwright');
+  const script=await(await onRequest()).text();
+  const browser=await chromium.launch({headless:true});
+  try{
+    for(const width of [1440,850,390]){
+      const first={client_id:'RONA-QA-C001',
+        legal_name:'Общество с ограниченной ответственностью «FARGONA GAZ»',
+        contract_id:'QA-CTR-001',current_external_contract_number:'01/PT-01-1926',
+        agent_person_id:'AGP-2026-001'};
+      const second={client_id:'RONA-QA-C002',
+        legal_name:'Совместное предприятие Общество с ограниченной ответственностью «UNIVERSAL SOLYARIS GRAND»',
+        contract_id:'QA-CTR-002',current_external_contract_number:'01/PT-02-1926',
+        agent_person_id:null};
+      const business={clients:[first,second],agents:[]};
+      let secondReady=false,agentAssigned=false;
+      const mutations=[],errors=[],networkFailures=[];
+      const registry={agents:[{agentCompanyId:'S-005',
+        legalName:'Общество с ограниченной ответственностью «ИнКом»',
+        clientCount:1,clientIds:[first.client_id],
+        representatives:[{agent_person_id:'AGP-2026-001',agent_name:'Артем Белов'}],
+        documents:[]}]};
+      const authority=()=>({contracts:[
+        {contractId:first.contract_id,clientId:first.client_id,contractStatus:'ACTIVE',
+          companyName:first.legal_name,externalContractNumber:first.current_external_contract_number,
+          bilateralSignedConfirmed:true,serverConfirmed:true},
+        {contractId:second.contract_id,clientId:second.client_id,contractStatus:'ACTIVE',
+          companyName:second.legal_name,externalContractNumber:second.current_external_contract_number}
+      ],signedContractGate:{contracts:[
+        {contractId:first.contract_id,bilateralSignedConfirmed:true,serverConfirmed:true},
+        {contractId:second.contract_id,bilateralSignedConfirmed:secondReady,serverConfirmed:secondReady}
+      ]}});
+      const page=await browser.newPage({viewport:{width,height:950}});
+      page.on('pageerror',e=>errors.push(e.message));
+      page.on('requestfailed',r=>networkFailures.push(r.url()+' '+r.failure()?.errorText));
+      await page.route(/^http:\/\/rona\.test\/portal\/admin(?:\?.*)?$/,r=>r.fulfill({
+        status:200,contentType:'text/html',body:'<!doctype html><html lang="ru"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><section id="page-access"></section></body></html>'}));
+      await page.route('http://rona.test/portal/owner-api**',async r=>{
+        const url=new URL(r.request().url()),path=url.searchParams.get('path')||'';
+        if(r.request().method()==='POST'&&path.endsWith('/agent')){
+          const body=JSON.parse(r.request().postData()||'{}');
+          mutations.push({action:'agent',path,body});
+          agentAssigned=true;second.agent_person_id=body.agentPersonId;
+          registry.agents[0].clientIds=[first.client_id,second.client_id];
+          await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{assigned:true}})});
+          return
+        }
+        const data=path.includes('access-workspace')?{
+          users:[{id:'U-002',name:'QA Client Representative',login:'qa.client',role:'Клиент',status:'ACTIVE',
+            bindings:[{company:second.legal_name,clientId:second.client_id,contractId:second.contract_id,status:'ACTIVE'}]}],
+          events:[]}:business;
+        await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data})})
+      });
+      await page.route(/^http:\/\/rona\.test\/portal\/admin-authority\/.*$/,async r=>{
+        const u=new URL(r.request().url());
+        if(u.pathname.endsWith('/signed-document/attach')){
+          const form=r.request().postDataBuffer()?.toString('utf8')||'';
+          mutations.push({action:'signed-PDF',path:u.pathname,hasPdf:form.includes('%PDF')});
+          secondReady=true;
+          await r.fulfill({status:200,contentType:'application/json',
+            body:JSON.stringify({ok:true,data:{documentId:'QA-DOC-002',serverConfirmed:true}})});
+          return
+        }
+        if(u.pathname.includes('/impersonation/targets/company/')){
+          await r.fulfill({status:200,contentType:'application/json',
+            body:JSON.stringify({ok:true,data:{kind:'COMPANY',entityId:second.client_id,
+              users:[],subjectMode:'ADMIN_ENTITY',canImpersonate:true}})});
+          return
+        }
+        await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:authority()})})
+      });
+      await page.route('http://rona.test/portal/agency-contracts**',r=>r.fulfill({
+        status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:registry})}));
+      await page.goto('http://rona.test/portal/admin?accessView=companies',{waitUntil:'load'});
+      await page.addScriptTag({content:script});
+      await page.waitForSelector('.ca-company-workspace .ca-company-choice',{timeout:12000});
+      assert.equal(await page.locator('.ca-company-choice').count(),2);
+      assert.equal(await page.locator('.ca-company-detail').count(),1);
+      assert.equal(await page.locator('.ca-company-contract-row').count(),1);
+      assert.equal(await page.locator('.ca-company-contract-row .rona-current-state.ready').count(),1);
+      assert.equal(await page.locator('[data-rona-company-select="RONA-QA-C001"]').getAttribute('aria-pressed'),'true');
+      const layout=await page.evaluate(()=>({
+        viewport:window.innerWidth,body:document.documentElement.scrollWidth,
+        workspace:document.querySelector('.ca-company-workspace')?.getBoundingClientRect().width
+      }));
+      assert(layout.body<=layout.viewport+2,'Companies workspace overflows '+JSON.stringify(layout));
+      await page.locator('[data-rona-company-select="RONA-QA-C002"]').click();
+      assert.equal(await page.locator('[data-rona-company-select="RONA-QA-C002"]').getAttribute('aria-pressed'),'true');
+      assert.equal(await page.locator('.ca-company-profile .ca-agent-title').textContent(),second.legal_name);
+      assert.equal(await page.locator('.ca-company-contract-row .rona-current-state.missing').count(),1);
+      assert.equal(await page.locator('[data-rona-company-contract-attach] , [data-rona-company-contract-attach="true"]').count(),1);
+      assert.equal(await page.locator('.ca-company-rep-list .ca-agent-entry').count(),1);
+      assert.equal(await page.locator('.ca-company-rep-list').innerText().then(x=>x.includes('QA Client Representative')),true);
+      const chooserPromise=page.waitForEvent('filechooser');
+      await page.locator('[data-rona-company-contract-attach="true"]').click();
+      const chooser=await chooserPromise;
+      await chooser.setFiles({name:'SIGNED_QA_C002.pdf',mimeType:'application/pdf',
+        buffer:Buffer.from('%PDF-1.7\n1 0 obj\nendobj\n%%EOF')});
+      await page.locator('.ca-modal-backdrop').last().getByRole('button',{name:'Подтвердить'}).click();
+      await page.waitForSelector('.ca-company-contract-row .rona-current-state.ready',{timeout:10000});
+      assert.equal(await page.locator('[data-rona-company-contract-attach="true"]').count(),0);
+      assert(mutations.some(m=>m.action==='signed-PDF'&&m.path.endsWith('/QA-CTR-002/signed-document/attach')&&m.hasPdf));
+      const notice=page.locator('.ca-modal-backdrop').last();
+      if(await notice.count())await notice.getByRole('button',{name:'Закрыть'}).click();
+      assert.equal(await page.locator('.ca-company-agent-form select').count(),0,'Unknown agent registry must not imply edit rights');
+      await page.getByRole('button',{name:'Загрузить реестр агентов'}).click();
+      const agentSelect=page.getByRole('combobox',{name:'Агент компании'});
+      assert.equal(await agentSelect.count(),1);
+      await agentSelect.selectOption('AGP-2026-001');
+      await page.getByRole('button',{name:'Сохранить назначение'}).click();
+      await page.waitForFunction(()=>document.querySelector('.ca-company-agent-name')?.textContent.includes('ИнКом'),null,{timeout:10000});
+      assert(agentAssigned);
+      assert(mutations.some(m=>m.action==='agent'&&m.path.endsWith('/RONA-QA-C002/agent')
+        &&m.body.agentPersonId==='AGP-2026-001'));
+      const assignmentNotice=page.locator('.ca-modal-backdrop').last();
+      if(await assignmentNotice.count())await assignmentNotice.getByRole('button',{name:'Закрыть'}).click();
+      await page.getByRole('button',{name:'Опция',exact:true}).click();
+      const optionsModal=page.locator('.ca-modal-backdrop').last();
+      await page.waitForFunction(()=>[...document.querySelectorAll('.ca-modal-backdrop')].some(
+        el=>el.textContent.includes('административном режиме просмотра')),{timeout:10000});
+      assert((await optionsModal.innerText()).includes('административном режиме просмотра'));
+      await optionsModal.getByRole('button',{name:'Закрыть'}).click();
+      await page.getByRole('button',{name:'Открыть управление доступами'}).click();
+      assert.equal(await page.getByRole('button',{name:'Пользователи и доступы'}).getAttribute('aria-pressed'),'true');
+      assert.equal(await page.getByText('QA Client Representative',{exact:true}).count(),1);
+      assert.deepEqual(errors,[]);
+      assert.deepEqual(networkFailures,[]);
+      await page.close()
+    }
+  }finally{await browser.close()}
+});
