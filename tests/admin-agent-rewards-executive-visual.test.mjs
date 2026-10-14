@@ -522,6 +522,29 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         deal.cashFlow.cashReceived=oldCash;
         deal.cashFlow.netCashFlow=oldDds;
       }
+      if(width===1750){
+        const second=structuredClone(deal);
+        second.assignmentId='VISUAL-QA-SECOND';
+        second.dealId='VISUAL-QA-SECOND-DEAL';
+        second.clientName='Второй контрагент';
+        second.agentName='Второй агент';
+        delete second.agentTerm;
+        data.data.deals.push(second);
+        await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
+        assert.equal(await page.locator('.rona-ar-deal').count(),2,'Real sidebar must list both scoped deals');
+        assert.equal(await page.locator('.rona-ar-deal[aria-pressed="true"]').count(),1);
+        await page.locator('[data-rona-ar-deal-select="VISUAL-QA-SECOND::VISUAL-QA-SECOND-DEAL"]').click();
+        assert.equal(await page.locator('.rona-ar-focus-title').textContent(),'Второй контрагент');
+        assert.equal(await page.locator('[data-rona-ar-deal-select="VISUAL-QA-SECOND::VISUAL-QA-SECOND-DEAL"]').getAttribute('aria-pressed'),'true');
+        assert.match(await page.locator('.rona-ar-evidence').textContent(),/ДС не привязано/);
+        assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),0);
+        assert.equal(await page.locator('.rona-ar-cascade-row.final .rona-ar-cascade-bar').count(),0,
+          'Switching to a deal without a signed term must not show fabricated net payout result');
+        await page.locator('[data-rona-ar-deal-select="VISUAL-QA-ONLY::VISUAL-QA-DEAL"]').click();
+        assert.equal(await page.locator('.rona-ar-focus-title').textContent(),'Контрагент');
+        assert.equal(await page.locator('.rona-ar-deal[aria-pressed="true"]').count(),1);
+        data.data.deals.pop()
+      }
       assert.deepEqual(errors,[],'No runtime exceptions at '+width);
       assert(!calls.some(v=>!v.startsWith('GET ')),'Read-only visual QA must never POST anything');
       await page.close()
