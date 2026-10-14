@@ -84,8 +84,10 @@ test('Rendered corporate agent list, secure download and signed upload workflow'
   try{
     for(const width of [1440,850,390]){
       const page=await browser.newPage({viewport:{width,height:950}});
-      const errors=[],operations=[];
+      const errors=[],operations=[],requests=[],failures=[];
       page.on('pageerror',e=>errors.push(e.message));
+      page.on('request',r=>requests.push(r.method()+' '+r.url()));
+      page.on('requestfailed',r=>failures.push({url:r.url(),error:r.failure()?.errorText}));
       page.on('popup',p=>void p.close());
       await page.route('http://rona.test/portal/admin**',r=>r.fulfill({
         status:200,contentType:'text/html',
@@ -130,7 +132,7 @@ test('Rendered corporate agent list, secure download and signed upload workflow'
           root:document.querySelector('#page-access')?.outerHTML?.slice(0,1900),
           body:document.body?.textContent?.slice(0,1300)
         }));
-        throw new Error('CORPORATE_AGENT_VIEW_BOOTSTRAP_FAILED: '+JSON.stringify({state,errors,operations}),{cause:e})
+        throw new Error('CORPORATE_AGENT_VIEW_BOOTSTRAP_FAILED: '+JSON.stringify({state,errors,operations,requests,failures}),{cause:e})
       }
       const titles=await page.locator('#ca-current-body .ca-name').allTextContents();
       assert.deepEqual(new Set(titles),new Set([companyA.legalName,companyB.legalName]),
