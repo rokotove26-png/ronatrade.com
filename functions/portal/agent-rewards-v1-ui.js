@@ -608,25 +608,26 @@ function renderPlan(deal){
   col.append(table);return col
 }
 function balanceKind(x){
-  const type=upper(x?.balance_type),status=upper(x?.status);
-  if(status.includes('TO_VERIFY'))return'ПРОВЕРИТЬ';
-  if(type.includes('ADVANCE'))return'АВАНС';
+  // Classification derives exclusively from source balance_type, not approval status.
+  const type=upper(x?.balance_type);
+  if(type.includes('ADVANCE'))return'Аванс';
   if(type.includes('RECEIVABLE'))return'ДЗ';
   if(type.includes('PAYABLE'))return'КЗ';
-  return'САЛЬДО'
+  return null
 }
 function balancesView(deal){
   const rows=Array.isArray(deal?.settlementPositions)?deal.settlementPositions:[];
   const list=el('div','rona-ar-balances-list');
-  if(!rows.length){list.append(el('div','rona-ar-empty','Нет данных по взаиморасчётам.'));return list}
   for(const x of rows){
-    const status=upper(x.status),kind=balanceKind(x),warn=status.includes('TO_VERIFY')||status.includes('PROVISIONAL');
+    const kind=balanceKind(x);
+    // Unknown source types cannot be silently relabelled as debts or advances.
+    if(!kind)continue;
     const row=el('div','rona-ar-balance-row'),left=el('div','rona-ar-balance-left'),right=el('div','rona-ar-balance-right');
-    left.append(chip(kind,warn?'warn':kind==='ДЗ'?'good':''),el('div','rona-ar-balance-name',x.counterparty||x.side||'Контрагент'));
+    left.append(chip(kind,kind==='ДЗ'?'good':''),el('div','rona-ar-balance-name',x.counterparty||x.side||'Контрагент'));
     right.append(el('strong','',money(x.balance_amount,x.currency)));
-    if(warn)right.append(el('span','rona-ar-balance-status','Требует проверки'));
     row.append(left,right);list.append(row)
   }
+  if(!list.children.length)list.append(el('div','rona-ar-empty','Нет данных для отображения.'));
   return list
 }
 function settlementDetailsDialog(deal,trigger){
@@ -647,7 +648,7 @@ function settlementDetailsDialog(deal,trigger){
 }
 function renderFact(deal){
   const m=cashFactModel(deal),pnl=factManagementModel(deal,m),col=el('section','rona-ar-col fact');
-  col.append(columnHead('2 · ФАКТ','Расчёт по фактическим платежам',
+  col.append(columnHead('2 · ФАКТ','Расчёт по фактическому ДДС',
     'Подтверждённые денежные операции · управленческий налог 10%, не факт уплаты',
     m.approved?'ФАКТ':'TO VERIFY',m.approved?'good':'warn'));
   const table=el('div','rona-ar-table');
@@ -749,6 +750,18 @@ function agentStatusText(status){
   if(s==='ACTUAL_RESULT_REQUIRED'||s==='NET_PROFIT_REQUIRED'||s==='OPEN_SETTLEMENT_BRIDGE_REQUIRED')return'Нет чистой прибыли для расчёта';
   return'Расчёт не завершён'
 }
+function updateOwnerKpiPreview(col,netProfit,agentReward,cur){
+  // Preview derives from exactly the same OWNER calculations as the visible table.
+  const root=col.closest('.rona-ar');
+  if(!root)return;
+  for(const [key,value] of [['owner-net-profit',netProfit],['owner-calculated-reward',agentReward]]){
+    const card=q('.rona-ar-metric.'+key,root),display=card&&q('.rona-ar-metric-value',card);
+    if(!display)continue;
+    display.textContent=num(value)===null?'TO_VERIFY':money(value,cur);
+    card.classList.remove('positive','negative','verify');
+    card.classList.add(tone(value)||'verify')
+  }
+}
 function recomputeOwner(col,deal,fact,cur){
   const paymentLineAmounts={};
   const saved=deal?.ownerCorrection?.payload?.paymentLineAmounts||{};
@@ -797,6 +810,7 @@ function recomputeOwner(col,deal,fact,cur){
   set('netProfit',pnl.netProfit);
   set('agentReward',reward.value);
   set('ronaProfit',ronaProfit);
+  updateOwnerKpiPreview(col,pnl.netProfit,reward.value,cur);
   const rewardLabel=q('[data-owner-computed="agentReward"] .rona-ar-name',col);
   if(rewardLabel)rewardLabel.title=reward.status;
   return{paymentLineAmounts,counterpartyCashOut,netCashFlow,openSettlementAdjustment,
@@ -842,15 +856,7 @@ function renderOwner(deal){
   table.append(ownerComputedRow('Налоги и платежи (10%)','taxes',base.taxes,cur,'Управленческий расчёт 10% от положительной прибыли',false,false));
   table.append(ownerComputedRow('Чистая прибыль','netProfit',base.netProfit,cur,'Прибыль до налогообложения − расчётный налог'));
   const rewardRow=ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,'База — Чистая прибыль · '+base.reward.status,false,true,agentStatusText(base.reward.status));
-  if(base.reward.externalFxTermConflict){
-    const label=q('.rona-ar-name',rewardRow);
-    if(label){
-      const warning=chip('Условие FX · сверить договор','warn');
-      warning.classList.add('rona-ar-agent-contract-flag');
-      warning.title='Внутренняя база — чистая прибыль после расчётного налога 10%. Подписанное условие EXCLUDING FX требует отдельной проверки внешней суммы к выплате.';
-      label.append(warning)
-    }
-  }
+  // Keep the signed FX contractual status in the source model; omit the UI badge.
   table.append(rewardRow);
   table.append(ownerComputedRow('Прибыль RONA','ronaProfit',base.ronaProfit,cur,'Чистая прибыль − Агентское вознаграждение',true,true,base.reward.value===null?'После расчёта агента':'TO_VERIFY'));
   col.append(table,settlementDetailsDialog(deal,detailsButton));
@@ -883,14 +889,14 @@ function metricCard(label,value,cur,meta,kind=''){
   return card
 }
 function renderDealPulse(root,deal){
-  const p=planModel(deal),f=cashFactModel(deal),fp=factManagementModel(deal,f),
+  const p=planModel(deal),f=cashFactModel(deal),
     o=ownerModel(deal,f),pulse=el('div','rona-ar-pulse');
   pulse.setAttribute('aria-label','Ключевые управленческие показатели выбранной сделки');
   pulse.append(
     metricCard('PLAN · агентское вознаграждение',p.reward.value,p.cur,'База — Чистая прибыль; проверенные источники: '+p.revenueStatus+' / '+p.expenseStatus+'; условие агента: '+p.reward.status,'agent agent-primary'),
-    metricCard('РАСЧЁТ · агентское вознаграждение',o.reward.value,f.cur,o.reward.value===null?agentStatusText(o.reward.status):o.reward.status,'agent agent-calculated'),
+    metricCard('РАСЧЁТ · агентское вознаграждение',o.reward.value,f.cur,o.reward.value===null?agentStatusText(o.reward.status):o.reward.status,'agent agent-calculated owner-calculated-reward'),
     metricCard('PLAN · прибыль RONA',p.ronaProfit,p.cur,'База агента — чистая прибыль после расчётных 10%','plan'),
-    metricCard('FACT · чистая прибыль',fp.netProfit,f.cur,f.approved?'Подтверждённые денежные операции · налог 10% расчётно':'TO_VERIFY','fact')
+    metricCard('ФАКТИЧЕСКИЙ РЕЗУЛЬТАТ · чистая прибыль',o.netProfit,f.cur,o.netProfit===null?'TO_VERIFY':'OWNER_NET_PROFIT','fact owner-net-profit')
   );
   root.append(pulse)
 }
@@ -911,8 +917,8 @@ function renderDealCards(root,deals){
   for(const d of deals){
     const card=el('button','rona-ar-deal');card.type='button';if(rowKey(d)===state.selectedKey)card.classList.add('is-active');
     const top=el('div','rona-ar-deal-top');top.append(el('div','rona-ar-deal-id',d.dealId||'Deal'),chip(d.businessStatus||'—',upper(d.businessStatus)==='CANCELLED'?'warn':''));
-    const fm=cashFactModel(d),fp=factManagementModel(d,fm),resultTone=tone(fp.netProfit);card.classList.add(resultTone||'verify');
-    card.append(top,el('div','rona-ar-deal-client',(d.clientName||'—')+' · '+(d.agentName||'Агент не указан')),el('div','rona-ar-deal-result',fp.netProfit===null?'Чистая прибыль: TO_VERIFY':'Чистая прибыль: '+signedMoney(fp.netProfit,fm.cur)));
+    const fm=cashFactModel(d),actual=ownerModel(d,fm),resultTone=tone(actual.netProfit);card.classList.add(resultTone||'verify');
+    card.append(top,el('div','rona-ar-deal-client',(d.clientName||'—')+' · '+(d.agentName||'Агент не указан')),el('div','rona-ar-deal-result',actual.netProfit===null?'Чистая прибыль: TO_VERIFY':'Чистая прибыль: '+signedMoney(actual.netProfit,fm.cur)));
     card.onclick=()=>{state.selectedKey=rowKey(d);render()};grid.append(card)
   }
   root.append(grid)

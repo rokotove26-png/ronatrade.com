@@ -365,7 +365,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/function renderDealPulse\(root,deal\)/);
   assert.match(ui,/База агента — чистая прибыль после расчётных 10%/);
   assert.match(ui,/PLAN · прибыль RONA/);
-  assert.match(ui,/FACT · чистая прибыль/);
+  assert.match(ui,/ФАКТИЧЕСКИЙ РЕЗУЛЬТАТ · чистая прибыль/);
   assert.match(ui,/PLAN · агентское вознаграждение/);
   assert.match(ui,/\.rona-ar-flow\{/);
   assert.match(ui,/\.rona-ar-pulse\{/);
@@ -382,6 +382,20 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/if\(hint\)labelNode\.title=String\(hint\)/);
   assert.match(ui,/if\(sub\)labelNode\.title=sub/);
   assert.match(ui,/function balancesView\(deal\)/);
+  assert.match(ui,/function balanceKind\(x\)/);
+  assert.match(ui,/if\(type\.includes\('ADVANCE'\)\)return'Аванс'/);
+  assert.match(ui,/if\(type\.includes\('RECEIVABLE'\)\)return'ДЗ'/);
+  assert.match(ui,/if\(type\.includes\('PAYABLE'\)\)return'КЗ'/);
+  assert.match(ui,/if\(!kind\)continue/);
+  assert.doesNotMatch(ui,/return'ПРОВЕРИТЬ'/);
+  assert.doesNotMatch(ui,/return'САЛЬДО'/);
+  assert.doesNotMatch(ui,/rona-ar-balance-status','Требует проверки/);
+  assert.match(ui,/Расчёт по фактическому ДДС/);
+  assert.doesNotMatch(ui,/Расчёт по фактическим платежам/);
+  assert.match(ui,/metricCard\('ФАКТИЧЕСКИЙ РЕЗУЛЬТАТ · чистая прибыль',o\.netProfit/);
+  assert.match(ui,/const fm=cashFactModel\(d\),actual=ownerModel\(d,fm\)/);
+  assert.match(ui,/function updateOwnerKpiPreview\(col,netProfit,agentReward,cur\)/);
+  assert.match(ui,/updateOwnerKpiPreview\(col,pnl\.netProfit,reward\.value,cur\)/);
   assert.doesNotMatch(ui,/Задолженность и авансы по контрагентам/);
   assert.doesNotMatch(ui,/if\(settlements\)table\.append\(settlements\)/);
   assert.match(ui,/function settlementDetailsDialog\(deal,trigger\)/);
@@ -437,7 +451,9 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Math\.max\(0,-openSettlementAdjustment\)/);
   assert.doesNotMatch(ui,/basis=result-fx/);
   assert.match(ui,/const externalFxTermConflict=upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
-  assert.match(ui,/Условие FX · сверить договор/);
+  assert.doesNotMatch(ui,/Условие FX · сверить договор/);
+  // Legal FX-exclusion condition remains in the internal source model, not a UI badge.
+  assert.match(ui,/const externalFxTermConflict=upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
   assert.match(ui,/pnl\.netProfit-reward\.value/);
   assert.match(ui,/function agentStatusText\(status\)/);
   assert.match(ui,/Нет действующего условия/);

@@ -56,7 +56,12 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
     ],
     ownerResultBridge:{recognition_status:'APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE',open_settlement_adjustment:{amount:0}},
     ownerCorrectionAuthority:{status:'NOT_APPROVED',contract:'PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'},
-    settlementPositions:[{balance_type:'PAYABLE',status:'CONFIRMED',counterparty:'QA Supplier',balance_amount:300,currency:'USD'}]
+    settlementPositions:[
+      {balance_type:'ADVANCE',status:'TO_VERIFY_SOURCE',counterparty:'QA Advance',balance_amount:55,currency:'USD'},
+      {balance_type:'PAYABLE',status:'TO_VERIFY',counterparty:'QA Supplier',balance_amount:300,currency:'USD'},
+      {balance_type:'RECEIVABLE',status:'CONFIRMED',counterparty:'QA Receivable',balance_amount:120,currency:'USD'},
+      {balance_type:'UNKNOWN_SOURCE_KIND',status:'TO_VERIFY',counterparty:'QA Uncategorized',balance_amount:999,currency:'USD'}
+    ]
   };
   const data={ok:true,data:{deals:[deal]}};
   const markup='<!doctype html><html lang="ru"><head><meta charset="utf-8"/></head><body>'
@@ -207,7 +212,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         'PLAN · агентское вознаграждение',
         'РАСЧЁТ · агентское вознаграждение',
         'PLAN · прибыль RONA',
-        'FACT · чистая прибыль'
+        'ФАКТИЧЕСКИЙ РЕЗУЛЬТАТ · чистая прибыль'
       ],'Management KPIs reflect net profit, not pre-tax DDS, at '+width);
       for(const [column,rows] of Object.entries(result.pnlByColumn)){
         assert.deepEqual(rows.map(x=>x.label),result.financialLabels,
@@ -240,14 +245,11 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         'Approved actual financial result is the agent calculation basis at '+width);
       assert.equal(result.hiddenRows.ownerReward,width===650?'+400,0 USD':'+178,2 USD',
         'OWNER agent reward must use net profit after 10% provision, not pre-tax profit at '+width);
-      assert.equal(result.hiddenRows.contractWarnings,width===650?0:1,
-        'Special signed FX-exclusion terms must not silently lose warning at '+width);
-      if(width!==650){
-        assert.equal(result.hiddenRows.warningText,'Условие FX · сверить договор');
-        assert.match(result.hiddenRows.warningTooltip||'',/Внутренняя база — чистая прибыль после расчётного налога 10%/);
-      }
-      assert.equal(result.values[3],'1 782,0 USD','Fact KPI must show after-tax profit, not cash DDS');
-      assert.deepEqual(result.sections,['Ожидаемый результат','Расчёт по фактическим платежам','Фактический результат']);
+      assert.equal(result.hiddenRows.contractWarnings,0,'FX contract review must not be a visible OWNER badge at '+width);
+      assert.equal(result.hiddenRows.warningText,null);
+      assert.equal(result.hiddenRows.warningTooltip,null);
+      assert.equal(result.values[3],'1 782,0 USD','Initial KPI must match OWNER net profit at '+width);
+      assert.deepEqual(result.sections,['Ожидаемый результат','Расчёт по фактическому ДДС','Фактический результат']);
       assert.equal(result.technicalCount,0,'No technical source disclosure in the financial layout at '+width);
       for(const [item,count] of Object.entries(result.surface)){
         assert.equal(count,0,'No unnecessary '+item+' rendered at '+width);
@@ -303,9 +305,15 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
       await detailsButton.click();
       assert.equal(await settlementDialog.evaluate(n=>n.open),true,'Details opens a native modal at '+width);
       assert.equal(await settlementDialog.locator('.rona-ar-settlement-dialog-title').textContent(),'Детали корректировки');
-      assert.equal(await settlementDialog.locator('.rona-ar-balance-row').count(),1,'Only source-backed balance row in Details at '+width);
-      assert.match(await settlementDialog.locator('.rona-ar-balance-row').textContent(),/QA Supplier/);
-      assert.match(await settlementDialog.locator('.rona-ar-balance-row').textContent(),/300,0 USD/);
+      assert.equal(await settlementDialog.locator('.rona-ar-balance-row').count(),3,'Only classified source-backed balance rows in Details at '+width);
+      const detailTypes=await settlementDialog.locator('.rona-ar-balance-row .rona-ar-chip').allTextContents();
+      assert.deepEqual(detailTypes,['Аванс','КЗ','ДЗ'],'Types derive from balance_type, never TO_VERIFY status at '+width);
+      const detailsText=await settlementDialog.textContent();
+      assert.match(detailsText,/QA Supplier/);
+      assert.match(detailsText,/300,0 USD/);
+      assert.doesNotMatch(detailsText,/ПРОВЕРИТЬ|Требует проверки|САЛЬДО|QA Uncategorized/);
+      assert.equal(await settlementDialog.locator('.rona-ar-balance-row .rona-ar-balance-status').count(),0,
+        'No technical verification state under balances at '+width);
       assert.equal(await settlementDialog.locator('.rona-ar-balances-note').count(),0,'No explanatory footnotes in Details at '+width);
       const modalFits=await settlementDialog.evaluate(d=>{const r=d.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1});
       assert.equal(modalFits,true,'Modal must fit viewport at '+width);
@@ -345,6 +353,10 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         assert.equal(afterPositive['Налоги и платежи (10%)'],'178,0 USD');
         assert.equal(afterPositive['Чистая прибыль'],'+1 602,0 USD');
         assert.equal(afterPositive['Агентское вознаграждение'],'+160,2 USD');
+        assert.equal(await page.locator('.rona-ar-metric.owner-net-profit .rona-ar-metric-value').textContent(),'1 602,0 USD',
+          'Top net-profit KPI must track OWNER result during positive draft expense');
+        assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'160,2 USD',
+          'Agent KPI uses matching OWNER after-tax basis');
         await adjust.fill('-50');
         const afterNegative=await page.evaluate(()=>{
           const labels=['Доходы','Расходы','Прибыль до налогообложения','Налоги и платежи (10%)','Чистая прибыль','Агентское вознаграждение'];
@@ -360,6 +372,10 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         assert.equal(afterNegative['Налоги и платежи (10%)'],'203,0 USD');
         assert.equal(afterNegative['Чистая прибыль'],'+1 827,0 USD');
         assert.equal(afterNegative['Агентское вознаграждение'],'+182,7 USD');
+        assert.equal(await page.locator('.rona-ar-metric.owner-net-profit .rona-ar-metric-value').textContent(),'1 827,0 USD',
+          'Negative adjustment must update OWNER net profit KPI immediately');
+        assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'182,7 USD',
+          'Corrected OWNER basis must update agent KPI');
         // Previously saved +125 source means income; it must display -125
         // without changing the approved source amount or recalculated profit.
         deal.ownerCorrection={
@@ -379,6 +395,10 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         assert.equal(storedSign.visible,'-125.0','Source +125 must display as -125 income adjustment');
         assert.equal(storedSign.income,'5 125,0 USD','Historical saved income must be unchanged');
         assert.equal(storedSign.expenses,'3 020,0 USD','Historical saved income must not become an expense');
+        assert.equal(await page.locator('.rona-ar-metric.owner-net-profit .rona-ar-metric-value').textContent(),'1 894,5 USD',
+          'Persisted OWNER net profit (1980+125-10%) must override unchanged FACT cash KPI');
+        assert.match(await page.locator('.rona-ar-deal .rona-ar-deal-result').textContent(),/1 894,5 USD/,
+          'Deal selector net profit must also derive from saved OWNER actual result');
         delete deal.ownerCorrection;
         deal.ownerCorrectionAuthority.status='NOT_APPROVED';
       }
