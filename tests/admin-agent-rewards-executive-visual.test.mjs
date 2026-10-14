@@ -630,7 +630,17 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.deepEqual(mutations.map(x=>x.action),['request-act']);
       assert.equal(await box.getByText(/Finance: PENDING · Legal: PENDING/).count(),1);
       assert.equal(await box.getByRole('button',{name:'Отправить агенту на подписание'}).count(),0);
-      assert.equal(await box.getByRole('button',{name:'Загрузить PDF'}).count(),0);
+      assert.equal(await box.getByRole('button',{name:'Загрузить PDF'}).count(),1);
+      const [printDraft]=await Promise.all([
+        page.waitForEvent('popup'),
+        box.getByRole('button',{name:'Открыть проект акта · печать в PDF'}).click()
+      ]);
+      await printDraft.locator('#ronaDraftPrint').waitFor({timeout:5000});
+      assert.match(await printDraft.locator('.content').innerText(),/ПРОЕКТ АКТА ОКАЗАННЫХ АГЕНТСКИХ УСЛУГ/);
+      assert.match(await printDraft.locator('.content').innerText(),/НЕ ПОДПИСАН/);
+      assert.equal(await printDraft.locator('img.letterhead').getAttribute('src'),
+        '/portal/agent-reward-workflow?action=canonical-letterhead');
+      await printDraft.close();
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
       assert(overflow<=2,'Agent documentation overflows '+width+'px viewport by '+overflow);
       assert.deepEqual(errors,[]);
