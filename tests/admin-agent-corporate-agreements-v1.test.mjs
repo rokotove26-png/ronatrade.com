@@ -13,7 +13,7 @@ const ownerAPI=read('functions/portal/owner-api.js');
 test('Agent business identity is legal entity; persons remain solely representatives',()=>{
   assert.match(ui,/const agentCompanies=\(\)=>Array\.isArray\(agencyArchive\?\.agents\)/);
   assert.match(ui,/const companyAgent=\(clientId\)=>agentCompanies\(\)\.find/);
-  assert.match(ui,/\['agents','Агентские компании'\]/);
+  assert.match(ui,/\['agents','Агенты'\]/);
   assert.match(ui,/ca-name',a\.legalName/);
   assert.match(ui,/a\.agentCompanyId/);
   assert.match(ui,/Представитель:/);
@@ -27,8 +27,11 @@ test('Agent business identity is legal entity; persons remain solely representat
 test('Append-only agency signed archive is private and does not create business authority',()=>{
   assert.match(migration,/create table if not exists portal_private\.agent_agency_contract_documents/);
   assert.match(migration,/references portal_private\.agent_legal_entities\(id\) on delete restrict/);
-  assert.match(migration,/document_key uuid not null unique/);
-  assert.match(migration,/AGENCY_CONTRACT', 'AGENCY_ADDENDUM/);
+  assert.match(migration,/storage_object_key uuid not null unique/);
+  assert.match(migration,/document_id text not null unique/);
+  assert.doesNotMatch(migration,/references portal_private\.documents\(id\)/);
+  assert.doesNotMatch(migration,/update storage\.buckets/);
+  assert.match(migration,/AGENCY_CONTRACT','AGENCY_ADDENDUM/);
   assert.match(migration,/enable row level security/);
   assert.match(migration,/revoke all .* from public, anon, authenticated/);
   assert.doesNotMatch(migration,/drop table|delete from|truncate table/i);
@@ -42,10 +45,12 @@ test('Append-only agency signed archive is private and does not create business 
   assert.match(edge,/if\(String\(form\.get\("attestedSigned"\)\)!=="true"\)/);
   assert.match(edge,/PDF_SIGNATURE_INVALID/);
   assert.match(edge,/crypto\.subtle\.digest\("SHA-256",bytes\)/);
-  assert.match(edge,/createSignedUrl\(String\(row\.storage_path\),120/);
+  assert.match(edge,/createSignedUrl\(String\(row\.object_name\),120/);
   assert.match(edge,/AGENCY_SIGNED_PDF_ARCHIVED/);
   assert.match(edge,/AGENCY_SIGNED_PDF_DOWNLOAD/);
-  assert.match(edge,/SOURCE_RECEIVED/);
+  assert.match(migration,/SOURCE_RECEIVED/);
+  assert.doesNotMatch(edge,/insert into portal_private\.documents|portal_private\.document_versions/);
+  assert.match(edge,/insert into portal_private\.agent_agency_contract_documents/);
   assert.match(edge,/externalPayableCreated:false/);
   assert.match(edge,/await service\.storage\.from\(BUCKET\)\.remove\(\[objectName\]\)/);
   assert.doesNotMatch(edge,/agent_deal_terms|agent_settlements|agent_reward_owner_corrections_v1/);
