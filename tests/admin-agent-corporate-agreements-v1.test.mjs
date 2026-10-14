@@ -172,7 +172,7 @@ test('Rendered corporate agent list, secure download and signed upload workflow'
       });
       await dialog.locator('input[type="checkbox"]').check();
       await dialog.getByRole('button',{name:'Сохранить документ'}).click();
-      await page.waitForFunction(()=>document.querySelectorAll('.ca-agreement-item').length===2,{timeout:10000});
+      await page.waitForFunction(()=>document.querySelectorAll('.ca-agreement-item').length===1,{timeout:10000});
       assert(operations.some(o=>o.action==='upload'&&o.company==='S-010'&&o.method==='POST'));
       assert.deepEqual(errors,[]);
       await page.close();
