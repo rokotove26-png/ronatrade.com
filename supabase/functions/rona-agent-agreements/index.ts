@@ -8,7 +8,7 @@ const DB=Deno.env.get("SUPABASE_DB_URL");
 const SUPA_URL=Deno.env.get("SUPABASE_URL");
 if(!DB||!SUPA_URL)throw new Error("RONA_AGENCY_ARCHIVE_RUNTIME_MISSING");
 const sql=postgres(DB,{prepare:false,max:1,idle_timeout:1,connect_timeout:3,max_lifetime:15});
-const BUCKET="rona-portal-private",MAX_PDF=20*1024*1024;
+const BUCKET="rona-portal-private",MAX_PDF=90*1024*1024;
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const KINDS=new Set(["AGENCY_CONTRACT","AGENCY_ADDENDUM"]);
 function key(kind:"pub"|"secret"){
