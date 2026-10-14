@@ -323,54 +323,8 @@ function termReward(deal,{preferSettlement=false,basisValue=null}={}){
   }
   return{value:null,status:'TO_VERIFY'}
 }
-function groupExpenses(deal){
-  const cur=currencyOf(deal),rows=Array.isArray(deal?.expenses)?deal.expenses:[],map=new Map();
-  for(const x of rows){
-    const cc=String(x.receiptCurrency||'').trim(),amount=num(x.receiptCurrencyEquivalent);
-    if(!cc||cc!==cur||amount===null)continue;
-    const kind=upper(x.paymentKind),key=[kind,String(x.paymentId||''),String(x.counterparty||'')].join('|');
-    const prev=map.get(key)||{key,kind,paymentId:x.paymentId||'',counterparty:x.counterparty||x.counterpartyName||'',amount:0,currency:cc,native:[],category:x.expenseCategory||'',basis:x.accrualBasis||'',status:x.expenseStatus||''};
-    prev.amount+=amount;
-    if(num(x.nativeAmount)!==null&&x.nativeCurrency)prev.native.push(money(x.nativeAmount,String(x.nativeCurrency).trim()));
-    map.set(key,prev)
-  }
-  return Array.from(map.values())
-}
-function managementReward(deal,basisValue){
-  const t=deal?.agentTerm||{},cur=currencyOf(deal),ref=upper(t.reference),basis=num(basisValue);
-  if(!validTerm(deal))return{value:null,status:t.mode?'TERM_NOT_ACTIVE':'TERM_MISSING'};
-  if(upper(t.mode)==='FIXED'&&num(t.fixedAmount)!==null&&String(t.currency||'').trim()===cur)return{value:num(t.fixedAmount),status:'MANAGEMENT_RECALC_FIXED_TERM'};
-  if(upper(t.mode)==='PER_TONNE'&&num(t.rate)!==null){
-    const qty=num(deal?.accrualFact?.quantity?.actual_tonnes)??num(deal.quantityTonnes);
-    if(qty===null||String(t.currency||'').trim()!==cur)return{value:null,status:'CALCULATION_BASIS_REQUIRED'};
-    return{value:num(t.rate)*qty,status:'MANAGEMENT_RECALC_PER_TONNE_TERM'}
-  }
-  if(upper(t.mode)==='PERCENT'&&num(t.rate)!==null){
-    if(basis===null)return{value:null,status:'CALCULATION_BASIS_REQUIRED'};
-    return{value:Math.max(0,basis)*num(t.rate),status:ref.includes('EXCLUDING FX')?'MANAGEMENT_RECALC_PERCENT_EXCLUDING_FX':'MANAGEMENT_RECALC_PERCENT_TERM'}
-  }
-  return{value:null,status:'TO_VERIFY'}
-}
-function factModel(deal){
-  const cur=currencyOf(deal),all=groupExpenses(deal),operating=all.filter(x=>x.kind==='COUNTERPARTY_PAYMENT');
-  const opTotal=operating.length?operating.reduce((s,x)=>s+x.amount,0):null;
-  const recognitionStatus=String(deal?.accrualFact?.recognition_status||deal?.factInputs?.recognitionStatus||'TO_VERIFY_NO_APPROVED_ACCRUAL_FACT');
-  const approved=recognitionStatus==='APPROVED_OPERATIONAL_ACCRUAL_FACT';
-  const actualSpend=num(deal?.factInputs?.accruedExpenseTotal??deal?.factInputs?.actualSpend);
-  const fx=approved?num(deal?.factInputs?.fxDifference):null;
-  const fxStatus=String(deal?.factInputs?.fxStatus||deal?.asIs?.fxStatus||'TO_VERIFY_NO_AUTHORITATIVE_PERFORMANCE_FACT');
-  const revenue=approved?num(deal?.factInputs?.revenue):null;
-  const taxes=approved?num(deal?.factInputs?.taxesAndPayments):null;
-  const financialResult=revenue===null||opTotal===null?null:revenue-opTotal;
-  const netProfit=financialResult===null||taxes===null||fx===null?null:financialResult-taxes+fx;
-  const approvedReward=approved?num(deal?.accrualFact?.agent_reward):null;
-  const reward=!approved?{value:null,status:'FACT_PERFORMANCE_REQUIRED'}:approvedReward!==null?{value:approvedReward,status:'APPROVED_ACCRUAL_AGENT_REWARD'}:managementReward(deal,financialResult);
-  const ronaProfit=netProfit===null||reward.value===null?null:netProfit-reward.value;
-  const actualQuantity=approved?num(deal?.accrualFact?.quantity?.actual_tonnes):null;
-  const settlementPositions=Array.isArray(deal?.settlementPositions)?deal.settlementPositions:[];
-  const conditionalPositions=Array.isArray(deal?.conditionalPositions)?deal.conditionalPositions:[];
-  return{cur,revenue,operating,opTotal,taxes,fx,fxStatus,financialResult,netProfit,reward,ronaProfit,actualSpend,actualQuantity,recognitionStatus,approved,settlementPositions,conditionalPositions}
-}
+// Legacy accrual helper had a second incompatible profit/tax formula. Removed;
+// authoritative operational accrual facts remain untouched in Finance source data.
 function cashPaymentLinesModel(deal,cur){
   // Functional contract: one row per source-verified canonical counterparty,
   // NOT one row per paymentId. Unresolved identities remain isolated and flagged.
