@@ -27,7 +27,7 @@ jobs:
       - name: Verify delta-only finance presentation and frozen sources
         shell: bash
         env:
-          BASE_SHA: \${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           git diff --name-only "$BASE_SHA" HEAD > /tmp/agent-rewards-ui-files.txt
