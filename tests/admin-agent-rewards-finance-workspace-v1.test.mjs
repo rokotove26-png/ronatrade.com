@@ -295,7 +295,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/const taxes=Math\.max\(0,preTaxProfit\)\*MANAGEMENT_TAX_RATE/);
   assert.match(ui,/netProfit:preTaxProfit-taxes,status:'MANAGEMENT_TAX_10_PERCENT'/);
   assert.match(ui,/Доходы/);
-  assert.match(ui,/Расходы постатейно/);
+  assert.match(ui,/pnlRow\('Расходы',m\.expTotal,m\.cur/);
   assert.match(ui,/Прибыль до налогообложения/);
   assert.match(ui,/Налоги и платежи/);
   assert.doesNotMatch(ui,/Курсовая разница/);
@@ -305,8 +305,8 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/return\{\.\.\.pnl,reward,ronaProfit/);
   assert.match(ui,/Чистая прибыль/);
   assert.match(ui,/Агентское вознаграждение/);
-  assert.match(ui,/Итого прибыль RONA/);
-  assert.match(ui,/Только реальные поступления и выплаты/);
+  assert.match(ui,/Прибыль RONA/);
+  assert.match(ui,/Подтверждённые денежные операции/);
   assert.match(ui,/Подтверждённые денежные поступления/);
   assert.match(ui,/factManagementModel\(deal,m\)/);
   assert.match(ui,/managementAgentReward\(deal,pnl\.netProfit\)/);
