@@ -57,6 +57,20 @@ test('Append-only agency signed archive is private and does not create business 
   assert.doesNotMatch(ownerAPI,/AGENCY_UPSTREAM|rona-agent-agreements/);
 });
 
+test('Authenticated Owner document upload is approved by the Owner and immutable, not Finance/Legal',()=>{
+  assert.match(edge,/select distinct owner_portal_user_id/);
+  assert.match(edge,/owners\.length===1/);
+  assert.match(edge,/String\(owners\[0\]\.owner_portal_user_id\)===String\(userId\)/);
+  assert.match(edge,/AGENCY_DOCUMENT_OWNER_APPROVED_ON_UPLOAD/);
+  assert.match(edge,/ownerApprovedByUpload:!!ownerId/);
+  assert.match(edge,/ownerApproved=await uploadedByCanonicalOwner\(tx,ctx\.userId\)/);
+  assert.match(edge,/sha256,reference:reference\|\|null/);
+  assert.match(edge,/doesNotImpersonateFinanceLegal:true/);
+  assert.match(edge,/doesNotCreatePayable:true/);
+  assert.match(edge,/AGENCY_SIGNED_PDF_ARCHIVED/);
+  assert.doesNotMatch(edge,/update portal_private\.agent_deal_terms|insert into portal_private\.agent_settlements/);
+});
+
 test('Pages agency endpoint enforces same-origin writes and keeps auth cookies HTTP-only',()=>{
   assert.match(proxy,/originAllowed\(request\)/);
   assert.match(proxy,/if\(request\.method==='POST'&&!originAllowed\(request\)\)/);
