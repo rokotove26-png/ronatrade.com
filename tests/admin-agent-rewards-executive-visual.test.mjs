@@ -299,10 +299,10 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
             return[label,row?.querySelector('.rona-ar-value')?.textContent||null]
           }))
         });
-        assert.equal(afterPositive['Доходы'],'+5 200,0 USD');
-        assert.equal(afterPositive['Расходы'],'+3 020,0 USD');
+        assert.equal(afterPositive['Доходы'],'5 200,0 USD');
+        assert.equal(afterPositive['Расходы'],'3 020,0 USD');
         assert.equal(afterPositive['Прибыль до налогообложения'],'+2 180,0 USD');
-        assert.equal(afterPositive['Налоги и платежи (10%)'],'+218,0 USD');
+        assert.equal(afterPositive['Налоги и платежи (10%)'],'218,0 USD');
         assert.equal(afterPositive['Чистая прибыль'],'+1 962,0 USD');
         assert.equal(afterPositive['Агентское вознаграждение'],'+196,2 USD');
         await adjust.fill('-50');
@@ -314,10 +314,10 @@ test('Real executable Agent Rewards UI: agent-first hierarchy, sources hidden on
             return[label,row?.querySelector('.rona-ar-value')?.textContent||null]
           }))
         });
-        assert.equal(afterNegative['Доходы'],'+5 000,0 USD');
-        assert.equal(afterNegative['Расходы'],'+3 070,0 USD');
+        assert.equal(afterNegative['Доходы'],'5 000,0 USD');
+        assert.equal(afterNegative['Расходы'],'3 070,0 USD');
         assert.equal(afterNegative['Прибыль до налогообложения'],'+1 930,0 USD');
-        assert.equal(afterNegative['Налоги и платежи (10%)'],'+193,0 USD');
+        assert.equal(afterNegative['Налоги и платежи (10%)'],'193,0 USD');
         assert.equal(afterNegative['Чистая прибыль'],'+1 737,0 USD');
         assert.equal(afterNegative['Агентское вознаграждение'],'+173,7 USD');
         deal.ownerCorrectionAuthority.status='NOT_APPROVED';
