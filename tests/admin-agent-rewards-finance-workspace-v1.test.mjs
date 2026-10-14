@@ -617,6 +617,21 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.doesNotMatch(ui,/Отправить агенту на подписание/);
   assert.match(agentActProxy,/action==='canonical-letterhead'\&\&request\.method==='GET'/);
   assert.match(agentActEdge,/CANONICAL_LETTERHEAD_HASH_MISMATCH/);
+  // Final Act must require actual Finance/Legal approval, consistent signed DS and Owner attestation.
+  assert.match(agentActStages,/ACT_SIGNED_ADDENDUM_TERM_CONFLICT/);
+  assert.match(agentActStages,/ACT_FINANCE_APPROVED_AMOUNT_MISSING/);
+  assert.match(agentActStages,/ACT_LEGAL_APPROVED_DOCUMENT_FIELDS_MISSING/);
+  assert.match(agentActStages,/ACT_OWNER_IDENTITY_REQUIRED/);
+  assert.match(agentActStages,/ACT_OWNER_SIGNING_ATTESTATION_REQUIRED/);
+  assert.match(agentActStages,/AGENT_ACT_CANONICAL_FACSIMILE_RENDER_AUTHORIZED/);
+  assert.match(agentActEdge,/CANONICAL_SIGNING_ASSET_HASH_MISMATCH/);
+  assert.match(agentActEdge,/await approvedActIssue\(sql,ctx,finalAsset\[1\]\)/);
+  assert.match(agentActProxy,/canonical-signature.*canonical-seal/);
+  assert.match(agentActProxy,/action==='final-act'/);
+  assert.match(ui,/Сформировать акт с подписью и печатью RONA Trade/);
+  assert.match(ui,/ownerConfirmsFacsimile:true/);
+  assert.match(ui,/width:35mm;height:35mm/);
+  assert.match(ui,/final\.disabled=!approved/);
   assert.match(agentActEdge,/await context\(req\)/);
   assert.match(agentActProxy,/originAllowed\(request\)/);
   assert.match(agentActProxy,/action==='agent-inbox'&&request.method==='GET'/);
