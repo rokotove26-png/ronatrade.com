@@ -1194,6 +1194,104 @@ async function requestAgentAct(deal,button){
   }catch(e){docNotice('Акт не запрошен: '+String(e.message||e))}
   finally{button.disabled=false}
 }
+
+async function uploadAgentActStage(deal,requestId,stage,fileInput,attest,button){
+  const file=fileInput.files?.[0];
+  if(!file||!/\.pdf$/i.test(file.name)||!file.size||file.size>20*1024*1024)
+    return docNotice('Для акта требуется PDF-файл не больше 20 МБ.');
+  if(stage!=='FINANCE_LEGAL_DRAFT'&&!attest?.checked)
+    return docNotice('Подтвердите наличие требуемых подписей на загружаемом акте.');
+  button.disabled=true;
+  try{
+    const form=new FormData();
+    form.append('file',file);form.append('attestedSigned',stage==='FINANCE_LEGAL_DRAFT'?'false':'true');
+    const path=docUrl(deal,'upload-act')+'&requestId='+encodeURIComponent(requestId)
+      +'&stage='+encodeURIComponent(stage);
+    const res=await fetch(path,{method:'POST',credentials:'same-origin',cache:'no-store',body:form});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||data.ok===false)throw new Error(data.code||'ACT_UPLOAD_FAILED');
+    await refreshDealDocuments(deal);
+    docNotice(stage==='FINANCE_LEGAL_DRAFT'?'Проверенный проект акта сохранён в закрытом архиве.':
+      stage==='OWNER_SIGNED'?'PDF с подписью RONA сохранён. Можно передавать агенту через его кабинет.':
+      'Акт с подписями обеих сторон архивирован и доступен для скачивания.')
+  }catch(e){docNotice('Загрузка акта: '+String(e.message||e))}
+  finally{button.disabled=false}
+}
+async function downloadAgentAct(deal,requestId,documentId){
+  const path=docUrl(deal,'download-act')+'&requestId='+encodeURIComponent(requestId)
+    +'&documentId='+encodeURIComponent(documentId);
+  const res=await fetch(path,{credentials:'same-origin',cache:'no-store'});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||data.ok===false)throw new Error(data.code||'ACT_DOWNLOAD_FAILED');
+  const url=data.data?.url;
+  if(!/^https:\/\//.test(String(url||'')))throw new Error('ACT_SIGNED_URL_INVALID');
+  window.open(url,'_blank','noopener,noreferrer')
+}
+async function dispatchAgentAct(deal,requestId,button){
+  button.disabled=true;
+  try{
+    const res=await fetch(docUrl(deal,'dispatch-act')+'&requestId='+encodeURIComponent(requestId),
+      {method:'POST',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
+    const result=await res.json().catch(()=>({}));
+    if(!res.ok||result.ok===false)throw new Error(result.code||'ACT_DISPATCH_FAILED');
+    await refreshDealDocuments(deal);
+    docNotice('Акт опубликован для назначенного агента в его защищённом личном кабинете.');
+  }catch(e){docNotice('Отправка агенту: '+String(e.message||e))}
+  finally{button.disabled=false}
+}
+function actUploadForm(deal,act,stage,title,attestation){
+  const field=el('div','rona-ar-doc-field'),input=el('input');
+  input.type='file';input.accept='application/pdf,.pdf';
+  field.append(el('span','',title),input);
+  let ack=null;
+  if(attestation){
+    const label=el('label','rona-ar-doc-ack');ack=el('input');ack.type='checkbox';
+    label.append(ack,el('span','','Подтверждаю, что загруженный акт содержит требуемые подписи.'));
+    field.append(label)
+  }
+  const upload=docButton('Загрузить PDF',()=>void uploadAgentActStage(
+    deal,String(act.id),stage,input,ack,upload),true);
+  field.append(upload);
+  return field
+}
+function renderActRecord(deal,docs,act){
+  const card=el('section','rona-ar-doc-request');
+  const review=act.review||{},fin=review.finance?.status||'PENDING',
+    legal=review.legal?.status||'PENDING',stage=String(act.request_status||'REVIEW_REQUESTED'),
+    current=docs.ownerCorrection?.sourceId===act.owner_correction_key,
+    approved=review.approved===true;
+  card.append(el('div','rona-ar-doc-name','Акт · OWNER №'+String(act.correction_version||'?')),
+    el('div','rona-ar-doc-note','Стадия: '+stage+' · Finance: '+fin+' · Legal: '+legal));
+  if(!current)card.append(el('div','rona-ar-doc-note',
+    'После заявки OWNER-расчёт был изменён. Требуется новый акт по последней версии.'));
+  const files=Array.isArray(act.documents)?act.documents:[];
+  for(const file of files){
+    const download=docButton('Скачать '+String(file.stage||'PDF')+' · '+String(file.filename||''),
+      ()=>void downloadAgentAct(deal,String(act.id),String(file.documentId))
+        .catch(e=>docNotice('Скачивание: '+String(e.message||e))));
+    card.append(download)
+  }
+  if(!current)return card;
+  if(!approved){
+    card.append(el('div','rona-ar-doc-note',
+      'Подготовка корпоративного акта ожидает подтверждённые заключения Finance и Legal, привязанные к ID этой заявки.'));
+    return card
+  }
+  if(stage==='REVIEW_REQUESTED'||stage==='FINANCE_LEGAL_REVIEW')
+    card.append(actUploadForm(deal,act,'FINANCE_LEGAL_DRAFT','Подготовленный Finance и Legal проект акта (PDF)',false));
+  else if(stage==='DRAFT_READY')
+    card.append(actUploadForm(deal,act,'OWNER_SIGNED','Акт с подписью RONA Trade (PDF)',true));
+  else if(stage==='OWNER_SIGNED'){
+    const dispatch=docButton('Отправить агенту на подписание',()=>void dispatchAgentAct(
+      deal,String(act.id),dispatch),true);
+    card.append(dispatch)
+  }else if(stage==='AWAITING_AGENT_SIGNATURE')
+    card.append(actUploadForm(deal,act,'BOTH_SIGNED','Акт, возвращённый с подписями обеих сторон (PDF)',true));
+  else if(stage==='SIGNED_ARCHIVED')
+    card.append(el('div','rona-ar-doc-note','Акт подписан обеими сторонами. PDF хранится в закрытом архиве.'));
+  return card
+}
+
 function renderDealDocuments(root,deal){
   installDealDocumentStyle();
   const section=el('section','rona-ar-documents');
@@ -1260,9 +1358,8 @@ function renderDealDocuments(root,deal){
     'Сначала сохраните фактическую OWNER-корректировку.'));
   const request=docButton('Акт выполненных работ',()=>void requestAgentAct(deal,request),true);
   request.disabled=!current||!correction;r.append(request);
-  for(const item of (Array.isArray(docs.acts)?docs.acts:[]).slice(0,6))
-    r.append(el('div','rona-ar-doc-request','OWNER №'+String(item.correction_version)+
-      ' · '+String(item.request_status)+' · '+String(item.requested_at||'')));
+  for(const item of (Array.isArray(docs.acts)?docs.acts:[]).slice(0,10))
+    r.append(renderActRecord(deal,docs,item));
   r.append(el('div','rona-ar-doc-note',
     'Запрос на акт не является готовым юридическим документом или обязательством к выплате.'));
   layout.append(l,r);section.append(layout);root.append(section)
