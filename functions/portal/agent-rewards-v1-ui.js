@@ -1282,9 +1282,11 @@ function renderActRecord(deal,docs,act){
   else if(stage==='DRAFT_READY')
     card.append(actUploadForm(deal,act,'OWNER_SIGNED','Акт с подписью RONA Trade (PDF)',true));
   else if(stage==='OWNER_SIGNED'){
-    const dispatch=docButton('Отправить агенту на подписание',()=>void dispatchAgentAct(
-      deal,String(act.id),dispatch),true);
-    card.append(dispatch)
+    const dispatch=docButton('Отправить агенту на подписание',()=>{},true);
+    dispatch.disabled=true;
+    dispatch.title='Входящие акты в ЛК Агента ещё не активированы.';
+    card.append(dispatch,el('div','rona-ar-doc-note',
+      'Отправка отключена до подтверждения доставки через защищённый кабинет агента.'));
   }else if(stage==='AWAITING_AGENT_SIGNATURE')
     card.append(actUploadForm(deal,act,'BOTH_SIGNED','Акт, возвращённый с подписями обеих сторон (PDF)',true));
   else if(stage==='SIGNED_ARCHIVED')
