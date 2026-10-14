@@ -212,14 +212,18 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    deny('ACT_FINANCE_APPROVED_AMOUNT_MISSING');
  const number=String(row.generated_document_number||''),date=String(legal.approvedActDate||''),
    service=String(legal.approvedServiceText||''),period=String(legal.servicePeriod||''),
-   signer=String(legal.issuerSignatoryName||''),facsimileRef=String(legal.facsimileAuthorizationRef||'');
+   signer=String(legal.issuerSignatoryName||''),facsimileRef=String(legal.facsimileAuthorizationRef||''),
+   issuerRequisites=String(legal.approvedIssuerRequisites||''),
+   agentSignatory=String(legal.approvedAgentSignatory||'');
  if(!number||number!==String(legal.approvedDocumentNumber||'')||
    !/^\d{4}-\d{2}-\d{2}$/.test(date)||!service||!period||!signer||!facsimileRef||
+   !issuerRequisites||!agentSignatory||
    legal.facsimileApproved!==true)
    deny('ACT_LEGAL_APPROVED_DOCUMENT_FIELDS_MISSING');
  return{requestId:row.id,dealId:row.deal_id,documentNumber:number,documentDate:date,
    servicePeriod:period,services:service,amount,currency,issuer:'ООО «РОНА Трейд»',
-   issuerSigner:signer,agentLegalName:t.legal_name,agentTaxId:t.tax_identifier,
+   issuerSigner:signer,issuerRequisites,agentSignatory,
+   agentLegalName:t.legal_name,agentTaxId:t.tax_identifier,
    agentAddress:t.registered_address,agentCountry:t.registration_country,
    addendumReference:t.document_reference,addendumDocumentId:t.document_id,
    financeEvidence:review.finance.recordId,legalEvidence:review.legal.recordId,
