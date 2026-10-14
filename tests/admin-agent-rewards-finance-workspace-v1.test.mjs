@@ -383,15 +383,15 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/if\(sub\)labelNode\.title=sub/);
   assert.match(ui,/function balancesView\(deal\)/);
   assert.match(ui,/Задолженность и авансы по контрагентам/);
-  assert.match(ui,/if\\(settlements\\)table\\.append\\(settlements\\)/);
-  // The signed source contract remains untouched; UI uses expense-first notation.
-  assert.match(ui,/function expenseDeltaFromSource\\(value\\)/);
-  assert.match(ui,/function sourceDeltaFromExpenseInput\\(value\\)/);
-  assert.match(ui,/sourceDeltaFromExpenseInput\\(q\\('/);
-  assert.match(ui,/expenseDeltaFromSource\\(base\\.openSettlementAdjustment\\)/);
-  assert.match(ui,/v===null\\?null:-v/);
+  assert.match(ui,/if\(settlements\)table\.append\(settlements\)/);
+  // Existing signed source contract remains unchanged; only UI expense-first notation.
+  assert.match(ui,/function expenseDeltaFromSource\(value\)/);
+  assert.match(ui,/function sourceDeltaFromExpenseInput\(value\)/);
+  assert.match(ui,/sourceDeltaFromExpenseInput\(q\('/);
+  assert.match(ui,/expenseDeltaFromSource\(base\.openSettlementAdjustment\)/);
+  assert.match(ui,/v===null\?null:-v/);
   assert.match(ui,/Плюс — дополнительный расход, минус — дополнительный доход/);
-  assert.doesNotMatch(ui,/const openSettlementAdjustment=round1\\(q\\('/);
+  assert.doesNotMatch(ui,/const openSettlementAdjustment=round1\(q\('/);
   assert.doesNotMatch(ui,/root\.append\(balances\)/);
   assert.match(ui,/Корректировка расходов \(доходов\)/);
   assert.match(ui,/Условные претензии и HOLD-позиции в ДЗ\/КЗ не включены/);
