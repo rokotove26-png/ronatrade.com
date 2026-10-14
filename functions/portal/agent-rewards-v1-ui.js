@@ -185,6 +185,47 @@ function installStyle(){
   #page-agent-settlements .rona-ar-col,#page-agent-settlements .rona-ar-deal,#page-agent-settlements .rona-ar-btn{transition:none}
 }
 
+
+/* executive-finance-v1.1: semantic typography; never color costs as profits. */
+#page-agent-settlements .rona-ar-row[data-finance-meaning="inflow"] .rona-ar-name{color:#b2e6d5}
+#page-agent-settlements .rona-ar-col.plan .rona-ar-row[data-finance-meaning="inflow"] .rona-ar-name{color:#b9d8f8}
+#page-agent-settlements .rona-ar-row[data-finance-meaning="outflow"] .rona-ar-name,
+#page-agent-settlements .rona-ar-exp-line[data-finance-meaning="outflow"] .rona-ar-exp-name,
+#page-agent-settlements .rona-ar-transport-row[data-finance-meaning="outflow"] .rona-ar-transport-name{color:#d8d4cb}
+#page-agent-settlements .rona-ar-row[data-finance-meaning="agent"] .rona-ar-name{color:#e0cfff}
+#page-agent-settlements .rona-ar-row[data-finance-meaning="fx"] .rona-ar-name{color:#bbd7ed}
+#page-agent-settlements .rona-ar-row[data-finance-meaning="adjustment"] .rona-ar-name{color:#e5d0f5}
+#page-agent-settlements .rona-ar-row[data-finance-meaning="result"] .rona-ar-name{color:#ecf6fc;font-weight:860}
+#page-agent-settlements .rona-ar-row[data-finance-meaning="outflow"] .rona-ar-value:not(.verify):not(.negative),
+#page-agent-settlements .rona-ar-exp-amount,
+#page-agent-settlements .rona-ar-transport-amount{color:#dbc8ad;text-shadow:none}
+#page-agent-settlements .rona-ar-row[data-finance-meaning="inflow"] .rona-ar-value:not(.verify):not(.negative){color:#8de7c5;text-shadow:none}
+#page-agent-settlements .rona-ar-col.plan .rona-ar-row[data-finance-meaning="inflow"] .rona-ar-value:not(.verify):not(.negative){color:#a9d1fd}
+#page-agent-settlements .rona-ar-row[data-finance-meaning="agent"] .rona-ar-value:not(.verify):not(.negative){color:#d9c5ff;text-shadow:none}
+#page-agent-settlements .rona-ar-row[data-finance-meaning="fx"] .rona-ar-value:not(.verify):not(.negative){color:#a7d6ec;text-shadow:none}
+#page-agent-settlements .rona-ar-row[data-finance-meaning="result"] .rona-ar-value.positive{color:#85edc6;text-shadow:none}
+#page-agent-settlements .rona-ar-row .rona-ar-value.negative{color:#ff9cac;text-shadow:none}
+#page-agent-settlements .rona-ar-row .rona-ar-value.verify{color:#ffcf77}
+#page-agent-settlements .rona-ar-metric.plan .rona-ar-metric-value:not(.verify){color:#a9d1fd}
+#page-agent-settlements .rona-ar-metric.agent .rona-ar-metric-value:not(.verify){color:#dac7ff}
+#page-agent-settlements .rona-ar-metric.fact .rona-ar-metric-value:not(.verify){color:#89ebc6}
+#page-agent-settlements .rona-ar-metric.negative .rona-ar-metric-value{color:#ff9cac}
+#page-agent-settlements .rona-ar-metric.verify .rona-ar-metric-value{color:#ffd285}
+#page-agent-settlements .rona-ar-fx-reference{display:flex;align-items:center;justify-content:space-between;gap:18px;
+ padding:14px 19px;border:1px solid rgba(126,187,215,.27);border-left:3px solid rgba(108,182,219,.76);
+ border-radius:11px;background:linear-gradient(100deg,rgba(14,31,47,.88),rgba(10,24,36,.9));box-shadow:none}
+#page-agent-settlements .rona-ar-fx-copy{min-width:0;display:grid;gap:5px}
+#page-agent-settlements .rona-ar-fx-label{font-size:12.5px;font-weight:850;letter-spacing:.015em;color:#b5d9ed}
+#page-agent-settlements .rona-ar-fx-description{font-size:11.5px;line-height:1.5;color:#b2c4d0}
+#page-agent-settlements .rona-ar-fx-value{font-size:18px;line-height:1.2;font-weight:850;color:#b7deef;
+ font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+#page-agent-settlements .rona-ar-fx-value.positive{color:#91e3c1}
+#page-agent-settlements .rona-ar-fx-value.negative{color:#ff9cac}
+@media(max-width:720px){
+ #page-agent-settlements .rona-ar-fx-reference{align-items:flex-start;flex-direction:column;padding:13px 15px;gap:10px}
+ #page-agent-settlements .rona-ar-fx-value{font-size:17px;text-align:left}
+}
+
 `;document.head.append(s)
 }
 
@@ -442,9 +483,22 @@ function updateFinanceMeta(node,value){
   const fresh=financeMetaNode(value,node.className);
   node.replaceChildren(...Array.from(fresh.childNodes))
 }
+// Classify the financial meaning of a displayed row; signs alone do not mean profit.
+// Expenditure is not a gain merely because its absolute amount is positive.
+function financeMeaning(label){
+  const v=upper(label);
+  if(v.includes('АГЕНТСКОГО ВОЗНАГРАЖДЕНИЯ')||v.includes('АГЕНТСКОЕ ВОЗНАГРАЖДЕНИЕ'))return'agent';
+  if(v.includes('КУРСОВАЯ')||v.includes(' FX'))return'fx';
+  if(v.includes('НЕЗАКРЫТЫЕ РАСЧЁТЫ'))return'adjustment';
+  if(v.includes('ВЫРУЧКА')||v.includes('ВЫРУЧКУ')||v==='ПОСТУПИЛО')return'inflow';
+  if(v.includes('ОПЛАЧЕНО')||v.includes('РАСХОДЫ')||v.includes('КОМИССИИ')||v.includes('НАЛОГИ'))return'outflow';
+  if(v.includes('ПРИБЫЛЬ')||v.includes('РЕЗУЛЬТАТ')||v.includes('ЧИСТЫЙ ДДС'))return'result';
+  return'neutral'
+}
 function pnlRow(label,value,cur,{hint='',total=false,final=false,signed=false,status=''}={}){
   const r=el('div','rona-ar-row'+(total?' total':'')+(final?' final':'')),left=el('div'),right=el('div','rona-ar-value '+tone(value));
   r.dataset.rowIcon=rowVisualIcon(label);
+  r.dataset.financeMeaning=financeMeaning(label);
   left.append(el('div','rona-ar-name',label));if(hint)left.append(financeMetaNode(hint));
   if(label==='Агентское вознаграждение')r.classList.add('rona-ar-reward-focus');
   right.textContent=num(value)===null?'TO_VERIFY':(signed?signedMoney(value,cur):money(value,cur));
@@ -455,7 +509,7 @@ function expenseLines(lines,emptyText){
   const box=el('div','rona-ar-expenses');
   if(!lines.length){box.append(el('div','rona-ar-empty',emptyText));return box}
   for(const x of lines){
-    const row=el('div','rona-ar-exp-line'),name=el('div'),amount=el('div','rona-ar-exp-amount',money(x.amount,x.currency));
+    const row=el('div','rona-ar-exp-line'),name=el('div'),amount=el('div','rona-ar-exp-amount',money(x.amount,x.currency));row.dataset.financeMeaning='outflow';
     name.append(el('div','rona-ar-exp-name',x.label||x.counterparty||x.paymentId||'Расход'));
     const sub=[x.paymentId,(x.native||[]).join(' · '),x.source].filter(Boolean).join(' · ');
     if(sub)name.append(financeMetaNode(sub,'rona-ar-exp-sub',{force:!!x.paymentId||!!x.source}));
@@ -474,7 +528,7 @@ function transportBreakdownView(breakdown,status){
   const meta=[breakdown.basis_type,breakdown.note].filter(Boolean).join(' · ');
   if(meta)box.append(financeMetaNode(meta,'rona-ar-transport-meta'));
   for(const x of breakdown.components){
-    const row=el('div','rona-ar-transport-row'),left=el('div'),right=el('div');
+    const row=el('div','rona-ar-transport-row'),left=el('div'),right=el('div');row.dataset.financeMeaning='outflow';
     const label=el('div','rona-ar-transport-name',x.label||x.key||'Компонент тарифа');
     const formula=[];
     if(num(x.unit_rate)!==null&&x.unit)formula.push(fmt(x.unit_rate,4)+' '+x.unit);
@@ -561,12 +615,11 @@ function renderFact(deal){
   ));
   table.append(pnlRow('Банковские комиссии',m.bankFees,m.cur,{hint:'Фактически списанные комиссии'}));
   table.append(pnlRow('Чистый ДДС',m.netCashFlow,m.cur,{hint:'Поступления − выплаты − комиссии',final:true,signed:true}));
-  if(m.realizedFxReference!==null)table.append(pnlRow('Реализованный FX · справочно',m.realizedFxReference,m.cur,{hint:'Не включается повторно в Чистый ДДС',signed:true}));
   col.append(table);
   return col
 }
 function ownerInputRow(label,key,value,cur,hint){
-  const r=el('div','rona-ar-row'),left=el('div'),inp=el('input','rona-ar-input');
+  const r=el('div','rona-ar-row'),left=el('div'),inp=el('input','rona-ar-input');r.dataset.financeMeaning=financeMeaning(label);
   left.append(el('div','rona-ar-name',label));if(hint)left.append(financeMetaNode(hint));
   inp.type='number';inp.step='0.1';inp.inputMode='decimal';inp.value=num(value)===null?'':round1(value).toFixed(1);inp.placeholder='TO_VERIFY';inp.dataset.ownerKey=key;
   inp.setAttribute('aria-label',label+(cur?' ('+cur+')':''));
@@ -578,7 +631,7 @@ function ownerPaymentLines(lines,enabled){
   if(!lines.length){box.append(el('div','rona-ar-empty','Нет FACT-детализации выплат для корректировки.'));return box}
   for(const x of lines){
     const key=String(x.paymentId||'').trim();
-    const row=el('div','rona-ar-exp-line'),name=el('div'),inp=el('input','rona-ar-input');
+    const row=el('div','rona-ar-exp-line'),name=el('div'),inp=el('input','rona-ar-input');row.dataset.financeMeaning='outflow';
     name.append(el('div','rona-ar-exp-name',x.counterparty||x.paymentId||'Расход'));
     const sub=[
       x.paymentId,
@@ -661,7 +714,6 @@ function renderOwner(deal){
   table.append(ownerPaymentLines(base.paymentLines,editable));
   table.append(pnlRow('Банковские комиссии',base.bankFees,cur,{hint:'Точно из ФАКТ / ДДС'}));
   table.append(ownerComputedRow('Чистый ДДС','netCashFlow',base.netCashFlow,cur,'Поступления − скорректированные выплаты − комиссии'));
-  if(base.fxReference!==null)table.append(pnlRow('Реализованный FX · справочно',base.fxReference,cur,{hint:'Уже отражён в фактических платежах · повторно в результат не прибавляется',signed:true}));
   table.append(ownerInputRow(
     'Незакрытые расчёты',
     'openSettlementAdjustment',
@@ -707,6 +759,21 @@ function renderDealPulse(root,deal){
   );
   root.append(pulse,el('div','rona-ar-summary-note','Расчётное вознаграждение не означает произведённую выплату. Неподтверждённые показатели обозначены отдельно.'))
 }
+// Informational, source-locked value only: no inclusion in P&L or cash formulas.
+function renderFxReference(root,deal){
+  const fact=cashFactModel(deal);
+  if(!fact.approved||fact.realizedFxReference===null)return;
+  const fx=el('aside','rona-ar-fx-reference');
+  fx.dataset.ronaArFxReference='1';
+  fx.setAttribute('aria-label','Валютная справка по сделке');
+  const copy=el('div','rona-ar-fx-copy');
+  copy.append(
+    el('div','rona-ar-fx-label','Валютная справка · реализованный FX'),
+    el('div','rona-ar-fx-description','Уже отражён в фактических платежах. Повторно к Чистому ДДС и финансовому результату не прибавляется.')
+  );
+  const value=el('strong','rona-ar-fx-value '+tone(fact.realizedFxReference),signedMoney(fact.realizedFxReference,fact.cur));
+  fx.append(copy,value);root.append(fx)
+}
 function renderDealCards(root,deals){
   const grid=el('div','rona-ar-deals');
   for(const d of deals){
@@ -733,6 +800,7 @@ function render(){
   if(deal){
     const st=el('div','rona-ar-status');st.append(el('span','',deal.dealId+' · '+deal.clientName+' · '+(deal.agentName||'Агент')),el('strong','','Валюта P&L: '+(currencyOf(deal)||'TO_VERIFY')));root.append(st);
     renderDealPulse(root,deal);
+    renderFxReference(root,deal);
     const grid=el('div','rona-ar-pnl-grid');grid.append(renderPlan(deal),renderFact(deal),renderOwner(deal));root.append(grid);const balances=balancesView(deal);if(balances)root.append(balances)
   }
   replace(root)
