@@ -1,6 +1,7 @@
 // RONA Trade agent-company signed agreement archive.
 // Administrative document evidence only: never mutates deal terms, payables,
 // representative identities, or a signed agreement's legal approval state.
+import {adminActAction,actFiles,reviewState,agentInbox,agentDownload} from "./acts.ts";
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
 
@@ -46,6 +47,26 @@ async function context(req:Request){
     limit 2`;
   if(rows.length!==1)throw deny("PORTAL_SESSION_INVALID",401);
   if(!(rows[0].roles||[]).map(String).includes("ADMIN"))throw deny("ROLE_MISMATCH",403);
+  return{userId:String(rows[0].portal_user_id)};
+}
+async function agentContext(req:Request){
+  if(req.headers.has("x-rona-admin-impersonation-token"))throw deny("ADMIN_IMPERSONATION_DENIED",403);
+  const authorization=req.headers.get("authorization");
+  if(!authorization?.startsWith("Bearer "))throw deny("PORTAL_ACCESS_DENIED",401);
+  const token=authorization.slice(7),sid=jwtClaims(token).session_id;
+  if(typeof sid!=="string"||!UUID_RE.test(sid))throw deny("PORTAL_SESSION_INVALID",401);
+  const c=createClient(SUPA_URL!,key("pub"),{auth:{persistSession:false,autoRefreshToken:false},
+    global:{headers:{Authorization:authorization}}});
+  const {data,error}=await c.auth.getUser(token);
+  if(error||!data?.user)throw deny("PORTAL_ACCESS_DENIED",401);
+  const rows=await sql`
+    select p.portal_user_id,p.roles
+    from portal_private.resolve_portal_auth(${data.user.id}::uuid,${sid}) p
+    join auth.sessions sess on sess.id=${sid}::uuid and sess.user_id=${data.user.id}::uuid
+    where p.session_allowed and (sess.not_after is null or sess.not_after>now())
+    limit 2`;
+  if(rows.length!==1)throw deny("PORTAL_SESSION_INVALID",401);
+  if(!(rows[0].roles||[]).map(String).includes("AGENT"))throw deny("ROLE_MISMATCH",403);
   return{userId:String(rows[0].portal_user_id)};
 }
 async function audit(tx:any,ctx:{userId:string},req:Request,action:string,entityId:string,meta:Record<string,unknown>){
@@ -132,6 +153,11 @@ async function list(s:any){
  from portal_private.agent_reward_act_requests_v1 r
  where r.deal_key=${s.deal_key}::uuid and r.assignment_id=${s.assignment_id}::uuid
  order by r.requested_at desc limit 30`;
+ const enriched=[];
+ for(const a of acts){
+   const review=await reviewState(sql,String(a.id)),files=await actFiles(sql,String(a.id));
+   enriched.push({...a,review,documents:files});
+ }
  return{dealId:s.deal_id,assignmentId:s.assignment_id,agentCompanyId:s.agent_legal_entity_id,
    agentLegalName:s.legal_name,agentName:s.agent_name,assignmentStatus:s.assignment_status,
    term:term?{termId:term.id,mode:term.commission_mode,rate:term.commission_rate,
@@ -143,7 +169,7 @@ async function list(s:any){
      filename:addendum.filename,reference:addendum.document_reference,
      evidenceStatus:addendum.evidence_status}:null,
    ownerCorrection:correction?{sourceId:correction.id,version:correction.correction_version,
-     savedAt:correction.created_at}:null,acts}
+     savedAt:correction.created_at}:null,acts:enriched}
 }
 async function bind(actor:{userId:string},req:Request,s:any,body:any){
  const docId=String(body?.documentId||"");
@@ -204,8 +230,18 @@ async function requestAct(actor:{userId:string},req:Request,s:any){
 Deno.serve(async req=>{
  try{
    if(!["GET","POST"].includes(req.method))return send(405,{ok:false,code:"METHOD_NOT_ALLOWED"});
-   const ctx=await context(req),path=route(req);
-   const matched=path.match(/^\/admin\/deals\/(DEAL-20[0-9]{2}-[0-9]{3,})\/assignments\/([0-9a-f-]{36})(?:\/(addendum|acts))?$/i);
+   const path=route(req);
+   if(path==='/agent/acts'&&req.method==='GET'){
+     const agent=await agentContext(req);
+     return send(200,{ok:true,data:await agentInbox(sql,agent)})
+   }
+   const agentFile=path.match(/^\/agent\/acts\/([0-9a-f-]{36})\/documents\/([0-9a-f-]{36})\/download$/i);
+   if(agentFile&&req.method==='GET'){
+     const agent=await agentContext(req);
+     return send(200,{ok:true,data:await agentDownload(req,sql,service,agent,agentFile[1],agentFile[2])})
+   }
+   const ctx=await context(req);
+   const matched=path.match(/^\/admin\/deals\/(DEAL-20[0-9]{2}-[0-9]{3,})\/assignments\/([0-9a-f-]{36})(?:\/(addendum|acts|acts\/[0-9a-f-]{36}\/(?:upload|dispatch|documents\/[0-9a-f-]{36}\/download)))?$/i);
    if(!matched)return send(404,{ok:false,code:"ROUTE_NOT_FOUND"});
    const s=await scope(matched[1],matched[2]),action=matched[3]||"";
    if(req.method==="GET"&&!action)return send(200,{ok:true,data:await list(s)});
@@ -213,6 +249,10 @@ Deno.serve(async req=>{
      return send(200,{ok:true,data:await bind(ctx,req,s,await req.json().catch(()=>({})))});
    if(req.method==="POST"&&action==="acts")
      return send(201,{ok:true,data:await requestAct(ctx,req,s)});
+    if(action.startsWith('acts/')){
+      const payload=await adminActAction(req,sql,service,ctx,s,action,new URL(req.url).searchParams.get('stage')||'');
+      return send(req.method==='POST'?201:200,{ok:true,data:payload})
+    }
    return send(404,{ok:false,code:"ROUTE_NOT_FOUND"})
  }catch(error){
    const status=Number((error as any)?.status)||500;
