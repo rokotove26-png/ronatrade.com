@@ -107,7 +107,7 @@ function currentUiRuntime(){
     const errors={
       PDF_REQUIRED:'Выберите PDF-файл.',
       PDF_TYPE_INVALID:'Допускаются только подписанные документы в формате PDF.',
-      PDF_SIZE_INVALID:'Файл должен быть не больше 90 МБ.',
+      PDF_SIZE_INVALID:'Файл должен быть не больше 20 МБ.',
       PDF_SIGNATURE_INVALID:'Выбранный файл не является PDF.',
       SIGNED_DOCUMENT_ATTESTATION_REQUIRED:'Подтвердите, что договор подписан сторонами.',
       AGENCY_DOCUMENT_ALREADY_ARCHIVED:'Такой PDF уже хранится у выбранной агентской компании.',
@@ -147,13 +147,13 @@ function currentUiRuntime(){
       'Подтверждаю, что загружаемый PDF подписан сторонами и относится к выбранной агентской компании.');
     agree.type='checkbox';acknowledgement.append(agree,statement);
     form.append(label('Тип подписанного документа',kind),label('Номер договора / ДС (при наличии)',reference),
-      label('Подписанный PDF (до 90 МБ)',fileInput),acknowledgement);
+      label('Подписанный PDF (до 20 МБ)',fileInput),acknowledgement);
     const actions=el('div','ca-modal-actions'),cancel=el('button','ca-btn','Отмена'),
       upload=el('button','ca-primary','Сохранить документ');
     cancel.type=upload.type='button';cancel.onclick=close;
     upload.onclick=async()=>{
       const file=fileInput.files?.[0];if(!file)return notice('Выберите подписанный PDF.','Проверка');
-      if(file.size<=0||file.size>90*1024*1024)return notice('Размер PDF должен быть до 90 МБ.','Проверка');
+      if(file.size<=0||file.size>20*1024*1024)return notice('Размер PDF должен быть до 20 МБ.','Проверка');
       if(!agree.checked)return notice('Подтвердите подписание документа.','Проверка');
       if(!/\.pdf$/i.test(file.name)||(file.type&&file.type!=='application/pdf'))
         return notice('Допускается только файл PDF.','Проверка');
