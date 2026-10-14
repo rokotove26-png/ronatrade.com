@@ -65,6 +65,7 @@ function installStyle(){
 .rona-ar-expenses{padding:9px 15px 10px;background:linear-gradient(180deg,rgba(2,10,18,.22),rgba(2,10,18,.12));box-shadow:inset 0 1px rgba(128,203,230,.035)}.rona-ar-transport{margin:0 11px 11px;border:1px solid rgba(75,220,255,.15);border-radius:11px;overflow:hidden;background:linear-gradient(180deg,rgba(4,18,29,.82),rgba(3,12,21,.72))}.rona-ar-transport-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;border-bottom:1px solid rgba(128,191,222,.1);background:linear-gradient(90deg,rgba(75,220,255,.055),transparent)}.rona-ar-transport-title{font-size:10.5px;font-weight:950;color:#dff7ff;letter-spacing:.015em}.rona-ar-transport-meta{padding:8px 11px;color:#7894a8;font-size:9.25px;line-height:1.35;border-bottom:1px dashed rgba(128,191,222,.08)}.rona-ar-transport-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 11px;border-top:1px solid rgba(128,191,222,.07)}.rona-ar-transport-row:first-of-type{border-top:0}.rona-ar-transport-name{font-size:10.5px;font-weight:860;color:#cae3ef}.rona-ar-transport-formula{margin-top:3px;color:#7edff3;font-size:9.5px;font-variant-numeric:tabular-nums}.rona-ar-transport-status{margin-top:3px;color:#79d9b8;font-size:8.6px;font-weight:850;letter-spacing:.02em}.rona-ar-transport-status.warn{color:#f2ca73}.rona-ar-transport-amount{font-size:11px;font-weight:950;color:#edfaff;text-align:right;font-variant-numeric:tabular-nums}.rona-ar-transport-conflict{margin:8px 10px 10px;padding:9px 10px;border:1px solid rgba(245,201,106,.26);border-radius:9px;background:rgba(245,201,106,.055);color:#d8bd78;font-size:9.25px;line-height:1.35}.rona-ar-transport-conflict-title{margin-bottom:4px;color:#f4d884;font-weight:950}.rona-ar-transport-conflict-action{margin-top:5px;color:#a99463;font-size:8.6px}.rona-ar-fact-alert{margin:11px 11px 0;padding:11px 12px;border:1px solid rgba(245,201,106,.28);border-radius:10px;background:rgba(245,201,106,.055);color:#cbb47c;font-size:9.8px;line-height:1.45}.rona-ar-fact-alert-title{margin-bottom:5px;color:#f1d27c;font-size:10.5px;font-weight:950}.rona-ar-fact-cash{margin-top:6px;color:#9db5c4}.rona-ar-settlement{margin:0 11px 11px;border:1px solid rgba(62,231,177,.15);border-radius:11px;overflow:hidden;background:linear-gradient(180deg,rgba(4,21,27,.76),rgba(3,13,21,.72))}.rona-ar-settlement-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;border-bottom:1px solid rgba(62,231,177,.12);background:linear-gradient(90deg,rgba(62,231,177,.055),transparent)}.rona-ar-settlement-title{font-size:10.5px;font-weight:950;color:#dffdf3}.rona-ar-settlement-row{padding:10px 11px;border-top:1px solid rgba(128,191,222,.07)}.rona-ar-settlement-row:first-of-type{border-top:0}.rona-ar-settlement-row-top{display:flex;justify-content:space-between;align-items:center;gap:8px}.rona-ar-settlement-counterparty{font-size:10.4px;font-weight:900;color:#d1e8f1}.rona-ar-settlement-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}.rona-ar-settlement-cell{padding:7px 8px;border:1px solid rgba(128,191,222,.09);border-radius:7px;background:rgba(4,15,24,.46)}.rona-ar-settlement-k{font-size:8.2px;color:#718b9e;text-transform:uppercase;letter-spacing:.06em}.rona-ar-settlement-v{margin-top:3px;font-size:10px;font-weight:900;color:#e8f8fd;font-variant-numeric:tabular-nums}.rona-ar-settlement-status{margin-top:6px;color:#7d98a9;font-size:8.5px;line-height:1.35}.rona-ar-conditional{margin:8px 10px 10px;padding:9px 10px;border:1px solid rgba(185,167,255,.16);border-radius:9px;background:rgba(120,90,210,.035)}.rona-ar-conditional-title{margin-bottom:6px;color:#bfb2e8;font-size:9px;font-weight:950}.rona-ar-conditional-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:5px 0;color:#91a6b5;font-size:8.8px}.rona-ar-conditional-row strong{color:#e0d9f8;font-variant-numeric:tabular-nums}.rona-ar-exp-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:7px 0;border-top:1px dashed rgba(128,191,222,.10);font-size:10.5px}.rona-ar-exp-line:first-child{border-top:0}.rona-ar-exp-name{color:#c8d6e4}.rona-ar-exp-sub{margin-top:3px;color:var(--ar-muted);font-size:9.5px}.rona-ar-exp-amount{font-weight:850;text-align:right}.rona-ar-empty{padding:10px 15px;color:var(--ar-muted);font-size:10.5px}
 .rona-ar-input{width:132px;max-width:100%;padding:9px 10px;border:1px solid rgba(185,167,255,.24);border-radius:8px;background:linear-gradient(180deg,rgba(18,27,47,.65),rgba(10,20,36,.65));color:#f8fafc;font:inherit;font-size:12.5px;font-weight:880;text-align:right;outline:none;font-variant-numeric:tabular-nums}.rona-ar-input:focus{border-color:rgba(185,167,255,.62);box-shadow:0 0 0 2px rgba(139,92,246,.09),0 0 22px rgba(139,92,246,.08)}.rona-ar-owner-note{padding:12px 14px}.rona-ar-owner-note textarea{width:100%;min-height:74px;resize:vertical;padding:10px 11px;border:1px solid rgba(179,156,255,.18);border-radius:8px;background:rgba(15,23,42,.42);color:#edf7ff;font:inherit;font-size:11.5px;outline:none}
 .rona-ar-actions{display:flex;gap:10px;padding:13px 14px;border-top:1px solid rgba(128,191,222,.12);background:rgba(2,10,18,.15)}.rona-ar-btn{min-height:40px;padding:0 14px;border:1px solid rgba(128,191,222,.18);border-radius:8px;background:linear-gradient(180deg,rgba(16,30,45,.72),rgba(8,19,31,.72));color:#edf7ff;font:inherit;font-size:11.25px;font-weight:950;cursor:pointer}.rona-ar-btn.primary{border-color:rgba(185,167,255,.42);background:linear-gradient(135deg,rgba(112,73,219,.84),rgba(55,94,189,.84));box-shadow:0 8px 24px rgba(86,72,185,.14)}.rona-ar-btn.send{margin-left:auto;color:#a5f3fc}.rona-ar-balances{border:1px solid rgba(128,191,222,.15);border-radius:14px;overflow:hidden;background:linear-gradient(180deg,rgba(6,18,29,.92),rgba(4,13,22,.94));box-shadow:0 16px 38px rgba(0,0,0,.15)}.rona-ar-balances-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid rgba(128,191,222,.1);background:linear-gradient(90deg,rgba(75,220,255,.045),transparent)}.rona-ar-balances-title{font-size:12.5px;font-weight:950;color:#e9f8fd}.rona-ar-balances-sub{margin-top:3px;font-size:9.5px;color:#7892a5}.rona-ar-balances-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0}.rona-ar-balance-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:10px 14px;border-top:1px solid rgba(128,191,222,.07)}.rona-ar-balance-row:nth-child(odd){border-right:1px solid rgba(128,191,222,.07)}.rona-ar-balance-left{display:flex;align-items:center;gap:9px;min-width:0}.rona-ar-balance-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cbdde6;font-size:10.5px;font-weight:850}.rona-ar-balance-right{display:flex;align-items:flex-end;flex-direction:column;gap:2px;white-space:nowrap}.rona-ar-balance-right strong{font-size:11.5px;color:#f1fbff;font-variant-numeric:tabular-nums}.rona-ar-balance-right span{font-size:7.8px;color:#6f899b;max-width:240px;overflow:hidden;text-overflow:ellipsis}.rona-ar-balances-note{padding:8px 14px;border-top:1px dashed rgba(128,191,222,.08);color:#7e93a2;font-size:8.7px}.rona-ar-btn:disabled{opacity:.38;cursor:not-allowed}
+.rona-ar-col.fact .rona-ar-balances{margin:2px 10px 12px;border-color:rgba(128,203,230,.2);background:rgba(4,15,25,.75);box-shadow:none}.rona-ar-col.fact .rona-ar-balances-list{grid-template-columns:minmax(0,1fr)}.rona-ar-col.fact .rona-ar-balance-row{padding:9px 11px}.rona-ar-col.fact .rona-ar-balance-row:nth-child(odd){border-right:0}.rona-ar-col.fact .rona-ar-balances-head{padding:10px 11px}.rona-ar-col.owner .rona-ar-owner-adjustment{margin:2px 10px 11px;border:1px solid rgba(185,167,255,.15);border-radius:9px;background:rgba(20,24,42,.2)}.rona-ar-col.owner .rona-ar-owner-adjustment>.rona-ar-row{padding:10px 11px;border-top:0}
 .rona-ar-loader{display:grid;place-items:center;min-height:260px;border:1px solid var(--ar-line);border-radius:14px;background:rgba(7,17,29,.8);font-size:11px;color:var(--ar-muted)}
 @media(max-width:1380px){.rona-ar-canonical-head>.rona-ar-hero{grid-template-columns:minmax(0,1fr) 420px}.rona-ar-flow{grid-template-columns:repeat(4,minmax(72px,1fr))}.rona-ar-pulse{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:1260px){.rona-ar-pnl-grid{grid-template-columns:repeat(3,minmax(390px,1fr));overflow-x:auto;padding-bottom:4px}}@media(max-width:980px){.rona-ar-canonical-head>.rona-ar-hero{grid-template-columns:1fr;min-height:150px}.rona-ar-flow{max-width:620px}.rona-ar-pulse{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:720px){.rona-ar-canonical-head>.rona-ar-hero{padding:21px 19px;border-radius:18px}.rona-ar-flow{grid-template-columns:repeat(2,minmax(0,1fr))}.rona-ar-flow-step:nth-child(2)::after{display:none}.rona-ar-finance-banner{align-items:flex-start;flex-direction:column}.rona-ar-deals{grid-template-columns:1fr}.rona-ar-pulse{grid-template-columns:1fr}}
 
@@ -518,7 +519,7 @@ function rowVisualIcon(label){
   if(s.includes('КОМИСС'))return'¤';
   if(s.includes('ДДС'))return'↕';
   if(s.includes('FX')||s.includes('КУРС'))return'⇄';
-  if(s.includes('НЕЗАКРЫТ'))return'◎';
+  if(s.includes('ВЗАИМОРАСЧЁТ')||s.includes('КОРРЕКТИРОВКА РАСХОДОВ'))return'◎';
   if(s.includes('ФИНАНСОВ'))return'Σ';
   if(s.includes('ЧИСТ')||s.includes('ПРИБЫЛЬ RONA'))return'◆';
   if(s.includes('АГЕНТ'))return'◇';
@@ -548,7 +549,7 @@ function financeMeaning(label){
   const v=upper(label);
   if(v.includes('АГЕНТСКОГО ВОЗНАГРАЖДЕНИЯ')||v.includes('АГЕНТСКОЕ ВОЗНАГРАЖДЕНИЕ'))return'agent';
   if(v.includes('КУРСОВАЯ')||v.includes(' FX'))return'fx';
-  if(v.includes('НЕЗАКРЫТЫЕ РАСЧЁТЫ'))return'adjustment';
+  if(v.includes('ВЗАИМОРАСЧЁТ')||v.includes('КОРРЕКТИРОВКА РАСХОДОВ'))return'adjustment';
   if(v.includes('ВЫРУЧКА')||v.includes('ВЫРУЧКУ')||v.includes('ДОХОДЫ')||v==='ПОСТУПИЛО')return'inflow';
   if(v.includes('ОПЛАЧЕНО')||v.includes('РАСХОДЫ')||v.includes('КОМИССИИ')||v.includes('НАЛОГИ'))return'outflow';
   if(v.includes('ПРИБЫЛЬ')||v.includes('РЕЗУЛЬТАТ')||v.includes('ЧИСТЫЙ ДДС'))return'result';
@@ -612,8 +613,8 @@ function balancesView(deal){
   if(!rows.length)return null;
   const box=el('section','rona-ar-balances');
   const head=el('div','rona-ar-balances-head'),copy=el('div');
-  copy.append(el('div','rona-ar-balances-title','Незакрытые расчёты'),el('div','rona-ar-balances-sub','ДЗ / КЗ / авансы · отдельно от ДДС'));
-  head.append(copy,chip('РАСЧЁТЫ',''));box.append(head);
+  copy.append(el('div','rona-ar-balances-title','Задолженность и авансы по контрагентам'),el('div','rona-ar-balances-sub','Кредиторская / дебиторская задолженность · авансы · справочно'));
+  head.append(copy,chip('САЛЬДО',''));box.append(head);
   const list=el('div','rona-ar-balances-list');
   for(const x of rows){
     const status=String(x.status||'TO_VERIFY'),kind=balanceKind(x),warn=upper(status).includes('TO_VERIFY')||upper(status).includes('PROVISIONAL');
@@ -622,7 +623,7 @@ function balancesView(deal){
     right.append(el('strong','',money(x.balance_amount,x.currency)),el('span','',status));
     row.append(left,right);list.append(row)
   }
-  box.append(list);
+  box.append(list,el('div','rona-ar-balances-note','Справочные остатки: не являются подтверждёнными расходами или платежами, не включаются повторно в сумму расходов и управленческую прибыль.'));
   if(Array.isArray(deal?.conditionalPositions)&&deal.conditionalPositions.length){
     box.append(el('div','rona-ar-balances-note','Условные претензии и HOLD-позиции в ДЗ/КЗ не включены.'));
   }
@@ -649,12 +650,23 @@ function renderFact(deal){
     m.approved?'Подтверждённых выплат контрагентам нет.':'Выплаты TO_VERIFY.'
   ));
   table.append(pnlRow('Банковские комиссии',m.bankFees,m.cur,{hint:'Фактически списанные комиссии, уже включены в Расходы'}));
+  const settlements=balancesView(deal);
+  if(settlements)table.append(settlements);
   table.append(pnlRow('Прибыль до налогообложения',pnl.preTaxProfit,m.cur,{hint:'Доходы − Расходы',total:true,signed:true}));
   table.append(pnlRow('Налоги и платежи (10%)',pnl.taxes,m.cur,{hint:'Управленческое начисление · 10% от положительной прибыли'}));
   table.append(pnlRow('Чистая прибыль',pnl.netProfit,m.cur,{hint:'Прибыль до налогообложения − расчётный налог',total:true,signed:true}));
   table.append(pnlRow('Агентское вознаграждение',pnl.reward.value,m.cur,{hint:'База — Чистая прибыль · '+pnl.reward.status}));
   table.append(pnlRow('Прибыль RONA',pnl.ronaProfit,m.cur,{hint:'Чистая прибыль − Агентское вознаграждение',final:true,signed:true}));
   col.append(table);return col
+}
+// Visual-only sign convention for the expense ledger: + expense, - income.
+// Existing Finance and audited correction payloads retain their source sign:
+// + source => income, - source => expense. Never rewrite stored records.
+function expenseDeltaFromSource(value){
+  const v=num(value);return v===null?null:round1(-v)
+}
+function sourceDeltaFromExpenseInput(value){
+  const v=round1(value);return v===null?null:-v
 }
 function ownerInputRow(label,key,value,cur,hint){
   const r=el('div','rona-ar-row'),left=el('div'),inp=el('input','rona-ar-input');r.dataset.financeMeaning=financeMeaning(label);
@@ -753,7 +765,7 @@ function recomputeOwner(col,deal,fact,cur){
   const counterpartyCashOut=fact.counterpartyCashOut===null||!paymentComplete?null:fact.counterpartyCashOut+paymentDelta;
   const netCashFlow=fact.cashReceived===null||counterpartyCashOut===null||fact.bankFees===null
     ?null:fact.cashReceived-counterpartyCashOut-fact.bankFees;
-  const openSettlementAdjustment=round1(q('[data-owner-key="openSettlementAdjustment"]',col)?.value);
+  const openSettlementAdjustment=sourceDeltaFromExpenseInput(q('[data-owner-key="openSettlementAdjustment"]',col)?.value);
   const income=netCashFlow===null||openSettlementAdjustment===null
     ?null:fact.cashReceived+Math.max(0,openSettlementAdjustment);
   const expenses=netCashFlow===null||openSettlementAdjustment===null
@@ -789,24 +801,26 @@ function renderOwner(deal){
     !editable
       ?(!fact.approved?'ФАКТ TO_VERIFY':!base.bridgeApproved?'Расчётный мост TO_VERIFY':'Корректировка не подтверждена Finance → Operations')
       :saved
-        ?'Корректировки выплат + незакрытые расчёты · версия '+deal.ownerCorrection.version+' · '+new Date(deal.ownerCorrection.createdAt).toLocaleString('ru-RU')
+        ?'Корректировки выплат и расходов (доходов) · версия '+deal.ownerCorrection.version+' · '+new Date(deal.ownerCorrection.createdAt).toLocaleString('ru-RU')
         :'Сверенный ФАКТ → корректировки → единый налог 10% → чистая прибыль',
     !editable?'TO VERIFY':saved?'СОХРАНЕНО':'РАСЧЁТ',
     !editable?'warn':saved?'good':''
   ));
   const table=el('div','rona-ar-table');
-  table.append(ownerComputedRow('Доходы','income',base.income,cur,'Подтверждённые поступления + положительная управленческая корректировка',false,false));
-  table.append(ownerComputedRow('Расходы','expenses',base.expenses,cur,'Выплаты + комиссии + отрицательная управленческая корректировка',false,false));
+  table.append(ownerComputedRow('Доходы','income',base.income,cur,'Подтверждённые поступления и расчётный доход при отрицательной корректировке',false,false));
+  table.append(ownerComputedRow('Расходы','expenses',base.expenses,cur,'Выплаты, комиссии и расчётный расход при положительной корректировке',false,false));
   table.append(ownerComputedRow('Оплачено контрагентам','counterpartyCashOut',base.counterpartyCashOut,cur,'FACT + корректировки платежей по контрагентам',false,false));
   table.append(ownerPaymentLines(base.paymentLines,editable));
   table.append(pnlRow('Банковские комиссии',base.bankFees,cur,{hint:'Подтверждённые комиссии включены в Расходы'}));
-  table.append(ownerInputRow(
-    'Незакрытые расчёты',
+  const adjustmentGroup=el('div','rona-ar-owner-adjustment');
+  adjustmentGroup.append(ownerInputRow(
+    'Корректировка расходов (доходов)',
     'openSettlementAdjustment',
-    base.openSettlementAdjustment,
+    expenseDeltaFromSource(base.openSettlementAdjustment),
     cur,
-    editable?'Положительное значение увеличивает Доходы, отрицательное увеличивает Расходы':'TO_VERIFY: нужен подтверждённый расчётный мост'
+    editable?'Плюс — дополнительный расход, минус — дополнительный доход. Управленческая корректировка, не банковский платёж.':'TO_VERIFY: нужен подтверждённый расчётный мост'
   ));
+  table.append(adjustmentGroup);
   table.append(ownerComputedRow('Прибыль до налогообложения','actualFinancialResult',base.actualFinancialResult,cur,'Доходы − Расходы'));
   table.append(ownerComputedRow('Налоги и платежи (10%)','taxes',base.taxes,cur,'Управленческий расчёт 10% от положительной прибыли',false,false));
   table.append(ownerComputedRow('Чистая прибыль','netProfit',base.netProfit,cur,'Прибыль до налогообложения − расчётный налог'));
@@ -907,7 +921,7 @@ function render(){
     const st=el('div','rona-ar-status');st.append(el('span','',deal.dealId+' · '+deal.clientName+' · '+(deal.agentName||'Агент')),el('strong','','Валюта P&L: '+(currencyOf(deal)||'TO_VERIFY')));root.append(st);
     renderDealPulse(root,deal);
     renderFxReference(root,deal);
-    const grid=el('div','rona-ar-pnl-grid');grid.append(renderPlan(deal),renderFact(deal),renderOwner(deal));root.append(grid);const balances=balancesView(deal);if(balances)root.append(balances)
+    const grid=el('div','rona-ar-pnl-grid');grid.append(renderPlan(deal),renderFact(deal),renderOwner(deal));root.append(grid)
   }
   replace(root)
 }

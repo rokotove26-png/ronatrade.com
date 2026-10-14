@@ -29,7 +29,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify authorized current-Finance reconciliation delta only
+      - name: Verify scoped Agent Rewards financial UI changes
         shell: bash
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -37,14 +37,14 @@ jobs:
           set -euo pipefail
           git diff --name-only "$BASE_SHA" HEAD > /tmp/agent-rewards-ui-files.txt
           cat /tmp/agent-rewards-ui-files.txt
-          if grep -Ev '^(functions/portal/(agent-rewards-v1-ui|owner-api)\.js|tests/admin-agent-rewards-(finance-workspace-v1|executive-visual)\.test\.mjs|tests/fixtures/agent-rewards-finance-v(16-integration|18-effective-chains-integration)\.sql|supabase/migrations/20261014(113000_agent_rewards_current_finance_reconciled_v16|114500_agent_rewards_reconciled_owner_correction_v17|120000_agent_rewards_current_finance_effective_chains_v18|121500_agent_rewards_effective_chain_owner_correction_v19)\.sql|\.github/workflows/admin-agent-rewards-(executive-visual-qa|functional-finance-qa)\.yml)
+          if grep -Ev '^(functions/portal/(agent-rewards-v1-ui|owner-api)\.js|tests/admin-agent-rewards-(finance-workspace-v1|executive-visual)\.test\.mjs|tests/fixtures/agent-rewards-finance-v(16-integration|18-effective-chains-integration)\.sql|supabase/migrations/20261014(113000_agent_rewards_current_finance_reconciled_v16|114500_agent_rewards_reconciled_owner_correction_v17|120000_agent_rewards_current_finance_effective_chains_v18|121500_agent_rewards_effective_chain_owner_correction_v19)\.sql|\.github/workflows/admin-agent-rewards-(executive-visual-qa|functional-finance-qa)\.yml)$' /tmp/agent-rewards-ui-files.txt; then
             echo "FINANCE_UI_SCOPE_VIOLATION" >&2
             exit 1
           fi
           test -s /tmp/agent-rewards-ui-files.txt
           grep -Fxq 'functions/portal/agent-rewards-v1-ui.js' /tmp/agent-rewards-ui-files.txt
           grep -Fxq 'tests/admin-agent-rewards-executive-visual.test.mjs' /tmp/agent-rewards-ui-files.txt
-          echo 'FINANCE_RECONCILIATION_SCOPE=PASS'
+          echo 'FINANCE_UI_SCOPE=PASS'
       - name: Verify finance P&L contract and unchanged authority
         run: |
           node --check functions/portal/agent-rewards-v1-ui.js
@@ -53,23 +53,5 @@ jobs:
         run: |
           npm install --no-save --no-package-lock playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Render real dashboard and verify typography, hierarchy, disclosures and safe inputs
-        run: node --test tests/admin-agent-rewards-executive-visual.test.mjs
- /tmp/agent-rewards-ui-files.txt; then
-            echo "FINANCE_UI_SCOPE_VIOLATION" >&2
-            exit 1
-          fi
-          test -s /tmp/agent-rewards-ui-files.txt
-          grep -Fxq 'functions/portal/agent-rewards-v1-ui.js' /tmp/agent-rewards-ui-files.txt
-          grep -Fxq 'tests/admin-agent-rewards-executive-visual.test.mjs' /tmp/agent-rewards-ui-files.txt
-          echo 'FINANCE_PRESENTATION_DELTA_ONLY=PASS'
-      - name: Verify finance P&L contract and unchanged authority
-        run: |
-          node --check functions/portal/agent-rewards-v1-ui.js
-          node --test tests/admin-agent-rewards-finance-workspace-v1.test.mjs
-      - name: Install Chromium for rendered Admin finance view
-        run: |
-          npm install --no-save --no-package-lock playwright@1.55.0
-          npx playwright install --with-deps chromium
-      - name: Render real dashboard and verify typography, hierarchy, disclosures and safe inputs
+      - name: Render dashboard and verify expense grouping
         run: node --test tests/admin-agent-rewards-executive-visual.test.mjs
