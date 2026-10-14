@@ -272,7 +272,7 @@ test('Rendered company master-detail keeps verified PDF and agent assignment wor
       assert.equal(await page.locator('[data-rona-company-select="RONA-QA-C002"]').getAttribute('aria-pressed'),'true');
       assert.equal(await page.locator('.ca-company-profile .ca-agent-title').textContent(),second.legal_name);
       assert.equal(await page.locator('.ca-company-contract-row .rona-current-state.missing').count(),1);
-      assert.equal(await page.locator('[data-rona-company-contract-attach] , [data-rona-company-contract-attach="true"]').count(),1);
+      assert.equal(await page.locator('[data-rona-company-contract-attach="true"]').count(),1);
       assert.equal(await page.locator('.ca-company-rep-list .ca-agent-entry').count(),1);
       assert.equal(await page.locator('.ca-company-rep-list').innerText().then(x=>x.includes('QA Client Representative')),true);
       const chooserPromise=page.waitForEvent('filechooser');
@@ -285,7 +285,7 @@ test('Rendered company master-detail keeps verified PDF and agent assignment wor
       assert.equal(await page.locator('[data-rona-company-contract-attach="true"]').count(),0);
       assert(mutations.some(m=>m.action==='signed-PDF'&&m.path.endsWith('/QA-CTR-002/signed-document/attach')&&m.hasPdf));
       const notice=page.locator('.ca-modal-backdrop').last();
-      if(await notice.count())await notice.getByRole('button',{name:'Закрыть'}).click();
+      await notice.getByRole('button',{name:'Закрыть'}).click();
       assert.equal(await page.locator('.ca-company-agent-form select').count(),0,'Unknown agent registry must not imply edit rights');
       await page.getByRole('button',{name:'Загрузить реестр агентов'}).click();
       const agentSelect=page.getByRole('combobox',{name:'Агент компании'});
@@ -297,11 +297,11 @@ test('Rendered company master-detail keeps verified PDF and agent assignment wor
       assert(mutations.some(m=>m.action==='agent'&&m.path.endsWith('/RONA-QA-C002/agent')
         &&m.body.agentPersonId==='AGP-2026-001'));
       const assignmentNotice=page.locator('.ca-modal-backdrop').last();
-      if(await assignmentNotice.count())await assignmentNotice.getByRole('button',{name:'Закрыть'}).click();
+      await assignmentNotice.getByRole('button',{name:'Закрыть'}).click();
       await page.getByRole('button',{name:'Опция',exact:true}).click();
       const optionsModal=page.locator('.ca-modal-backdrop').last();
       await page.waitForFunction(()=>[...document.querySelectorAll('.ca-modal-backdrop')].some(
-        el=>el.textContent.includes('административном режиме просмотра')),{timeout:10000});
+        el=>el.textContent.includes('административном режиме просмотра')),null,{timeout:10000});
       assert((await optionsModal.innerText()).includes('административном режиме просмотра'));
       await optionsModal.getByRole('button',{name:'Закрыть'}).click();
       await page.getByRole('button',{name:'Открыть управление доступами'}).click();
