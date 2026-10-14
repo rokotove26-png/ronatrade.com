@@ -67,8 +67,11 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
    deny('ACT_DRAFT_WRONG_STAGE');
  if(stage==='OWNER_SIGNED'&&(row.request_status!=='DRAFT_READY'||!await stageExists(sql,row.id,'FINANCE_LEGAL_DRAFT')))
    deny('FINANCE_LEGAL_DRAFT_REQUIRED');
- if(stage==='BOTH_SIGNED'&&(row.request_status!=='AWAITING_AGENT_SIGNATURE'||!await stageExists(sql,row.id,'OWNER_SIGNED')))
-   deny('AGENT_SIGNATURE_REQUEST_REQUIRED');
+ // Owner may register a PDF signed by both parties through the Admin cabinet.
+ // No delivery to the unimplemented Agent cabinet is implied or recorded.
+ if(stage==='BOTH_SIGNED'&&(!['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'].includes(row.request_status)
+    ||!await stageExists(sql,row.id,'OWNER_SIGNED')))
+   deny('OWNER_SIGNED_ACT_REQUIRED');
  let form:FormData;try{form=await req.formData()}catch{deny('INVALID_MULTIPART',400)}
  const file=form!.get('file');
  if(!(file instanceof File)||file.size<1||file.size>MAX)deny('PDF_SIZE_INVALID',400);
