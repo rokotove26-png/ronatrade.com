@@ -1,7 +1,8 @@
 function currentUiRuntime(){
   'use strict';
   if(window.__RONA_CLIENTS_AGENTS_CURRENT__)return;
-  window.__RONA_CLIENTS_AGENTS_CURRENT__='20261014-corporate-agents-signed-archive-v1';
+  window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5';
+  window.__RONA_AGENCY_COMPANY_CONTRACT_UI__='legal-entity-signed-archive-v1';
   window.__RONA_CLIENTS_AGENTS_CURRENT_READY__=false;
   window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING';
   window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5';
