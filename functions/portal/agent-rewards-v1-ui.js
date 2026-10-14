@@ -519,7 +519,7 @@ function rowVisualIcon(label){
   if(s.includes('КОМИСС'))return'¤';
   if(s.includes('ДДС'))return'↕';
   if(s.includes('FX')||s.includes('КУРС'))return'⇄';
-  if(s.includes('ВЗАИМОРАСЧЁТ'))return'◎';
+  if(s.includes('ВЗАИМОРАСЧЁТ')||s.includes('КОРРЕКТИРОВКА РАСХОДОВ'))return'◎';
   if(s.includes('ФИНАНСОВ'))return'Σ';
   if(s.includes('ЧИСТ')||s.includes('ПРИБЫЛЬ RONA'))return'◆';
   if(s.includes('АГЕНТ'))return'◇';
@@ -549,7 +549,7 @@ function financeMeaning(label){
   const v=upper(label);
   if(v.includes('АГЕНТСКОГО ВОЗНАГРАЖДЕНИЯ')||v.includes('АГЕНТСКОЕ ВОЗНАГРАЖДЕНИЕ'))return'agent';
   if(v.includes('КУРСОВАЯ')||v.includes(' FX'))return'fx';
-  if(v.includes('ВЗАИМОРАСЧЁТ'))return'adjustment';
+  if(v.includes('ВЗАИМОРАСЧЁТ')||v.includes('КОРРЕКТИРОВКА РАСХОДОВ'))return'adjustment';
   if(v.includes('ВЫРУЧКА')||v.includes('ВЫРУЧКУ')||v.includes('ДОХОДЫ')||v==='ПОСТУПИЛО')return'inflow';
   if(v.includes('ОПЛАЧЕНО')||v.includes('РАСХОДЫ')||v.includes('КОМИССИИ')||v.includes('НАЛОГИ'))return'outflow';
   if(v.includes('ПРИБЫЛЬ')||v.includes('РЕЗУЛЬТАТ')||v.includes('ЧИСТЫЙ ДДС'))return'result';
@@ -659,6 +659,15 @@ function renderFact(deal){
   table.append(pnlRow('Прибыль RONA',pnl.ronaProfit,m.cur,{hint:'Чистая прибыль − Агентское вознаграждение',final:true,signed:true}));
   col.append(table);return col
 }
+// Visual-only sign convention for the expense ledger: + expense, - income.
+// Existing Finance and audited correction payloads retain their source sign:
+// + source => income, - source => expense. Never rewrite stored records.
+function expenseDeltaFromSource(value){
+  const v=num(value);return v===null?null:round1(-v)
+}
+function sourceDeltaFromExpenseInput(value){
+  const v=round1(value);return v===null?null:-v
+}
 function ownerInputRow(label,key,value,cur,hint){
   const r=el('div','rona-ar-row'),left=el('div'),inp=el('input','rona-ar-input');r.dataset.financeMeaning=financeMeaning(label);
   const labelNode=el('div','rona-ar-name',label);if(hint)labelNode.title=String(hint);left.append(labelNode);
@@ -756,7 +765,7 @@ function recomputeOwner(col,deal,fact,cur){
   const counterpartyCashOut=fact.counterpartyCashOut===null||!paymentComplete?null:fact.counterpartyCashOut+paymentDelta;
   const netCashFlow=fact.cashReceived===null||counterpartyCashOut===null||fact.bankFees===null
     ?null:fact.cashReceived-counterpartyCashOut-fact.bankFees;
-  const openSettlementAdjustment=round1(q('[data-owner-key="openSettlementAdjustment"]',col)?.value);
+  const openSettlementAdjustment=sourceDeltaFromExpenseInput(q('[data-owner-key="openSettlementAdjustment"]',col)?.value);
   const income=netCashFlow===null||openSettlementAdjustment===null
     ?null:fact.cashReceived+Math.max(0,openSettlementAdjustment);
   const expenses=netCashFlow===null||openSettlementAdjustment===null
@@ -792,24 +801,24 @@ function renderOwner(deal){
     !editable
       ?(!fact.approved?'ФАКТ TO_VERIFY':!base.bridgeApproved?'Расчётный мост TO_VERIFY':'Корректировка не подтверждена Finance → Operations')
       :saved
-        ?'Корректировки выплат и взаиморасчётов · версия '+deal.ownerCorrection.version+' · '+new Date(deal.ownerCorrection.createdAt).toLocaleString('ru-RU')
+        ?'Корректировки выплат и расходов (доходов) · версия '+deal.ownerCorrection.version+' · '+new Date(deal.ownerCorrection.createdAt).toLocaleString('ru-RU')
         :'Сверенный ФАКТ → корректировки → единый налог 10% → чистая прибыль',
     !editable?'TO VERIFY':saved?'СОХРАНЕНО':'РАСЧЁТ',
     !editable?'warn':saved?'good':''
   ));
   const table=el('div','rona-ar-table');
-  table.append(ownerComputedRow('Доходы','income',base.income,cur,'Подтверждённые поступления + положительная управленческая корректировка',false,false));
-  table.append(ownerComputedRow('Расходы','expenses',base.expenses,cur,'Выплаты + комиссии + отрицательная управленческая корректировка',false,false));
+  table.append(ownerComputedRow('Доходы','income',base.income,cur,'Подтверждённые поступления и расчётный доход при отрицательной корректировке',false,false));
+  table.append(ownerComputedRow('Расходы','expenses',base.expenses,cur,'Выплаты, комиссии и расчётный расход при положительной корректировке',false,false));
   table.append(ownerComputedRow('Оплачено контрагентам','counterpartyCashOut',base.counterpartyCashOut,cur,'FACT + корректировки платежей по контрагентам',false,false));
   table.append(ownerPaymentLines(base.paymentLines,editable));
   table.append(pnlRow('Банковские комиссии',base.bankFees,cur,{hint:'Подтверждённые комиссии включены в Расходы'}));
   const adjustmentGroup=el('div','rona-ar-owner-adjustment');
   adjustmentGroup.append(ownerInputRow(
-    'Корректировка взаиморасчётов',
+    'Корректировка расходов (доходов)',
     'openSettlementAdjustment',
-    base.openSettlementAdjustment,
+    expenseDeltaFromSource(base.openSettlementAdjustment),
     cur,
-    editable?'Положительная корректировка увеличивает Доходы, отрицательная — Расходы; не является фактическим платежом.':'TO_VERIFY: нужен подтверждённый расчётный мост'
+    editable?'Плюс — дополнительный расход, минус — дополнительный доход. Управленческая корректировка, не банковский платёж.':'TO_VERIFY: нужен подтверждённый расчётный мост'
   ));
   table.append(adjustmentGroup);
   table.append(ownerComputedRow('Прибыль до налогообложения','actualFinancialResult',base.actualFinancialResult,cur,'Доходы − Расходы'));
