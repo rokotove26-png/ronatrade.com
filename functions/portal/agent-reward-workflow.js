@@ -45,7 +45,9 @@ export async function onRequest({request}){
     stage=url.searchParams.get('stage')||'';
   const uuid=/^[0-9a-f-]{36}$/i,deal=/^DEAL-20[0-9]{2}-[0-9]{3,}$/;
   let route='';
-  if(action==='canonical-letterhead'&&request.method==='GET'){
+  if(['canonical-signature','canonical-seal'].includes(action)&&request.method==='GET'&&uuid.test(requestId)){
+    route='/admin/acts/'+requestId+'/assets/'+(action==='canonical-signature'?'signature':'seal');
+  }else if(action==='canonical-letterhead'&&request.method==='GET'){
     route='/admin/assets/canonical-letterhead';
   }else if(action==='agent-inbox'&&request.method==='GET'){
     route='/agent/acts';
@@ -61,6 +63,8 @@ export async function onRequest({request}){
     else if(action==='upload-act'&&request.method==='POST'&&uuid.test(requestId)
       &&['FINANCE_LEGAL_DRAFT','OWNER_SIGNED','BOTH_SIGNED'].includes(stage))
       route=root+'/acts/'+requestId+'/upload?stage='+encodeURIComponent(stage);
+    else if(action==='final-act'&&request.method==='POST'&&uuid.test(requestId))
+      route=root+'/acts/'+requestId+'/finalize';
     else if(action==='dispatch-act'&&request.method==='POST'&&uuid.test(requestId))
       route=root+'/acts/'+requestId+'/dispatch';
     else if(action==='download-act'&&request.method==='GET'&&uuid.test(requestId)&&uuid.test(documentId))
