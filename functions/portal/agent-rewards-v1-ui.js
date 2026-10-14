@@ -209,7 +209,7 @@ function installStyle(){
 #page-agent-settlements .rona-ar-metric.plan .rona-ar-metric-value:not(.verify){color:#a9d1fd}
 #page-agent-settlements .rona-ar-metric.agent .rona-ar-metric-value:not(.verify){color:#dac7ff}
 #page-agent-settlements .rona-ar-metric.fact .rona-ar-metric-value:not(.verify){color:#89ebc6}
-#page-agent-settlements .rona-ar-metric.negative .rona-ar-metric-value{color:#ff9cac}
+#page-agent-settlements .rona-ar-metric.negative .rona-ar-metric-value:not(.verify){color:#ff9cac}
 #page-agent-settlements .rona-ar-metric.verify .rona-ar-metric-value{color:#ffd285}
 #page-agent-settlements .rona-ar-fx-reference{display:flex;align-items:center;justify-content:space-between;gap:18px;
  padding:14px 19px;border:1px solid rgba(126,187,215,.27);border-left:3px solid rgba(108,182,219,.76);
