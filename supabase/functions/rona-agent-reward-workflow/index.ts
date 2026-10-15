@@ -267,12 +267,15 @@ Deno.serve(async req=>{
    const finalAsset=path.match(/^\/admin\/acts\/([0-9a-f-]{36})\/assets\/(signature|seal)$/i);
    if(finalAsset&&req.method==='GET'){
      const act=await approvedActIssue(sql,ctx,finalAsset[1]);
-     const proofs=await sql`select id from portal_private.audit_events
+     const proofs=await sql`select event_id from portal_private.audit_events
        where actor_user_id=${ctx.userId}::uuid
          and action='AGENT_ACT_CANONICAL_FACSIMILE_RENDER_AUTHORIZED'
          and entity_type='DEAL' and entity_id=${act.dealId}
          and metadata->>'documentNumber'=${act.documentNumber}
-       order by created_at desc limit 1`;
+         and metadata->>'finance'=${String(act.financeEvidence)}
+         and metadata->>'legal'=${String(act.legalEvidence)}
+         and metadata->>'facsimileRef'=${act.facsimileAuthorizationRef}
+       order by event_at desc limit 1`;
      if(proofs.length!==1)throw deny('ACT_OWNER_SIGNING_ATTESTATION_REQUIRED',403);
      const kind=finalAsset[2].toLowerCase();
      const key=kind==='signature'?'RONA-CANONICAL-SIGNATURE':'RONA-CANONICAL-SEAL';
