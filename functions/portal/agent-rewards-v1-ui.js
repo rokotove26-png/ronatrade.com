@@ -1287,6 +1287,18 @@ async function openFinalAgentAct(deal,docs,act,button){
       !Number.isFinite(Number(d.amount))||Number(d.amount)<=0)throw new Error('ACT_FINAL_SOURCE_INCOMPLETE');
    const amount=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(d.amount));
    const date=String(d.documentDate||'').split('-').reverse().join('.');
+   const verifiedProfit=d.netProfitSource?.basis==='NET_PROFIT_AFTER_TAX'
+     &&Number(d.netProfitSource.rate)===0.5
+     &&Number.isFinite(Number(d.netProfitSource.netProfit));
+   if(d.dealId==='DEAL-2026-004'&&!verifiedProfit)
+     throw new Error('ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED');
+   const ownerProfitNote=verifiedProfit
+     ?'<p><b>База вознаграждения:</b> подтверждённая чистая прибыль сделки — '+
+       esc(new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})
+         .format(Number(d.netProfitSource.netProfit)))+' '+esc(d.currency)+
+       '. Доля агента: <b>50% от чистой прибыли</b>.</p>'
+     :'';
+
    const fileRoot=DEAL_DOCUMENT_API+'?requestId='+encodeURIComponent(String(act.id));
    const page=[
     '<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Акт № ',esc(d.documentNumber),'</title>',
@@ -1321,6 +1333,7 @@ async function openFinalAgentAct(deal,docs,act,button){
     '<tbody><tr><td>1</td><td>',esc(d.services),'</td><td>',esc(amount),' ',esc(d.currency),'</td></tr>',
     '<tr><td colspan="2"><b>Итого</b></td><td><b>',esc(amount),' ',esc(d.currency),'</b></td></tr></tbody></table>',
     '<p>Размер вознаграждения определён по подтверждённому расчёту и указанному договорному основанию. Подписание со стороны Исполнителя оформляется отдельно.</p>',
+    ownerProfitNote,
     '<div class="bottom"><div class="sign"><b>ЗАКАЗЧИК</b><p class="legal">',esc(d.issuerRequisites),'</p>',
       '<img class="sig" alt="Каноническая подпись RONA Trade" src="',fileRoot,'&action=canonical-signature">',
       '<img class="stamp" alt="Каноническая печать RONA Trade" src="',fileRoot,'&action=canonical-seal">',
