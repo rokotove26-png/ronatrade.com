@@ -173,6 +173,10 @@ async function download(req:Request,sql:any,service:any,ctx:any,row:any,id:strin
 export async function approvedActIssue(sql:any,ctx:any,id:string){
  const row=await rowFor(sql,id);
  if(String(row.requested_by)!==String(ctx.userId))deny('ACT_OWNER_IDENTITY_REQUIRED',403);
+ const owners=await sql`select distinct owner_portal_user_id from portal_private.mcp_oauth_tokens
+   where owner_portal_user_id is not null limit 2`;
+ if(owners.length!==1||String(owners[0].owner_portal_user_id)!==String(ctx.userId))
+   deny('ACT_CANONICAL_OWNER_ONLY',403);
  await assertCurrent(sql,row);
  if(!['DRAFT_READY','OWNER_SIGNED'].includes(String(row.request_status)))
    deny('ACT_NOT_READY_FOR_ISSUANCE');
