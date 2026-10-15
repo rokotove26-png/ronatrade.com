@@ -128,7 +128,7 @@ async function termFor(s:any){
  return rows.length===1?rows[0]:null
 }
 async function selected(s:any){
- const rows=await sql`select b.id,b.evidence_status,b.document_reference,b.linked_at,b.linked_by,
+ const rows=await sql`select b.id,b.term_key,b.evidence_status,b.document_reference,b.linked_at,b.linked_by,
  a.document_id,a.uploaded_by,a.authoritative_filename as filename,a.contract_reference,a.sha256
  from portal_private.agent_reward_deal_addenda_v1 b
  join portal_private.agent_agency_contract_documents a on a.id=b.agency_document_key
@@ -162,8 +162,10 @@ async function list(s:any){
  // It never authorizes a payment, a tax fact, or a Finance/Legal conclusion.
  const netProfitTermOwnerConfirmed=ownerApprovedByUpload&&s.deal_id==='DEAL-2026-004'
     &&dsNumber?.[1]==='1';
+ const termRef=String(term?.term_reference||'');
+ const termNumber=termRef.match(/(?:ДС\s*№\s*|Addendum\s*)(\d+)\b/i);
  const termAligned=!!term&&!!addendum&&String(term.id)===String(addendum.term_key)
-    &&String(term.term_reference||'').includes('Addendum 1');
+   &&!!dsNumber&&!!termNumber&&Number(dsNumber[1])===Number(termNumber[1]);
  const acts=await sql`select r.id,r.request_status,r.correction_version,r.owner_correction_key,
  r.addendum_key,r.term_key,r.generated_document_number,r.finance_snapshot,r.legal_snapshot,
  r.requested_at,r.dispatched_at,r.completed_at
