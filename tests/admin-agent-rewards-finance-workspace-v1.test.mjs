@@ -620,6 +620,14 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   // Final Act must require actual Finance/Legal approval, consistent signed DS and Owner attestation.
   assert.match(agentActStages,/ACT_SIGNED_ADDENDUM_TERM_CONFLICT/);
   assert.match(agentActStages,/ACT_FINANCE_APPROVED_AMOUNT_MISSING/);
+  // Owner's DEAL-2026-004 DS #1: 50% of verified net profit after tax, not pretax margin.
+  assert.match(agentActStages,/NET_PROFIT_AFTER_TAX/);
+  assert.match(agentActStages,/ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED/);
+  assert.match(agentActStages,/ACT_AGENT_AMOUNT_NOT_50_PERCENT_OF_NET_PROFIT/);
+  assert.match(agentActStages,/approvedAgentShare/);
+  assert.match(agentActStages,/ownerCorrectionId/);
+  assert.match(agentActStages,/signedAddendumDocumentId/);
+  assert.match(ui,/50% от чистой прибыли/);
   assert.match(agentActStages,/ACT_LEGAL_APPROVED_DOCUMENT_FIELDS_MISSING/);
   assert.match(agentActStages,/ACT_OWNER_IDENTITY_REQUIRED/);
   assert.match(agentActStages,/ACT_OWNER_SIGNING_ATTESTATION_REQUIRED/);
