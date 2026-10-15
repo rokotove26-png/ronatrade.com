@@ -206,10 +206,31 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
  const ds=ordinal(t.document_reference),term=ordinal(t.term_reference);
  if(!ds||!term||ds!==term)deny('ACT_SIGNED_ADDENDUM_TERM_CONFLICT');
  const finance=row.finance_snapshot||{},legal=row.legal_snapshot||{};
- const amount=Number(finance.approvedActAmount),
+ const amount=finance.approvedActAmount==null?NaN:Number(finance.approvedActAmount),
    currency=String(finance.approvedCurrency||''),financeRef=String(finance.financeSourceRef||'');
  if(!Number.isFinite(amount)||amount<=0||!/^[A-Z]{3}$/.test(currency)||!financeRef)
    deny('ACT_FINANCE_APPROVED_AMOUNT_MISSING');
+ // Owner confirmed interpretation for DEAL-2026-004 signed DS #1: 50% of
+ // VERIFIED NET DEAL PROFIT AFTER TAX, never gross margin or pretax profit.
+ // This contract-specific rule MUST NOT silently rewrite other agents' terms.
+ let netProfitSource:null|{basis:string,netProfit:number,rate:number}=null;
+ if(String(row.deal_id)==='DEAL-2026-004'&&ds===1){
+   const profit=finance.approvedNetProfit==null?NaN:Number(finance.approvedNetProfit);
+   const share=finance.approvedAgentShare==null?NaN:Number(finance.approvedAgentShare);
+   const correctionVersion=finance.ownerCorrectionVersion==null?NaN:Number(finance.ownerCorrectionVersion);
+   if(String(finance.approvedBasisType)!=='NET_PROFIT_AFTER_TAX'
+       ||!Number.isFinite(profit)||!Number.isFinite(share)||share!==0.5
+       ||String(t.commission_mode)!=='PERCENT'||Number(t.commission_rate)!==0.5
+       ||String(finance.ownerCorrectionId||'')!==String(row.owner_correction_key)
+       ||correctionVersion!==Number(row.correction_version)
+       ||String(finance.approvedTermId||'')!==String(row.term_key)
+       ||String(finance.signedAddendumDocumentId||'')!==String(t.document_id))
+     deny('ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED');
+   const calculated=Math.round((Math.max(0,profit)*0.5+Number.EPSILON)*100)/100;
+   if(Math.abs(amount-calculated)>0.0001)
+     deny('ACT_AGENT_AMOUNT_NOT_50_PERCENT_OF_NET_PROFIT');
+   netProfitSource={basis:'NET_PROFIT_AFTER_TAX',netProfit:profit,rate:0.5};
+ }
  const number=String(row.generated_document_number||''),date=String(legal.approvedActDate||''),
    service=String(legal.approvedServiceText||''),period=String(legal.servicePeriod||''),
    signer=String(legal.issuerSignatoryName||''),facsimileRef=String(legal.facsimileAuthorizationRef||''),
@@ -227,7 +248,7 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    agentAddress:t.registered_address,agentCountry:t.registration_country,
    addendumReference:t.document_reference,addendumDocumentId:t.document_id,
    financeEvidence:review.finance.recordId,legalEvidence:review.legal.recordId,
-   financeSourceRef:financeRef,facsimileAuthorizationRef:facsimileRef,
+   financeSourceRef:financeRef,netProfitSource,facsimileAuthorizationRef:facsimileRef,
    documentStandard:'RONA-DOC-STANDARD v2',
    signatureMethod:'OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES',createsPayable:false};
 }
