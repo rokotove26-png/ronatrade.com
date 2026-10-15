@@ -128,8 +128,8 @@ async function termFor(s:any){
  return rows.length===1?rows[0]:null
 }
 async function selected(s:any){
- const rows=await sql`select b.id,b.evidence_status,b.document_reference,b.linked_at,
- a.document_id,a.authoritative_filename as filename,a.contract_reference,a.sha256
+ const rows=await sql`select b.id,b.evidence_status,b.document_reference,b.linked_at,b.linked_by,
+ a.document_id,a.uploaded_by,a.authoritative_filename as filename,a.contract_reference,a.sha256
  from portal_private.agent_reward_deal_addenda_v1 b
  join portal_private.agent_agency_contract_documents a on a.id=b.agency_document_key
  join portal_private.storage_objects o on o.id=a.storage_object_key and o.storage_state='VERIFIED'
@@ -146,16 +146,52 @@ async function latestCorrection(s:any){
  return rows[0]||null
 }
 async function list(s:any){
- const [term,addendum,correction]=await Promise.all([termFor(s),selected(s),latestCorrection(s)]);
+ const [term,addendum,correction,owners,accounting]=await Promise.all([
+   termFor(s),selected(s),latestCorrection(s),
+   sql`select distinct owner_portal_user_id from portal_private.mcp_oauth_tokens
+        where owner_portal_user_id is not null limit 2`,
+   sql`select accounting_status from portal_private.owner_deal_finance_summary
+        where deal_id=${s.deal_id} order by updated_at desc limit 2`
+ ]);
+ const ownerId=owners.length===1?String(owners[0].owner_portal_user_id):'';
+ const ownerApprovedByUpload=!!ownerId&&!!addendum&&
+   String(addendum.uploaded_by)===ownerId&&String(addendum.linked_by)===ownerId;
+ const accountingStatus=accounting.length===1?String(accounting[0].accounting_status):'TO_VERIFY';
+ const dsNumber=String(addendum?.document_reference||'').match(/^ДС\s*№\s*(\d+)\b/i);
+ // Owner's specific DS #1 instruction defines a contractual interpretation only.
+ // It never authorizes a payment, a tax fact, or a Finance/Legal conclusion.
+ const netProfitTermOwnerConfirmed=ownerApprovedByUpload&&s.deal_id==='DEAL-2026-004'
+    &&dsNumber?.[1]==='1';
+ const termAligned=!!term&&!!addendum&&String(term.id)===String(addendum.term_key)
+    &&String(term.term_reference||'').includes('Addendum 1');
  const acts=await sql`select r.id,r.request_status,r.correction_version,r.owner_correction_key,
- r.addendum_key,r.requested_at,r.dispatched_at,r.completed_at
+ r.addendum_key,r.term_key,r.generated_document_number,r.finance_snapshot,r.legal_snapshot,
+ r.requested_at,r.dispatched_at,r.completed_at
  from portal_private.agent_reward_act_requests_v1 r
  where r.deal_key=${s.deal_key}::uuid and r.assignment_id=${s.assignment_id}::uuid
  order by r.requested_at desc limit 30`;
  const enriched=[];
  for(const a of acts){
    const review=await reviewState(sql,String(a.id)),files=await actFiles(sql,String(a.id));
-   enriched.push({...a,review,documents:files});
+   const missing:string[]=[];
+   if(!addendum)missing.push('SIGNED_DS_MISSING');
+   if(!correction||String(correction.id)!==String(a.owner_correction_key))
+     missing.push('CURRENT_OWNER_CORRECTION_REQUIRED');
+   if(!ownerApprovedByUpload)missing.push('OWNER_UPLOAD_AUTHORITY_NOT_VERIFIED');
+   if(!termAligned||!a.term_key||String(a.term_key)!==String(term?.id||''))
+     missing.push('FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS');
+   if(accountingStatus!=='CLOSED')missing.push('ACCOUNTING_CLOSURE_REQUIRED');
+   if(review.finance.status!=='APPROVED')missing.push('FINANCE_CONCLUSION_REQUIRED');
+   if(review.legal.status!=='APPROVED')missing.push('LEGAL_CONCLUSION_REQUIRED');
+   if(!a.generated_document_number)missing.push('ACT_NUMBER_NOT_ASSIGNED');
+   const f=a.finance_snapshot||{};
+   if(netProfitTermOwnerConfirmed&&(!Number.isFinite(Number(f.approvedNetProfit))||
+      f.approvedNetProfit==null||f.approvedBasisType!=='NET_PROFIT_AFTER_TAX'))
+     missing.push('VERIFIED_AFTER_TAX_NET_PROFIT_REQUIRED');
+   enriched.push({...a,review,documents:files,readiness:{
+     readyForFinalAct:missing.length===0&&['DRAFT_READY','OWNER_SIGNED'].includes(String(a.request_status)),
+     missing,accountingStatus,netProfitBasis:netProfitTermOwnerConfirmed?'NET_PROFIT_AFTER_TAX':null,
+     contractShare:netProfitTermOwnerConfirmed?0.5:null}});
  }
  return{dealId:s.deal_id,assignmentId:s.assignment_id,agentCompanyId:s.agent_legal_entity_id,
    agentLegalName:s.legal_name,agentName:s.agent_name,assignmentStatus:s.assignment_status,
@@ -164,7 +200,15 @@ async function list(s:any){
      reference:term.term_reference,authority:term.authority_state}:null,
    currentAddendum:addendum?{bindingId:addendum.id,documentId:addendum.document_id,
      filename:addendum.filename,reference:addendum.document_reference,
-     evidenceStatus:addendum.evidence_status}:null,
+     evidenceStatus:addendum.evidence_status,
+     ownerApprovedByUpload,sha256:addendum.sha256}:null,
+   ownerConfirmedTerm:netProfitTermOwnerConfirmed
+      ?{mode:'PERCENT',rate:0.5,basis:'NET_PROFIT_AFTER_TAX',status:'OWNER_APPROVED_SOURCE_ONLY'}:null,
+   sourceReadiness:{
+     accountingStatus,ownerApprovedByUpload,termAligned,
+     rule:netProfitTermOwnerConfirmed?'DS1_50_PERCENT_NET_PROFIT_AFTER_TAX':null,
+     externalPayableApproved:false
+   },
    ownerCorrection:correction?{sourceId:correction.id,version:correction.correction_version,
      savedAt:correction.created_at}:null,acts:enriched}
 }
