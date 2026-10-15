@@ -630,6 +630,12 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(ui,/50% от чистой прибыли/);
   assert.match(agentActStages,/ACT_LEGAL_APPROVED_DOCUMENT_FIELDS_MISSING/);
   assert.match(agentActStages,/ACT_OWNER_IDENTITY_REQUIRED/);
+  assert.match(agentActStages,/ACT_CANONICAL_OWNER_ONLY/);
+  assert.match(agentActStages,/and t\.id=b\.term_key/);
+  assert.match(agentActStages,/ACT_FINANCE_SOURCE_SNAPSHOT_MISMATCH/);
+  assert.match(agentActStages,/ACT_LEGAL_SOURCE_SNAPSHOT_MISMATCH/);
+  assert.match(agentActStages,/approvedIssuerLegalName/);
+  assert.match(agentActStages,/approvedSigningPlace/);
   assert.match(agentActStages,/ACT_OWNER_SIGNING_ATTESTATION_REQUIRED/);
   assert.match(agentActStages,/AGENT_ACT_CANONICAL_FACSIMILE_RENDER_AUTHORIZED/);
   assert.match(agentActEdge,/CANONICAL_SIGNING_ASSET_HASH_MISMATCH/);
