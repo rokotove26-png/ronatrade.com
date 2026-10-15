@@ -214,6 +214,13 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    currency=String(finance.approvedCurrency||''),financeRef=String(finance.financeSourceRef||'');
  if(!Number.isFinite(amount)||amount<=0||!/^[A-Z]{3}$/.test(currency)||!financeRef)
    deny('ACT_FINANCE_APPROVED_AMOUNT_MISSING');
+ if(String(finance.ownerCorrectionId||'')!==String(row.owner_correction_key)||
+    Number(finance.ownerCorrectionVersion)!==Number(row.correction_version)||
+    String(finance.approvedTermId||'')!==String(row.term_key)||
+    String(finance.signedAddendumDocumentId||'')!==String(t.document_id))
+   deny('ACT_FINANCE_SOURCE_SNAPSHOT_MISMATCH');
+ if(String(legal.approvedAddendumDocumentId||'')!==String(t.document_id))
+   deny('ACT_LEGAL_SOURCE_SNAPSHOT_MISMATCH');
  // Owner confirmed interpretation for DEAL-2026-004 signed DS #1: 50% of
  // VERIFIED NET DEAL PROFIT AFTER TAX, never gross margin or pretax profit.
  // This contract-specific rule MUST NOT silently rewrite other agents' terms.
