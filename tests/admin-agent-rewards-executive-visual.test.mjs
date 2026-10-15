@@ -579,8 +579,9 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
   const doc={
     dealId,assignmentId,agentCompanyId:'S-005',agentLegalName:'ООО «ИнКом»',
     agentName:'Представитель агента',assignmentStatus:'ACTIVE',
-    term:{termId:'TERM-QA',mode:'PERCENT',rate:0.5,
-      reference:'Договор №351C / ДС №2',authority:'CONFIRMED'},
+    term:null,
+    ownerConfirmedTerm:{mode:'PERCENT',rate:0.5,basis:'NET_PROFIT_AFTER_TAX',status:'OWNER_APPROVED_SOURCE_ONLY'},
+    sourceReadiness:{termAligned:false,accountingStatus:'OPEN'},
     currentAddendum:{bindingId:'b1111111-1111-4111-8111-111111111111',
       documentId:'AGENCY-S-005-A1B2C3D4',filename:'Signed_QA.pdf',
       reference:'ДС №2 от 12.08.2026',evidenceStatus:'RECEIVED_NOT_LEGALLY_VERIFIED'},
