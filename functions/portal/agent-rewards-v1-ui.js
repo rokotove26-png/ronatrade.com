@@ -1382,13 +1382,18 @@ function renderDealDocuments(root,deal){
   }
   const term=docs.term;
   r.append(el('div','rona-ar-doc-kicker','Параметры вознаграждения'));
-  if(term){
+  if(term&&docs.sourceReadiness?.termAligned!==false){
     const value=term.mode==='PERCENT'&&num(term.rate)!==null?fmt(num(term.rate)*100)+'% · договорная база':
       term.mode==='FIXED'?money(term.fixedAmount,term.currency||currencyOf(deal)):
       term.mode==='PER_TONNE'?money(term.rate,term.currency||currencyOf(deal))+' / т':'TO_VERIFY';
     r.append(el('div','rona-ar-doc-name',value),el('div','rona-ar-doc-note',
       'Подтверждённый источник условий: '+String(term.reference||'—')));
-  }else r.append(el('div','rona-ar-doc-note','Однозначно действующие условия не обнаружены. Ставка автоматически не назначается.'));
+  }else if(docs.ownerConfirmedTerm?.status==='OWNER_APPROVED_SOURCE_ONLY'){
+    r.append(el('div','rona-ar-doc-name','50% от чистой прибыли после налогов'),
+      el('div','rona-ar-doc-note',
+        'ДС №1 утверждено владельцем. Фактическая прибыль и сумма вознаграждения должны быть подтверждены Finance.'));
+  }else r.append(el('div','rona-ar-doc-note',
+    'Однозначно действующие условия не обнаружены. Ставка автоматически не назначается.'));
   r.append(el('div','rona-ar-doc-note',current?
     'Загрузка PDF не меняет ставку. Совпадение параметров с ДС проверяют Finance и Legal.':
     'Для применения условий к сделке сначала привяжите соответствующее подписанное ДС.'));
