@@ -1282,7 +1282,7 @@ async function openFinalAgentAct(deal,docs,act,button){
    const d=json.data||{},esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({
      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
    })[ch]);
-   if(!d.documentNumber||!d.services||!d.issuerSigner||!d.issuerRequisites||
+   if(!d.documentNumber||!d.services||!d.signingPlace||!d.issuer||!d.issuerSigner||!d.issuerRequisites||
       !d.agentLegalName||!d.addendumReference||!d.facsimileAuthorizationRef||
       !Number.isFinite(Number(d.amount))||Number(d.amount)<=0)throw new Error('ACT_FINAL_SOURCE_INCOMPLETE');
    const amount=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(d.amount));
@@ -1321,7 +1321,7 @@ async function openFinalAgentAct(deal,docs,act,button){
     '<body><button class="controls" id="actPrint" type="button">Печать / сохранить PDF</button>',
     '<div class="sheet"><img class="brand" alt="" src="',DEAL_DOCUMENT_API,'?action=canonical-letterhead">',
     '<main class="copy"><h1>АКТ ВЫПОЛНЕННЫХ РАБОТ<br>(ОКАЗАННЫХ АГЕНТСКИХ УСЛУГ)<br>№ ',esc(d.documentNumber),'</h1>',
-    '<p style="text-align:right">г. Бишкек, ',esc(date),'</p>',
+    '<p style="text-align:right">',esc(d.signingPlace),' · ',esc(date),'</p>',
     '<p><b>',esc(d.issuer),'</b>, именуемое далее «Заказчик», в лице ',
        esc(d.issuerSigner),', с одной стороны, и <b>',esc(d.agentLegalName),
        '</b>, именуемое далее «Исполнитель», в лице ',esc(d.agentSignatory),
