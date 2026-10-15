@@ -600,6 +600,11 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(agentActEdge,/SAVE_OWNER_CORRECTION_FIRST/);
   assert.match(agentActEdge,/LINK_SIGNED_DEAL_ADDENDUM_FIRST/);
   assert.match(agentActEdge,/AGENT_SERVICES_ACT_REVIEW_REQUESTED/);
+  assert.match(agentActEdge,/ownerApprovedByUpload/);
+  assert.match(agentActEdge,/FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS/);
+  assert.match(agentActEdge,/VERIFIED_AFTER_TAX_NET_PROFIT_REQUIRED/);
+  assert.match(agentActEdge,/externalPayableApproved:false/);
+
   assert.match(agentActStages,/FINANCE_LEGAL_ACT_REVIEW_REQUIRED/);
   assert.match(agentActStages,/AGENT_PORTAL_RECIPIENT_NOT_ACTIVE/);
   assert.match(agentActStages,/ACT_CORRECTION_OUTDATED|OWNER_CORRECTION_SUPERSEDED/);

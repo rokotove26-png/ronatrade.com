@@ -579,11 +579,12 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
   const doc={
     dealId,assignmentId,agentCompanyId:'S-005',agentLegalName:'ООО «ИнКом»',
     agentName:'Представитель агента',assignmentStatus:'ACTIVE',
-    term:{termId:'TERM-QA',mode:'PERCENT',rate:0.5,
-      reference:'Договор №351C / ДС №2',authority:'CONFIRMED'},
+    term:null,
+    ownerConfirmedTerm:{mode:'PERCENT',rate:0.5,basis:'NET_PROFIT_AFTER_TAX',status:'OWNER_APPROVED_SOURCE_ONLY'},
+    sourceReadiness:{termAligned:false,accountingStatus:'OPEN'},
     currentAddendum:{bindingId:'b1111111-1111-4111-8111-111111111111',
       documentId:'AGENCY-S-005-A1B2C3D4',filename:'Signed_QA.pdf',
-      reference:'ДС №2 от 12.08.2026',evidenceStatus:'RECEIVED_NOT_LEGALLY_VERIFIED'},
+      reference:'ДС №1 от 15.07.2026',evidenceStatus:'RECEIVED_NOT_LEGALLY_VERIFIED',ownerApprovedByUpload:true},
     ownerCorrection:{sourceId:'c1111111-1111-4111-8111-111111111111',version:3},
     acts:[]
   };
@@ -606,7 +607,8 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
           doc.acts=[{id:'a1111111-1111-4111-8111-111111111111',correction_version:3,
             owner_correction_key:doc.ownerCorrection.sourceId,request_status:'REVIEW_REQUESTED',
             review:{finance:{status:'PENDING'},legal:{status:'PENDING'},approved:false},
-            documents:[]}];
+            documents:[],addendum_key:doc.currentAddendum.bindingId,
+            readiness:{readyForFinalAct:false,missing:['FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS','FINANCE_CONCLUSION_REQUIRED','ACCOUNTING_CLOSURE_REQUIRED']}}];
         }
         await r.fulfill({status:200,contentType:'application/json',
           body:JSON.stringify({ok:true,data:action==='request-act'?
@@ -619,6 +621,8 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       await box.getByText('ООО «ИнКом»').waitFor({timeout:12000});
       assert.equal(await box.locator('input[type=file]').count(),0);
       assert.equal(await box.getByRole('button',{name:'Скачать подписанное ДС'}).count(),1);
+      assert.equal(await box.getByText('50% от чистой прибыли после налогов').count(),1);
+      assert.equal(await box.getByText(/Утверждено владельцем при загрузке/).count(),1);
       assert.equal(await box.getByRole('button',{name:'Загрузить и привязать подписанное ДС'}).count(),0);
       assert.equal(await box.getByRole('combobox',{name:'ДС из архива агентской компании'}).count(),0);
       assert.equal(await box.getByRole('button',{name:'Привязать архивное ДС'}).count(),0);
@@ -627,6 +631,9 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       if(await notice.count())await notice.last().getByRole('button',{name:'Закрыть'}).click();
       await box.getByRole('button',{name:'Акт выполненных работ'}).click();
       await box.getByText(/REVIEW_REQUESTED/).waitFor({timeout:7000});
+      assert.equal(await box.getByText(/Finance: ставка не соответствует подписанному ДС/).count(),1);
+      assert.equal(await box.getByText(/Finance ещё не утвердил фактический расчёт/).count(),1);
+      assert.equal(await box.getByRole('button',{name:'Заявка на акт зарегистрирована'}).isDisabled(),true);
       assert.deepEqual(mutations.map(x=>x.action),['request-act']);
       assert.equal(await box.getByText(/Finance: PENDING · Legal: PENDING/).count(),1);
       assert.equal(await box.getByRole('button',{name:'Отправить агенту на подписание'}).count(),0);
