@@ -199,7 +199,7 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    join portal_private.agent_deal_terms t on t.id=${row.term_key}::uuid
    where b.id=${row.addendum_key}::uuid and b.deal_key=${row.deal_key}::uuid
    and b.assignment_id=${row.assignment_id}::uuid and b.is_current=true
-   and t.deal_key=b.deal_key and t.assignment_id=b.assignment_id
+   and t.id=b.term_key and t.deal_key=b.deal_key and t.assignment_id=b.assignment_id
    and t.status::text='ACTIVE' and t.lifecycle_state::text='ACTIVE'
    and t.authority_state::text in ('CONFIRMED','VERIFIED','AUTHORITATIVE') limit 2`;
  if(terms.length!==1)deny('ACT_SIGNED_ADDENDUM_TERM_NOT_CURRENT');
