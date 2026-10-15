@@ -239,14 +239,16 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    service=String(legal.approvedServiceText||''),period=String(legal.servicePeriod||''),
    signer=String(legal.issuerSignatoryName||''),facsimileRef=String(legal.facsimileAuthorizationRef||''),
    issuerRequisites=String(legal.approvedIssuerRequisites||''),
+   issuerName=String(legal.approvedIssuerLegalName||''),
+   signingPlace=String(legal.approvedSigningPlace||''),
    agentSignatory=String(legal.approvedAgentSignatory||'');
  if(!number||number!==String(legal.approvedDocumentNumber||'')||
    !/^\d{4}-\d{2}-\d{2}$/.test(date)||!service||!period||!signer||!facsimileRef||
-   !issuerRequisites||!agentSignatory||
+   !issuerRequisites||!issuerName||!signingPlace||!agentSignatory||
    legal.facsimileApproved!==true)
    deny('ACT_LEGAL_APPROVED_DOCUMENT_FIELDS_MISSING');
  return{requestId:row.id,dealId:row.deal_id,documentNumber:number,documentDate:date,
-   servicePeriod:period,services:service,amount,currency,issuer:'ООО «РОНА Трейд»',
+   servicePeriod:period,services:service,amount,currency,issuer:issuerName,signingPlace,
    issuerSigner:signer,issuerRequisites,agentSignatory,
    agentLegalName:t.legal_name,agentTaxId:t.tax_identifier,
    agentAddress:t.registered_address,agentCountry:t.registration_country,
