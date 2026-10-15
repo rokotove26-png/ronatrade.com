@@ -633,6 +633,13 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(agentActStages,/ACT_OWNER_SIGNING_ATTESTATION_REQUIRED/);
   assert.match(agentActStages,/AGENT_ACT_CANONICAL_FACSIMILE_RENDER_AUTHORIZED/);
   assert.match(agentActEdge,/CANONICAL_SIGNING_ASSET_HASH_MISMATCH/);
+  assert.match(agentActEdge,/select event_id from portal_private\.audit_events/);
+  assert.match(agentActEdge,/order by event_at desc limit 1/);
+  assert.match(agentActEdge,/metadata->>'finance'/);
+  assert.match(agentActEdge,/metadata->>'legal'/);
+  assert.match(agentActEdge,/metadata->>'facsimileRef'/);
+  assert.doesNotMatch(agentActEdge,/select id from portal_private\.audit_events/);
+  assert.doesNotMatch(agentActEdge,/order by created_at desc limit 1/);
   assert.match(agentActEdge,/await approvedActIssue\(sql,ctx,finalAsset\[1\]\)/);
   assert.match(agentActProxy,/canonical-signature.*canonical-seal/);
   assert.match(agentActProxy,/action==='final-act'/);
