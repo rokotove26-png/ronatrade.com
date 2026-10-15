@@ -1289,6 +1289,25 @@ function renderActRecord(deal,docs,act){
     approved=review.approved===true;
   card.append(el('div','rona-ar-doc-name','Акт · OWNER №'+String(act.correction_version||'?')),
     el('div','rona-ar-doc-note','Стадия: '+stage+' · Finance: '+fin+' · Legal: '+legal));
+  const unreadiness=act.readiness?.missing;
+  if(Array.isArray(unreadiness)&&unreadiness.length){
+    const reasons={
+      SIGNED_DS_MISSING:'Отсутствует подписанное ДС по сделке',
+      CURRENT_OWNER_CORRECTION_REQUIRED:'Требуется актуальная OWNER-корректировка',
+      OWNER_UPLOAD_AUTHORITY_NOT_VERIFIED:'Не подтверждено, что ДС загружено владельцем',
+      FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS:'Finance: ставка не соответствует подписанному ДС',
+      ACCOUNTING_CLOSURE_REQUIRED:'Сделка ещё не закрыта бухгалтерски',
+      FINANCE_CONCLUSION_REQUIRED:'Finance ещё не утвердил фактический расчёт',
+      LEGAL_CONCLUSION_REQUIRED:'Legal ещё не подтвердил акт и подписанта',
+      ACT_NUMBER_NOT_ASSIGNED:'Номер акта пока не присвоен',
+      VERIFIED_AFTER_TAX_NET_PROFIT_REQUIRED:'Чистая прибыль после налогов не подтверждена'
+    };
+    const details=el('div','rona-ar-doc-note');
+    details.append(el('strong','','Для выпуска окончательного акта:'));
+    for(const code of unreadiness)details.append(el('div','',
+      '• '+(reasons[code]||String(code))));
+    card.append(details)
+  }
   if(!current)card.append(el('div','rona-ar-doc-note',
     'После заявки OWNER-расчёт был изменён. Требуется новый акт по последней версии.'));
   const files=Array.isArray(act.documents)?act.documents:[];
