@@ -680,6 +680,7 @@ test('Authorized final agent act renders official numbered document, canonical s
       review:{finance:{status:'APPROVED'},legal:{status:'APPROVED'},approved:true},documents:[]}]};
   const final={requestId,dealId,documentNumber:'AG-2026-QA-001',documentDate:'2026-10-15',
     servicePeriod:'с 01.09.2026 по 30.09.2026',services:'Агентское сопровождение сделки',
+    signingPlace:'г. Бишкек',
     amount:123.45,currency:'USD',issuer:'ООО «РОНА Трейд»',issuerSigner:'QA Руководитель',
     issuerRequisites:'Кыргызская Республика, г. Бишкек',agentLegalName:'ООО «ИнКом»',
     agentTaxId:'TEST-TAX',agentSignatory:'QA Исполнитель',
