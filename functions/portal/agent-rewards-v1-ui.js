@@ -1366,7 +1366,7 @@ function renderDealDocuments(root,deal){
   if(current){
     l.append(el('div','rona-ar-doc-name',current.filename),
       el('div','rona-ar-doc-note','Основание: '+String(current.reference||'—')+
-        ' · '+String(current.evidenceStatus||'TO_VERIFY')));
+        ' · '+(current.ownerApprovedByUpload?'Утверждено владельцем при загрузке':String(current.evidenceStatus||'TO_VERIFY'))));
     l.append(docButton('Скачать подписанное ДС',()=>void signedAgencyDownload(
       docs.agentCompanyId,current.documentId).catch(e=>docNotice(String(e.message||e)))));
   }else{
@@ -1403,7 +1403,12 @@ function renderDealDocuments(root,deal){
     'Сохранённая OWNER-корректировка №'+correction.version+' · '+correction.sourceId:
     'Сначала сохраните фактическую OWNER-корректировку.'));
   const request=docButton('Акт выполненных работ',()=>void requestAgentAct(deal,request),true);
-  request.disabled=!current||!correction;r.append(request);
+  const existing=!!correction&&!!current&&Array.isArray(docs.acts)&&docs.acts.some(item=>
+    String(item.owner_correction_key)===String(correction.sourceId)
+      &&String(item.addendum_key)===String(current.bindingId));
+  request.disabled=!current||!correction||existing;
+  if(existing)request.textContent='Заявка на акт зарегистрирована';
+  r.append(request);
   for(const item of (Array.isArray(docs.acts)?docs.acts:[]).slice(0,10))
     r.append(renderActRecord(deal,docs,item));
   r.append(el('div','rona-ar-doc-note',
