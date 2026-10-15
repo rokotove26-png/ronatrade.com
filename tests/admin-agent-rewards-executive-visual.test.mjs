@@ -683,7 +683,8 @@ test('Authorized final agent act renders official numbered document, canonical s
     amount:123.45,currency:'USD',issuer:'ООО «РОНА Трейд»',issuerSigner:'QA Руководитель',
     issuerRequisites:'Кыргызская Республика, г. Бишкек',agentLegalName:'ООО «ИнКом»',
     agentTaxId:'TEST-TAX',agentSignatory:'QA Исполнитель',
-    addendumReference:'ДС №1 от 15.07.2026',facsimileAuthorizationRef:'QA-LEGAL-CANONICAL'};
+    addendumReference:'ДС №1 от 15.07.2026',facsimileAuthorizationRef:'QA-LEGAL-CANONICAL',
+    netProfitSource:{basis:'NET_PROFIT_AFTER_TAX',netProfit:246.90,rate:0.5}};
   const browser=await chromium.launch({headless:true});
   try{
     const page=await browser.newPage({viewport:{width:1440,height:1000}});
@@ -714,6 +715,8 @@ test('Authorized final agent act renders official numbered document, canonical s
     const content=await popup.locator('main.copy').innerText();
     assert.match(content,/AG-2026-QA-001/);
     assert.match(content,/123,45 USD/);
+    assert.match(content,/50% от чистой прибыли/);
+    assert.match(content,/246,90 USD/);
     assert.match(content,/Агентское сопровождение сделки/);
     assert.doesNotMatch(content,/ВНУТРЕННИЙ ПРОЕКТ|TO_VERIFY/);
     assert.equal(await popup.locator('img.sig').count(),1);
