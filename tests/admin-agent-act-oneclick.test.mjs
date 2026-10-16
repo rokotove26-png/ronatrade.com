@@ -320,3 +320,14 @@ test('Owner console v2 retains the original signed act issue and download path',
     "grid.append(renderPlan(deal),renderFact(deal),renderOwner(deal))"
   ])assert.ok(ui.includes(phrase),'Missing '+phrase);
 });
+
+
+test('Signed DS diagnostics never authorize an Act or a payable on their own',async()=>{
+  const ui=await(await uiResponse()).text();
+  assert.ok(ui.includes('function agencyDsTermDiagnostic(deal,docs)'));
+  assert.ok(ui.includes("if(agencyDocs&&!agencyDocs.currentAddendum)return{value:null,status:'SIGNED_AGENCY_DS_NOT_BOUND'}"));
+  assert.ok(ui.includes('function ownerActSavedCalculation(deal,model,currency,saved)'));
+  assert.ok(ui.includes('createsPayable:false'));
+  assert.ok(ui.includes('ownerConfirmsSigning:true,ownerConfirmsFacsimile:true'));
+  assert.ok(ui.includes("if(docs.sourceReadiness?.termAligned!==true)"));
+});
