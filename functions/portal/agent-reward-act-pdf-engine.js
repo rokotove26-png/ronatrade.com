@@ -291,14 +291,6 @@ function ronaActPdfRuntime(){
         ||Math.abs(Math.round(Math.max(0,margin)*0.5*exchange*100)/100-amount)>0.111)
         throw new Error('ACT_PDF_SHIPMENT_MARGIN_SOURCE_REQUIRED');
     }
-    if(d.sourceMode==='FINANCE_LEGAL_CERTIFIED_ACT_V1'){
-      const c=d.commissionSource||{};
-      if(c.contract!=='RONA_CERTIFIED_AGENT_TERMS_V1'
-        ||!['FIXED','PER_TONNE','PERCENT'].includes(c.mode)
-        ||Number(c.approvedAmount)!==amount||c.approvedCurrency!==currency
-        ||d.financialAppendix?.contract!=='RONA_AGENT_ACT_TERMS_APPENDIX_V1')
-        throw new Error('ACT_PDF_CERTIFIED_TERMS_MISSING');
-    }
     const assets=await Promise.all([
       imageFor(requestId,'canonical-letterhead'),
       imageFor(requestId,'canonical-signature'),
