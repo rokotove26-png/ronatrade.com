@@ -158,17 +158,17 @@ test('Click generates and archives two-page Owner Act on another deal without AI
    const actions=[],errors=[],dialogs=[];
    page.on('dialog',d=>{dialogs.push(d.message());d.accept(d.type()==='prompt'?'400':undefined)});
    page.on('pageerror',e=>errors.push(e.message));
-   await page.route('http://rona.owner/portal/admin',r=>r.fulfill({status:200,
+   await page.route('http://localhost/portal/admin',r=>r.fulfill({status:200,
      contentType:'text/html',body:'<!doctype html><html><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
-   await page.route('http://rona.owner/portal/owner-api**',r=>r.fulfill({
+   await page.route('http://localhost/portal/owner-api**',r=>r.fulfill({
      contentType:'application/json',body:JSON.stringify({ok:true,data:{deals:[deal]}})}));
-   await page.route('http://rona.owner/portal/agent-reward-act-pdf-engine',r=>r.fulfill({
+   await page.route('http://localhost/portal/agent-reward-act-pdf-engine',r=>r.fulfill({
      contentType:'application/javascript',body:
        'window.RONA_AGENT_ACT_PDF_ENGINE={render:async function(data,id){'+
        'if(data.dealId!=="'+dealId+'"||id!=="'+requestId+'")throw Error("wrong scope");'+
        'return {blob:new Blob(['+JSON.stringify(pdf)+'],{type:"application/pdf"}),'+
        'pageCount:2,filename:"Owner_Act_010.pdf"}}};'}));
-   await page.route('http://rona.owner/portal/agent-reward-workflow**',r=>{
+   await page.route('http://localhost/portal/agent-reward-workflow**',r=>{
      const url=new URL(r.request().url());
      const action=url.searchParams.get('action')||'state';
      let data=documents;
@@ -208,7 +208,7 @@ test('Click generates and archives two-page Owner Act on another deal without AI
      return r.fulfill({contentType:'application/json',
        body:JSON.stringify({ok:true,data})});
    });
-   await page.goto('http://rona.owner/portal/admin');
+   await page.goto('http://localhost/portal/admin');
    await page.addScriptTag({content:script});
    const button=page.locator('.rona-ar-documents')
      .getByRole('button',{name:'Сформировать и скачать акт'});
