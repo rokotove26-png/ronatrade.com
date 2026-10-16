@@ -616,7 +616,8 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
           assert.equal(snapshot?.dealId,dealId);
           assert.equal(snapshot?.assignmentId,assignmentId);
           assert.equal(snapshot?.reward,null);
-          doc.acts=[{id:'a1111111-1111-4111-8111-111111111111',correction_version:3,
+          doc.acts=[{id:'a1111111-1111-4111-8111-111111111111',
+            ownerCalculationStored:true,ownerCalculationVersion:3,correction_version:3,
             owner_correction_key:doc.ownerCorrection.sourceId,request_status:'REVIEW_REQUESTED',
             review:{finance:{status:'PENDING'},legal:{status:'PENDING'},approved:false},
             documents:[],addendum_key:doc.currentAddendum.bindingId,
@@ -624,7 +625,7 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
         }
         await r.fulfill({status:200,contentType:'application/json',
           body:JSON.stringify({ok:true,data:action==='request-act'?
-            {requestId:doc.acts[0].id,status:'REVIEW_REQUESTED'}:
+            {requestId:doc.acts[0].id,status:'REVIEW_REQUESTED',ownerCalculationStored:true}:
             doc})})
       });
       await page.goto('http://rona.docs/portal/admin');
