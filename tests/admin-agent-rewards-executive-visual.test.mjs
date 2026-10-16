@@ -238,15 +238,13 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
       assert.equal(result.cockpit.navCount,1);
       assert.equal(result.cockpit.selectedCount,1);
       assert.equal(result.cockpit.insightCount,1);
-      assert.equal(result.cockpit.insightPanels,2);
+      assert.equal(result.cockpit.insightPanels,1,'No duplicate technical evidence panel');
       assert.deepEqual(result.cockpit.waterfallSteps,['income','expense','subtotal','expense','subtotal','agent','final']);
       assert.equal(result.cockpit.waterfallBars,7,'All seven initial financial waterfall steps are strictly source-derived');
       assert.equal(result.cockpit.waterfallNet,'+1 782,0 USD');
       assert.equal(result.cockpit.delta,'-18,0 USD','Comparison is OWNER net less PLAN net, not a fabricated payables number');
-      assert.match(result.cockpit.evidenceText,/Основание и статус расчёта/);
-      assert.match(result.cockpit.evidenceText,/Не подтверждено в текущем источнике/,
-        'Do not silently turn OWNER preview into an external settlement');
-      assert.equal(result.cockpit.evidenceRows,5);
+      assert.equal(result.cockpit.evidenceText,'','No technical source panel');
+       assert.equal(result.cockpit.evidenceRows,0);
       assert(result.cockpit.navWidth>180 && result.cockpit.rightWidth>180,'Both master and detail panels must be usable');
       assert(result.cockpit.horizontalOverflow<=width+1,'No horizontal overflow in executive cockpit at '+width);
       if(width>=1600)assert(result.cockpit.rightWidth>result.cockpit.navWidth,'Large screens prioritize deal analysis');
@@ -643,8 +641,8 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.match(await box.innerText(),/По сохранённому расчёту:/);
       assert.match(await page.locator('.rona-ar-col.owner').innerText(),/990,0\s*USD/);
       assert.doesNotMatch(await box.innerText(),/Предварительно:\s*891/);
-      assert.doesNotMatch(await page.locator('.rona-ar-evidence').innerText(),
-        /ДС не привязано|Addendum 2/);
+      assert.doesNotMatch(await page.locator('.rona-ar').innerText(),
+         /ДС не привязано|Основание и статус расчёта/);
       assert.equal(await box.getByRole('button',{name:'Загрузить ДС'}).count(),0);
       assert.equal(await box.getByRole('button',{name:'Подготовить акт'}).count(),0);
       assert.equal(await page.getByRole('button',{name:'Акт выполненных работ',exact:true}).count(),0);
