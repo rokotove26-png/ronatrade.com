@@ -25,6 +25,8 @@ test('Executive presentation changes no financial authority, formulas, API or se
   assert.match(js,/await saveCorrection\(deal\.dealId,deal\.assignmentId,payload,''\)/);
   assert.match(js,/ACT_PDF_TWO_PAGES_REQUIRED/);
   assert.match(js,/loadAgentActPdfEngine/);
+  assert.match(js,/if\(pdf.pageCount!==2\)/);
+  assert.match(js,/ownerSignedDs1ForManagement\(deal\)\&\&model.reward/);
   assert.match(js,/script\.onerror=/);
   assert.match(js,/pdf\.pageCount!==2/);
   assert.match(js,/payload=\{paymentLineAmounts:m\.paymentLineAmounts,openSettlementAdjustment:m\.openSettlementAdjustment\}/);
