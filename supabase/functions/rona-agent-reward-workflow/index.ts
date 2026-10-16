@@ -301,10 +301,10 @@ function ownerSavedCalculation(input:any,s:any,correction:any,actor:{userId:stri
  if(amount.income===null||amount.expenses===null||amount.income<0||amount.expenses<0
     ||!close(amount.actualFinancialResult,amount.income-amount.expenses)
     ||!close(amount.taxes,Math.max(0,amount.actualFinancialResult||0)*0.1)
-    ||!close(amount.netProfit,amount.actualFinancialResult-amount.taxes))
+    ||!close(amount.netProfit,Number(amount.actualFinancialResult)-Number(amount.taxes)))
      throw deny('ACT_OWNER_DISPLAYED_ARITHMETIC_MISMATCH',409);
  if(amount.reward!==null&&amount.ronaProfit!==null
-    &&!close(amount.ronaProfit,amount.netProfit-amount.reward))
+    &&!close(amount.ronaProfit,Number(amount.netProfit)-Number(amount.reward)))
      throw deny('ACT_OWNER_AGENT_REWARD_ARITHMETIC_MISMATCH',409);
  if((amount.reward===null)!==(amount.ronaProfit===null))
      throw deny('ACT_OWNER_REWARD_COMPLETENESS_MISMATCH',409);
