@@ -76,3 +76,69 @@ test('Universal Act request retains audited Owner, current source, approvals, an
  assert.match(render,/appendTermsCanvas\(d.financialAppendix/);
  assert.match(render,/RONA_AGENT_ACT_TERMS_APPENDIX_V1/);
 });
+
+test('General certified Act is generated from exact Owner, Finance, Legal and signed Addendum',async()=>{
+ const requestId='a1111111-1111-4111-8111-111111111111';
+ const correctionId='b1111111-1111-4111-8111-111111111111';
+ const owner='c1111111-1111-4111-8111-111111111111';
+ const assignment='d1111111-1111-4111-8111-111111111111';
+ const dsId='AGENCY-S-006-ABCD1234';
+ const termId='e1111111-1111-4111-8111-111111111111';
+ const baseRow={
+   id:requestId,deal_id:'DEAL-2026-010',deal_key:'f1111111-1111-4111-8111-111111111111',
+   assignment_id:assignment,owner_correction_key:correctionId,correction_version:4,
+   agent_legal_entity_key:'ENTITY-A',linked_legal_entity:'ENTITY-A',
+   requested_by:owner,request_status:'REVIEW_REQUESTED',generated_document_number:'ACT-GENERIC-004',
+   term_key:termId,source_snapshot:{},
+   finance_snapshot:{approvedActAmount:400,approvedCurrency:'USD',financeSourceRef:'FINANCE:AGENT-ACT-004',
+     ownerCorrectionId:correctionId,ownerCorrectionVersion:4,
+     approvedTermId:termId,signedAddendumDocumentId:dsId},
+   legal_snapshot:{approvedAddendumDocumentId:dsId,approvedActDate:'2026-10-16',
+     approvedDocumentNumber:'ACT-GENERIC-004',approvedServiceText:'Привлечение покупателя',
+     servicePeriod:'По сделке DEAL-2026-010',issuerSignatoryName:'Руководитель',
+     facsimileAuthorizationRef:'OWNER-AUTH-004',approvedIssuerRequisites:'Реквизиты RONA',
+     approvedIssuerLegalName:'RONA Trade',approvedSigningPlace:'Бишкек',
+     approvedAgentSignatory:'Представитель агента',facsimileApproved:true}
+ };
+ const term={term_reference:'ДС № 4 от 2026',document_reference:'ДС № 4 от 2026',
+   document_id:dsId,commission_mode:'FIXED',commission_fixed_amount:400,
+   currency:'USD',legal_name:'Агент 010',tax_identifier:'ИНН-010',
+   registered_address:'Юридический адрес агента',registration_country:'Кыргызстан'};
+ const makeSql=({approved=true,associated=true,legal=true}={})=>
+   async(parts,...values)=>{
+     const q=parts.join('?');
+     if(q.includes('agent_reward_act_requests_v1 r'))
+       return [{...baseRow,linked_legal_entity:associated?'ENTITY-A':'ENTITY-B'}];
+     if(q.includes('agent_reward_owner_corrections_v1'))
+       return [{id:correctionId}];
+     if(q.includes('select record_id,functional_role'))
+       return [{record_id:'FINANCE-REVIEW',role:'FINANCE',status:approved?'APPROVED':'PENDING'},
+         {record_id:'LEGAL-REVIEW',role:'LEGAL',status:'APPROVED'}];
+     if(q.includes('select status,payload'))
+       return [{status:'APPROVED',payload:{confirmed:true,mandatory_conditions:[]}},
+         {status:'APPROVED',payload:{confirmed:legal,mandatory_conditions:[]}}];
+     if(q.includes('mcp_oauth_tokens'))
+       return [{owner_portal_user_id:owner}];
+     if(q.includes('select t.term_reference'))
+       return [term];
+     throw Error('Unexpected DB read: '+q.slice(0,100));
+   };
+ const act=await approvedActIssue(makeSql(),{userId:owner},requestId);
+ assert.equal(act.dealId,'DEAL-2026-010');
+ assert.equal(act.agentLegalName,'Агент 010');
+ assert.equal(act.amount,400);
+ assert.equal(act.sourceMode,'FINANCE_LEGAL_CERTIFIED_ACT_V1');
+ assert.equal(act.financialAppendix.contract,'RONA_AGENT_ACT_TERMS_APPENDIX_V1');
+ assert.equal(act.financialAppendix.agentReward,400);
+ assert.equal(act.financialAppendix.correctionVersion,4);
+ assert.equal(act.commissionSource.mode,'FIXED');
+ assert.equal(act.createsPayable,false);
+ await assert.rejects(()=>approvedActIssue(makeSql({approved:false}),{userId:owner},requestId),
+   /FINANCE_LEGAL_ACT_REVIEW_REQUIRED/);
+ await assert.rejects(()=>approvedActIssue(makeSql({associated:false}),{userId:owner},requestId),
+   /ACT_SOURCE_ASSOCIATION_INVALID/);
+ await assert.rejects(()=>approvedActIssue(makeSql({legal:false}),{userId:owner},requestId),
+   /ACT_FUNCTIONAL_CONCLUSIONS_UNCONFIRMED/);
+ await assert.rejects(()=>approvedActIssue(makeSql(),{userId:'OTHER_OWNER'},requestId),
+   /ACT_OWNER_IDENTITY_REQUIRED/);
+});
