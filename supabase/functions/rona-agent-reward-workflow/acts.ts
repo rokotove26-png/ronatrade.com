@@ -184,7 +184,9 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
  if(owners.length!==1||String(owners[0].owner_portal_user_id)!==String(ctx.userId))
    deny('ACT_CANONICAL_OWNER_ONLY',403);
  await assertCurrent(sql,row);
- if(!['DRAFT_READY','OWNER_SIGNED'].includes(String(row.request_status)))
+ // The single-click workflow does not create a separate preliminary draft.
+ // Finance + Legal approvals and every source gate below are still mandatory.
+ if(!['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW','DRAFT_READY','OWNER_SIGNED'].includes(String(row.request_status)))
    deny('ACT_NOT_READY_FOR_ISSUANCE');
  const review=await reviewState(sql,id);
  if(!review.approved)deny('FINANCE_LEGAL_ACT_REVIEW_REQUIRED');
