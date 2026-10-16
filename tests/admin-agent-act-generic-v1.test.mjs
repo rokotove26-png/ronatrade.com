@@ -117,3 +117,105 @@ test('Act code enforces request-scoped attestation, canonical signing assets and
  assert.match(pdf,/RONA_OWNER_AGENT_ACT_APPENDIX_V1/);
  assert.match(pdf,/const canvases=\[canvas\]/);
 });
+
+test('Click generates and archives two-page Owner Act on another deal without AI approvals',async()=>{
+ const {chromium}=await import('playwright');
+ const {createHash}=await import('node:crypto');
+ const {onRequest}=await import('../functions/portal/agent-rewards-v1-ui.js');
+ const script=await(await onRequest()).text();
+ const pdf='%PDF-1.4\n'+('GENERIC_OWNER_ACT_TEST'.repeat(400))+'\n%%EOF';
+ const sha=createHash('sha256').update(pdf).digest('hex');
+ const dealId='DEAL-2026-010',assignmentId=ASSIGNMENT,requestId=REQUEST;
+ const docId='99999999-1111-4111-8111-111111111111';
+ const deal={dealId,assignmentId,clientName:'Покупатель 010',agentName:'Агент 010',
+   agentLegalName:'Независимый агент',businessStatus:'ACTIVE',
+   financialCurrency:'USD',receiptCurrency:'USD',
+   cashFlow:{status:'APPROVED_CASH_FLOW_DDS',currency:'USD',
+     cashReceived:5000,counterpartyCashOut:3500,bankFees:0,netCashFlow:1500},
+   financeSourceReconciliation:{status:'RECONCILED_CURRENT_FINANCE_V8'},
+   cashPaymentLines:[{paymentId:'PAYMENT-010',counterparty:'Поставщик',
+     canonicalCounterpartyId:'SUPPLIER:010',counterpartyResolutionStatus:'RESOLVED',
+     amount:3500,currency:'USD'}],
+   ownerResultBridge:{recognition_status:'APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE',
+     open_settlement_adjustment:{amount:0}},
+   ownerCorrectionAuthority:{status:'APPROVED_FOR_OWNER_CORRECTION',
+     contract:'PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'},
+   ownerCorrection:{version:3,payload:{paymentLineAmounts:{'PAYMENT-010':3500},
+     openSettlementAdjustment:0}},
+   agentTerm:{mode:'FIXED',status:'ACTIVE',lifecycleState:'ACTIVE',
+     authorityState:'CONFIRMED',fixedAmount:400,currency:'USD',
+     reference:'ДС №4 от 02.09.2026'}
+ };
+ const documents={dealId,assignmentId,agentCompanyId:'S-010',
+   agentLegalName:'Независимый агент',agentName:'Агент 010',
+   sourceReadiness:{termAligned:false,accountingStatus:'OPEN'},
+   currentAddendum:{bindingId:BINDING,documentId:DS,reference:'ДС №4 от 02.09.2026',
+     ownerApprovedByUpload:true,sha256:SHA,filename:'Signed_DS4.pdf'},
+   ownerCorrection:{sourceId:CORRECTION,version:3},acts:[]};
+ const browser=await chromium.launch({headless:true});
+ try{
+   const page=await browser.newPage({acceptDownloads:true});
+   const actions=[],errors=[];
+   page.on('dialog',d=>d.accept('400'));
+   page.on('pageerror',e=>errors.push(e.message));
+   await page.route('http://rona.owner/portal/admin',r=>r.fulfill({status:200,
+     contentType:'text/html',body:'<!doctype html><html><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
+   await page.route('http://rona.owner/portal/owner-api**',r=>r.fulfill({
+     contentType:'application/json',body:JSON.stringify({ok:true,data:{deals:[deal]}})}));
+   await page.route('http://rona.owner/portal/agent-reward-act-pdf-engine',r=>r.fulfill({
+     contentType:'application/javascript',body:
+       'window.RONA_AGENT_ACT_PDF_ENGINE={render:async function(data,id){'+
+       'if(data.dealId!=="'+dealId+'"||id!=="'+requestId+'")throw Error("wrong scope");'+
+       'return {blob:new Blob(['+JSON.stringify(pdf)+'],{type:"application/pdf"}),'+
+       'pageCount:2,filename:"Owner_Act_010.pdf"}}};'}));
+   await page.route('http://rona.owner/portal/agent-reward-workflow**',r=>{
+     const url=new URL(r.request().url());
+     const action=url.searchParams.get('action')||'state';
+     let data=documents;
+     if(action==='request-act'){
+       actions.push(action);
+       const x=JSON.parse(r.request().postData()||'{}').ownerApprovedCalculation;
+       assert.equal(x.dealId,dealId);
+       assert.equal(x.assignmentId,assignmentId);
+       assert.equal(x.ownerActDeclaration?.contract,'RONA_OWNER_AGENCY_ACT_DECLARATION_V1');
+       assert.equal(x.ownerActDeclaration?.addendumSha256,SHA);
+       assert.equal(x.ownerActDeclaration?.amount,x.reward);
+       assert.equal(x.ownerActDeclaration?.createsPayable,false);
+       documents.acts=[{id:requestId,request_status:'REVIEW_REQUESTED',
+         correction_version:3,owner_correction_key:CORRECTION,
+         ownerCalculationStored:true,ownerCalculationVersion:3,ownerSignReady:true,
+         review:{approved:false,finance:{status:'PENDING'},legal:{status:'PENDING'}},
+         readiness:{missing:['FINANCE_CONCLUSION_REQUIRED','LEGAL_CONCLUSION_REQUIRED']},
+         documents:[]}];
+       data={requestId,ownerCalculationStored:true};
+     }
+     if(action==='final-act'){
+       actions.push(action);
+       assert.deepEqual(JSON.parse(r.request().postData()||'{}'),
+         {ownerConfirmsSigning:true,ownerConfirmsFacsimile:true});
+       data={dealId,sourceMode:'OWNER_SIGNED_SECTION_NOT_FINANCE_PAYABLE',
+         financialAppendix:{contract:'RONA_OWNER_AGENT_ACT_APPENDIX_V1'}};
+     }
+     if(action==='upload-act'){
+       actions.push(action);
+       assert.equal(url.searchParams.get('stage'),'OWNER_SIGNED');
+       assert(r.request().postDataBuffer().includes(Buffer.from('canonicalAutomaticIssue')));
+       data={documentId:docId,sha256:sha,filename:'Owner_Act_010.pdf'};
+     }
+     if(action==='download-act'){
+       actions.push(action);data={url:'https://storage.example.test/Owner_Act_010.pdf'};
+     }
+     return r.fulfill({contentType:'application/json',
+       body:JSON.stringify({ok:true,data})});
+   });
+   await page.goto('http://rona.owner/portal/admin');
+   await page.addScriptTag({content:script});
+   const button=page.locator('.rona-ar-documents')
+     .getByRole('button',{name:'Сформировать и скачать акт'});
+   await button.waitFor({timeout:12000});
+   const [download]=await Promise.all([page.waitForEvent('download',{timeout:20000}),button.click()]);
+   assert.equal(download.suggestedFilename(),'Owner_Act_010.pdf');
+   assert.deepEqual(actions,['request-act','final-act','upload-act','download-act']);
+   assert.deepEqual(errors,[]);
+ }finally{await browser.close()}
+});
