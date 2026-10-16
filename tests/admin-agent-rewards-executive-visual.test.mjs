@@ -628,12 +628,14 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.doesNotMatch(await page.locator('.rona-ar-evidence').innerText(),
         /ДС не привязано|Addendum 2/);
       assert.equal(await box.getByRole('button',{name:'Загрузить ДС'}).count(),0);
-      assert.equal(await box.getByRole('button',{name:'Подготовить акт'}).isDisabled(),false);
+      assert.equal(await box.getByRole('button',{name:'Подготовить акт'}).count(),0);
+      assert.equal(await page.getByRole('button',{name:'Акт выполненных работ',exact:true}).count(),0);
       const notice=page.locator('.rona-admin-dialog-backdrop');
       if(await notice.count())await notice.last().getByRole('button',{name:'Закрыть'}).click();
-      await box.getByRole('button',{name:'Подготовить акт'}).click();
+      await page.locator('.rona-ar-col.owner').getByRole('button',{name:'Сохранить корректировку'}).click();
       await box.getByText('Акт будет доступен после подтверждения расчёта и реквизитов.').waitFor({timeout:7000});
-      assert.deepEqual(mutations.map(x=>x.action),['request-act']);
+      assert.deepEqual(mutations.map(x=>x.action),['request-act'],
+        'Saving a correction creates an Act request once; missing approval must not trigger false signed-PDF issuance');
       const visible=await box.innerText();
       assert.doesNotMatch(visible,/REVIEW_REQUESTED|Finance: PENDING|Legal: PENDING|OWNER №|TO_VERIFY|sourceId|FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS/);
       assert.equal(await box.getByRole('button',{name:'Загрузить PDF'}).count(),0);
