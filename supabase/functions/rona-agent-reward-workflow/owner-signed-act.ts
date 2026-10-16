@@ -1,5 +1,5 @@
 import {getOwnerActAppendix} from './financial-appendix.ts';
-import {genericOwnerActPayload} from './generic-owner-act.ts';
+import {genericOwnerActIssue} from './generic-owner-act.ts';
 // Authorized Owner's one-click signature on exact signed DS1 only.
 // No fake Finance/Legal approvals, external payable or Agent signature.
 const DS='e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab';
