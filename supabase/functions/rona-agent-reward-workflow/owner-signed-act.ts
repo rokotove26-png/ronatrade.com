@@ -1,3 +1,4 @@
+import {getOwnerActAppendix} from './financial-appendix.ts';
 // Authorized Owner's one-click signature on exact signed DS1 only.
 // No fake Finance/Legal approvals, external payable or Agent signature.
 const DS='e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab';
@@ -59,6 +60,11 @@ export async function ownerSignedActIssue(sql:any,ctx:any,row:any){
    reject('ACT_OWNER_DIRECT_DOC_SOURCE_DENIED');
  if(!['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW','DRAFT_READY','OWNER_SIGNED']
    .includes(String(row.request_status)))reject('ACT_OWNER_DIRECT_STATUS_INVALID');
+ // Snapshot of every appendix line is reconstructed from this exact saved
+ // correction and the Finance+Operations approved evidence at issuance.
+ const financialAppendix=await getOwnerActAppendix(sql,row);
+ if(Math.abs(financialAppendix.agentReward-m.amount)>.11)
+   reject('ACT_APPENDIX_AGENT_REWARD_MISMATCH');
  const ver=Number(row.correction_version),source='OWNER_SAVED_CORRECTION:'+String(row.owner_correction_key);
  const num='RT-ACT-2026-004-C'+String(ver).padStart(3,'0');
  const date=new Date(row.requested_at||Date.now()).toISOString().slice(0,10);
@@ -76,7 +82,7 @@ export async function ownerSignedActIssue(sql:any,ctx:any,row:any){
   services:'Привлечение покупателя — ООО «FARG’ONA GAZ TO’LDIRISH STANSIYASI» — для поставки 315 тонн смеси пропана и бутана технических.',
   servicePeriod:'По сделке DEAL-2026-004, ДС №1 от 15.07.2026',
   addendumReference:'ДС №1 от 15.07.2026 к агентскому договору №351С/2026 от 07.05.2026',
-  amount:m.amount,currency:m.currency,
+  amount:m.amount,currency:m.currency,financialAppendix,
   shipmentMarginSource:{
    basis:'SHIPMENT_MARGIN',margin:m.margin,marginCurrency:m.currency,rate:.5,
    basisSourceKind:'OWNER_APPROVED_SECTION',
