@@ -619,7 +619,8 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(agentActStages,/\['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'\]\.includes\(row\.request_status\)/);
   assert.match(agentActStages,/ACT_STAGE_CHANGED/);
   assert.match(agentActStages,/AGENT_PORTAL_INBOX_UI_NOT_DEPLOYED/);
-  assert.match(ui,/Открыть проект акта · печать в PDF/);
+  assert.doesNotMatch(ui,/Открыть проект акта · печать в PDF/);
+  assert.match(ui,/Документы и акт/);
   assert.match(ui,/RONA-DOC-STANDARD v2/);
   assert.match(ui,/Подтверждаю, что PDF содержит подписи обеих сторон/);
   assert.doesNotMatch(ui,/Отправить агенту на подписание/);
