@@ -718,3 +718,73 @@ test('Owner Finance Console v2 compares source-locked scenarios with live OWNER 
   assert.ok(js.includes('p=planModel(deal),f=cashFactModel(deal),fp=factManagementModel(deal,f)'));
   assert.ok(js.includes('state.searchQuery=search.value'));
 });
+
+
+test('Signed agency DS source isolation: 005 mismatched term, 006 unbound, 010/011 no current term',async()=>{
+  const {chromium}=await import('playwright');
+  const js=await(await onRequest()).text();
+  const assignmentId='11111111-1111-4111-8111-111111111111';
+  const cases=[
+    {dealId:'DEAL-2026-005',doc:'ДС №2 от 12.08.2026',term:'Agency Contract 351C/2026 / Addendum 3 dated 2026-08-12',
+      expect:'Ссылка на расчётное условие указывает Addendum/ДС №3',kpi:'ДС загружено, но условие не совпадает'},
+    {dealId:'DEAL-2026-006',doc:null,term:'Agency Contract 351C/2026 / Addendum 3 dated 2026-08-12',
+      expect:'Есть расчётное условие, но подписанное агентское ДС не привязано',kpi:'Нет агентского ДС по сделке'},
+    {dealId:'DEAL-2026-010',doc:'ДС №4 от 02.09.2026',term:null,
+      expect:'Для текущего назначения агента действующее связанное условие вознаграждения отсутствует',kpi:'ДС загружено, но условие не совпадает'},
+    {dealId:'DEAL-2026-011',doc:'ДС №5 от 15.09.2026',term:null,
+      expect:'Не переносим условие со старого назначения автоматически',kpi:'ДС загружено, но условие не совпадает'}
+  ];
+  const browser=await chromium.launch({headless:true});
+  try{
+    for(const item of cases){
+      const deal={
+        dealId:item.dealId,assignmentId,clientName:'Контрольный клиент',agentName:'Артем Белов',
+        agentLegalEntityId:'S-005',businessStatus:'EXECUTING',financialCurrency:'USD',receiptCurrency:'USD',
+        planInputs:{revenue:5000,expenseKnownTotal:3000,revenueStatus:'APPROVED_FINANCE_MANAGEMENT_PLAN',
+          expenseStatus:'APPROVED_FINANCE_MANAGEMENT_PLAN'},
+        cashFlow:{status:'APPROVED_CASH_FLOW_DDS',currency:'USD',
+          cashReceived:5000,counterpartyCashOut:3000,bankFees:20,netCashFlow:1980},
+        financeSourceReconciliation:{status:'RECONCILED_CURRENT_FINANCE_V8'},
+        cashPaymentLines:[{paymentId:'SOURCE-1',counterparty:'Контрагент',canonicalCounterpartyId:'SUPPLIER:QA',
+          counterpartyResolutionStatus:'RESOLVED',amount:3000,currency:'USD'}],
+        ownerResultBridge:{recognition_status:'APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE',
+          open_settlement_adjustment:{amount:0}},
+        ownerCorrectionAuthority:{status:'APPROVED_FOR_OWNER_CORRECTION',
+          contract:'PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'},
+        ...(item.term?{agentTerm:{mode:'PERCENT',rate:0.5,status:'ACTIVE',lifecycleState:'ACTIVE',
+          authorityState:'CONFIRMED',reference:item.term}}:{})
+      };
+      const doc={
+        dealId:item.dealId,assignmentId,agentCompanyId:'S-005',agentLegalName:'ООО «ИнКом»',
+        term:item.term?{termId:'11111111-1111-4111-8111-222222222222',
+          mode:'PERCENT',rate:0.5,reference:item.term}:null,
+        sourceReadiness:{termAligned:false,ownerApprovedByUpload:true,accountingStatus:'OPEN'},
+        currentAddendum:item.doc?{bindingId:'11111111-1111-4111-8111-333333333333',
+          reference:item.doc,documentId:'AGENCY-S-005-1234ABCD',
+          ownerApprovedByUpload:true,sha256:'0'.repeat(64),evidenceStatus:'RECEIVED_NOT_LEGALLY_VERIFIED'}:null,
+        ownerCorrection:null,acts:[]
+      };
+      const page=await browser.newPage({viewport:{width:1100,height:950}});
+      const post=[];
+      page.on('request',r=>{if(r.method()!=='GET')post.push(r.method()+' '+r.url())});
+      await page.route('http://rona.source/portal/admin',r=>r.fulfill({
+        status:200,contentType:'text/html',
+        body:'<!doctype html><html lang="ru"><head><meta charset="utf-8"></head><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
+      await page.route('http://rona.source/portal/owner-api**',r=>r.fulfill({
+        status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{deals:[deal]}})}));
+      await page.route('http://rona.source/portal/agent-reward-workflow**',r=>r.fulfill({
+        status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:doc})}));
+      await page.goto('http://rona.source/portal/admin');
+      await page.addScriptTag({content:js});
+      const diagnostic=page.locator('.rona-ar-doc-source-diagnostic');
+      await diagnostic.waitFor({timeout:10000});
+      assert.match(await diagnostic.textContent(),new RegExp(item.expect),'Exact source reason '+item.dealId);
+      assert.match(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),
+        new RegExp(item.kpi),'No unsupported reward at '+item.dealId);
+      assert.equal(await page.locator('.rona-ar-scenarios-table [data-rona-owner-scenario="agentReward"]').textContent(),
+        'TO_VERIFY','Unknown agent amount is not zero or an old assignment amount');
+      assert.deepEqual(post,[],'Source inspection is read only');
+      await page.close();
+    }
+  }finally{await browser.close()}
+});
