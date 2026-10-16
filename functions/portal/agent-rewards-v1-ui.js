@@ -915,7 +915,12 @@ function renderOwner(deal){
       if(!m.paymentComplete||m.netProfit===null)throw new Error('Расчёт и детализация платежей требуют сверки Finance');
       const payload={paymentLineAmounts:m.paymentLineAmounts,openSettlementAdjustment:m.openSettlementAdjustment};
       await saveCorrection(deal.dealId,deal.assignmentId,payload,'');
-      await getWorkspace({force:true});state.docCache.delete(rowKey(deal));state.selectedKey=rowKey(deal);render()
+      let pdfResult=null,pdfError=null;
+      try{pdfResult=await saveCorrectionAndDownloadSignedAct(deal)}catch(error){pdfError=String(error.message||error)}
+      await getWorkspace({force:true});state.docCache.delete(rowKey(deal));state.selectedKey=rowKey(deal);render();
+      if(pdfError)docNotice('Корректировка сохранена. Подписанный PDF не выпущен: '+pdfError+
+        '. Данные нельзя подменять неподтверждёнными.');
+      else if(pdfResult)docNotice('Корректировка сохранена. Подписанный PDF-акт архивирован и скачан.')
     }catch(e){window.RONA_ADMIN_DIALOGS?.message?window.RONA_ADMIN_DIALOGS.message(String(e.message||e),{title:'Корректировка не сохранена'}):alert(e.message||e)}
     finally{state.saving=false}
   };
@@ -1176,6 +1181,57 @@ async function uploadDealAddendum(deal,companyId,fileControl,refControl,ackContr
   }catch(e){await refreshDealDocuments(deal);docNotice('Ошибка сохранения ДС: '+String(e.message||e))}
   finally{button.disabled=false}
 }
+async function saveCorrectionAndDownloadSignedAct(deal){
+  // The Owner's Save action is the sole trigger. Do not open a second act dialog.
+  const docs=await docCall(deal,'state');
+  if(!docs.currentAddendum)throw new Error('ACT_SIGNED_ADDENDUM_REQUIRED: подписанное ДС по сделке отсутствует');
+  const requested=await docCall(deal,'request-act',{method:'POST'});
+  const id=String(requested.requestId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))throw new Error('ACT_REQUEST_NOT_CREATED');
+  const path=docUrl(deal,'final-act')+'&requestId='+encodeURIComponent(id);
+  const issued=await fetch(path,{method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:{accept:'application/json','content-type':'application/json'},
+    body:JSON.stringify({ownerConfirmsSigning:true,ownerConfirmsFacsimile:true})});
+  const result=await issued.json().catch(()=>({}));
+  if(!issued.ok||result.ok===false)throw new Error(String(result.code||'ACT_VERIFIED_APPROVALS_REQUIRED'));
+  if(!window.RONA_AGENT_ACT_PDF_ENGINE)
+    await import('/portal/agent-reward-act-pdf-engine.js');
+  const renderer=window.RONA_AGENT_ACT_PDF_ENGINE;
+  if(!renderer?.render)throw new Error('ACT_CANONICAL_PDF_ENGINE_UNAVAILABLE');
+  const pdf=await renderer.render(result.data||{},id);
+  if(pdf.blob.type!=='application/pdf'||pdf.blob.size<5000)
+    throw new Error('ACT_PDF_RENDER_INVALID');
+  const form=new FormData();
+  form.append('file',new File([pdf.blob],pdf.filename,{type:'application/pdf'}));
+  form.append('attestedSigned','true');
+  form.append('canonicalAutomaticIssue','true');
+  form.append('ownerConfirmsSigning','true');
+  form.append('ownerConfirmsFacsimile','true');
+  const archived=await fetch(docUrl(deal,'upload-act')+'&requestId='+encodeURIComponent(id)+
+    '&stage=OWNER_SIGNED',{method:'POST',credentials:'same-origin',cache:'no-store',body:form});
+  const registration=await archived.json().catch(()=>({}));
+  if(!archived.ok||registration.ok===false)
+    throw new Error('ACT_PDF_ARCHIVE_FAILED: '+String(registration.code||archived.status));
+  const documentId=registration.data?.documentId;
+  if(!/^[0-9a-f-]{36}$/i.test(String(documentId||'')))
+    throw new Error('ACT_PDF_DOCUMENT_ID_MISSING');
+  const download=await fetch(docUrl(deal,'download-act')+'&requestId='+encodeURIComponent(id)+
+    '&documentId='+encodeURIComponent(documentId),{credentials:'same-origin',cache:'no-store'});
+  const downloaded=await download.json().catch(()=>({}));
+  if(!download.ok||downloaded.ok===false||!/^https:\/\//.test(String(downloaded.data?.url||'')))
+    throw new Error('ACT_PDF_ARCHIVED_BUT_DOWNLOAD_UNAVAILABLE');
+  const response=await fetch(downloaded.data.url,{cache:'no-store'});
+  if(!response.ok)throw new Error('ACT_PDF_DOWNLOAD_HTTP_'+response.status);
+  const bytes=await response.blob();
+  if(bytes.type!=='application/pdf'||bytes.size<5000)
+    throw new Error('ACT_PDF_DOWNLOADED_BYTES_INVALID');
+  const url=URL.createObjectURL(bytes),link=document.createElement('a');
+  link.href=url;link.download=pdf.filename;link.style.display='none';
+  document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  return{requestId:id,documentId};
+}
+
 async function requestAgentAct(deal,button){
   button.disabled=true;
   try{
