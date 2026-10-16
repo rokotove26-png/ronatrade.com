@@ -119,6 +119,10 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
       if(r.request().method()==='POST'){
         actions.push('save');
         const input=JSON.parse(r.request().postData()||'{}');
+        assert.deepEqual(input.correctedPayload.paymentLineAmounts,{'PAYMENT-1':3000},
+          'Unchanged Finance-verified payment must be saved in Owner correction');
+        deal.ownerCorrection={version:3,createdAt:'2026-10-16T00:00:00Z',
+          payload:input.correctedPayload};
         data={accepted:true,dealId,assignmentId,version:3,
           correctedPayload:input.correctedPayload};
       }
