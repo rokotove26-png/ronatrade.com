@@ -47,7 +47,7 @@ test('One-click PDF contract preserves canonical source hashes and protected iss
   assert.match(ui,/loadAgentActPdfEngine/);
   assert.match(ui,/agentActDownloadBlob\(pdf\.blob,pdf\.filename\)/);
   assert.match(ui,/issueFromSavedOwnerCorrection/);
-  assert.match(ui,/Акт сверки · СГ-Транс/);
+  assert.doesNotMatch(ui,/Акт сверки · СГ-Транс/);
   assert.doesNotMatch(ui,/const act=docButton\('Акт выполненных работ'/);
   assert.doesNotMatch(ui,/const request=docButton\('Подготовить акт'/);
 });
