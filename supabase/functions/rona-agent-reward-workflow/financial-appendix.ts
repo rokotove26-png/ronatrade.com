@@ -75,18 +75,36 @@ export async function getOwnerActAppendix(sql:any,row:any){
      ||Math.abs(amount(edited[k],'ACT_APPENDIX_PAYMENT_SOURCE_INVALID')-
        amount(provided[k],'ACT_APPENDIX_PAYMENT_SOURCE_INVALID'))>.00001))
    blocked('ACT_APPENDIX_CORRECTION_PAYMENTS_CHANGED');
- const keys=Object.keys(edited);
- if(!keys.length||keys.length>50)blocked('ACT_APPENDIX_PAYMENT_BREAKDOWN_MISSING');
+ const explicitKeys=Object.keys(edited);
+ if(explicitKeys.length>50)blocked('ACT_APPENDIX_PAYMENT_BREAKDOWN_MISSING');
+ // Older Owner corrections stored only changes, not unchanged payment rows.
+ // When there are NO edits at all, reconstruct the locked baseline solely from
+ // deal-scoped Finance V8 evidence as of the correction date, never another
+ // assignment's correction and never from another deal.
+ const legacyNoEdits=explicitKeys.length===0;
  const paymentSources=await sql`select p.payment_id,p.counterparty_name,p.beneficiary_name,
-       p.payment_kind::text as payment_kind,c.accounting_currency,c.accounting_amount
+       p.payment_kind::text as payment_kind,c.accounting_currency,c.accounting_amount,c.effective_at
    from portal_private.payment_resource_chains_effective_v8 c
    join portal_private.payments p on p.id=c.payment_key
    where c.deal_key=${row.deal_key}::uuid
      and p.payment_kind::text='COUNTERPARTY_PAYMENT'
    order by p.payment_id,c.effective_at desc limit 100`;
  const sourceById=new Map(paymentSources.map((x:any)=>[String(x.payment_id),x]));
+ const keys=legacyNoEdits?paymentSources.map((x:any)=>String(x.payment_id)):explicitKeys;
+ if(!keys.length||keys.length>50)blocked('ACT_APPENDIX_PAYMENT_BREAKDOWN_MISSING');
+ if(legacyNoEdits){
+   const savedAt=new Date(correction[0].created_at).getTime();
+   if(!Number.isFinite(savedAt)||sourceById.size!==paymentSources.length
+     ||paymentSources.some((s:any)=>{
+       const asOf=new Date(s.effective_at).getTime();
+       return !String(s.payment_id||'').trim()||!Number.isFinite(asOf)||asOf>savedAt;
+     }))blocked('ACT_APPENDIX_LEGACY_PAYMENT_SOURCE_INVALID');
+ }
  const payments=keys.map(id=>{
-   const s:any=sourceById.get(id),value=amount(edited[id],'ACT_APPENDIX_PAYMENT_AMOUNT_MISSING');
+   const s:any=sourceById.get(id);
+   const value=legacyNoEdits
+     ?unitRound(amount(s?.accounting_amount,'ACT_APPENDIX_PAYMENT_AMOUNT_MISSING'))
+     :amount(edited[id],'ACT_APPENDIX_PAYMENT_AMOUNT_MISSING');
    if(!s||value<0||String(s.accounting_currency).trim()!==String(snapshot.currency))
      blocked('ACT_APPENDIX_CROSS_DEAL_PAYMENT_SOURCE');
    const name=String(s.counterparty_name||s.beneficiary_name||'').trim();
@@ -97,6 +115,14 @@ export async function getOwnerActAppendix(sql:any,row:any){
    else if(/SGTRANS/i.test(id))purpose=' — железнодорожная логистика';
    return {paymentId:id,label:name+purpose,amount:-cashRound(value)}
  });
+ if(legacyNoEdits){
+   // An empty saved edit map means unchanged baseline, NOT permission to
+   // change the Owner's already saved economics. Reject any drift outright.
+   const baseline=cashRound(payments.reduce((sum:number,p:any)=>sum-p.amount,0));
+   if(Math.abs(baseline-amount(snapshot.calculation?.counterpartyCashOut,
+      'ACT_APPENDIX_LEGACY_SAVED_BASELINE_MISSING'))>.111)
+     blocked('ACT_APPENDIX_LEGACY_PAYMENT_BASELINE_MISMATCH');
+ }
  // Both source proposals below MUST have an actual matching Operations approval,
  // just like the currently materialized RONA Admin Agent Rewards workspace.
  async function approvedRecord(field:string){
