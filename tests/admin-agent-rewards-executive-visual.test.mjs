@@ -493,8 +493,8 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
           'Unfulfilled DS5 closing remains recorded as a forecast state');
         assert.equal(await page.locator('.rona-ar-btn.send').isDisabled(),true,
           'A management projection must never enable an external payable or agent send');
-        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Закрывающие документы ещё ожидаются/);
-        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Не подтверждено в текущем источнике/);
+        assert.equal(await page.locator('.rona-ar-evidence').count(),0,'Technical explanation panel must remain hidden');
+        assert.equal(await page.locator('.rona-ar-evidence').count(),0,'Technical explanation panel must remain hidden');
         assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),1,
           'Internally calculable management estimate remains visually distinguishable from payable authority');
       }
@@ -536,7 +536,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         await page.locator('[data-rona-ar-deal-select="VISUAL-QA-SECOND::VISUAL-QA-SECOND-DEAL"]').click();
         assert.equal(await page.locator('.rona-ar-focus-title').textContent(),'Второй контрагент');
         assert.equal(await page.locator('[data-rona-ar-deal-select="VISUAL-QA-SECOND::VISUAL-QA-SECOND-DEAL"]').getAttribute('aria-pressed'),'true');
-        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Условия вознаграждения проверяются/);
+        assert.equal(await page.locator('.rona-ar-evidence').count(),0,'Technical explanation panel must remain hidden');
         assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),0);
         assert.equal(await page.locator('.rona-ar-cascade-row.final .rona-ar-cascade-bar').count(),0,
           'Switching to a deal without a signed term must not show fabricated net payout result');
