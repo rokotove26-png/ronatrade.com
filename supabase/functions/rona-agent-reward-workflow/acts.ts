@@ -1,8 +1,6 @@
 // RONA Trade act lifecycle, additive to the source-only agent Rewards read workspace.
 // No modification to Finance numbers or external settlement; two immutable role conclusions
 // are mandatory before an act can be archived or exposed to the agent.
-import {certifiedAgentTerms} from './generic-agent-terms.ts';
-import {certifiedRoleSnapshots} from './role-certified-snapshots.ts';
 const ID=/^[0-9a-f-]{36}$/i,BUCKET='rona-portal-private',MAX=20*1024*1024;
 function deny(code:string,status=409){throw Object.assign(new Error(code),{status})}
 export async function reviewState(sql:any,id:string){
@@ -28,8 +26,7 @@ export async function rowFor(sql:any,id:string){
  b.agent_legal_entity_key as linked_legal_entity
  from portal_private.agent_reward_act_requests_v1 r
  join portal_private.deals d on d.id=r.deal_key
- join portal_private.agent_client_assignments a
-   on a.id=r.assignment_id and a.client_key=d.client_key
+ join portal_private.agent_client_assignments a on a.id=r.assignment_id and a.client_key=d.client_key
  join portal_private.agent_reward_deal_addenda_v1 b
    on b.id=r.addendum_key and b.deal_key=r.deal_key and b.assignment_id=r.assignment_id
  where r.id=${id}::uuid limit 2`;
@@ -80,20 +77,17 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
      deny('ACT_OWNER_SIGNING_ATTESTATION_REQUIRED',400);
    if(String(row.requested_by)!==String(ctx.userId))deny('ACT_OWNER_IDENTITY_REQUIRED',403);
    const issued=await approvedActIssue(sql,ctx,String(row.id));
-   // Both legacy Owner-direct and generic Finance+Legal certified automatic acts
-   // require a fresh, request-scoped Owner attestation in the audited finalize route.
-   const proof=await sql`select event_id from portal_private.audit_events
-     where actor_user_id=${ctx.userId}::uuid
-       and entity_type='DEAL' and entity_id=${row.deal_id}
-       and action='AGENT_ACT_CANONICAL_FACSIMILE_RENDER_AUTHORIZED'
-       and metadata->>'requestId'=${String(row.id)}
-       and metadata->>'documentNumber'=${issued.documentNumber}
-       and metadata->>'finance'=${String(issued.financeEvidence)}
-       and metadata->>'legal'=${String(issued.legalEvidence)}
-       and metadata->>'facsimileRef'=${issued.facsimileAuthorizationRef}
-     order by event_at desc limit 1`;
-   if(proof.length!==1)
-     deny(ownerDirect?'ACT_OWNER_DIRECT_ISSUE_NOT_AUTHORIZED':'ACT_CERTIFIED_ISSUE_NOT_AUTHORIZED',403);
+   if(ownerDirect){
+     const proof=await sql`select event_id from portal_private.audit_events
+       where actor_user_id=${ctx.userId}::uuid
+         and entity_type='DEAL' and entity_id=${row.deal_id}
+         and action='AGENT_ACT_CANONICAL_FACSIMILE_RENDER_AUTHORIZED'
+         and metadata->>'requestId'=${String(row.id)}
+         and metadata->>'documentNumber'=${issued.documentNumber}
+         and metadata->>'facsimileRef'=${issued.facsimileAuthorizationRef}
+       order by event_at desc limit 1`;
+     if(proof.length!==1)deny('ACT_OWNER_DIRECT_ISSUE_NOT_AUTHORIZED',403);
+   }
  }else if(stage==='OWNER_SIGNED'&&(row.request_status!=='DRAFT_READY'||!await stageExists(sql,row.id,'FINANCE_LEGAL_DRAFT')))
    deny('FINANCE_LEGAL_DRAFT_REQUIRED');
  if(stage==='BOTH_SIGNED'&&(!['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'].includes(row.request_status)
@@ -108,10 +102,9 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
  if(stage!=='FINANCE_LEGAL_DRAFT'&&!attested)deny('SIGNED_ACT_ATTESTATION_REQUIRED',400);
  const content=await file.arrayBuffer();
  if(new TextDecoder().decode(content.slice(0,5))!=='%PDF-')deny('PDF_SIGNATURE_INVALID',400);
- if(canonicalAutomatic){
-   // Every automatically issued certified Act must include Appendix 1.
-   // The historical Owner-direct path and generalized Finance/Legal path
-   // both archive exactly the two validated pages.
+ if(ownerDirect){
+   // The final Owner-signed document always includes the approved itemized
+   // Appendix 1. Never archive a single-page Act as the finished result.
    const pdfStructure=new TextDecoder().decode(content);
    const pageObjects=(pdfStructure.match(/\/Type\s+\/Page\b/g)||[]).length;
    if(!/\/Count\s+2\b/.test(pdfStructure)||pageObjects!==2)
@@ -223,7 +216,7 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    deny('ACT_NOT_READY_FOR_ISSUANCE');
  const review=await reviewState(sql,id);
  if(!review.approved)deny('FINANCE_LEGAL_ACT_REVIEW_REQUIRED');
- const conclusions=await sql`select record_id,functional_role::text as role,status,payload from portal_private.ai_coordination_records
+ const conclusions=await sql`select status,payload from portal_private.ai_coordination_records
    where target_type='DOCUMENT' and target_id=${id}
    and record_type='FUNCTIONAL_CONCLUSION'
    and record_id in (${review.finance.recordId}::uuid,${review.legal.recordId}::uuid)`;
@@ -320,36 +313,6 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
      exchangeRateSourceRef:rateRequired?String(finance.approvedActConversionSourceRef):null,
      settlementNote:'Оплата производится в российских рублях по курсу ЦБ РФ на дату фактической оплаты.'};
  }
- // All other deals use an explicit, Finance+Legal certified term calculation.
- // Do not treat a management Owner P&L preview as a payable authority.
- const legacyDs1=String(row.deal_id)==='DEAL-2026-004'&&ds===1;
- const certified=legacyDs1&&shipmentMarginSource?{
-   contract:'RONA_CERTIFIED_AGENT_TERMS_V1',mode:'PERCENT',
-   basisType:'SHIPMENT_MARGIN',basisAmount:shipmentMarginSource.margin,
-   basisCurrency:shipmentMarginSource.marginCurrency,rate:0.5,quantity:null,
-   approvedAmount:amount,approvedCurrency:currency,
-   sourceRef:shipmentMarginSource.factoryDocumentRef+'; '+shipmentMarginSource.guDocumentRef,
-   exchangeRate:shipmentMarginSource.exchangeRate,
-   exchangeSourceRef:shipmentMarginSource.exchangeRateSourceRef,
-   contractCurrency:String(t.commission_mode||'')
- }:certifiedAgentTerms({term:t,finance,legal,amount,currency});
- const appendix={
-   contract:'RONA_AGENT_ACT_TERMS_APPENDIX_V1',
-   dealId:String(row.deal_id),correctionVersion:Number(row.correction_version),
-   correctionId:String(row.owner_correction_key),currency,agentReward:amount,
-   mode:certified.mode,basisType:certified.basisType,
-   basisAmount:certified.basisAmount,basisCurrency:certified.basisCurrency,
-   rate:certified.rate,quantity:certified.quantity,
-   sourceRef:certified.sourceRef,exchangeRate:certified.exchangeRate,
-   exchangeSourceRef:certified.exchangeSourceRef,
-   approvedBasisSignPolicy:finance.approvedBasisSignPolicy||null,
-   addendumReference:String(t.document_reference),
-   financeSourceRef:financeRef,financeConclusionRef:String(review.finance.recordId),
-   legalConclusionRef:String(review.legal.recordId),
-   ownerCalculation:ownerCalculation?.currency===currency?
-      ownerCalculation.calculation:null,
-   sourceKind:'FINANCE_LEGAL_CERTIFIED_NOT_OWNER_PREVIEW'
- };
  const number=String(row.generated_document_number||''),date=String(legal.approvedActDate||''),
    service=String(legal.approvedServiceText||''),period=String(legal.servicePeriod||''),
    signer=String(legal.issuerSignatoryName||''),facsimileRef=String(legal.facsimileAuthorizationRef||''),
@@ -370,8 +333,6 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    addendumReference:t.document_reference,addendumDocumentId:t.document_id,
    financeEvidence:review.finance.recordId,legalEvidence:review.legal.recordId,
    financeSourceRef:financeRef,shipmentMarginSource,
-   commissionSource:certified,financialAppendix:appendix,
-   sourceMode:'FINANCE_LEGAL_CERTIFIED_ACT_V1',
    ownerSectionCalculation:ownerCalculation?.calculation||null,
    ownerSectionCorrectionVersion:ownerCalculation?.correctionVersion||null,
    facsimileAuthorizationRef:facsimileRef,
