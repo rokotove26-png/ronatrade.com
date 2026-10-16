@@ -23,6 +23,13 @@ test('Certified FIXED, PER_TONNE, and PERCENT modes use actual authoritative ter
  const pct=certifiedAgentTerms(make('PERCENT',500));
  assert.equal(pct.rate,0.25);assert.equal(pct.basisAmount,2000);
  assert.equal(pct.sourceRef,'FINANCE_NET_PROFIT_VERIFIED');
+ const fixedFx=certifiedAgentTerms(make('FIXED',440,{term:{currency:'EUR'},
+   finance:{approvedActConversionRate:1.1,approvedActConversionSourceRef:'CB_RATE'},
+   legal:{approvedForeignCurrencyActAllowed:true,approvedActCurrencyAndFxTreatment:true}}));
+ assert.equal(fixedFx.basisAmount,400);
+ assert.equal(fixedFx.basisCurrency,'EUR');
+ assert.equal(fixedFx.approvedAmount,440);
+
 });
 test('Certified source guards reject forged terms, unsupported basis, and absent Finance/Legal FX evidence',()=>{
  assert.throws(()=>certifiedAgentTerms(make('FIXED',450)),code('ACT_CERTIFIED_AMOUNT_TERM_MISMATCH'));
