@@ -54,7 +54,7 @@ export function genericOwnerActPayload(row:any,doc:any){
   issuerRequisites:'ИНН 02104202510169; регистрационный номер 315370-3301-ООО; Кыргызская Республика, г. Бишкек, ул. Гоголя, д. 109, кв. 50',
   agentLegalName:str(doc.legal_name),
   agentSignatory:'Уполномоченный представитель (подпись агента отсутствует)',
-  agentTaxId:str(doc.tax_identifier||'Уточняется по подписанному ДС'),
+  agentTaxId:str(doc.tax_identifier),
   agentAddress:str(doc.registered_address),agentCountry:str(doc.registration_country),
   services,servicePeriod:'По сделке '+str(row.deal_id),
   addendumReference:str(doc.document_reference),addendumDocumentId:str(doc.document_id),
