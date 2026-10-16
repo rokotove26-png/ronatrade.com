@@ -583,7 +583,7 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
     agentName:'Представитель агента',assignmentStatus:'ACTIVE',
     term:null,
     ownerConfirmedTerm:{mode:'PERCENT',rate:0.5,basis:'SHIPMENT_MARGIN',paymentCurrency:'RUB',status:'SIGNED_SOURCE_TEXT_PENDING_FINANCE_LEGAL'},
-    sourceReadiness:{termAligned:false,accountingStatus:'OPEN'},
+    sourceReadiness:{termAligned:false,accountingStatus:'OPEN',rule:'DS1_50_PERCENT_SHIPMENT_MARGIN_RUB'},
     currentAddendum:{bindingId:'b1111111-1111-4111-8111-111111111111',
       documentId:'AGENCY-S-005-A1B2C3D4',filename:'Signed_QA.pdf',
       reference:'ДС №1 от 15.07.2026',evidenceStatus:'RECEIVED_NOT_LEGALLY_VERIFIED',ownerApprovedByUpload:true,sha256:'e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab'},
@@ -637,6 +637,8 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.equal(await box.locator('input[type=file]').count(),0);
       assert.equal(await box.getByRole('button',{name:'Скачать ДС'}).count(),1);
       assert.equal(await box.getByText('ДС загружено и привязано к сделке').count(),1);
+      assert.equal(await box.getByRole('button',{name:'Акт сверки · СГ-Транс'}).count(),1);
+      assert.doesNotMatch(await page.locator('.rona-ar').innerText(),/Основание и статус расчёта|Важно: расчёт PLAN/);
       assert.equal(await box.getByText('50% от маржи по поставке (ДС №1)').count(),1);
       assert.match(await box.innerText(),/По сохранённому расчёту:/);
       assert.match(await page.locator('.rona-ar-col.owner').innerText(),/990,0\s*USD/);
@@ -649,7 +651,8 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       const notice=page.locator('.rona-admin-dialog-backdrop');
       if(await notice.count())await notice.last().getByRole('button',{name:'Закрыть'}).click();
       await page.locator('.rona-ar-col.owner').getByRole('button',{name:'Сохранить корректировку'}).click();
-      await box.getByText('Акт будет доступен после подтверждения расчёта и реквизитов.').waitFor({timeout:7000});
+      await box.getByText('Корректировка №3 сохранена.').waitFor({timeout:7000});
+      assert.equal(await box.getByRole('button',{name:'Сформировать и скачать акт'}).count(),1);
       assert.deepEqual(mutations.map(x=>x.action),['request-act'],
         'Saving a correction creates an Act request once; missing approval must not trigger false signed-PDF issuance');
       const visible=await box.innerText();
