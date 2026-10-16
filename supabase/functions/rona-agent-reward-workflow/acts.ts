@@ -62,19 +62,23 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
  if(!['FINANCE_LEGAL_DRAFT','OWNER_SIGNED','BOTH_SIGNED'].includes(stage))deny('ACT_STAGE_INVALID',400);
  await assertCurrent(sql,row);
  const reviews=await reviewState(sql,String(row.id));
- // An unsigned working draft can be filed for review. Only post-approval
- // stages require BOTH authoritative functional conclusions.
+ // Manual paths keep their existing gates. Canonical one-click issuance is allowed
+ // to skip the intermediate print-draft only after full, authoritative source checks.
+ let form:FormData;try{form=await req.formData()}catch{deny('INVALID_MULTIPART',400)}
+ const canonicalAutomatic=stage==='OWNER_SIGNED'&&String(form!.get('canonicalAutomaticIssue'))==='true';
  if(stage!=='FINANCE_LEGAL_DRAFT'&&!reviews.approved)deny('FINANCE_LEGAL_ACT_REVIEW_REQUIRED');
  if(stage==='FINANCE_LEGAL_DRAFT'&&!['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW'].includes(row.request_status))
    deny('ACT_DRAFT_WRONG_STAGE');
- if(stage==='OWNER_SIGNED'&&(row.request_status!=='DRAFT_READY'||!await stageExists(sql,row.id,'FINANCE_LEGAL_DRAFT')))
+ if(canonicalAutomatic){
+   if(form!.get('ownerConfirmsSigning')!=='true'||form!.get('ownerConfirmsFacsimile')!=='true')
+     deny('ACT_OWNER_SIGNING_ATTESTATION_REQUIRED',400);
+   if(String(row.requested_by)!==String(ctx.userId))deny('ACT_OWNER_IDENTITY_REQUIRED',403);
+   await approvedActIssue(sql,ctx,String(row.id));
+ }else if(stage==='OWNER_SIGNED'&&(row.request_status!=='DRAFT_READY'||!await stageExists(sql,row.id,'FINANCE_LEGAL_DRAFT')))
    deny('FINANCE_LEGAL_DRAFT_REQUIRED');
- // Owner may register a PDF signed by both parties through the Admin cabinet.
- // No delivery to the unimplemented Agent cabinet is implied or recorded.
  if(stage==='BOTH_SIGNED'&&(!['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'].includes(row.request_status)
     ||!await stageExists(sql,row.id,'OWNER_SIGNED')))
    deny('OWNER_SIGNED_ACT_REQUIRED');
- let form:FormData;try{form=await req.formData()}catch{deny('INVALID_MULTIPART',400)}
  const file=form!.get('file');
  if(!(file instanceof File)||file.size<1||file.size>MAX)deny('PDF_SIZE_INVALID',400);
  const name=String(file.name||'').normalize('NFC').split(/[\\/]/).pop()||'';
@@ -102,7 +106,9 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
      const allowed=stage==='FINANCE_LEGAL_DRAFT'
        ? ['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW'].includes(previous)
        :stage==='OWNER_SIGNED'
-         ? previous==='DRAFT_READY'
+         ? (canonicalAutomatic
+           ? ['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW','DRAFT_READY'].includes(previous)
+           : previous==='DRAFT_READY')
          : ['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'].includes(previous);
      if(!allowed)deny('ACT_STAGE_CHANGED');
      const registered=await tx`insert into portal_private.storage_objects(
@@ -124,7 +130,7 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
      return doc
    });
    await audit(sql,ctx,req,'AGENT_ACT_'+stage+'_PDF_ARCHIVED',row,{id:rows[0].id,sha,stage});
-   return{documentId:rows[0].id,stage,filename:name}
+   return{documentId:rows[0].id,stage,filename:name,sha256:sha}
  }catch(e){await service.storage.from(BUCKET).remove([objectName]).catch(()=>null);throw e}
 }
 async function publish(sql:any,req:Request,ctx:any,row:any){
@@ -169,6 +175,117 @@ async function download(req:Request,sql:any,service:any,ctx:any,row:any,id:strin
  await audit(sql,ctx,req,'AGENT_ACT_PDF_DOWNLOADED',row,{documentId:id,agent,expiresIn:120});
  return{documentId:id,filename:doc.filename,url:data.signedUrl,expiresIn:120}
 }
+// Owner-authorized graphic facsimile is not a qualified electronic signature.
+export async function approvedActIssue(sql:any,ctx:any,id:string){
+ const row=await rowFor(sql,id);
+ if(String(row.requested_by)!==String(ctx.userId))deny('ACT_OWNER_IDENTITY_REQUIRED',403);
+ const owners=await sql`select distinct owner_portal_user_id from portal_private.mcp_oauth_tokens
+   where owner_portal_user_id is not null limit 2`;
+ if(owners.length!==1||String(owners[0].owner_portal_user_id)!==String(ctx.userId))
+   deny('ACT_CANONICAL_OWNER_ONLY',403);
+ await assertCurrent(sql,row);
+ // The single-click workflow does not create a separate preliminary draft.
+ // Finance + Legal approvals and every source gate below are still mandatory.
+ if(!['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW','DRAFT_READY','OWNER_SIGNED'].includes(String(row.request_status)))
+   deny('ACT_NOT_READY_FOR_ISSUANCE');
+ const review=await reviewState(sql,id);
+ if(!review.approved)deny('FINANCE_LEGAL_ACT_REVIEW_REQUIRED');
+ const conclusions=await sql`select status,payload from portal_private.ai_coordination_records
+   where target_type='DOCUMENT' and target_id=${id}
+   and record_type='FUNCTIONAL_CONCLUSION'
+   and record_id in (${review.finance.recordId}::uuid,${review.legal.recordId}::uuid)`;
+ if(conclusions.length!==2||conclusions.some((x:any)=>
+   x.status!=='APPROVED'||x.payload?.confirmed!==true||
+   (Array.isArray(x.payload?.mandatory_conditions)&&x.payload.mandatory_conditions.length)))
+   deny('ACT_FUNCTIONAL_CONCLUSIONS_UNCONFIRMED');
+ const terms=await sql`select t.term_reference,t.commission_mode,t.commission_rate,
+   b.document_reference,b.evidence_status,a.document_id,
+   l.legal_name,l.tax_identifier,l.registered_address,l.registration_country
+   from portal_private.agent_reward_deal_addenda_v1 b
+   join portal_private.agent_agency_contract_documents a on a.id=b.agency_document_key
+   join portal_private.agent_legal_entities l on l.id=b.agent_legal_entity_key
+   join portal_private.agent_deal_terms t on t.id=${row.term_key}::uuid
+   where b.id=${row.addendum_key}::uuid and b.deal_key=${row.deal_key}::uuid
+   and b.assignment_id=${row.assignment_id}::uuid and b.is_current=true
+   and t.id=b.term_key and t.deal_key=b.deal_key and t.assignment_id=b.assignment_id
+   and t.status::text='ACTIVE' and t.lifecycle_state::text='ACTIVE'
+   and t.authority_state::text in ('CONFIRMED','VERIFIED','AUTHORITATIVE') limit 2`;
+ if(terms.length!==1)deny('ACT_SIGNED_ADDENDUM_TERM_NOT_CURRENT');
+ const t=terms[0],ordinal=(ref:string)=>{
+   const n=[...String(ref||'').matchAll(/(?:ДС|ADDENDUM)\s*(?:№|NO\.?)?\s*0*(\d{1,3})\b/gi)].map(a=>Number(a[1]));
+   return n.length===1?n[0]:null;
+ };
+ const ds=ordinal(t.document_reference),term=ordinal(t.term_reference);
+ if(!ds||!term||ds!==term)deny('ACT_SIGNED_ADDENDUM_TERM_CONFLICT');
+ const finance=row.finance_snapshot||{},legal=row.legal_snapshot||{};
+ const amount=finance.approvedActAmount==null?NaN:Number(finance.approvedActAmount),
+   currency=String(finance.approvedCurrency||''),financeRef=String(finance.financeSourceRef||'');
+ if(!Number.isFinite(amount)||amount<=0||!/^[A-Z]{3}$/.test(currency)||!financeRef)
+   deny('ACT_FINANCE_APPROVED_AMOUNT_MISSING');
+ if(String(finance.ownerCorrectionId||'')!==String(row.owner_correction_key)||
+    Number(finance.ownerCorrectionVersion)!==Number(row.correction_version)||
+    String(finance.approvedTermId||'')!==String(row.term_key)||
+    String(finance.signedAddendumDocumentId||'')!==String(t.document_id))
+   deny('ACT_FINANCE_SOURCE_SNAPSHOT_MISMATCH');
+ if(String(legal.approvedAddendumDocumentId||'')!==String(t.document_id))
+   deny('ACT_LEGAL_SOURCE_SNAPSHOT_MISMATCH');
+ // Owner confirmed interpretation for DEAL-2026-004 signed DS #1: 50% of
+ // VERIFIED NET DEAL PROFIT AFTER TAX, never gross margin or pretax profit.
+ // This contract-specific rule MUST NOT silently rewrite other agents' terms.
+ let netProfitSource:null|{basis:string,netProfit:number,rate:number}=null;
+ if(String(row.deal_id)==='DEAL-2026-004'&&ds===1){
+   const profit=finance.approvedNetProfit==null?NaN:Number(finance.approvedNetProfit);
+   const share=finance.approvedAgentShare==null?NaN:Number(finance.approvedAgentShare);
+   const correctionVersion=finance.ownerCorrectionVersion==null?NaN:Number(finance.ownerCorrectionVersion);
+   if(String(finance.approvedBasisType)!=='NET_PROFIT_AFTER_TAX'
+       ||!Number.isFinite(profit)||!Number.isFinite(share)||share!==0.5
+       ||String(t.commission_mode)!=='PERCENT'||Number(t.commission_rate)!==0.5
+       ||String(finance.ownerCorrectionId||'')!==String(row.owner_correction_key)
+       ||correctionVersion!==Number(row.correction_version)
+       ||String(finance.approvedTermId||'')!==String(row.term_key)
+       ||String(finance.signedAddendumDocumentId||'')!==String(t.document_id))
+     deny('ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED');
+   const calculated=Math.round((Math.max(0,profit)*0.5+Number.EPSILON)*100)/100;
+   if(Math.abs(amount-calculated)>0.0001)
+     deny('ACT_AGENT_AMOUNT_NOT_50_PERCENT_OF_NET_PROFIT');
+   netProfitSource={basis:'NET_PROFIT_AFTER_TAX',netProfit:profit,rate:0.5};
+ }
+ const number=String(row.generated_document_number||''),date=String(legal.approvedActDate||''),
+   service=String(legal.approvedServiceText||''),period=String(legal.servicePeriod||''),
+   signer=String(legal.issuerSignatoryName||''),facsimileRef=String(legal.facsimileAuthorizationRef||''),
+   issuerRequisites=String(legal.approvedIssuerRequisites||''),
+   issuerName=String(legal.approvedIssuerLegalName||''),
+   signingPlace=String(legal.approvedSigningPlace||''),
+   agentSignatory=String(legal.approvedAgentSignatory||'');
+ if(!number||number!==String(legal.approvedDocumentNumber||'')||
+   !/^\d{4}-\d{2}-\d{2}$/.test(date)||!service||!period||!signer||!facsimileRef||
+   !issuerRequisites||!issuerName||!signingPlace||!agentSignatory||
+   legal.facsimileApproved!==true)
+   deny('ACT_LEGAL_APPROVED_DOCUMENT_FIELDS_MISSING');
+ return{requestId:row.id,dealId:row.deal_id,documentNumber:number,documentDate:date,
+   servicePeriod:period,services:service,amount,currency,issuer:issuerName,signingPlace,
+   issuerSigner:signer,issuerRequisites,agentSignatory,
+   agentLegalName:t.legal_name,agentTaxId:t.tax_identifier,
+   agentAddress:t.registered_address,agentCountry:t.registration_country,
+   addendumReference:t.document_reference,addendumDocumentId:t.document_id,
+   financeEvidence:review.finance.recordId,legalEvidence:review.legal.recordId,
+   financeSourceRef:financeRef,netProfitSource,facsimileAuthorizationRef:facsimileRef,
+   documentStandard:'RONA-DOC-STANDARD v2',
+   signatureMethod:'OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES',createsPayable:false};
+}
+export async function issueFinalAct(sql:any,ctx:any,req:Request,id:string){
+ const b=await req.json().catch(()=>({}));
+ if(b?.ownerConfirmsSigning!==true||b?.ownerConfirmsFacsimile!==true)
+   deny('ACT_OWNER_SIGNING_ATTESTATION_REQUIRED',400);
+ const ready=await approvedActIssue(sql,ctx,id),row=await rowFor(sql,id);
+ await audit(sql,{...ctx,role:'ADMIN'},req,'AGENT_ACT_CANONICAL_FACSIMILE_RENDER_AUTHORIZED',row,{
+   documentNumber:ready.documentNumber,finance:ready.financeEvidence,
+   legal:ready.legalEvidence,source:ready.financeSourceRef,
+   facsimileRef:ready.facsimileAuthorizationRef,
+   attested:true,qualifiedElectronicSignature:false,createsPayable:false});
+ return ready;
+}
+
 export async function agentInbox(sql:any,ctx:any){
  const xs=await sql`select distinct on(r.id) r.id as "requestId",d.deal_id as "dealId",
  r.request_status as status,r.dispatched_at as "dispatchedAt",
@@ -193,12 +310,13 @@ export async function agentDownload(req:Request,sql:any,service:any,ctx:any,id:s
 }
 export async function adminActAction(req:Request,sql:any,service:any,ctx:any,
  deal:any,action:string,stage:string){
- const match=action.match(/^acts\/([0-9a-f-]{36})\/(upload|dispatch|documents\/[0-9a-f-]{36}\/download)$/i);
+ const match=action.match(/^acts\/([0-9a-f-]{36})\/(upload|dispatch|finalize|documents\/[0-9a-f-]{36}\/download)$/i);
  if(!match)deny('ACT_ROUTE_INVALID',404);
  const row=await rowFor(sql,match![1]);
  if(String(row.deal_key)!==String(deal.deal_key)||String(row.assignment_id)!==String(deal.assignment_id))
    deny('ACT_SOURCE_SCOPE_DENIED',403);
  if(match![2]==='dispatch'&&req.method==='POST')return await publish(sql,req,{...ctx,role:'ADMIN'},row);
+ if(match![2]==='finalize'&&req.method==='POST')return await issueFinalAct(sql,ctx,req,String(row.id));
  if(match![2]==='upload'&&req.method==='POST')return await uploadAct(req,sql,service,{...ctx,role:'ADMIN'},row,stage);
  const doc=match![2].match(/^documents\/([0-9a-f-]{36})\/download$/i);
  if(doc&&req.method==='GET')
