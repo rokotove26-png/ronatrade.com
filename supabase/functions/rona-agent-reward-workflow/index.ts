@@ -275,7 +275,7 @@ async function bind(actor:{userId:string},req:Request,s:any,body:any){
  });
  return{bindingId,documentId:docId,status:"RECEIVED_NOT_LEGALLY_VERIFIED"}
 }
-function ownerSavedCalculation(input:any,s:any,correction:any,actor:{userId:string}){
+function ownerSavedCalculation(input:any,s:any,correction:any,actor:{userId:string},addendum:any){
  if(input==null)return null;
  const denyBad=()=>{throw deny('ACT_OWNER_SAVED_CALCULATION_INVALID',400)};
  if(!input||typeof input!=='object'||Array.isArray(input)
@@ -338,7 +338,7 @@ async function requestAct(actor:{userId:string},req:Request,s:any){
  if(!correction)throw deny("SAVE_OWNER_CORRECTION_FIRST",409);
  if(!addendum)throw deny("LINK_SIGNED_DEAL_ADDENDUM_FIRST",409);
  const body=await req.json().catch(()=>({}));
- const ownerCalculation=ownerSavedCalculation(body?.ownerApprovedCalculation,s,correction,actor);
+ const ownerCalculation=ownerSavedCalculation(body?.ownerApprovedCalculation,s,correction,actor,addendum);
  const snapshot={dealId:s.deal_id,assignmentId:s.assignment_id,agentCompanyId:s.agent_legal_entity_id,
    correctionId:correction.id,correctionVersion:correction.correction_version,
    addendumId:addendum.document_id,addendumReference:addendum.document_reference,
