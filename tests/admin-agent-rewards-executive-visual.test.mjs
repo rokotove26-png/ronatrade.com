@@ -624,7 +624,7 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.equal(await box.getByText('ДС загружено и привязано к сделке').count(),1);
       assert.equal(await box.getByText('50% от чистой прибыли после налогов').count(),1);
       assert.match(await box.innerText(),/Предварительно:\s*891,0\s*USD/);
-      assert.match(await page.locator('.rona-ar-owner').innerText(),/891,0\s*USD/);
+      assert.match(await page.locator('.rona-ar-col.owner').innerText(),/891,0\s*USD/);
       assert.doesNotMatch(await page.locator('.rona-ar-evidence').innerText(),
         /ДС не привязано|Addendum 2/);
       assert.equal(await box.getByRole('button',{name:'Загрузить ДС'}).count(),0);
