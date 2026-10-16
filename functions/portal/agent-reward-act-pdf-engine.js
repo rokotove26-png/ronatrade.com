@@ -461,7 +461,9 @@ function ronaActPdfRuntime(){
          Number(d.financialAppendix.correctionVersion)!==
            Number(d.ownerSectionCorrectionVersion))
         throw new Error('ACT_PDF_APPENDIX_DOCUMENT_MISMATCH');
-      canvases.push(d.financialAppendix.contract==='RONA_AGENT_ACT_TERMS_APPENDIX_V1'
+      canvases.push(d.financialAppendix.contract==='RONA_OWNER_AGENT_ACT_APPENDIX_V1'
+        ?appendOwnerCanvas(d.financialAppendix,number,date,deal,assets[0])
+        :d.financialAppendix.contract==='RONA_AGENT_ACT_TERMS_APPENDIX_V1'
         ?appendTermsCanvas(d.financialAppendix,number,date,deal,assets[0])
         :appendCanvas(d.financialAppendix,number,date,deal,assets[0]));
     }
