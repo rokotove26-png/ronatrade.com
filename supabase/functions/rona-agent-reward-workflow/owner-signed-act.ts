@@ -7,7 +7,7 @@ function reject(code:string,status=409):never{throw Object.assign(new Error(code
 const rounded=(x:number)=>Math.round((x+Number.EPSILON)*10)/10;
 export function ownerActCandidate(row:any){
  const x=row?.source_snapshot?.ownerApprovedCalculation;
- return row?.deal_id==='DEAL-2026-004'&&x?.contract==='OWNER_SECTION_SAVED_CALCULATION_V1'
+ return x?.contract==='OWNER_SECTION_SAVED_CALCULATION_V1'
   &&x?.sourceKind==='OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE'
   &&x?.createsPayable===false&&x?.signingAuthority===false
   &&x?.rewardStatus==='OWNER_DS1_SHIPMENT_MARGIN_SAVED_SECTION'
