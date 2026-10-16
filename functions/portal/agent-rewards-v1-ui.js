@@ -863,8 +863,9 @@ function recomputeOwner(col,deal,fact,cur){
       const corrected=num(values[part.paymentId]),original=num(part.amount);
       if(corrected===null||original===null){paymentComplete=false;continue}
       paymentDelta+=corrected-original;
-      if(inp.dataset.groupDirty==='1'||Object.prototype.hasOwnProperty.call(saved,part.paymentId))
-        paymentLineAmounts[part.paymentId]=corrected
+      // A complete immutable Owner correction must include unchanged verified lines too.
+      // Sources come only from this deal's Finance-reconciled payment groups.
+      paymentLineAmounts[part.paymentId]=corrected
     }
   }
   const counterpartyCashOut=fact.counterpartyCashOut===null||!paymentComplete?null:fact.counterpartyCashOut+paymentDelta;
@@ -1415,7 +1416,12 @@ async function issueFromSavedOwnerCorrection(deal,button){
     return docNotice('Сохранённая корректировка сделки не найдена.');
   state.saving=true;button.disabled=true;button.textContent='Формирую PDF…';
   try{
-    const model=ownerModel(deal,cashFactModel(deal));
+    const fact=cashFactModel(deal);
+    const expected=(fact.paymentLines||[]).flatMap(group=>group.parts.map(part=>part.paymentId));
+    const recorded=saved.payload?.paymentLineAmounts||{};
+    if(!fact.approved||!expected.length||expected.some(id=>!Object.hasOwn(recorded,id)))
+      throw new Error('Сохранённая корректировка не содержит всех подтверждённых платежей. Сохраните корректировку ещё раз после обновления страницы.');
+    const model=ownerModel(deal,fact);
     if(model.netProfit===null||model.reward?.value===null)
       throw new Error('Расчёт агентского вознаграждения по ДС не завершён');
     const approved=ownerActSavedCalculation(deal,{
@@ -1602,17 +1608,6 @@ function renderDealDocuments(root,deal){
     const upload=docButton('Загрузить ДС',()=>void uploadDealAddendum(
       deal,docs.agentCompanyId,file,reference,ack,upload),true);
     l.append(docField('Файл PDF',file),docField('Номер и дата',reference),ackLabel,upload);
-  }
-  // Real, separately issued signed reconciliation act for the SG-Trans
-  // counterparty of the selected deal. It is not an agency services act.
-  if(String(deal.dealId)==='DEAL-2026-004'){
-    const recon=docButton('Акт сверки · СГ-Транс',()=>{
-      const link=document.createElement('a');
-      link.href='https://drive.google.com/file/d/1qUZS1PEKM3XKac6R_oIfvIKpn8MfQUDO/view';
-      link.target='_blank';link.rel='noopener noreferrer';
-      document.body.appendChild(link);link.click();link.remove();
-    });
-    l.append(el('div','rona-ar-doc-kicker','Акт сверки взаиморасчётов'),recon);
   }
   const ownerDs1=ownerSignedDs1ForManagement(deal),term=docs.term,
     termAligned=docs.sourceReadiness?.termAligned===true,
