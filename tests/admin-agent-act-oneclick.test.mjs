@@ -18,7 +18,10 @@ test('One-click PDF contract preserves canonical source hashes and protected iss
   ])assert.match(renderer,new RegExp(sha));
   assert.match(renderer,/%PDF-1\.4/);
   assert.match(renderer,/\/\/ Exactly 35 x 35 mm/);
-  assert.match(renderer,/ACT_PDF_NET_PROFIT_SOURCE_REQUIRED/);
+  assert.match(renderer,/ACT_PDF_SHIPMENT_MARGIN_SOURCE_REQUIRED/);
+  assert.match(index,/DS1_50_PERCENT_SHIPMENT_MARGIN_RUB/);
+  assert.match(acts,/ACT_DS1_BASE_CONTRACT_REFERENCE_UNRESOLVED/);
+  assert.doesNotMatch(acts,/ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED/);
   assert.match(index,/ACT_OWNER_SIGNING_ATTESTATION_REQUIRED/);
   assert.match(index,/CANONICAL_SIGNING_ASSET_HASH_MISMATCH/);
   assert.match(acts,/ACT_FUNCTIONAL_CONCLUSIONS_UNCONFIRMED/);
@@ -65,23 +68,26 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
   const doc={
     dealId,assignmentId,agentCompanyId:'S-005',agentLegalName:'ООО «ИнКом»',
     agentName:'Представитель агента',assignmentStatus:'ACTIVE',
-    term:null,ownerConfirmedTerm:{mode:'PERCENT',rate:0.5,basis:'NET_PROFIT_AFTER_TAX',
-      status:'OWNER_APPROVED_SOURCE_ONLY'},
+    term:null,ownerConfirmedTerm:{mode:'PERCENT',rate:0.5,basis:'SHIPMENT_MARGIN',paymentCurrency:'RUB',
+      status:'SIGNED_SOURCE_TEXT_PENDING_FINANCE_LEGAL'},
     sourceReadiness:{termAligned:false,accountingStatus:'OPEN'},
     currentAddendum:{bindingId:'b1111111-1111-4111-8111-111111111111',
       documentId:'AGENCY-S-005-A1B2C3D4',filename:'Signed_QA.pdf',
-      reference:'ДС №1 от 15.07.2026',ownerApprovedByUpload:true},
+      reference:'ДС №1 от 15.07.2026',ownerApprovedByUpload:true,
+      sha256:'e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab'},
     ownerCorrection:{sourceId:'c1111111-1111-4111-8111-111111111111',version:3},
     acts:[]
   };
   const approved={
     requestId,dealId,documentNumber:'ACT-QA-001',documentDate:'2026-10-16',
-    servicePeriod:'2026-10',services:'Агентские услуги',amount:891,currency:'USD',
+    servicePeriod:'2026-10',services:'Агентские услуги',amount:891,currency:'RUB',
     issuer:'RONA Trade',issuerSigner:'Уполномоченный представитель',
     issuerRequisites:'Юридические реквизиты из Legal',
     signingPlace:'Минск',agentLegalName:'ООО «ИнКом»',agentSignatory:'Подписант агента',
     addendumReference:'ДС №1 от 15.07.2026',
-    netProfitSource:{basis:'NET_PROFIT_AFTER_TAX',netProfit:1782,rate:0.5},
+    shipmentMarginSource:{basis:'SHIPMENT_MARGIN',margin:1782,marginCurrency:'RUB',rate:0.5,
+      factoryDocumentRef:'FACTORY-QA',guDocumentRef:'GU-QA',exchangeRate:null,
+      exchangeRateSourceRef:null,settlementNote:'Оплата в RUB по курсу ЦБ РФ на дату оплаты'},
     facsimileAuthorizationRef:'Owner canonical authorization',
     documentStandard:'RONA-DOC-STANDARD v2',
     signatureMethod:'OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES'
