@@ -368,9 +368,17 @@ function termReward(deal,{preferSettlement=false,basisValue=null,managementPrevi
   // managerial 10% tax estimate). Not even as a numeric preview.
   if(String(deal?.dealId)==='DEAL-2026-004'&&!state.docCache.get(rowKey(deal))?.currentAddendum)
     return{value:null,status:'SIGNED_DS_SOURCE_LOADING'};
-  if(documentTermMismatch(deal))
-    return{value:null,status:ownerSignedDs1ForManagement(deal)
-      ?'SHIPMENT_MARGIN_SOURCE_REQUIRED':'UPLOADED_DS_TERM_REVIEW_REQUIRED'};
+  if(documentTermMismatch(deal)){
+    // Owner-approved pre-tax deal result is the displayed shipment-margin
+    // management basis only for the exact SHA-matched signed DS1.
+    if(managementPreview&&ownerSignedDs1ForManagement(deal)){
+      const margin=num(basisValue);
+      return margin===null?{value:null,status:'SHIPMENT_MARGIN_SOURCE_REQUIRED'}:
+        {value:round1(Math.max(0,margin)*0.5),
+          status:'OWNER_DS1_SHIPMENT_MARGIN_SAVED_SECTION'};
+    }
+    return{value:null,status:'UPLOADED_DS_TERM_REVIEW_REQUIRED'}
+  }
   if(preferSettlement&&num(st.amount)!==null&&String(st.currency||'').trim()===cur&&['APPROVED','PAYABLE_CONFIRMED','PAID'].includes(upper(st.state))&&['CONFIRMED','VERIFIED','AUTHORITATIVE'].includes(upper(st.authorityState)))return{value:num(st.amount),status:'SETTLEMENT_AUTHORITY'};
   if(!validTerm(deal))return{value:null,status:t.mode?'TERM_NOT_ACTIVE':'TERM_MISSING'};
   if(upper(t.mode)==='FIXED'&&num(t.fixedAmount)!==null&&String(t.currency||'').trim()===cur)return{value:num(t.fixedAmount),status:'FIXED_TERM'};
@@ -481,7 +489,7 @@ function factManagementModel(deal,fact){
   const expenses=fact.approved&&fact.counterpartyCashOut!==null&&fact.bankFees!==null
     ?fact.counterpartyCashOut+fact.bankFees:null;
   const pnl=managementProfitModel(fact.cashReceived,expenses);
-  const reward=managementAgentReward(deal,pnl.netProfit);
+  const reward=managementAgentReward(deal,ownerSignedDs1ForManagement(deal)?pnl.preTaxProfit:pnl.netProfit);
   return{...pnl,reward,ronaProfit:pnl.netProfit===null||reward.value===null
     ?null:pnl.netProfit-reward.value}
 }
@@ -490,7 +498,7 @@ function planModel(deal){
     lines=Array.isArray(p.expenseLines)?p.expenseLines.filter(x=>String(x.currency||'').trim()===cur&&num(x.amount)!==null):[];
   const expTotal=num(p.expenseKnownTotal),revenue=num(p.revenue);
   const pnl=managementProfitModel(revenue,expTotal);
-  let reward=managementAgentReward(deal,pnl.netProfit);
+  let reward=managementAgentReward(deal,ownerSignedDs1ForManagement(deal)?pnl.preTaxProfit:pnl.netProfit);
   // Read-only PLAN fallback: Finance + Operations approved this projection, but
   // it does not create an effective agent deal term or an external payable.
   const planTerm=p.agentPlan||{},planMode=upper(planTerm.mode),planAuthority=upper(planTerm.authority);
@@ -581,7 +589,7 @@ function ownerModel(deal,fact){
     ?null:counterpartyCashOut+fact.bankFees+Math.max(0,-openSettlementAdjustment);
   const pnl=managementProfitModel(income,expenses);
   const actualFinancialResult=pnl.preTaxProfit;
-  const reward=bridgeApproved?ownerAgentReward(deal,pnl.netProfit)
+  const reward=bridgeApproved?ownerAgentReward(deal,ownerSignedDs1ForManagement(deal)?pnl.preTaxProfit:pnl.netProfit)
     :{value:null,basis:null,status:'OPEN_SETTLEMENT_BRIDGE_REQUIRED'};
   const ronaProfit=pnl.netProfit===null||reward.value===null?null:pnl.netProfit-reward.value;
   return{
@@ -869,7 +877,7 @@ function recomputeOwner(col,deal,fact,cur){
     ?null:counterpartyCashOut+fact.bankFees+Math.max(0,-openSettlementAdjustment);
   const pnl=managementProfitModel(income,expenses);
   const actualFinancialResult=pnl.preTaxProfit;
-  const reward=ownerAgentReward(deal,pnl.netProfit);
+  const reward=ownerAgentReward(deal,ownerSignedDs1ForManagement(deal)?pnl.preTaxProfit:pnl.netProfit);
   const ronaProfit=pnl.netProfit===null||reward.value===null?null:pnl.netProfit-reward.value;
   const set=(k,v)=>{const row=q('[data-owner-computed="'+k+'"]',col),n=q('.rona-ar-value',row);if(n){n.textContent=num(v)===null?'TO_VERIFY':row.dataset.ownerSigned==='false'?money(v,cur):signedMoney(v,cur);n.className='rona-ar-value '+tone(v)}};
   set('income',pnl.income);
@@ -1337,7 +1345,7 @@ async function saveCorrectionAndDownloadSignedAct(deal,ownerApprovedCalculation)
     link.rel='noopener noreferrer';document.body.appendChild(link);link.click();link.remove();
     return{downloaded:true,existing:true}
   }
-  if(Array.isArray(act.readiness?.missing)&&act.readiness.missing.length)
+  if(act.ownerSignReady!==true&&Array.isArray(act.readiness?.missing)&&act.readiness.missing.length)
     return{downloaded:false,reason:agentActHumanBlockers(act.readiness.missing)};
   // Save correction is the Owner-designated signature/facsimile authorization step.
   // The server independently verifies role, authoritative facts and approvals.
@@ -1551,8 +1559,10 @@ function renderDealDocuments(root,deal){
   else r.append(el('div','rona-ar-doc-note','Для расчёта требуется ДС.'));
   const preview=ownerModel(deal,cashFactModel(deal)),reward=preview.reward;
   if(ownerDs1){
+    if(num(reward?.value)!==null)
+      r.append(el('div','rona-ar-doc-name','По сохранённому расчёту: '+money(reward.value,currencyOf(deal))));
     r.append(el('div','rona-ar-doc-note',
-      'Сумма после документов завода и ГУ. Выплата в рублях по курсу ЦБ РФ на дату оплаты.'));
+      '50% положительной маржи по сделке. Оплата в рублях по курсу ЦБ РФ на день оплаты.'));
   }else if(current&&num(reward?.value)===null){
     r.append(el('div','rona-ar-doc-note','Сумма пока не подтверждена.'));
   }
