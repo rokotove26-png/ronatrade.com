@@ -965,6 +965,8 @@ function renderOwner(deal){
       try{
         if(deal.dealId!=='DEAL-2026-004'&&m.reward===null){
           actResult={downloaded:false,reason:'Для выпуска акта нажмите «Сформировать и скачать акт» и утвердите сумму по подписанному ДС.'};
+        }else if(deal.dealId!=='DEAL-2026-004'&&!ownerActDeclaration(deal,m,cur)){
+          actResult={downloaded:false,reason:'Для выпуска акта требуется подписанное ДС, привязанное к этой сделке и агенту.'};
         }else{
           const approved=ownerActSavedCalculation(deal,m,cur,saved);
           actResult=await saveCorrectionAndDownloadSignedAct(deal,approved);
