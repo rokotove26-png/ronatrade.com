@@ -127,6 +127,12 @@ test('Source loader uses exact correction + deal-bound payments + Operations-app
  const missing=async(parts)=>parts.join('?').includes('agent_reward_owner_corrections_v1')
   ?[]:await sql(parts);
  await assert.rejects(()=>getOwnerActAppendix(missing,other),/ACT_APPENDIX_CORRECTION_NOT_FOUND/);
+ row.correction_version=3;
+ row.source_snapshot.ownerApprovedCalculation.correctionVersion=3;
+ row.source_snapshot.ownerApprovedCalculation.normalizedSavedPayload.paymentLineAmounts={};
+ const restored=await getOwnerActAppendix(sql,row);
+ assert.equal(restored.paymentTotal,229620.2);
+ assert.equal(restored.profit,-1109.36);
 });
 test('Renderer emits two real A4 /Page objects and has no Basis column or technical signature note',async()=>{
  const src=await(await rendererResponse()).text();
