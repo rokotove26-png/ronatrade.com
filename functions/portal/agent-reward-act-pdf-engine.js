@@ -363,6 +363,15 @@ function ronaActPdfRuntime(){
       y=paragraph(ctx,'Оплата агентского вознаграждения в российских рублях по курсу ЦБ РФ '+
         'на дату фактической оплаты.',LEFT,y,WIDTH,{size:33,lineHeight:44,after:22});
     }
+    if(!d.shipmentMarginSource&&d.commissionSource?.contract==='RONA_CERTIFIED_AGENT_TERMS_V1'){
+      const c=d.commissionSource;
+      const detail=c.mode==='FIXED'?'фиксированная сумма':
+        c.mode==='PER_TONNE'?'ставка за подтверждённый объём':
+        'процент от подтверждённой Finance базы';
+      y=paragraph(ctx,'Основание суммы: '+detail+
+        '. Расчёт и источники согласований приведены в Приложении № 1.',
+        LEFT,y,WIDTH,{size:32,lineHeight:44,after:12});
+    }
     y=paragraph(ctx,'Размер вознаграждения установлен на основании подписанного ДС и подтверждённого расчёта.',
       LEFT,y,WIDTH,{size:40,lineHeight:52,after:34});
     const signTop=Math.max(y+50,2235);
