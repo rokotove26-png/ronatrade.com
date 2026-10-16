@@ -498,7 +498,8 @@ function planModel(deal){
     &&upper(p.expenseStatus).startsWith('APPROVED_FINANCE_MANAGEMENT_PLAN')
     &&Boolean(deal?.planAuthority?.financeProposalRecordId)
     &&Boolean(deal?.planAuthority?.operationsApprovalRecordId);
-  if(reward.value===null&&pnl.netProfit!==null&&planAuthorized){
+  // A historically approved plan must not supersede a newer uploaded DS with conflicting terms.
+  if(reward.value===null&&pnl.netProfit!==null&&planAuthorized&&!documentTermMismatch(deal)){
     if(planMode==='PERCENT'&&num(planTerm.rate)!==null
       &&num(planTerm.rate)>=0&&num(planTerm.rate)<=1
       &&['MANAGEMENT_PLAN_MODEL_ONLY_NOT_EXTERNAL_PAYABLE_AUTHORITY','SIGNED_CURRENT_DS5_PLAN_PROJECTION_NOT_PAYABLE_STATE'].includes(planAuthority)){
