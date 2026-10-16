@@ -223,7 +223,7 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    deny('ACT_NOT_READY_FOR_ISSUANCE');
  const review=await reviewState(sql,id);
  if(!review.approved)deny('FINANCE_LEGAL_ACT_REVIEW_REQUIRED');
- const conclusions=await sql`select status,payload from portal_private.ai_coordination_records
+ const conclusions=await sql`select record_id,functional_role::text as role,status,payload from portal_private.ai_coordination_records
    where target_type='DOCUMENT' and target_id=${id}
    and record_type='FUNCTIONAL_CONCLUSION'
    and record_id in (${review.finance.recordId}::uuid,${review.legal.recordId}::uuid)`;
