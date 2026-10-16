@@ -457,12 +457,12 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         assert.equal(await page.locator('.rona-ar-metric.agent-primary .rona-ar-metric-value').textContent(),'900,0 USD',
           '009 management PLAN must use authorized projected 50% only, not a made-up payable');
         assert.equal(await page.locator('.rona-ar-col.plan .rona-ar-reward-focus .rona-ar-value').textContent(),'900,0 USD');
-        assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-value').textContent(),'ДС не привязано',
+        assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-value').textContent(),'Расчёт ожидает проверки',
           'A missing deal term must be described precisely, not as no agent/contract');
         assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'ДС не привязано');
         assert.equal(await page.locator('.rona-ar-col.fact .rona-ar-reward-focus .rona-ar-value').textContent(),'ДС не привязано');
-        assert.match(await page.locator('.rona-ar-evidence').textContent(),/ДС не привязано \/ источник не подтверждён/);
-        assert.match(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-value').textContent(),/ДС не привязано/);
+        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Условия вознаграждения проверяются/);
+        assert.match(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-value').textContent(),/Расчёт ожидает проверки/);
         assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),0,
           'Never plot an external agent liability without a verified term');
 
@@ -473,7 +473,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
         assert.equal(await page.locator('.rona-ar-metric.agent-primary .rona-ar-metric-value').textContent(),'0,0 USD',
           '010 approved current Finance PLAN shows zero only as a management plan');
-        assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-value').textContent(),'ДС не привязано',
+        assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-value').textContent(),'Расчёт ожидает проверки',
           '010 external agent calculation must stay gated without current effective DS');
 
         // Regression: 011 has a signed DS5 50% term, but payable awaits closing.
