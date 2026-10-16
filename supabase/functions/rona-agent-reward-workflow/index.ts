@@ -204,8 +204,8 @@ async function list(s:any){
        missing.push('DS1_RUB_PAYMENT_CONDITION_REQUIRED');
    }
    let ownerSignReady=false;
-   if(shipmentMarginDs1SourceMatched&&ownerApprovedByUpload
-      &&correction&&String(correction.id)===String(a.owner_correction_key)
+   if((shipmentMarginDs1SourceMatched||a.source_snapshot?.ownerApprovedCalculation?.ownerActDeclaration)
+      &&ownerApprovedByUpload&&correction&&String(correction.id)===String(a.owner_correction_key)
       &&ownerActCandidate({...a,deal_id:s.deal_id})){
      try{checkedOwnerActAmounts({...a,deal_id:s.deal_id});ownerSignReady=true}
      catch{ownerSignReady=false}
