@@ -1334,6 +1334,8 @@ function ownerActSavedCalculation(deal,model,currency,saved){
     agentRewardStatus:String(model.rewardStatus||''),
     agentBasisStatus:String(model.agentBasis||''),
     sourceKind:'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE',
+    ownerActDeclaration:deal.dealId==='DEAL-2026-004'?null:
+      ownerActDeclaration(deal,model,currency),
   })
 }
 let agentActPdfEngineLoading=null;
