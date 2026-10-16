@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
 import {onRequest as rendererResponse} from '../functions/portal/agent-reward-act-pdf-engine.js';
+import {onRequest as uiResponse} from '../functions/portal/agent-rewards-v1-ui.js';
 import {calculateActAppendix,getOwnerActAppendix} from '../supabase/functions/rona-agent-reward-workflow/financial-appendix.ts';
 
 const payments=[
@@ -164,4 +165,11 @@ test('Admin Owner can recover an existing two-page Act and open the signed SG-Tr
   assert.match(script,/Акт сверки · СГ-Транс/);
   assert.match(script,/1qUZS1PEKM3XKac6R_oIfvIKpn8MfQUDO/);
   assert.doesNotMatch(script,/Акт формируется автоматически после сохранения корректировки/);
+});
+
+test('PDF engine is loaded as a same-origin executable resource compatible with Pages Functions bundling',async()=>{
+  const js=await(await uiResponse()).text();
+  assert.ok(js.includes("script.src='/portal/agent-reward-act-pdf-engine'"));
+  assert.ok(js.includes('loadAgentActPdfEngine()'));
+  assert.ok(!js.includes("await import('/portal/agent-reward-act-pdf-engine')"));
 });
