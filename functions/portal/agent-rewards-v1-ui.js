@@ -368,8 +368,38 @@ function documentTermMismatch(deal){
   const docs=state.docCache.get(rowKey(deal));
   return !!docs?.currentAddendum&&docs.sourceReadiness?.termAligned!==true
 }
+
+function agencyDsTermDiagnostic(deal,docs){
+  const addendum=docs?.currentAddendum,term=docs?.term;
+  if(!addendum)return deal?.agentTerm?.mode
+    ?'Есть расчётное условие, но связанный подписанный агентский документ отсутствует у этой сделки и назначения агента. Договорное вознаграждение не подтверждено.'
+    :'Для этой сделки и назначения агента подписанное агентское ДС не найдено.';
+  if(addendum.ownerApprovedByUpload!==true)
+    return 'ДС загружено, но происхождение документа от собственника не подтверждено. Расчёт по нему заблокирован.';
+  if(ownerSignedDs1ForManagement(deal))
+    return 'Источник подтверждён: '+String(addendum.reference||'ДС')+
+      '. Для управленческого расчёта применяется специальная проверенная формула данного ДС; это не платёжное поручение.';
+  if(!term)return 'ДС загружено: '+String(addendum.reference||'ДС')+
+    '. Для текущего назначения агента действующее связанное условие вознаграждения отсутствует. Не переносим условие со старого назначения автоматически.';
+  if(docs.sourceReadiness?.termAligned!==true){
+    const text=String(term.reference||'').slice(0,150);
+    const number=text.match(/(?:ДС\s*№\s*|Addendum\s*)(\d+)\b/i);
+    return 'ДС загружено: '+String(addendum.reference||'ДС')+
+      '. Ссылка на расчётное условие'+(number?' указывает Addendum/ДС №'+number[1]:' не совпадает с подписанным ДС')+
+      '. Сумма по противоречивому основанию не начисляется; источник требует корректной технической привязки.';
+  }
+  return 'ДС и расчётное условие сопоставлены для этой сделки и назначения агента. Автоматическая выплата не создаётся.'
+}
+
 function termReward(deal,{preferSettlement=false,basisValue=null,managementPreview=false}={}){
   const cur=currencyOf(deal),st=deal?.settlement||{},t=deal?.agentTerm||{},ref=upper(t.reference);
+  const agencyDocs=state.docCache.get(rowKey(deal));
+  // A valid historical term is never sufficient when the scoped signed agency DS
+  // is explicitly absent, failed to load, or is not Owner-sourced.
+  if(state.docError.has(rowKey(deal)))return{value:null,status:'SIGNED_AGENCY_DS_SOURCE_UNAVAILABLE'};
+  if(agencyDocs&&!agencyDocs.currentAddendum)return{value:null,status:'SIGNED_AGENCY_DS_NOT_BOUND'};
+  if(agencyDocs?.currentAddendum?.ownerApprovedByUpload!==true&&agencyDocs?.currentAddendum)
+    return{value:null,status:'SIGNED_AGENCY_DS_OWNER_SOURCE_UNCONFIRMED'};
   // Exact-deal guard comes BEFORE any settlement or legacy finance term.
   // A shipment-margin contract cannot be calculated from netProfit (including a
   // managerial 10% tax estimate). Not even as a numeric preview.
@@ -824,7 +854,10 @@ function ownerComputedRow(label,key,value,cur,hint,final=false,signed=true,nullT
 function agentStatusText(status){
   const s=upper(status);
   if(s==='TERM_MISSING')return'Расчёт ожидает проверки';
-  if(s==='UPLOADED_DS_TERM_REVIEW_REQUIRED')return'Вознаграждение не рассчитано';
+  if(s==='UPLOADED_DS_TERM_REVIEW_REQUIRED')return'ДС загружено, но условие не совпадает';
+  if(s==='SIGNED_AGENCY_DS_NOT_BOUND')return'Нет агентского ДС по сделке';
+  if(s==='SIGNED_AGENCY_DS_SOURCE_UNAVAILABLE')return'Не удалось проверить агентское ДС';
+  if(s==='SIGNED_AGENCY_DS_OWNER_SOURCE_UNCONFIRMED')return'Источник ДС не подтверждён';
   if(s==='SHIPMENT_MARGIN_SOURCE_REQUIRED')return'Ожидаются документы завода и ГУ';
   if(s==='SIGNED_DS_SOURCE_LOADING')return'Загрузка условий ДС';
   if(s==='TERM_NOT_ACTIVE')return'Условие ДС проверяется';
@@ -1766,6 +1799,10 @@ function renderDealDocuments(root,deal){
     termAligned=docs.sourceReadiness?.termAligned===true,
     confirmedTerm=termAligned&&term?.mode==='PERCENT'&&num(term.rate)!==null;
   r.append(el('div','rona-ar-doc-kicker','Агентское вознаграждение'));
+  const sourceInfo=el('div','rona-ar-doc-source-diagnostic',agencyDsTermDiagnostic(deal,docs));
+  sourceInfo.setAttribute('role','status');sourceInfo.setAttribute('aria-live','polite');
+  sourceInfo.style.cssText='padding:10px 12px;border:1px solid rgba(128,202,223,.24);border-radius:9px;background:rgba(9,42,61,.6);color:#c2dfed;font-size:12px;line-height:1.6;overflow-wrap:anywhere';
+  r.append(sourceInfo);
   if(ownerDs1)
     r.append(el('div','rona-ar-doc-name','50% от маржи по поставке (ДС №1)'));
   else if(confirmedTerm)

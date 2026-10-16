@@ -186,3 +186,14 @@ test('Redesigned financial view retains correction payload and payment source id
    'function renderScenarioDetails(root,grid)'
  ])assert.ok(ui.includes(phrase),'Missing '+phrase);
 });
+
+
+test('Source-locked DS diagnostics retain exact Owner correction and Act appendix',async()=>{
+  const ui=await(await uiResponse()).text();
+  assert.ok(ui.includes('function agencyDsTermDiagnostic(deal,docs)'));
+  assert.ok(ui.includes("agencyDocs?.currentAddendum?.ownerApprovedByUpload!==true"));
+  assert.ok(ui.includes('paymentLineAmounts:m.paymentLineAmounts,openSettlementAdjustment:m.openSettlementAdjustment'));
+  assert.ok(ui.includes("docCall(deal,'request-act'"));
+  assert.ok(ui.includes('ACT_PDF_TWO_PAGES_REQUIRED'));
+  assert.ok(ui.includes('ACT_PDF_ARCHIVE_VERIFICATION_FAILED'));
+});
