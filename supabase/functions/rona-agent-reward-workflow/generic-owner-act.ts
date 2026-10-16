@@ -31,7 +31,7 @@ export function checkedGenericOwnerDeclaration(row:any,document:any){
  if(document.is_current!==true||document.storage_state!=='VERIFIED'
    ||str(document.document_reference)!==str(declaration.addendumReference)
    ||!str(document.legal_name)||!str(document.registration_country)
-   ||!str(document.registered_address))
+   ||!str(document.registered_address)||!str(document.tax_identifier))
    reject('ACT_OWNER_DECLARATION_VERIFIED_SOURCE_MISSING');
  return{amount:a,currency:snap.currency,calculation:c,source:declaration}
 }
