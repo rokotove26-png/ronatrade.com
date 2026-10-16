@@ -58,7 +58,7 @@ need(has(shell,"ADMIN_SHELL_BOOT")&&has(shell,"RETRY_ONLY_ON_FAILURE")&&has(shel
 
 need(!has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-ui")&&has(shell,"'/portal/prices-current-ui")&&has(shell,"'/portal/analytics-v2-ui"),'Required current modules / retired Claims contract is invalid');
 need(has(shell,"access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'}"),'Clients/Agents current runtime is not managed by the fast shell');
-need(has(shell,"agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261007-finance-workspace-v20-correction-gate-v3'}"),'Dedicated Agent Rewards runtime is not managed by the fast shell');
+need(has(shell,"agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261016-owner-direct-generic-act-v1'}")&&has(shell,'const agentRewardsReady=')&&has(shell,'ready:agentRewardsReady'),'Dedicated Agent Rewards runtime has no semantic rendered-workspace readiness');
 need(has(shell,"const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost()")&&has(shell,"async function loadAccess()"),'Clients/Agents stable access readiness/self-heal contract is missing');
 need(!has(shell,"const accessWarm=loadAccess();")&&has(shell,"if(p==='access')loadAccess();")&&has(shell,"if(p==='access')return loadAccess();"),'Clients/Agents access module must load only for the selected Access page');
 need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.__RONA_ADMIN_MODULES__.access")&&!has(shell,"window.__RONA_CLIENTS_AGENTS_CURRENT__=null"),'Clients/Agents recovery must preserve a live runtime without teardown');
@@ -143,7 +143,7 @@ need(has(operations,"const start='function renderAdminHome(){'")&&has(operations
 need(!has(homeCompat,'chunk19.js')&&!has(homeCompat,'operationsCenterV3'),'Retired chunk17 re-enables the broken Operations Center override');
 need(!has(operations,'/portal/client')&&!has(operations,'client-deal-passport')&&!has(operations,'client-section-first-paint'),'Admin Operations Command Center reaches into frozen Client runtime');
 
-need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v23-agent-rewards-correction-gate-v3'"),'Page-aware watchdog marker is missing');
+need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v24-agent-rewards-content-readiness-v1'")&&has(watchdog,"typeof window.__RONA_AGENT_REWARDS_FINANCE_REPAIR__==='function'"),'Page-aware semantic Agent Rewards watchdog marker is missing');
 need(has(watchdog,"retryCooldownMs:60000")&&has(watchdog,"autoRetryLimit:3")&&has(watchdog,"WATCHDOG_AUTO_COOLDOWN_V1"),'Admin watchdog traffic cooldown/limit contract is missing');
 
 need(has(watchdog,"n.querySelector(':scope > .rona-owner-page-content')")&&has(watchdog,"n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Home hidden-fallback-safe readiness contract is missing');
@@ -202,4 +202,4 @@ console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v5');
 console.log('operations-command-center=v10-operations-current-v2-single-owner; legacy-runtime=disabled; source=OPERATIONS_CURRENT_V2; visual=flightdeck-v5-full-rebuild');
 console.log('access=clients-agents-current-v5/create-user-v6,password,history,signed-pdf-gate');
-console.log('watchdog=page-aware-v23-agent-rewards-correction-gate-v3/non-destructive');
+console.log('watchdog=page-aware-v24-agent-rewards-content-readiness-v1/non-destructive');

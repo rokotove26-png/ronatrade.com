@@ -105,7 +105,8 @@ jobs:
           grep -q 'portal-admin-runtime-watchdog-v1.js' dist/portal/admin.html
           grep -q '/portal/clients-agents-current-ui' dist/assets/portal-admin-shell-fast-v1.js
           grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" dist/assets/portal-admin-shell-fast-v1.js
-          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v23-agent-rewards-correction-gate-v3'" dist/assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v24-agent-rewards-content-readiness-v1'" dist/assets/portal-admin-runtime-watchdog-v1.js
+          grep -q '__RONA_AGENT_REWARDS_FINANCE_REPAIR__' dist/assets/portal-admin-runtime-watchdog-v1.js
           grep -q '/portal/analytics-v2-ui' dist/assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/rail-safe-fallback-ui' dist/assets/portal-admin-shell-fast-v1.js
           ! grep -q 'location.reload(' dist/assets/portal-admin-runtime-watchdog-v1.js

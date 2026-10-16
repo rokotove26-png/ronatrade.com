@@ -92,7 +92,7 @@ const MODULES=Object.freeze({
   analytics:{src:'/portal/analytics-v2-ui?v=20261009-term-curve-v3'},
   prices:{src:'/portal/prices-current-ui?v=20260826-single-owner'},
   access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'},
-  agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261007-finance-workspace-v20-correction-gate-v3'}
+  agentRewards:{src:'/portal/agent-rewards-v1-ui?v=20261016-owner-direct-generic-act-v1'}
 });
 const railPrimaryRoot=()=>document.querySelector('[data-rail-current-v4="ready"],[data-rail-current-root="ready"]:not([data-rail-safe-fallback])');
 const railFallbackRoot=()=>document.querySelector('[data-rail-safe-fallback]');
@@ -149,6 +149,15 @@ async function loadAccess(){
   if(ok)root.dataset.ronaAccessOwner='clients-agents-current-v5';
   return ok
 }
+// Readiness is a rendered, scoped workspace contract, not a pinned module build string.
+// Module VERSION changes whenever Agent Rewards ships; old equality forced three false
+// MODULE_NOT_READY retries and an unnecessary watchdog error despite live content.
+const agentRewardsReady=()=>{
+  const p=document.getElementById('page-agent-settlements');
+  return typeof window.__RONA_AGENT_REWARDS_FINANCE_REPAIR__==='function'
+    &&p?.dataset.ronaAgentRewardsOwner==='finance-workspace-v1'
+    &&!!p.querySelector(':scope > [data-rona-agent-rewards-host] > .rona-ar');
+};
 async function loadPageModule(page){
   const p=String(page||'');
   if(p==='deals'){
@@ -164,7 +173,7 @@ async function loadPageModule(page){
   if(p==='analytics')return loadAnalytics();
   if(p==='prices')return loadModule('prices',MODULES.prices.src);
   if(p==='access')return loadAccess();
-  if(p==='agent-settlements')return loadModule('agentRewards',MODULES.agentRewards.src,{attempts:3,ready:()=>window.__RONA_AGENT_REWARDS_FINANCE_V1__==='20261007-agent-rewards-finance-v18-premium-visual-v2',timeout:16000});
+  if(p==='agent-settlements')return loadModule('agentRewards',MODULES.agentRewards.src,{attempts:3,ready:agentRewardsReady,timeout:16000});
   if(['messages','market-news'].includes(p))return loadModule('remaining',MODULES.remaining.src);
   return true;
 }

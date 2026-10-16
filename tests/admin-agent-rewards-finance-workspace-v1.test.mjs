@@ -519,7 +519,10 @@ test('Owner API routes Agent Rewards to correction-authority V13 read RPC and co
 });
 
 test('Admin shell lazy-loads Agent Rewards P&L and legacy Remaining renderer stays retired',()=>{
-  assert.match(shell,/agentRewards:\{src:'\/portal\/agent-rewards-v1-ui\?v=20261007-finance-workspace-v20-correction-gate-v3'/);
+  assert.match(shell,/agentRewards:\{src:'\/portal\/agent-rewards-v1-ui\?v=20261016-owner-direct-generic-act-v1'/);
+  assert.match(shell,/const agentRewardsReady=/);
+  assert.match(shell,/ready:agentRewardsReady/);
+  assert.doesNotMatch(shell,/__RONA_AGENT_REWARDS_FINANCE_V1__===['"]20261007-/);
   assert.match(shell,/p==='agent-settlements'\)return loadModule\('agentRewards'/);
   assert.doesNotMatch(shell,/\['agent-settlements','messages','market-news'\]\.includes\(p\)/);
   assert.match(remaining,/replaceAll\("'вознаграждения агентов':'rewards'",''\)/);
@@ -530,7 +533,9 @@ test('Admin shell lazy-loads Agent Rewards P&L and legacy Remaining renderer sta
 test('Watchdog requires the P&L owner and legacy owners cannot reclaim the page',()=>{
   assert.match(materializer,/STATIC_REMAINING_REWARDS_SOURCE_MISMATCH/);
   assert.match(materializer,/STATIC_REMAINING_COMPETING_OWNER_PRESENT/);
-  assert.match(watchdog,/20261007-agent-rewards-finance-v20-correction-gate-v3/);
+  assert.match(watchdog,/page-aware-v24-agent-rewards-content-readiness-v1/);
+  assert.match(watchdog,/typeof window\.__RONA_AGENT_REWARDS_FINANCE_REPAIR__==='function'/);
+  assert.doesNotMatch(watchdog,/__RONA_AGENT_REWARDS_FINANCE_V1__===['"]20261007-/);
   assert.match(watchdog,/finance-workspace-v1/);
   assert.match(watchdog,/return'agentRewards'/);
   assert.match(ui,/__RONA_AGENT_REWARDS_FINANCE_REPAIR__/);
