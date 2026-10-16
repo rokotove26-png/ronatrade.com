@@ -427,6 +427,7 @@ Deno.serve(async req=>{
        where actor_user_id=${ctx.userId}::uuid
          and action='AGENT_ACT_CANONICAL_FACSIMILE_RENDER_AUTHORIZED'
          and entity_type='DEAL' and entity_id=${act.dealId}
+         and metadata->>'requestId'=${String(finalAsset[1])}
          and metadata->>'documentNumber'=${act.documentNumber}
          and metadata->>'finance'=${String(act.financeEvidence)}
          and metadata->>'legal'=${String(act.legalEvidence)}
