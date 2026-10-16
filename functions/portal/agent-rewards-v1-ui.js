@@ -1321,9 +1321,14 @@ async function saveCorrectionAndDownloadSignedAct(deal,ownerApprovedCalculation)
   });
   const id=String(requested.requestId||'');
   if(!/^[0-9a-f-]{36}$/i.test(id))throw new Error('ACT_REQUEST_NOT_CREATED');
+  if(requested.ownerCalculationStored!==true)
+    throw new Error('ACT_OWNER_SAVED_CALCULATION_NOT_STORED');
   const fresh=await docCall(deal,'state');
   const act=(Array.isArray(fresh.acts)?fresh.acts:[]).find(a=>String(a.id)===id);
   if(!act)throw new Error('ACT_SOURCE_RELOAD_REQUIRED');
+  if(act.ownerCalculationStored!==true||
+     Number(act.ownerCalculationVersion)!==Number(ownerApprovedCalculation.correctionVersion))
+    throw new Error('ACT_OWNER_CALCULATION_VERSION_NOT_LOCKED');
   const existing=(Array.isArray(act.documents)?act.documents:[]).find(f=>f.stage==='OWNER_SIGNED');
   if(existing){
     const saved=await agentActScopedCall(deal,'download-act',{requestId:id,documentId:existing.documentId});
