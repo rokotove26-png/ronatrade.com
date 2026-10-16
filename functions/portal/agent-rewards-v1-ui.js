@@ -949,11 +949,12 @@ function renderOwner(deal){
       if(!m.paymentComplete||m.netProfit===null)throw new Error('Расчёт и детализация платежей требуют сверки Finance');
       const payload={paymentLineAmounts:m.paymentLineAmounts,openSettlementAdjustment:m.openSettlementAdjustment};
       const saved=await saveCorrection(deal.dealId,deal.assignmentId,payload,'');
-      const approved=ownerActSavedCalculation(deal,m,cur,saved);
       save.textContent='Формирую акт…';
       let actResult=null,actError=null;
-      try{actResult=await saveCorrectionAndDownloadSignedAct(deal,approved)}
-      catch(error){actError=agentActIssueMessage(error)}
+      try{
+        const approved=ownerActSavedCalculation(deal,m,cur,saved);
+        actResult=await saveCorrectionAndDownloadSignedAct(deal,approved);
+      }catch(error){actError=agentActIssueMessage(error)}
       await getWorkspace({force:true});
       state.docCache.delete(rowKey(deal));state.selectedKey=rowKey(deal);render();
       if(actError)docNotice('Корректировка сохранена. Акт не выпущен: '+actError);
