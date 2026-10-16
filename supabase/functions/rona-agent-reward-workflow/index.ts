@@ -319,6 +319,25 @@ function ownerSavedCalculation(input:any,s:any,correction:any,actor:{userId:stri
      throw deny('ACT_OWNER_AGENT_REWARD_ARITHMETIC_MISMATCH',409);
  if((amount.reward===null)!==(amount.ronaProfit===null))
      throw deny('ACT_OWNER_REWARD_COMPLETENESS_MISMATCH',409);
+ const declared=input.ownerActDeclaration||null;
+ if(declared){
+   if(!addendum||typeof declared!=='object'||Array.isArray(declared)
+     ||declared.contract!=='RONA_OWNER_AGENCY_ACT_DECLARATION_V1'
+     ||declared.authority!=='OWNER_ACT_BUTTON_APPROVAL'
+     ||declared.createsPayable!==false
+     ||String(declared.dealId)!==String(s.deal_id)
+     ||String(declared.assignmentId)!==String(s.assignment_id)
+     ||String(declared.addendumDocumentId)!==String(addendum.document_id)
+     ||String(declared.addendumBindingId)!==String(addendum.id)
+     ||String(declared.addendumSha256||'').toLowerCase()!==String(addendum.sha256||'').toLowerCase()
+     ||String(declared.addendumReference)!==String(addendum.document_reference)
+     ||String(addendum.uploaded_by)!==String(actor.userId)
+     ||String(addendum.linked_by)!==String(actor.userId)
+     ||declared.currency!==input.currency
+     ||typeof declared.amount!=='number'||!Number.isFinite(declared.amount)
+     ||amount.reward===null||Math.abs(declared.amount-Number(amount.reward))>.11)
+     throw deny('ACT_OWNER_DECLARATION_SOURCE_INVALID',409);
+ }
  return{
    contract:'OWNER_SECTION_SAVED_CALCULATION_V1',
    correctionId:String(correction.id),
