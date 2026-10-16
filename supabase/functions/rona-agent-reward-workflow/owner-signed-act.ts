@@ -10,7 +10,9 @@ export function ownerActCandidate(row:any){
  return x?.contract==='OWNER_SECTION_SAVED_CALCULATION_V1'
   &&x?.sourceKind==='OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE'
   &&x?.createsPayable===false&&x?.signingAuthority===false
-  &&x?.rewardStatus==='OWNER_DS1_SHIPMENT_MARGIN_SAVED_SECTION'
+  &&(row?.deal_id==='DEAL-2026-004'
+    ?x?.rewardStatus==='OWNER_DS1_SHIPMENT_MARGIN_SAVED_SECTION'
+    :x?.ownerActDeclaration?.contract==='RONA_OWNER_AGENCY_ACT_DECLARATION_V1')
   &&String(x?.correctionId)===String(row?.owner_correction_key)
   &&Number(x?.correctionVersion)===Number(row?.correction_version)
 }
