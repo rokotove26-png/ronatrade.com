@@ -327,7 +327,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
       assert.equal(result.fxRows,0,'Neither FACT nor Owner table may contain realized FX at '+width);
       assert(result.fxPrecedesTables&&result.fxAfterPulse,'Compact FX amount follows KPI group and precedes tables at '+width);
       assert.equal(result.fxNote,undefined,'No technical FX explanation at '+width);
-      assert.equal(result.fxMeaning,'FX');
+      assert.equal(result.fxMeaning,'Курс');
       assert.equal(result.fxAmount,(width===950?'-10,0 USD':'+10,0 USD'),'FX amount must be read from approved FACT without recomputation');
       assert.equal(result.fxColor,width===950?'rgb(255, 156, 172)':'rgb(145, 227, 193)','FX sign color must describe benefit/loss at '+width);
       assert.deepEqual(result.rowMeanings,{receipt:'inflow',outflow:'outflow',agent:'agent'});
@@ -648,7 +648,10 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.equal(await page.getByRole('button',{name:'Акт выполненных работ',exact:true}).count(),0);
       const notice=page.locator('.rona-admin-dialog-backdrop');
       if(await notice.count())await notice.last().getByRole('button',{name:'Закрыть'}).click();
+      const requestSeen=page.waitForRequest(req=>
+        req.method()==='POST'&&req.url().includes('action=request-act'),{timeout:10000});
       await page.locator('.rona-ar-col.owner').getByRole('button',{name:'Сохранить корректировку'}).click();
+      await requestSeen;
       await box.getByText('Корректировка №3 сохранена.').waitFor({timeout:7000});
       assert.equal(await box.getByRole('button',{name:'Сформировать и скачать акт'}).count(),1);
       assert.deepEqual(mutations.map(x=>x.action),['request-act'],
