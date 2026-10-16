@@ -598,12 +598,24 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       await page.route('http://rona.docs/portal/admin',r=>r.fulfill({
         status:200,contentType:'text/html',
         body:'<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><main id="page-agent-settlements" class="page active" style="padding:10px"></main></body></html>'}));
-      await page.route('http://rona.docs/portal/owner-api**',r=>r.fulfill({
-        status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{deals:[deal]}})}));
+      await page.route('http://rona.docs/portal/owner-api**',r=>{
+        const input=r.request().method()==='POST'
+          ?JSON.parse(r.request().postData()||'{}'):null;
+        const data=input?{accepted:true,dealId,assignmentId,version:3,
+          correctedPayload:input.correctedPayload}:{deals:[deal]};
+        return r.fulfill({status:200,contentType:'application/json',
+          body:JSON.stringify({ok:true,data})});
+      });
       await page.route('http://rona.docs/portal/agent-reward-workflow**',async r=>{
         const u=new URL(r.request().url()),action=u.searchParams.get('action')||'state';
         if(action==='request-act'&&r.request().method()==='POST'){
           mutations.push({action});
+          const snapshot=JSON.parse(r.request().postData()||'{}').ownerApprovedCalculation;
+          assert.equal(snapshot?.contract,'OWNER_SECTION_SAVED_CALCULATION_V1');
+          assert.equal(snapshot?.correctionVersion,3);
+          assert.equal(snapshot?.dealId,dealId);
+          assert.equal(snapshot?.assignmentId,assignmentId);
+          assert.equal(snapshot?.reward,null);
           doc.acts=[{id:'a1111111-1111-4111-8111-111111111111',correction_version:3,
             owner_correction_key:doc.ownerCorrection.sourceId,request_status:'REVIEW_REQUESTED',
             review:{finance:{status:'PENDING'},legal:{status:'PENDING'},approved:false},
