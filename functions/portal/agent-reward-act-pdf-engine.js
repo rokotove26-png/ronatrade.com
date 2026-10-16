@@ -307,9 +307,15 @@ function ronaActPdfRuntime(){
     center(ctx,'№ '+number,720,47,true);
     font(ctx,42,false);ctx.textAlign='right';ctx.fillText(place+' · '+date,RIGHT,790);ctx.textAlign='left';
     let y=884;
-    y=paragraph(ctx,issuer+', именуемое в дальнейшем «Принципал», в лице '+issuerSigner+
-      ', с одной стороны, и '+agent+', именуемое в дальнейшем «Агент», в лице '+ 
-      agentSigner+', с другой стороны, составили настоящий акт.',LEFT,y,WIDTH,{size:46,lineHeight:61,after:36});
+    const ownerUnilateral=d.financialAppendix?.contract==='RONA_OWNER_AGENT_ACT_APPENDIX_V1';
+    const introduction=ownerUnilateral
+      ?issuer+', именуемое «Принципал», в лице '+issuerSigner+
+        ', оформляет настоящий акт оказанных агентских услуг в отношении '+agent+
+        ' («Агент») по подписанному дополнительному соглашению. На данном экземпляре подпись агента отсутствует.'
+      :issuer+', именуемое в дальнейшем «Принципал», в лице '+issuerSigner+
+        ', с одной стороны, и '+agent+', именуемое в дальнейшем «Агент», в лице '+
+        agentSigner+', с другой стороны, составили настоящий акт.';
+    y=paragraph(ctx,introduction,LEFT,y,WIDTH,{size:46,lineHeight:61,after:36});
     y=paragraph(ctx,'Основание: '+ds+'. Сделка: '+deal+'.',LEFT,y,WIDTH,{size:45,lineHeight:58,after:20});
     y=paragraph(ctx,'Период оказания услуг: '+period+'.',LEFT,y,WIDTH,{size:45,lineHeight:58,after:36});
     y=paragraph(ctx,'Исполнителем оказаны следующие агентские услуги:',LEFT,y,WIDTH,{size:45,lineHeight:57,after:14});
@@ -351,8 +357,12 @@ function ronaActPdfRuntime(){
     ctx.strokeStyle='#727b84';line(ctx,LEFT,signTop,LEFT+colWidth,signTop);line(ctx,rightX,signTop,RIGHT,signTop);
     font(ctx,41,true);ctx.fillText('ПРИНЦИПАЛ · РОНА ТРЕЙД',LEFT,signTop+61);ctx.fillText('АГЕНТ',rightX,signTop+61);
     const leftDetails=paragraph(ctx,issuerDetails,LEFT,signTop+123,colWidth-20,{size:36,lineHeight:48,after:0});
-    const rightDetails=paragraph(ctx,agent+'; '+safe(d.agentTaxId)+'; '+safe(d.agentAddress)+
-      '; '+safe(d.agentCountry),rightX,signTop+123,colWidth-15,{size:35,lineHeight:47,after:0});
+    const verifiedAgentDetails=[agent,d.agentTaxId,d.agentAddress,d.agentCountry]
+      .map(safe).filter(Boolean);
+    if(ownerUnilateral&&verifiedAgentDetails.length===1)
+      verifiedAgentDetails.push('Реквизиты по '+ds);
+    const rightDetails=paragraph(ctx,verifiedAgentDetails.join('; '),
+      rightX,signTop+123,colWidth-15,{size:35,lineHeight:47,after:0});
     const assetTop=Math.max(signTop+280,leftDetails+20);
     if(assetTop+432>3190||rightDetails>3180)throw new Error('ACT_PDF_SIGNATURE_OVERFLOW');
     drawContain(ctx,assets[1],LEFT+35,assetTop,550,305);
