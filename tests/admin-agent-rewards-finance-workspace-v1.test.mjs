@@ -476,7 +476,9 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/function agentStatusText\(status\)/);
   assert.doesNotMatch(ui,/ДС не привязано/);
   assert.match(ui,/ДС загружено и привязано к сделке/);
-  assert.match(ui,/OWNER_DS1_AFTER_TAX_MANAGEMENT_PREVIEW_ONLY/);
+  assert.match(ui,/SHIPMENT_MARGIN_SOURCE_REQUIRED/);
+  assert.doesNotMatch(ui,/OWNER_DS1_AFTER_TAX_MANAGEMENT_PREVIEW_ONLY/);
+  assert.match(ui,/e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab/);
   assert.match(ui,/documentTermMismatch\(deal\)/);
   assert.doesNotMatch(ui,/Нет действующего условия/);
   assert.doesNotMatch(ui,/Расчёт после закрытия/);
