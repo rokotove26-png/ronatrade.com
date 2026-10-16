@@ -27,8 +27,10 @@ export async function rowFor(sql:any,id:string){
  b.agent_legal_entity_key as linked_legal_entity
  from portal_private.agent_reward_act_requests_v1 r
  join portal_private.deals d on d.id=r.deal_key
- join portal_private.agent_client_assignments a on a.id=r.assignment_id
- join portal_private.agent_reward_deal_addenda_v1 b on b.id=r.addendum_key
+ join portal_private.agent_client_assignments a
+   on a.id=r.assignment_id and a.client_key=d.client_key
+ join portal_private.agent_reward_deal_addenda_v1 b
+   on b.id=r.addendum_key and b.deal_key=r.deal_key and b.assignment_id=r.assignment_id
  where r.id=${id}::uuid limit 2`;
  if(rows.length!==1||String(rows[0].agent_legal_entity_key)!==String(rows[0].linked_legal_entity))
    deny('ACT_SOURCE_ASSOCIATION_INVALID',404);
@@ -339,6 +341,7 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    rate:certified.rate,quantity:certified.quantity,
    sourceRef:certified.sourceRef,exchangeRate:certified.exchangeRate,
    exchangeSourceRef:certified.exchangeSourceRef,
+   approvedBasisSignPolicy:finance.approvedBasisSignPolicy||null,
    addendumReference:String(t.document_reference),
    financeSourceRef:financeRef,financeConclusionRef:String(review.finance.recordId),
    legalConclusionRef:String(review.legal.recordId),
