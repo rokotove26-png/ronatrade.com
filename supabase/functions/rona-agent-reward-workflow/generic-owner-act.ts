@@ -30,8 +30,7 @@ export function checkedGenericOwnerDeclaration(row:any,document:any){
  if(!/^[A-Z]{3}$/.test(str(snap.currency)))reject('ACT_OWNER_DECLARATION_CURRENCY_INVALID');
  if(document.is_current!==true||document.storage_state!=='VERIFIED'
    ||str(document.document_reference)!==str(declaration.addendumReference)
-   ||!str(document.legal_name)||!str(document.registration_country)
-   ||!str(document.registered_address)||!str(document.tax_identifier))
+   ||!str(document.legal_name))
    reject('ACT_OWNER_DECLARATION_VERIFIED_SOURCE_MISSING');
  return{amount:a,currency:snap.currency,calculation:c,source:declaration}
 }
@@ -53,7 +52,7 @@ export function genericOwnerActPayload(row:any,doc:any){
   issuerSigner:'Генеральный директор Юсупов Марат Махмудович',
   issuerRequisites:'ИНН 02104202510169; регистрационный номер 315370-3301-ООО; Кыргызская Республика, г. Бишкек, ул. Гоголя, д. 109, кв. 50',
   agentLegalName:str(doc.legal_name),
-  agentSignatory:'Уполномоченный представитель (подпись агента отсутствует)',
+  agentSignatory:'Агентом не подписано',
   agentTaxId:str(doc.tax_identifier),
   agentAddress:str(doc.registered_address),agentCountry:str(doc.registration_country),
   services,servicePeriod:'По сделке '+str(row.deal_id),
