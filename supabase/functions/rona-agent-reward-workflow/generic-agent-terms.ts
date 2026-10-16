@@ -23,7 +23,7 @@ export function certifiedAgentTerms(input:any){
    reject('ACT_CERTIFIED_TERM_CURRENCY_MISMATCH');
  if(!['FIXED','PER_TONNE','PERCENT'].includes(mode))
    reject('ACT_CERTIFIED_TERM_MODE_UNSUPPORTED');
- let basisAmount:null|number=null,basisCurrency:string=payout,basisType='';
+ let basisAmount:null|number=null,basisCurrency:string=contractCurrency,basisType='';
  let rate:null|number=null,quantity:null|number=null,sourceRef='',expected=0;
  if(mode==='FIXED'){
    expected=number(t.commission_fixed_amount,'ACT_CERTIFIED_FIXED_AMOUNT_MISSING');
