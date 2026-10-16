@@ -220,7 +220,7 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
  const finance=row.finance_snapshot||{},legal=row.legal_snapshot||{};
  const amount=finance.approvedActAmount==null?NaN:Number(finance.approvedActAmount),
    currency=String(finance.approvedCurrency||''),financeRef=String(finance.financeSourceRef||'');
- if(!Number.isFinite(amount)||amount<=0||!/^[A-Z]{3}$/.test(currency)||!financeRef)
+ if(!Number.isFinite(amount)||amount<0||!/^[A-Z]{3}$/.test(currency)||!financeRef)
    deny('ACT_FINANCE_APPROVED_AMOUNT_MISSING');
  if(String(finance.ownerCorrectionId||'')!==String(row.owner_correction_key)||
     Number(finance.ownerCorrectionVersion)!==Number(row.correction_version)||
