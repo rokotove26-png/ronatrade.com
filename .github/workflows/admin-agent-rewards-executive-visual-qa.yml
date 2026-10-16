@@ -9,6 +9,7 @@ on:
       - 'assets/portal-admin-runtime-watchdog-v1.js'
       - 'portal-src/current/admin.html'
       - 'tests/admin-agent-rewards-loader-contract-v1.test.mjs'
+      - 'scripts/qa-admin-single-owner.mjs'
       - 'functions/portal/agent-rewards-v1-ui.js'
       - 'functions/portal/agent-reward-workflow.js'
       - 'functions/portal/agent-reward-act-pdf-engine.js'
@@ -52,7 +53,7 @@ jobs:
           set -euo pipefail
           git diff --name-only "$BASE_SHA" HEAD > /tmp/agent-rewards-ui-files.txt
           cat /tmp/agent-rewards-ui-files.txt
-          if grep -Ev '^(functions/portal/(agent-rewards-v1-ui|owner-api)\.js|tests/admin-agent-rewards-(finance-workspace-v1|executive-visual)\.test\.mjs|tests/fixtures/(agent-rewards-finance-v(16-integration|18-effective-chains-integration)|agent-rewards-jsonb-scalar-guard-v20-integration|agent-rewards-bnk-identity-v21-integration)\.sql|supabase/migrations/20261014(113000_agent_rewards_current_finance_reconciled_v16|114500_agent_rewards_reconciled_owner_correction_v17|120000_agent_rewards_current_finance_effective_chains_v18|121500_agent_rewards_effective_chain_owner_correction_v19|145000_agent_rewards_source_current_jsonb_scalar_guard_v20|153000_agent_rewards_source_locked_payment_identity_v21)\.sql|functions/portal/(agent-reward-workflow|agent-reward-act-pdf-engine)\.js|tests/admin-agent-act-(oneclick|appendix-v1|generic-v1)\.test\.mjs|supabase/functions/rona-agent-reward-workflow/(index|acts|owner-signed-act|financial-appendix|generic-owner-act)\.ts|supabase/functions/rona-agent-reward-workflow/deno\.json|supabase/migrations/20261014190500_agent_rewards_deal_addenda_act_workflow_v1\.sql|assets/portal-admin-(shell-fast|runtime-watchdog)-v1\.js|portal-src/current/admin\.html|tests/admin-agent-rewards-loader-contract-v1\.test\.mjs|\.github/workflows/admin-agent-rewards-(executive-visual-qa|functional-finance-qa)\.yml)$' /tmp/agent-rewards-ui-files.txt; then
+          if grep -Ev '^(functions/portal/(agent-rewards-v1-ui|owner-api)\.js|tests/admin-agent-rewards-(finance-workspace-v1|executive-visual)\.test\.mjs|tests/fixtures/(agent-rewards-finance-v(16-integration|18-effective-chains-integration)|agent-rewards-jsonb-scalar-guard-v20-integration|agent-rewards-bnk-identity-v21-integration)\.sql|supabase/migrations/20261014(113000_agent_rewards_current_finance_reconciled_v16|114500_agent_rewards_reconciled_owner_correction_v17|120000_agent_rewards_current_finance_effective_chains_v18|121500_agent_rewards_effective_chain_owner_correction_v19|145000_agent_rewards_source_current_jsonb_scalar_guard_v20|153000_agent_rewards_source_locked_payment_identity_v21)\.sql|functions/portal/(agent-reward-workflow|agent-reward-act-pdf-engine)\.js|tests/admin-agent-act-(oneclick|appendix-v1|generic-v1)\.test\.mjs|supabase/functions/rona-agent-reward-workflow/(index|acts|owner-signed-act|financial-appendix|generic-owner-act)\.ts|supabase/functions/rona-agent-reward-workflow/deno\.json|supabase/migrations/20261014190500_agent_rewards_deal_addenda_act_workflow_v1\.sql|assets/portal-admin-(shell-fast|runtime-watchdog)-v1\.js|portal-src/current/admin\.html|tests/admin-agent-rewards-loader-contract-v1\.test\.mjs|scripts/qa-admin-single-owner\.mjs|\.github/workflows/admin-agent-rewards-(executive-visual-qa|functional-finance-qa)\.yml)$' /tmp/agent-rewards-ui-files.txt; then
             echo "FINANCE_UI_SCOPE_VIOLATION" >&2
             exit 1
           fi
@@ -60,6 +61,7 @@ jobs:
           if grep -Fxq 'assets/portal-admin-shell-fast-v1.js' /tmp/agent-rewards-ui-files.txt; then
             grep -Fxq 'assets/portal-admin-runtime-watchdog-v1.js' /tmp/agent-rewards-ui-files.txt
             grep -Fxq 'tests/admin-agent-rewards-loader-contract-v1.test.mjs' /tmp/agent-rewards-ui-files.txt
+            grep -Fxq 'scripts/qa-admin-single-owner.mjs' /tmp/agent-rewards-ui-files.txt
             grep -Fxq 'tests/admin-agent-rewards-finance-workspace-v1.test.mjs' /tmp/agent-rewards-ui-files.txt
             echo 'AGENT_REWARDS_RUNTIME_LOADER_REPAIR_SCOPE=PASS'
           elif grep -Fxq 'functions/portal/agent-rewards-v1-ui.js' /tmp/agent-rewards-ui-files.txt; then
@@ -94,6 +96,7 @@ jobs:
           node --check functions/portal/agent-rewards-v1-ui.js
           node --check functions/portal/agent-reward-act-pdf-engine.js
           node --test tests/admin-agent-rewards-finance-workspace-v1.test.mjs tests/admin-agent-rewards-loader-contract-v1.test.mjs tests/admin-runtime-watchdog.test.mjs
+          node scripts/qa-admin-single-owner.mjs
       - name: Compile production Cloudflare Pages Functions
         run: |
           mkdir -p .pages-build
