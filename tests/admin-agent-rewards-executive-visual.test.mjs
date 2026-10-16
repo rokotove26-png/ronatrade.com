@@ -615,7 +615,7 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
           assert.equal(snapshot?.correctionVersion,3);
           assert.equal(snapshot?.dealId,dealId);
           assert.equal(snapshot?.assignmentId,assignmentId);
-          assert.equal(snapshot?.reward,null);
+          assert.equal(snapshot?.reward,990);
           doc.acts=[{id:'a1111111-1111-4111-8111-111111111111',
             ownerCalculationStored:true,ownerCalculationVersion:3,correction_version:3,
             owner_correction_key:doc.ownerCorrection.sourceId,request_status:'REVIEW_REQUESTED',
@@ -636,8 +636,8 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.equal(await box.getByRole('button',{name:'Скачать ДС'}).count(),1);
       assert.equal(await box.getByText('ДС загружено и привязано к сделке').count(),1);
       assert.equal(await box.getByText('50% от маржи по поставке (ДС №1)').count(),1);
-      assert.match(await box.innerText(),/Сумма после документов завода и ГУ/);
-      assert.match(await page.locator('.rona-ar-col.owner').innerText(),/Ожидаются документы завода и ГУ/);
+      assert.match(await box.innerText(),/По сохранённому расчёту:/);
+      assert.match(await page.locator('.rona-ar-col.owner').innerText(),/990,0\s*USD/);
       assert.doesNotMatch(await box.innerText(),/Предварительно:\s*891/);
       assert.doesNotMatch(await page.locator('.rona-ar-evidence').innerText(),
         /ДС не привязано|Addendum 2/);
