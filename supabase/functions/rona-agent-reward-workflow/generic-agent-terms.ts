@@ -28,6 +28,7 @@ export function certifiedAgentTerms(input:any){
  if(mode==='FIXED'){
    expected=number(t.commission_fixed_amount,'ACT_CERTIFIED_FIXED_AMOUNT_MISSING');
    if(expected<0)reject('ACT_CERTIFIED_FIXED_AMOUNT_INVALID');
+   basisAmount=expected;
    sourceRef=ref(t.document_reference,'ACT_CERTIFIED_SIGNED_TERM_REQUIRED');
    basisType='SIGNED_FIXED_AMOUNT';
  }else if(mode==='PER_TONNE'){
