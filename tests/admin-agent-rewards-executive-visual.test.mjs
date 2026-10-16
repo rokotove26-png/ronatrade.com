@@ -536,7 +536,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         await page.locator('[data-rona-ar-deal-select="VISUAL-QA-SECOND::VISUAL-QA-SECOND-DEAL"]').click();
         assert.equal(await page.locator('.rona-ar-focus-title').textContent(),'Второй контрагент');
         assert.equal(await page.locator('[data-rona-ar-deal-select="VISUAL-QA-SECOND::VISUAL-QA-SECOND-DEAL"]').getAttribute('aria-pressed'),'true');
-        assert.match(await page.locator('.rona-ar-evidence').textContent(),/ДС не привязано/);
+        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Условия вознаграждения проверяются/);
         assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),0);
         assert.equal(await page.locator('.rona-ar-cascade-row.final .rona-ar-cascade-bar').count(),0,
           'Switching to a deal without a signed term must not show fabricated net payout result');
@@ -620,34 +620,25 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       const box=page.locator('.rona-ar-documents');
       await box.getByText('ООО «ИнКом»').waitFor({timeout:12000});
       assert.equal(await box.locator('input[type=file]').count(),0);
-      assert.equal(await box.getByRole('button',{name:'Скачать подписанное ДС'}).count(),1);
+      assert.equal(await box.getByRole('button',{name:'Скачать ДС'}).count(),1);
+      assert.equal(await box.getByText('ДС загружено и привязано к сделке').count(),1);
       assert.equal(await box.getByText('50% от чистой прибыли после налогов').count(),1);
-      assert.equal(await box.getByText(/Утверждено владельцем при загрузке/).count(),1);
-      assert.equal(await box.getByRole('button',{name:'Загрузить и привязать подписанное ДС'}).count(),0);
-      assert.equal(await box.getByRole('combobox',{name:'ДС из архива агентской компании'}).count(),0);
-      assert.equal(await box.getByRole('button',{name:'Привязать архивное ДС'}).count(),0);
-      assert.equal(await box.getByRole('button',{name:'Акт выполненных работ'}).isDisabled(),false);
+      assert.match(await box.innerText(),/Предварительно:\\s*891,0\\s*USD/);
+      assert.match(await page.locator('.rona-ar-owner').innerText(),/891,0\\s*USD/);
+      assert.doesNotMatch(await page.locator('.rona-ar-evidence').innerText(),
+        /ДС не привязано|Addendum 2/);
+      assert.equal(await box.getByRole('button',{name:'Загрузить ДС'}).count(),0);
+      assert.equal(await box.getByRole('button',{name:'Подготовить акт'}).isDisabled(),false);
       const notice=page.locator('.rona-admin-dialog-backdrop');
       if(await notice.count())await notice.last().getByRole('button',{name:'Закрыть'}).click();
-      await box.getByRole('button',{name:'Акт выполненных работ'}).click();
-      await box.getByText(/REVIEW_REQUESTED/).waitFor({timeout:7000});
-      assert.equal(await box.getByText(/Finance: ставка не соответствует подписанному ДС/).count(),1);
-      assert.equal(await box.getByText(/Finance ещё не утвердил фактический расчёт/).count(),1);
-      assert.equal(await box.getByRole('button',{name:'Заявка на акт зарегистрирована'}).isDisabled(),true);
+      await box.getByRole('button',{name:'Подготовить акт'}).click();
+      await box.getByText('Акт будет доступен после подтверждения расчёта и реквизитов.').waitFor({timeout:7000});
       assert.deepEqual(mutations.map(x=>x.action),['request-act']);
-      assert.equal(await box.getByText(/Finance: PENDING · Legal: PENDING/).count(),1);
-      assert.equal(await box.getByRole('button',{name:'Отправить агенту на подписание'}).count(),0);
-      assert.equal(await box.getByRole('button',{name:'Загрузить PDF'}).count(),1);
-      const [printDraft]=await Promise.all([
-        page.waitForEvent('popup'),
-        box.getByRole('button',{name:'Открыть проект акта · печать в PDF'}).click()
-      ]);
-      await printDraft.locator('#ronaDraftPrint').waitFor({timeout:5000});
-      assert.match(await printDraft.locator('.content').innerText(),/ПРОЕКТ АКТА ОКАЗАННЫХ АГЕНТСКИХ УСЛУГ/);
-      assert.match(await printDraft.locator('.content').innerText(),/НЕ ПОДПИСАН/);
-      assert.equal(await printDraft.locator('img.letterhead').getAttribute('src'),
-        '/portal/agent-reward-workflow?action=canonical-letterhead');
-      await printDraft.close();
+      const visible=await box.innerText();
+      assert.doesNotMatch(visible,/REVIEW_REQUESTED|Finance: PENDING|Legal: PENDING|OWNER №|TO_VERIFY|sourceId|FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS/);
+      assert.equal(await box.getByRole('button',{name:'Загрузить PDF'}).count(),0);
+      assert.equal(await box.getByRole('button',{name:'Открыть проект акта · печать в PDF'}).count(),0);
+      assert.equal(await box.getByRole('button',{name:'Скачать акт (PDF)'}).count(),0);
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
       assert(overflow<=2,'Agent documentation overflows '+width+'px viewport by '+overflow);
       assert.deepEqual(errors,[]);
