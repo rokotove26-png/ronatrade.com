@@ -963,8 +963,12 @@ function renderOwner(deal){
       save.textContent='Формирую акт…';
       let actResult=null,actError=null;
       try{
-        const approved=ownerActSavedCalculation(deal,m,cur,saved);
-        actResult=await saveCorrectionAndDownloadSignedAct(deal,approved);
+        if(deal.dealId!=='DEAL-2026-004'&&m.reward===null){
+          actResult={downloaded:false,reason:'Для выпуска акта нажмите «Сформировать и скачать акт» и утвердите сумму по подписанному ДС.'};
+        }else{
+          const approved=ownerActSavedCalculation(deal,m,cur,saved);
+          actResult=await saveCorrectionAndDownloadSignedAct(deal,approved);
+        }
       }catch(error){actError=agentActIssueMessage(error)}
       await getWorkspace({force:true});
       state.docCache.delete(rowKey(deal));state.selectedKey=rowKey(deal);render();
