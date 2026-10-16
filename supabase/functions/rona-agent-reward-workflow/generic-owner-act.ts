@@ -6,7 +6,7 @@ const str=(v:any)=>String(v??'').trim();
 export function checkedGenericOwnerDeclaration(row:any,document:any){
  const snap=row?.source_snapshot?.ownerApprovedCalculation||{},c=snap.calculation||{};
  const declaration=snap.ownerActDeclaration||{};
- if(row?.deal_id==='DEAL-2026-004')reject('ACT_OWNER_GENERIC_DS1_SEPARATE');
+ // A different verified DS on DEAL-2026-004 can use the generic route; no deal-wide exception.
  if(declaration.contract!=='RONA_OWNER_AGENCY_ACT_DECLARATION_V1'
    ||declaration.authority!=='OWNER_ACT_BUTTON_APPROVAL'
    ||declaration.createsPayable!==false
