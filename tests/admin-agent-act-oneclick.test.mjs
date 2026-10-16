@@ -46,6 +46,8 @@ test('One-click PDF contract preserves canonical source hashes and protected iss
   assert.match(index,/ownerCalculationStored/);
   assert.match(ui,/import\('\/portal\/agent-reward-act-pdf-engine'\)/);
   assert.match(ui,/agentActDownloadBlob\(pdf\.blob,pdf\.filename\)/);
+  assert.match(ui,/issueFromSavedOwnerCorrection/);
+  assert.match(ui,/Акт сверки · СГ-Транс/);
   assert.doesNotMatch(ui,/const act=docButton\('Акт выполненных работ'/);
   assert.doesNotMatch(ui,/const request=docButton\('Подготовить акт'/);
 });
@@ -81,7 +83,7 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
     agentName:'Представитель агента',assignmentStatus:'ACTIVE',
     term:null,ownerConfirmedTerm:{mode:'PERCENT',rate:0.5,basis:'SHIPMENT_MARGIN',paymentCurrency:'RUB',
       status:'SIGNED_SOURCE_TEXT_PENDING_FINANCE_LEGAL'},
-    sourceReadiness:{termAligned:false,accountingStatus:'OPEN'},
+    sourceReadiness:{termAligned:false,accountingStatus:'OPEN',rule:'DS1_50_PERCENT_SHIPMENT_MARGIN_RUB'},
     currentAddendum:{bindingId:'b1111111-1111-4111-8111-111111111111',
       documentId:'AGENCY-S-005-A1B2C3D4',filename:'Signed_QA.pdf',
       reference:'ДС №1 от 15.07.2026',ownerApprovedByUpload:true,
