@@ -19,6 +19,21 @@ export function ownerActCandidate(row:any){
 export function checkedOwnerActAmounts(row:any){
  if(!ownerActCandidate(row))reject('ACT_OWNER_DIRECT_NOT_APPLICABLE');
  const a=row.source_snapshot.ownerApprovedCalculation,c=a.calculation||{};
+ if(row.deal_id!=='DEAL-2026-004'){
+   const dec=a.ownerActDeclaration||{};
+   const keys=['income','expenses','actualFinancialResult','taxes','netProfit','reward','ronaProfit'];
+   if(keys.some(k=>typeof c[k]!=='number'||!Number.isFinite(c[k]))||
+     !/^[A-Z]{3}$/.test(String(a.currency||''))||
+     !Number.isFinite(Number(dec.amount))||Number(dec.amount)<0||
+     dec.authority!=='OWNER_ACT_BUTTON_APPROVAL'||
+     dec.createsPayable!==false||
+     Math.abs(rounded(c.income-c.expenses)-c.actualFinancialResult)>.21||
+     Math.abs(rounded(c.actualFinancialResult-c.taxes)-c.netProfit)>.21||
+     Math.abs(rounded(c.netProfit-c.reward)-c.ronaProfit)>.21||
+     Math.abs(Number(dec.amount)-c.reward)>.11)
+     reject('ACT_OWNER_GENERIC_CALCULATION_INVALID');
+   return{margin:c.actualFinancialResult,amount:c.reward,currency:a.currency}
+ }
  const keys=['income','expenses','actualFinancialResult','taxes','netProfit','reward','ronaProfit'];
  if(keys.some(k=>typeof c[k]!=='number'||!Number.isFinite(c[k])))
    reject('ACT_OWNER_DIRECT_REWARD_NOT_SAVED');
