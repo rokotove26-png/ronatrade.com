@@ -607,6 +607,10 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(agentActEdge,/AGENT_SERVICES_ACT_REVIEW_REQUESTED/);
   assert.match(agentActEdge,/ownerApprovedByUpload/);
   assert.match(agentActEdge,/FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS/);
+  assert.match(agentActEdge,/OWNER_SECTION_SAVED_CALCULATION_V1/);
+  assert.match(agentActEdge,/ACT_OWNER_CORRECTION_SNAPSHOT_MISMATCH/);
+  assert.match(agentActEdge,/ACT_OWNER_DISPLAYED_ARITHMETIC_MISMATCH/);
+  assert.match(agentActStages,/ACT_OWNER_SAVED_REWARD_FINANCE_MISMATCH/);
   assert.match(agentActEdge,/SIGNED_SHIPMENT_MARGIN_AND_CLOSING_DOCUMENTS_REQUIRED/);
   assert.match(agentActEdge,/DS1_AGENCY_CONTRACT_REFERENCE_DISCREPANCY/);
   assert.doesNotMatch(agentActEdge,/VERIFIED_AFTER_TAX_NET_PROFIT_REQUIRED/);

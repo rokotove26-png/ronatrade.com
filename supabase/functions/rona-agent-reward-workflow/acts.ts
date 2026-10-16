@@ -217,11 +217,26 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
  };
  const ds=ordinal(t.document_reference),term=ordinal(t.term_reference);
  if(!ds||!term||ds!==term)deny('ACT_SIGNED_ADDENDUM_TERM_CONFLICT');
+ const ownerCalculation=row.source_snapshot?.ownerApprovedCalculation||null;
+ if(ownerCalculation){
+   if(ownerCalculation.contract!=='OWNER_SECTION_SAVED_CALCULATION_V1'
+     ||String(ownerCalculation.correctionId)!==String(row.owner_correction_key)
+     ||Number(ownerCalculation.correctionVersion)!==Number(row.correction_version))
+      deny('ACT_OWNER_SAVED_SOURCE_VERSION_MISMATCH');
+ }
  const finance=row.finance_snapshot||{},legal=row.legal_snapshot||{};
  const amount=finance.approvedActAmount==null?NaN:Number(finance.approvedActAmount),
    currency=String(finance.approvedCurrency||''),financeRef=String(finance.financeSourceRef||'');
  if(!Number.isFinite(amount)||amount<0||!/^[A-Z]{3}$/.test(currency)||!financeRef)
    deny('ACT_FINANCE_APPROVED_AMOUNT_MISSING');
+ // Finance may approve a distinct contractual currency (e.g. RUB by the CBR
+ // rate), but cannot silently alter a matching-currency Owner-saved amount.
+ // The Owner snapshot is contextual evidence, not authority to create payable.
+ if(ownerCalculation&&currency===String(ownerCalculation.currency||'')
+   &&ownerCalculation.calculation?.reward!==null
+   &&ownerCalculation.calculation?.reward!==undefined
+   &&Math.abs(amount-Number(ownerCalculation.calculation.reward))>0.11)
+    deny('ACT_OWNER_SAVED_REWARD_FINANCE_MISMATCH');
  if(String(finance.ownerCorrectionId||'')!==String(row.owner_correction_key)||
     Number(finance.ownerCorrectionVersion)!==Number(row.correction_version)||
     String(finance.approvedTermId||'')!==String(row.term_key)||
@@ -291,7 +306,10 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    agentAddress:t.registered_address,agentCountry:t.registration_country,
    addendumReference:t.document_reference,addendumDocumentId:t.document_id,
    financeEvidence:review.finance.recordId,legalEvidence:review.legal.recordId,
-   financeSourceRef:financeRef,shipmentMarginSource,facsimileAuthorizationRef:facsimileRef,
+   financeSourceRef:financeRef,shipmentMarginSource,
+   ownerSectionCalculation:ownerCalculation?.calculation||null,
+   ownerSectionCorrectionVersion:ownerCalculation?.correctionVersion||null,
+   facsimileAuthorizationRef:facsimileRef,
    documentStandard:'RONA-DOC-STANDARD v2',
    signatureMethod:'OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES',createsPayable:false};
 }

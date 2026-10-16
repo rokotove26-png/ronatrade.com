@@ -139,7 +139,7 @@ async function selected(s:any){
  return rows.length===1?rows[0]:null
 }
 async function latestCorrection(s:any){
- const rows=await sql`select id,correction_version,created_at
+ const rows=await sql`select id,correction_version,created_at,corrected_payload,created_by
  from portal_private.agent_reward_owner_corrections_v1
  where deal_key=${s.deal_key}::uuid and assignment_id=${s.assignment_id}::uuid
  order by correction_version desc limit 1`;
@@ -172,7 +172,7 @@ async function list(s:any){
    &&!!dsNumber&&!!termNumber&&Number(dsNumber[1])===Number(termNumber[1]);
  const acts=await sql`select r.id,r.request_status,r.correction_version,r.owner_correction_key,
  r.addendum_key,r.term_key,r.generated_document_number,r.finance_snapshot,r.legal_snapshot,
- r.requested_at,r.dispatched_at,r.completed_at
+ r.source_snapshot,r.requested_at,r.dispatched_at,r.completed_at
  from portal_private.agent_reward_act_requests_v1 r
  where r.deal_key=${s.deal_key}::uuid and r.assignment_id=${s.assignment_id}::uuid
  order by r.requested_at desc limit 30`;
@@ -202,7 +202,10 @@ async function list(s:any){
      if(!f.approvedCurrency||String(f.approvedCurrency)!=='RUB')
        missing.push('DS1_RUB_PAYMENT_CONDITION_REQUIRED');
    }
-   enriched.push({...a,review,documents:files,readiness:{
+   enriched.push({...a,review,documents:files,
+     ownerCalculationStored:a.source_snapshot?.ownerApprovedCalculation?.contract==='OWNER_SECTION_SAVED_CALCULATION_V1',
+     ownerCalculationVersion:a.source_snapshot?.ownerApprovedCalculation?.correctionVersion??null,
+     readiness:{
      readyForFinalAct:missing.length===0&&['DRAFT_READY','OWNER_SIGNED'].includes(String(a.request_status)),
      missing,accountingStatus,contractBasis:shipmentMarginDs1SourceMatched?'SHIPMENT_MARGIN':null,
      paymentCurrency:shipmentMarginDs1SourceMatched?'RUB':null,
@@ -264,15 +267,76 @@ async function bind(actor:{userId:string},req:Request,s:any,body:any){
  });
  return{bindingId,documentId:docId,status:"RECEIVED_NOT_LEGALLY_VERIFIED"}
 }
+function ownerSavedCalculation(input:any,s:any,correction:any,actor:{userId:string}){
+ if(input==null)return null;
+ const denyBad=()=>{throw deny('ACT_OWNER_SAVED_CALCULATION_INVALID',400)};
+ if(!input||typeof input!=='object'||Array.isArray(input)
+   ||input.contract!=='OWNER_SECTION_SAVED_CALCULATION_V1'
+   ||input.sourceKind!=='OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE'
+   ||String(input.dealId)!==String(s.deal_id)
+   ||String(input.assignmentId)!==String(s.assignment_id)
+   ||Number(input.correctionVersion)!==Number(correction.correction_version)
+   ||String(correction.created_by)!==String(actor.userId)
+   ||!/^[A-Z]{3}$/.test(String(input.currency||'')))denyBad();
+ const expected=correction.corrected_payload||{};
+ const supplied=input.correctedPayload||{};
+ const actualLines=expected.paymentLineAmounts||{},givenLines=supplied.paymentLineAmounts||{};
+ const realKeys=Object.keys(actualLines).sort(),givenKeys=Object.keys(givenLines).sort();
+ if(realKeys.length!==givenKeys.length
+   ||realKeys.some((k,i)=>k!==givenKeys[i]
+      ||!Number.isFinite(Number(actualLines[k]))
+      ||Math.abs(Number(actualLines[k])-Number(givenLines[k]))>0.00001)
+   ||(expected.openSettlementAdjustment==null)!==(supplied.openSettlementAdjustment==null)
+   ||(expected.openSettlementAdjustment!=null&&
+      Math.abs(Number(expected.openSettlementAdjustment)-Number(supplied.openSettlementAdjustment))>0.00001))
+   throw deny('ACT_OWNER_CORRECTION_SNAPSHOT_MISMATCH',409);
+ const names=['income','expenses','counterpartyCashOut','netCashFlow',
+   'actualFinancialResult','taxes','netProfit','reward','ronaProfit'];
+ const amount:Record<string,number|null>={};
+ for(const name of names){
+   const value=input[name];
+   if(value===null){amount[name]=null;continue}
+   if(typeof value!=='number'||!Number.isFinite(value)
+     ||Math.abs(value)>1e13)denyBad();
+   amount[name]=Math.round(value*10)/10;
+ }
+ const close=(x:number|null,y:number|null)=>x!==null&&y!==null&&Math.abs(x-y)<=0.21;
+ if(amount.income===null||amount.expenses===null||amount.income<0||amount.expenses<0
+    ||!close(amount.actualFinancialResult,amount.income-amount.expenses)
+    ||!close(amount.taxes,Math.max(0,amount.actualFinancialResult||0)*0.1)
+    ||!close(amount.netProfit,Number(amount.actualFinancialResult)-Number(amount.taxes)))
+     throw deny('ACT_OWNER_DISPLAYED_ARITHMETIC_MISMATCH',409);
+ if(amount.reward!==null&&amount.ronaProfit!==null
+    &&!close(amount.ronaProfit,Number(amount.netProfit)-Number(amount.reward)))
+     throw deny('ACT_OWNER_AGENT_REWARD_ARITHMETIC_MISMATCH',409);
+ if((amount.reward===null)!==(amount.ronaProfit===null))
+     throw deny('ACT_OWNER_REWARD_COMPLETENESS_MISMATCH',409);
+ return{
+   contract:'OWNER_SECTION_SAVED_CALCULATION_V1',
+   correctionId:String(correction.id),
+   correctionVersion:Number(correction.correction_version),
+   currency:String(input.currency),
+   sourceKind:'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE',
+   calculation:{...amount},
+   rewardStatus:String(input.agentRewardStatus||'').slice(0,140),
+   basisStatus:String(input.agentBasisStatus||'').slice(0,140),
+   normalizedSavedPayload:expected,
+   createsPayable:false,signingAuthority:false
+ }
+}
+
 async function requestAct(actor:{userId:string},req:Request,s:any){
  const [correction,addendum,term]=await Promise.all([latestCorrection(s),selected(s),termFor(s)]);
  if(!correction)throw deny("SAVE_OWNER_CORRECTION_FIRST",409);
  if(!addendum)throw deny("LINK_SIGNED_DEAL_ADDENDUM_FIRST",409);
+ const body=await req.json().catch(()=>({}));
+ const ownerCalculation=ownerSavedCalculation(body?.ownerApprovedCalculation,s,correction,actor);
  const snapshot={dealId:s.deal_id,assignmentId:s.assignment_id,agentCompanyId:s.agent_legal_entity_id,
    correctionId:correction.id,correctionVersion:correction.correction_version,
    addendumId:addendum.document_id,addendumReference:addendum.document_reference,
    activeTermKey:term?.id||null,activeTermReference:term?.term_reference||null,
    calculationStatus:"FINANCE_REVIEW_REQUIRED",legalStatus:"LEGAL_REVIEW_REQUIRED",
+   ownerApprovedCalculation:ownerCalculation,
    createsExternalPayable:false};
  const rows=await sql`insert into portal_private.agent_reward_act_requests_v1(
    deal_key,assignment_id,addendum_key,owner_correction_key,correction_version,
@@ -282,11 +346,35 @@ async function requestAct(actor:{userId:string},req:Request,s:any){
      ${sql.json(snapshot as any)},${actor.userId}::uuid)
    on conflict (deal_key,assignment_id,addendum_key,owner_correction_key)
    do update set requested_at=portal_private.agent_reward_act_requests_v1.requested_at
-   returning id,request_status`;
+   returning id,request_status,source_snapshot`;
+ // The already saved correction is the authoritative identity of the display snapshot.
+ // Preserve an existing immutable snapshot. Only fill a previously empty snapshot.
+ // This never grants Finance approval, Legal approval or signing authority.
+ if(ownerCalculation){
+   const saved=rows[0].source_snapshot?.ownerApprovedCalculation;
+   if(saved&&JSON.stringify(saved)!==JSON.stringify(ownerCalculation)){
+     // jsonb key order differs across deserialization; compare as jsonb at SQL level.
+     const matches=await sql`select 1 as ok from portal_private.agent_reward_act_requests_v1
+       where id=${rows[0].id}::uuid
+         and source_snapshot->'ownerApprovedCalculation'=${sql.json(ownerCalculation)}::jsonb limit 1`;
+     if(matches.length!==1)throw deny('ACT_OWNER_CALCULATION_ALREADY_LOCKED',409);
+   }else if(!saved){
+     const updated=await sql`update portal_private.agent_reward_act_requests_v1
+       set source_snapshot=jsonb_set(source_snapshot,'{ownerApprovedCalculation}',
+         ${sql.json(ownerCalculation)}::jsonb,true)
+       where id=${rows[0].id}::uuid
+         and (source_snapshot->'ownerApprovedCalculation' is null
+              or source_snapshot->'ownerApprovedCalculation'='null'::jsonb)
+       returning id`;
+     if(updated.length!==1)throw deny('ACT_OWNER_SNAPSHOT_LOCK_RACE',409);
+   }
+ }
  await sql.begin(async tx=>audit(tx,actor,req,"AGENT_SERVICES_ACT_REVIEW_REQUESTED",s.deal_id,{
    requestId:rows[0].id,correctionVersion:correction.correction_version,
-   addendumId:addendum.document_id,financeAndLegalPending:true,noAutomaticPayable:true}));
- return{requestId:rows[0].id,status:rows[0].request_status,source:snapshot}
+   addendumId:addendum.document_id,
+   ownerCalculationStored:!!ownerCalculation,financeAndLegalPending:true,noAutomaticPayable:true}));
+ return{requestId:rows[0].id,status:rows[0].request_status,
+   ownerCalculationStored:!!ownerCalculation,source:{...snapshot,ownerApprovedCalculation:ownerCalculation}}
 }
 Deno.serve(async req=>{
  try{

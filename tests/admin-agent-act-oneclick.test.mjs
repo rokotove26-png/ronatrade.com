@@ -34,7 +34,11 @@ test('One-click PDF contract preserves canonical source hashes and protected iss
   assert.match(acts,/sha256:sha/);
   assert.match(proxy,/action==='final-act'/);
   assert.match(proxy,/canonical-signature.*canonical-seal/);
-  assert.match(ui,/await saveCorrectionAndDownloadSignedAct\(deal\)/);
+  assert.match(ui,/await saveCorrectionAndDownloadSignedAct\(deal,approved\)/);
+  assert.match(ui,/OWNER_SECTION_SAVED_CALCULATION_V1/);
+  assert.match(index,/ACT_OWNER_CORRECTION_SNAPSHOT_MISMATCH/);
+  assert.match(index,/ACT_OWNER_DISPLAYED_ARITHMETIC_MISMATCH/);
+  assert.match(index,/ownerCalculationStored/);
   assert.match(ui,/import\('\/portal\/agent-reward-act-pdf-engine'\)/);
   assert.match(ui,/agentActDownloadBlob\(pdf\.blob,pdf\.filename\)/);
   assert.doesNotMatch(ui,/const act=docButton\('Акт выполненных работ'/);
@@ -102,9 +106,15 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
     await page.route('http://localhost/portal/admin',r=>r.fulfill({status:200,
       contentType:'text/html',body:'<!doctype html><html lang="ru"><head><meta charset="utf-8"></head><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
     await page.route('http://localhost/portal/owner-api**',async r=>{
-      if(r.request().method()==='POST')actions.push('save');
+      let data={deals:[deal]};
+      if(r.request().method()==='POST'){
+        actions.push('save');
+        const input=JSON.parse(r.request().postData()||'{}');
+        data={accepted:true,dealId,assignmentId,version:3,
+          correctedPayload:input.correctedPayload};
+      }
       await r.fulfill({status:200,contentType:'application/json',
-        body:JSON.stringify({ok:true,data:{deals:[deal]}})});
+        body:JSON.stringify({ok:true,data})});
     });
     await page.route('http://localhost/portal/agent-reward-act-pdf-engine',r=>r.fulfill({
       status:200,contentType:'application/javascript',
@@ -118,11 +128,24 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
       let data=doc;
       if(action==='request-act'){
         actions.push('request-act');
+        const payload=JSON.parse(r.request().postData()||'{}');
+        const approved=payload.ownerApprovedCalculation;
+        assert.equal(approved.contract,'OWNER_SECTION_SAVED_CALCULATION_V1');
+        assert.equal(approved.dealId,dealId);
+        assert.equal(approved.assignmentId,assignmentId);
+        assert.equal(approved.correctionVersion,3);
+        assert.equal(approved.sourceKind,'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE');
+        assert.equal(approved.currency,'USD');
+        assert.equal(typeof approved.netProfit,'number');
+        assert.equal(typeof approved.income,'number');
+        assert.equal(typeof approved.expenses,'number');
+        assert.equal(approved.reward,null,'Unapproved signed DS must not fabricate payable');
         doc.acts=[{id:requestId,owner_correction_key:doc.ownerCorrection.sourceId,
           addendum_key:doc.currentAddendum.bindingId,correction_version:3,
           request_status:'REVIEW_REQUESTED',review:{approved:true},
+          ownerCalculationStored:true,ownerCalculationVersion:3,
           readiness:{missing:[]},documents:[]}];
-        data={requestId,status:'REVIEW_REQUESTED'};
+        data={requestId,status:'REVIEW_REQUESTED',ownerCalculationStored:true};
       }else if(action==='final-act'){
         actions.push('final-act');
         assert.equal(u.searchParams.get('requestId'),requestId);
