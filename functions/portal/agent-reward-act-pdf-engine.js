@@ -251,15 +251,15 @@ function ronaActPdfRuntime(){
     center(ctx,'№ '+number,720,47,true);
     font(ctx,42,false);ctx.textAlign='right';ctx.fillText(place+' · '+date,RIGHT,790);ctx.textAlign='left';
     let y=884;
-    y=paragraph(ctx,issuer+', именуемое в дальнейшем «Заказчик», в лице '+issuerSigner+
-      ', с одной стороны, и '+agent+', именуемое в дальнейшем «Исполнитель», в лице '+
+    y=paragraph(ctx,issuer+', именуемое в дальнейшем «Принципал», в лице '+issuerSigner+
+      ', с одной стороны, и '+agent+', именуемое в дальнейшем «Агент», в лице '+ 
       agentSigner+', с другой стороны, составили настоящий акт.',LEFT,y,WIDTH,{size:46,lineHeight:61,after:36});
     y=paragraph(ctx,'Основание: '+ds+'. Сделка: '+deal+'.',LEFT,y,WIDTH,{size:45,lineHeight:58,after:20});
     y=paragraph(ctx,'Период оказания услуг: '+period+'.',LEFT,y,WIDTH,{size:45,lineHeight:58,after:36});
     y=paragraph(ctx,'Исполнителем оказаны следующие агентские услуги:',LEFT,y,WIDTH,{size:45,lineHeight:57,after:14});
     const tableY=y,half=LEFT+WIDTH*0.73;ctx.strokeStyle='#525b62';ctx.lineWidth=2;
-    font(ctx,42,true);ctx.fillText('НАИМЕНОВАНИЕ УСЛУГ',LEFT+15,y+48);
-    ctx.fillText('СТОИМОСТЬ',half+17,y+48);
+    font(ctx,42,true);ctx.fillText('НАИМЕНОВАНИЕ',LEFT+15,y+48);
+    ctx.fillText('СУММА, '+currency,half+17,y+48);
     y+=75;line(ctx,LEFT,y,RIGHT,y);
     const serviceStart=y+60, serviceEnd=paragraph(ctx,service,LEFT+15,serviceStart,half-LEFT-35,{size:43,lineHeight:56,after:0});
     const amountString=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(amount)+' '+currency;
@@ -267,7 +267,7 @@ function ronaActPdfRuntime(){
     y=Math.max(serviceEnd+18,serviceStart+64);
     line(ctx,LEFT,y,RIGHT,y);
     y+=66;
-    font(ctx,47,true);ctx.fillText('ИТОГО:',LEFT+15,y);ctx.textAlign='right';ctx.fillText(amountString,RIGHT-15,y);ctx.textAlign='left';
+    font(ctx,47,true);ctx.fillText('ИТОГО К ВЫПЛАТЕ ПО ЭТОМУ РАСЧЁТУ:',LEFT+15,y);ctx.textAlign='right';ctx.fillText(amountString,RIGHT-15,y);ctx.textAlign='left';
     y+=74;line(ctx,LEFT,y,RIGHT,y);y+=48;
     if(d.shipmentMarginSource?.basis==='SHIPMENT_MARGIN'){
       const m=d.shipmentMarginSource,displayMargin=new Intl.NumberFormat('ru-RU',
@@ -293,7 +293,7 @@ function ronaActPdfRuntime(){
     if(signTop+750>3220)throw new Error('ACT_PDF_PAGE_OVERFLOW');
     const colWidth=WIDTH*0.47,rightX=RIGHT-colWidth;
     ctx.strokeStyle='#727b84';line(ctx,LEFT,signTop,LEFT+colWidth,signTop);line(ctx,rightX,signTop,RIGHT,signTop);
-    font(ctx,41,true);ctx.fillText('ЗАКАЗЧИК',LEFT,signTop+61);ctx.fillText('ИСПОЛНИТЕЛЬ',rightX,signTop+61);
+    font(ctx,41,true);ctx.fillText('ПРИНЦИПАЛ · РОНА ТРЕЙД',LEFT,signTop+61);ctx.fillText('АГЕНТ',rightX,signTop+61);
     const leftDetails=paragraph(ctx,issuerDetails,LEFT,signTop+123,colWidth-20,{size:36,lineHeight:48,after:0});
     const rightDetails=paragraph(ctx,agent+'; '+safe(d.agentTaxId)+'; '+safe(d.agentAddress)+
       '; '+safe(d.agentCountry),rightX,signTop+123,colWidth-15,{size:35,lineHeight:47,after:0});
