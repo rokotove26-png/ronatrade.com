@@ -290,7 +290,7 @@ function ronaActPdfRuntime(){
     if(!Number.isFinite(amount)||amount<0)throw new Error('ACT_PDF_AMOUNT_NOT_APPROVED');
     if(d.documentStandard!=='RONA-DOC-STANDARD v2')throw new Error('ACT_PDF_STANDARD_MISMATCH');
     if(d.signatureMethod!=='OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES')throw new Error('ACT_PDF_SIGNING_METHOD_MISMATCH');
-    if(d.dealId==='DEAL-2026-004'){
+    if(d.shipmentMarginSource?.basis==='SHIPMENT_MARGIN'){
       const m=d.shipmentMarginSource||{},margin=Number(m.margin),
         exchange=m.exchangeRate==null?1:Number(m.exchangeRate);
       const ownerManagement=m.basisSourceKind==='OWNER_APPROVED_SECTION'
