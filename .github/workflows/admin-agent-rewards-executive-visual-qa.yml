@@ -7,6 +7,8 @@ on:
     paths:
       - 'functions/portal/agent-rewards-v1-ui.js'
       - 'functions/portal/agent-reward-workflow.js'
+      - 'functions/portal/agent-reward-act-pdf-engine.js'
+      - 'tests/admin-agent-act-oneclick.test.mjs'
       - 'supabase/functions/rona-agent-reward-workflow/**'
       - 'supabase/migrations/*agent_rewards_deal_addenda_act_workflow*.sql'
       - 'functions/portal/owner-api.js'
@@ -44,13 +46,14 @@ jobs:
           set -euo pipefail
           git diff --name-only "$BASE_SHA" HEAD > /tmp/agent-rewards-ui-files.txt
           cat /tmp/agent-rewards-ui-files.txt
-          if grep -Ev '^(functions/portal/(agent-rewards-v1-ui|owner-api)\.js|tests/admin-agent-rewards-(finance-workspace-v1|executive-visual)\.test\.mjs|tests/fixtures/(agent-rewards-finance-v(16-integration|18-effective-chains-integration)|agent-rewards-jsonb-scalar-guard-v20-integration|agent-rewards-bnk-identity-v21-integration)\.sql|supabase/migrations/20261014(113000_agent_rewards_current_finance_reconciled_v16|114500_agent_rewards_reconciled_owner_correction_v17|120000_agent_rewards_current_finance_effective_chains_v18|121500_agent_rewards_effective_chain_owner_correction_v19|145000_agent_rewards_source_current_jsonb_scalar_guard_v20|153000_agent_rewards_source_locked_payment_identity_v21)\.sql|functions/portal/agent-reward-workflow\.js|supabase/functions/rona-agent-reward-workflow/(index|acts)\.ts|supabase/functions/rona-agent-reward-workflow/deno\.json|supabase/migrations/20261014190500_agent_rewards_deal_addenda_act_workflow_v1\.sql|\.github/workflows/admin-agent-rewards-(executive-visual-qa|functional-finance-qa)\.yml)$' /tmp/agent-rewards-ui-files.txt; then
+          if grep -Ev '^(functions/portal/(agent-rewards-v1-ui|owner-api)\.js|tests/admin-agent-rewards-(finance-workspace-v1|executive-visual)\.test\.mjs|tests/fixtures/(agent-rewards-finance-v(16-integration|18-effective-chains-integration)|agent-rewards-jsonb-scalar-guard-v20-integration|agent-rewards-bnk-identity-v21-integration)\.sql|supabase/migrations/20261014(113000_agent_rewards_current_finance_reconciled_v16|114500_agent_rewards_reconciled_owner_correction_v17|120000_agent_rewards_current_finance_effective_chains_v18|121500_agent_rewards_effective_chain_owner_correction_v19|145000_agent_rewards_source_current_jsonb_scalar_guard_v20|153000_agent_rewards_source_locked_payment_identity_v21)\.sql|functions/portal/(agent-reward-workflow|agent-reward-act-pdf-engine)\.js|tests/admin-agent-act-oneclick\.test\.mjs|supabase/functions/rona-agent-reward-workflow/(index|acts)\.ts|supabase/functions/rona-agent-reward-workflow/deno\.json|supabase/migrations/20261014190500_agent_rewards_deal_addenda_act_workflow_v1\.sql|\.github/workflows/admin-agent-rewards-(executive-visual-qa|functional-finance-qa)\.yml)$' /tmp/agent-rewards-ui-files.txt; then
             echo "FINANCE_UI_SCOPE_VIOLATION" >&2
             exit 1
           fi
           test -s /tmp/agent-rewards-ui-files.txt
           if grep -Fxq 'functions/portal/agent-rewards-v1-ui.js' /tmp/agent-rewards-ui-files.txt; then
             grep -Fxq 'tests/admin-agent-rewards-executive-visual.test.mjs' /tmp/agent-rewards-ui-files.txt
+            grep -Fxq 'tests/admin-agent-act-oneclick.test.mjs' /tmp/agent-rewards-ui-files.txt
             echo 'FINANCE_UI_SCOPE=PASS'
           elif grep -Fxq 'supabase/functions/rona-agent-reward-workflow/index.ts' /tmp/agent-rewards-ui-files.txt; then
             # Edge-only signed DS archive hotfix: fail closed on unrelated changes.
@@ -77,10 +80,11 @@ jobs:
       - name: Verify finance P&L contract and unchanged authority
         run: |
           node --check functions/portal/agent-rewards-v1-ui.js
+          node --check functions/portal/agent-reward-act-pdf-engine.js
           node --test tests/admin-agent-rewards-finance-workspace-v1.test.mjs
       - name: Install Chromium for rendered Admin finance view
         run: |
           npm install --no-save --no-package-lock playwright@1.55.0
           npx playwright install --with-deps chromium
       - name: Render dashboard and verify expense grouping
-        run: node --test tests/admin-agent-rewards-executive-visual.test.mjs
+        run: node --test tests/admin-agent-rewards-executive-visual.test.mjs tests/admin-agent-act-oneclick.test.mjs
