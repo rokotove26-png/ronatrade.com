@@ -27,7 +27,9 @@ test('One-click PDF contract preserves canonical source hashes and protected iss
   assert.match(acts,/ACT_FUNCTIONAL_CONCLUSIONS_UNCONFIRMED/);
   assert.match(acts,/ACT_FINANCE_SOURCE_SNAPSHOT_MISMATCH/);
   assert.match(acts,/ACT_SIGNED_ADDENDUM_TERM_NOT_CURRENT/);
-  assert.match(acts,/ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED/);
+  assert.match(acts,/ACT_VERIFIED_SHIPMENT_MARGIN_REQUIRED/);
+  assert.match(acts,/ACT_SHIPMENT_CLOSING_DOCUMENTS_REQUIRED/);
+  assert.doesNotMatch(acts,/ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED/);
   assert.match(acts,/canonicalAutomaticIssue/);
   assert.match(acts,/sha256:sha/);
   assert.match(proxy,/action==='final-act'/);
