@@ -946,11 +946,19 @@ function renderOwner(deal){
       if(!m.paymentComplete||m.netProfit===null)throw new Error('Расчёт и детализация платежей требуют сверки Finance');
       const payload={paymentLineAmounts:m.paymentLineAmounts,openSettlementAdjustment:m.openSettlementAdjustment};
       await saveCorrection(deal.dealId,deal.assignmentId,payload,'');
-      await getWorkspace({force:true});state.docCache.delete(rowKey(deal));state.selectedKey=rowKey(deal);render()
+      save.textContent='Формирую акт…';
+      let actResult=null,actError=null;
+      try{actResult=await saveCorrectionAndDownloadSignedAct(deal)}
+      catch(error){actError=agentActIssueMessage(error)}
+      await getWorkspace({force:true});
+      state.docCache.delete(rowKey(deal));state.selectedKey=rowKey(deal);render();
+      if(actError)docNotice('Корректировка сохранена. Акт не выпущен: '+actError);
+      else if(actResult?.downloaded)docNotice('Корректировка сохранена. Подписанный акт PDF доступен для скачивания.');
+      else docNotice('Корректировка сохранена. Акт пока не выпущен: '+String(actResult?.reason||'нет подтверждённых данных'));
     }catch(e){window.RONA_ADMIN_DIALOGS?.message?window.RONA_ADMIN_DIALOGS.message(String(e.message||e),{title:'Корректировка не сохранена'}):alert(e.message||e)}
     finally{state.saving=false}
   };
-  actions.append(save);if(deal.ownerCorrection&&editable){const act=docButton('Акт выполненных работ',()=>void requestAgentAct(deal,act));actions.append(act)}actions.append(send);col.append(actions);return col
+  actions.append(save,send);col.append(actions);return col
 }
 function metricCard(label,value,cur,meta,kind='',nullText='—'){
   const t=tone(value),card=el('div','rona-ar-metric '+kind+' '+(t||'verify'));
@@ -1211,6 +1219,111 @@ async function uploadDealAddendum(deal,companyId,fileControl,refControl,ackContr
   }catch(e){await refreshDealDocuments(deal);docNotice('Ошибка сохранения ДС: '+String(e.message||e))}
   finally{button.disabled=false}
 }
+// Source-locked one-click release of a signed PDF. This cannot create Finance/Legal facts.
+function agentActHumanBlockers(missing){
+  const codes=new Set(Array.isArray(missing)?missing:[]),items=[];
+  if(codes.has('SIGNED_DS_MISSING'))items.push('не найдено подписанное ДС этой сделки');
+  if(codes.has('CURRENT_OWNER_CORRECTION_REQUIRED'))items.push('требуется актуальная корректировка');
+  if(codes.has('FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS'))items.push('условия вознаграждения ещё не подтверждены по этому ДС');
+  if(codes.has('ACCOUNTING_CLOSURE_REQUIRED'))items.push('не завершено закрытие расчётов');
+  if(codes.has('VERIFIED_AFTER_TAX_NET_PROFIT_REQUIRED'))items.push('чистая прибыль после налогов не подтверждена');
+  if(codes.has('FINANCE_CONCLUSION_REQUIRED'))items.push('нет финансового подтверждения');
+  if(codes.has('LEGAL_CONCLUSION_REQUIRED'))items.push('не утверждены юридические реквизиты');
+  if(codes.has('ACT_NUMBER_NOT_ASSIGNED'))items.push('не присвоен номер акта');
+  if(codes.has('OWNER_UPLOAD_AUTHORITY_NOT_VERIFIED'))items.push('не подтверждена загрузка ДС владельцем');
+  return items.length?items.join('; '):'не завершена проверка исходных данных'
+}
+function agentActIssueMessage(error){
+  const code=String(error?.message||error||''),map={
+    ACT_FINANCE_APPROVED_AMOUNT_MISSING:'не подтверждена сумма вознаграждения',
+    ACT_FINANCE_SOURCE_SNAPSHOT_MISMATCH:'финансовые данные расходятся с корректировкой',
+    ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED:'не подтверждена чистая прибыль после налогов',
+    ACT_AGENT_AMOUNT_NOT_50_PERCENT_OF_NET_PROFIT:'сумма не соответствует доле агента по ДС',
+    ACT_LEGAL_APPROVED_DOCUMENT_FIELDS_MISSING:'не утверждены номер, дата или реквизиты акта',
+    ACT_LEGAL_SOURCE_SNAPSHOT_MISMATCH:'не подтверждено юридическое основание по ДС',
+    ACT_SIGNED_ADDENDUM_TERM_NOT_CURRENT:'не привязано подтверждённое условие по этому ДС',
+    ACT_SIGNED_ADDENDUM_TERM_CONFLICT:'договорное условие не соответствует выбранному ДС',
+    FINANCE_LEGAL_ACT_REVIEW_REQUIRED:'отсутствуют подтверждения Finance и Legal',
+    ACT_FUNCTIONAL_CONCLUSIONS_UNCONFIRMED:'заключения по акту ещё не утверждены',
+    ACT_CANONICAL_OWNER_ONLY:'подписание разрешено только владельцу',
+    OWNER_CORRECTION_SUPERSEDED:'сохранена более новая корректировка',
+    ACT_PDF_ARCHIVE_FAILED:'PDF сформирован, но архивирование не подтверждено',
+    CANONICAL_SIGNING_ASSET_UNAVAILABLE:'утверждённые подпись и печать недоступны'
+  };
+  for(const [key,message] of Object.entries(map))if(code.includes(key))return message;
+  return code
+}
+async function agentActScopedCall(deal,action,params,init){
+  const suffix=Object.entries(params||{}).map(([key,value])=>'&'+encodeURIComponent(key)+'='+encodeURIComponent(String(value))).join('');
+  const r=await fetch(docUrl(deal,action)+suffix,Object.assign({
+    credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}
+  },init||{}));
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||j.ok===false)throw new Error(String(j.code||('HTTP_'+r.status)));
+  return j.data||{}
+}
+function agentActDownloadBlob(blob,filename){
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=filename;a.style.display='none';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000)
+}
+async function saveCorrectionAndDownloadSignedAct(deal){
+  const docs=await docCall(deal,'state');
+  if(!docs.currentAddendum)
+    return{downloaded:false,reason:'не найдено подписанное ДС выбранной сделки'};
+  const requested=await docCall(deal,'request-act',{method:'POST'});
+  const id=String(requested.requestId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))throw new Error('ACT_REQUEST_NOT_CREATED');
+  const fresh=await docCall(deal,'state');
+  const act=(Array.isArray(fresh.acts)?fresh.acts:[]).find(a=>String(a.id)===id);
+  if(!act)throw new Error('ACT_SOURCE_RELOAD_REQUIRED');
+  const existing=(Array.isArray(act.documents)?act.documents:[]).find(f=>f.stage==='OWNER_SIGNED');
+  if(existing){
+    const saved=await agentActScopedCall(deal,'download-act',{requestId:id,documentId:existing.documentId});
+    if(!/^https:\/\//.test(String(saved.url||'')))throw new Error('ACT_SIGNED_DOWNLOAD_URL_MISSING');
+    const link=document.createElement('a');link.href=saved.url;link.target='_blank';
+    link.rel='noopener noreferrer';document.body.appendChild(link);link.click();link.remove();
+    return{downloaded:true,existing:true}
+  }
+  if(Array.isArray(act.readiness?.missing)&&act.readiness.missing.length)
+    return{downloaded:false,reason:agentActHumanBlockers(act.readiness.missing)};
+  // Save correction is the Owner-designated signature/facsimile authorization step.
+  // The server independently verifies role, authoritative facts and approvals.
+  const issued=await agentActScopedCall(deal,'final-act',{requestId:id},{
+    method:'POST',headers:{accept:'application/json','content-type':'application/json'},
+    body:JSON.stringify({ownerConfirmsSigning:true,ownerConfirmsFacsimile:true})
+  });
+  if(!window.RONA_AGENT_ACT_PDF_ENGINE)
+    await import('/portal/agent-reward-act-pdf-engine');
+  const engine=window.RONA_AGENT_ACT_PDF_ENGINE;
+  if(!engine?.render)throw new Error('ACT_PDF_ENGINE_UNAVAILABLE');
+  const pdf=await engine.render(issued,id);
+  if(pdf.blob?.type!=='application/pdf'||pdf.blob.size<5000)
+    throw new Error('ACT_PDF_RENDER_FAILED');
+  const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',
+    await pdf.blob.arrayBuffer()))).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const form=new FormData();
+  form.append('file',new File([pdf.blob],pdf.filename,{type:'application/pdf'}));
+  form.append('attestedSigned','true');form.append('canonicalAutomaticIssue','true');
+  form.append('ownerConfirmsSigning','true');form.append('ownerConfirmsFacsimile','true');
+  const uploaded=await fetch(docUrl(deal,'upload-act')+'&requestId='+encodeURIComponent(id)
+    +'&stage=OWNER_SIGNED',{method:'POST',credentials:'same-origin',cache:'no-store',body:form});
+  const registration=await uploaded.json().catch(()=>({}));
+  if(!uploaded.ok||registration.ok===false)
+    throw new Error('ACT_PDF_ARCHIVE_FAILED: '+String(registration.code||uploaded.status));
+  const archived=registration.data||{};
+  if(!/^[0-9a-f-]{36}$/i.test(String(archived.documentId||''))
+      ||String(archived.sha256||'')!==digest)
+    throw new Error('ACT_PDF_ARCHIVE_VERIFICATION_FAILED');
+  const link=await agentActScopedCall(deal,'download-act',{requestId:id,documentId:archived.documentId});
+  if(!/^https:\/\//.test(String(link.url||'')))
+    throw new Error('ACT_PDF_ARCHIVED_BUT_DOWNLOAD_UNAVAILABLE');
+  // Download exactly the verified bytes from the generated Blob (no cross-origin CORS fetch).
+  agentActDownloadBlob(pdf.blob,pdf.filename);
+  return{downloaded:true,documentId:archived.documentId}
+}
+
 async function requestAgentAct(deal,button){
   button.disabled=true;
   try{
@@ -1400,9 +1513,7 @@ function renderDealDocuments(root,deal){
   if(matchingActs.length){
     r.append(renderActRecord(deal,docs,matchingActs[0]));
   }else if(current&&correction){
-    r.append(el('div','rona-ar-doc-note','Акт ещё не подготовлен.'));
-    const request=docButton('Подготовить акт',()=>void requestAgentAct(deal,request),true);
-    r.append(request);
+    r.append(el('div','rona-ar-doc-note','Акт формируется автоматически после сохранения корректировки.'));
   }else if(!correction){
     r.append(el('div','rona-ar-doc-note','Сначала сохраните корректировку.'));
   }else{
