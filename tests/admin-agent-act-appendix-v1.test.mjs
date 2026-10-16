@@ -175,3 +175,13 @@ test('PDF engine is loaded as a same-origin executable resource compatible with 
   assert.ok(js.includes('loadAgentActPdfEngine()'));
   assert.ok(!js.includes("await import('/portal/agent-reward-act-pdf-engine')"));
 });
+
+
+test('Redesigned financial view retains correction payload and payment source identity',async()=>{
+ const ui=await(await uiResponse()).text();
+ assert.match(ui,/const payload=\{paymentLineAmounts:m\.paymentLineAmounts,openSettlementAdjustment:m\.openSettlementAdjustment\}/);
+ assert.match(ui,/paymentLineAmounts\[part\.paymentId\]=corrected/);
+ assert.match(ui,/function renderScenarioComparison\(root,deal\)/);
+ assert.match(ui,/function renderScenarioDetails\(root,grid\)/);
+ assert.doesNotMatch(ui,/function scenarioComparisonRows[\s\S]*?await saveCorrection/);
+});
