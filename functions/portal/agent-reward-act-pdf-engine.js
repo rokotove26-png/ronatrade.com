@@ -262,6 +262,7 @@ function ronaActPdfRuntime(){
     field('Подписанное ДС',safe(a.addendumReference));
     field('Согласованный способ расчёта',mode==='FIXED'?'Фиксированная сумма':
       mode==='PERCENT'?'Процент от подтверждённой базы':'Тариф за подтверждённую тонну');
+    if(mode==='FIXED')field('Договорная фиксированная сумма',fmtMoney(basis,a.basisCurrency));
     if(mode==='PERCENT'){
       field('Подтверждённая база '+safe(a.basisType),fmtMoney(basis,a.basisCurrency));
       field('Доля агента',String(rate*100)+' %');
