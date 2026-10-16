@@ -20,6 +20,10 @@ test('One-click PDF contract preserves canonical source hashes and protected iss
   assert.match(renderer,/%PDF-1\.4/);
   assert.match(renderer,/\/\/ Exactly 35 x 35 mm/);
   assert.match(renderer,/ACT_PDF_SHIPMENT_MARGIN_SOURCE_REQUIRED/);
+  assert.match(renderer,/ACT_PDF_APPENDIX_REQUIRED_FOR_OWNER/);
+  assert.match(renderer,/ACT_PDF_APPENDIX_ARITHMETIC_MISMATCH/);
+  assert.match(renderer,/RONA_ACT_APPENDIX_V1/);
+  assert.doesNotMatch(renderer,/Графические подпись и печать Заказчика применены/);
   assert.match(index,/DS1_50_PERCENT_SHIPMENT_MARGIN_RUB/);
   assert.match(acts,/ACT_DS1_BASE_CONTRACT_REFERENCE_UNRESOLVED/);
   assert.doesNotMatch(acts,/ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED/);
@@ -97,7 +101,9 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
       exchangeRateSourceRef:null,settlementNote:'Оплата в RUB по курсу ЦБ РФ на дату оплаты'},
     facsimileAuthorizationRef:'Owner canonical authorization',
     documentStandard:'RONA-DOC-STANDARD v2',
-    signatureMethod:'OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES'
+    signatureMethod:'OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES',
+    sourceMode:'OWNER_SIGNED_SECTION_NOT_FINANCE_PAYABLE',
+    ownerSectionCorrectionVersion:3
   };
   const actions=[];
   const browser=await chromium.launch({headless:true});
@@ -122,7 +128,7 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
       body:'window.RONA_AGENT_ACT_PDF_ENGINE={render:async function(data,id){if(id!=="'+requestId+'")throw Error("wrong request");'+
         'if(data.dealId!=="'+dealId+'")throw Error("wrong deal");'+
         'return {blob:new Blob(['+JSON.stringify(pdfBytes)+'],{type:"application/pdf"}),'+
-        'filename:"RONA_Act_DEAL-2026-004_ACT-QA-001.pdf"}}};'
+        'filename:"RONA_Act_DEAL-2026-004_ACT-QA-001.pdf",pageCount:2}}};'
     }));
     await page.route('http://localhost/portal/agent-reward-workflow**',async r=>{
       const u=new URL(r.request().url()),action=u.searchParams.get('action')||'state';
