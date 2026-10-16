@@ -459,8 +459,8 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         assert.equal(await page.locator('.rona-ar-col.plan .rona-ar-reward-focus .rona-ar-value').textContent(),'900,0 USD');
         assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-value').textContent(),'Расчёт ожидает проверки',
           'A missing deal term must be described precisely, not as no agent/contract');
-        assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'ДС не привязано');
-        assert.equal(await page.locator('.rona-ar-col.fact .rona-ar-reward-focus .rona-ar-value').textContent(),'ДС не привязано');
+        assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'Расчёт ожидает проверки');
+        assert.equal(await page.locator('.rona-ar-col.fact .rona-ar-reward-focus .rona-ar-value').textContent(),'Расчёт ожидает проверки');
         assert.match(await page.locator('.rona-ar-evidence').textContent(),/Условия вознаграждения проверяются/);
         assert.match(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-value').textContent(),/Расчёт ожидает проверки/);
         assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),0,
@@ -623,8 +623,8 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.equal(await box.getByRole('button',{name:'Скачать ДС'}).count(),1);
       assert.equal(await box.getByText('ДС загружено и привязано к сделке').count(),1);
       assert.equal(await box.getByText('50% от чистой прибыли после налогов').count(),1);
-      assert.match(await box.innerText(),/Предварительно:\\s*891,0\\s*USD/);
-      assert.match(await page.locator('.rona-ar-owner').innerText(),/891,0\\s*USD/);
+      assert.match(await box.innerText(),/Предварительно:\s*891,0\s*USD/);
+      assert.match(await page.locator('.rona-ar-owner').innerText(),/891,0\s*USD/);
       assert.doesNotMatch(await page.locator('.rona-ar-evidence').innerText(),
         /ДС не привязано|Addendum 2/);
       assert.equal(await box.getByRole('button',{name:'Загрузить ДС'}).count(),0);
