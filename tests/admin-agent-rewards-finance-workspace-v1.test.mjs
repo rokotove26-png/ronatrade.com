@@ -304,7 +304,7 @@ test('Agent Rewards runtime serialization ships its transform helper',()=>{
 });
 
 test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defined order',()=>{
-  assert.match(ui,/20261007-agent-rewards-finance-v20-correction-gate-v3/);
+  assert.match(ui,/20261016-agent-rewards-owner-saved-act-recovery-v4/);
   assert.match(ui,/1 · ПЛАН/);
   assert.match(ui,/2 · ФАКТ/);
   assert.match(ui,/3 · OWNER \/ АГЕНТ/);
@@ -331,6 +331,10 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/taxStatus:pnl\.status/);
   assert.match(ui,/sourceAgentReward:num\(p\.agentReward\)/);
   assert.match(ui,/Сохранить корректировку/);
+  assert.match(ui,/function issueFromSavedOwnerCorrection/);
+  assert.match(ui,/Акт сверки · СГ-Транс/);
+  assert.doesNotMatch(ui,/ДС загружено · условия сверяются/);
+  assert.match(ui,/DS1_50_PERCENT_SHIPMENT_MARGIN_RUB/);
   assert.match(ui,/Отправить агенту/);
   assert.match(ui,/send\.disabled=true/);
   assert.doesNotMatch(ui,/data-owner-expense-key/);
