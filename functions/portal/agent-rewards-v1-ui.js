@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261007-agent-rewards-finance-v20-correction-gate-v3';
+const VERSION='20261016-agent-rewards-owner-saved-act-recovery-v4';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='premium-fintech-v2';
@@ -1001,7 +1001,7 @@ function renderFxReference(root,deal){
   fx.dataset.ronaArFxReference='1';
   fx.setAttribute('aria-label','Валютная справка по сделке');
   const copy=el('div','rona-ar-fx-copy');
-  copy.append(el('div','rona-ar-fx-label','Курсовая разница'));
+  copy.append(el('div','rona-ar-fx-label','Курс'));
   const value=el('strong','rona-ar-fx-value '+tone(fact.realizedFxReference),signedMoney(fact.realizedFxReference,fact.cur));
   fx.append(copy,value);root.append(fx)
 }
