@@ -885,7 +885,8 @@ function recomputeOwner(col,deal,fact,cur){
   if(rewardLabel)rewardLabel.title=reward.status;
   return{paymentLineAmounts,counterpartyCashOut,netCashFlow,openSettlementAdjustment,
     income:pnl.income,expenses:pnl.expenses,actualFinancialResult,taxes:pnl.taxes,
-    netProfit:pnl.netProfit,agentBasis:reward.basis,reward:reward.value,ronaProfit,
+    netProfit:pnl.netProfit,agentBasis:reward.basis,reward:reward.value,
+    rewardStatus:reward.status,ronaProfit,
     paymentComplete}
 }
 function renderOwner(deal){
@@ -947,16 +948,18 @@ function renderOwner(deal){
       const m=recomputeOwner(col,deal,fact,cur);
       if(!m.paymentComplete||m.netProfit===null)throw new Error('Расчёт и детализация платежей требуют сверки Finance');
       const payload={paymentLineAmounts:m.paymentLineAmounts,openSettlementAdjustment:m.openSettlementAdjustment};
-      await saveCorrection(deal.dealId,deal.assignmentId,payload,'');
+      const saved=await saveCorrection(deal.dealId,deal.assignmentId,payload,'');
+      const approved=ownerActSavedCalculation(deal,m,cur,saved);
       save.textContent='Формирую акт…';
       let actResult=null,actError=null;
-      try{actResult=await saveCorrectionAndDownloadSignedAct(deal)}
+      try{actResult=await saveCorrectionAndDownloadSignedAct(deal,approved)}
       catch(error){actError=agentActIssueMessage(error)}
       await getWorkspace({force:true});
       state.docCache.delete(rowKey(deal));state.selectedKey=rowKey(deal);render();
       if(actError)docNotice('Корректировка сохранена. Акт не выпущен: '+actError);
       else if(actResult?.downloaded)docNotice('Корректировка сохранена. Подписанный акт PDF доступен для скачивания.');
-      else docNotice('Корректировка сохранена. Акт пока не выпущен: '+String(actResult?.reason||'нет подтверждённых данных'));
+      else docNotice('Корректировка и расчёт раздела сохранены для акта №'+String(saved?.version||'')+
+        '. PDF пока не выпущен: '+String(actResult?.reason||'нет подтверждённых данных'));
     }catch(e){window.RONA_ADMIN_DIALOGS?.message?window.RONA_ADMIN_DIALOGS.message(String(e.message||e),{title:'Корректировка не сохранена'}):alert(e.message||e)}
     finally{state.saving=false}
   };
@@ -1279,11 +1282,42 @@ function agentActDownloadBlob(blob,filename){
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),30000)
 }
-async function saveCorrectionAndDownloadSignedAct(deal){
+function ownerActSavedCalculation(deal,model,currency,saved){
+  const version=Number(saved?.version);
+  if(!Number.isInteger(version)||version<1)
+    throw new Error('OWNER_SAVED_CORRECTION_VERSION_MISSING');
+  if(String(saved?.dealId||'')!==String(deal.dealId)
+    ||String(saved?.assignmentId||'')!==String(deal.assignmentId))
+    throw new Error('OWNER_SAVED_CORRECTION_SCOPE_MISMATCH');
+  const corrected=saved.correctedPayload||{};
+  if(!corrected.paymentLineAmounts||!Object.hasOwn(corrected,'openSettlementAdjustment'))
+    throw new Error('OWNER_SAVED_CORRECTION_PAYLOAD_MISSING');
+  const fields=['income','expenses','counterpartyCashOut','netCashFlow',
+    'actualFinancialResult','taxes','netProfit','reward','ronaProfit'];
+  const numbers=Object.fromEntries(fields.map(k=>[k,round1(model[k])]));
+  return Object.freeze({
+    contract:'OWNER_SECTION_SAVED_CALCULATION_V1',
+    dealId:String(deal.dealId),assignmentId:String(deal.assignmentId),
+    correctionVersion:version,currency:String(currency||'').trim(),
+    correctedPayload:{
+      paymentLineAmounts:corrected.paymentLineAmounts,
+      openSettlementAdjustment:corrected.openSettlementAdjustment
+    },
+    ...numbers,
+    agentRewardStatus:String(model.rewardStatus||''),
+    agentBasisStatus:String(model.agentBasis||''),
+    sourceKind:'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE',
+  })
+}
+async function saveCorrectionAndDownloadSignedAct(deal,ownerApprovedCalculation){
   const docs=await docCall(deal,'state');
   if(!docs.currentAddendum)
     return{downloaded:false,reason:'не найдено подписанное ДС выбранной сделки'};
-  const requested=await docCall(deal,'request-act',{method:'POST'});
+  const requested=await docCall(deal,'request-act',{
+    method:'POST',
+    headers:{accept:'application/json','content-type':'application/json'},
+    body:JSON.stringify({ownerApprovedCalculation})
+  });
   const id=String(requested.requestId||'');
   if(!/^[0-9a-f-]{36}$/i.test(id))throw new Error('ACT_REQUEST_NOT_CREATED');
   const fresh=await docCall(deal,'state');
