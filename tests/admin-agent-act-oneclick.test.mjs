@@ -194,6 +194,22 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
     assert.equal(await download.failure(),null);
     assert.deepEqual(actions,['save','request-act','final-act','upload-act','download-act']);
     assert.deepEqual(errors,[]);
+    // Reopen the page with a previously saved correction but without an Act.
+    // The Owner can now issue the Act without a second Save / new version.
+    actions.length=0;doc.acts=[];errors.length=0;
+    await page.reload();
+    await page.addScriptTag({content:script});
+    const recover=page.locator('.rona-ar-documents')
+      .getByRole('button',{name:'Сформировать и скачать акт'});
+    await recover.waitFor({timeout:12000});
+    const [downloadExisting]=await Promise.all([
+      page.waitForEvent('download',{timeout:15000}),recover.click()
+    ]);
+    assert.equal(downloadExisting.suggestedFilename(),'RONA_Act_DEAL-2026-004_ACT-QA-001.pdf');
+    assert.equal(await downloadExisting.failure(),null);
+    assert.deepEqual(actions,['request-act','final-act','upload-act','download-act'],
+      'Existing saved correction must issue an Act without another Save');
+    assert.deepEqual(errors,[]);
     await page.close();
   }finally{await browser.close()}
 });
