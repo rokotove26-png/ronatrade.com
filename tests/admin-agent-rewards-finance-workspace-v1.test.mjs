@@ -332,7 +332,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/sourceAgentReward:num\(p\.agentReward\)/);
   assert.match(ui,/Сохранить корректировку/);
   assert.match(ui,/function issueFromSavedOwnerCorrection/);
-  assert.match(ui,/Акт сверки · СГ-Транс/);
+  assert.doesNotMatch(ui,/Акт сверки · СГ-Транс/);
   assert.doesNotMatch(ui,/ДС загружено · условия сверяются/);
   assert.match(ui,/DS1_50_PERCENT_SHIPMENT_MARGIN_RUB/);
   assert.match(ui,/Отправить агенту/);

@@ -155,15 +155,15 @@ test('Renderer emits two real A4 /Page objects and has no Basis column or techni
  assert.match(data,/startxref/);
 });
 
-test('Admin Owner can recover an existing two-page Act and open the signed SG-Trans reconciliation',async()=>{
+test('Admin Owner can recover an existing two-page Act without an unrelated SG-Trans reconciliation',async()=>{
   const {onRequest}=await import('../functions/portal/agent-rewards-v1-ui.js');
   const script=await(await onRequest()).text();
   assert.match(script,/async function issueFromSavedOwnerCorrection/);
   assert.match(script,/ownerActSavedCalculation\(deal,/);
   assert.match(script,/correctedPayload:saved\.payload/);
   assert.match(script,/await saveCorrectionAndDownloadSignedAct\(deal,approved\)/);
-  assert.match(script,/Акт сверки · СГ-Транс/);
-  assert.match(script,/1qUZS1PEKM3XKac6R_oIfvIKpn8MfQUDO/);
+  assert.doesNotMatch(script,/Акт сверки · СГ-Транс/);
+  assert.doesNotMatch(script,/1qUZS1PEKM3XKac6R_oIfvIKpn8MfQUDO/);
   assert.doesNotMatch(script,/Акт формируется автоматически после сохранения корректировки/);
 });
 
