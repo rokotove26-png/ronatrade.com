@@ -222,7 +222,7 @@ async function list(s:any){
      ownerCalculationVersion:a.source_snapshot?.ownerApprovedCalculation?.correctionVersion??null,
      readiness:{
      readyForFinalAct:missing.length===0&&['DRAFT_READY','OWNER_SIGNED'].includes(String(a.request_status)),
-     missing,accountingStatus,contractBasis:shipmentMarginDs1SourceMatched?'SHIPMENT_MARGIN':null,
+     missing:issuanceMissing,accountingStatus,contractBasis:shipmentMarginDs1SourceMatched?'SHIPMENT_MARGIN':null,
      paymentCurrency:shipmentMarginDs1SourceMatched?'RUB':null,
      contractShare:shipmentMarginDs1SourceMatched?0.5:null}});
  }
