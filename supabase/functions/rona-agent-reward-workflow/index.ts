@@ -158,10 +158,14 @@ async function list(s:any){
    String(addendum.uploaded_by)===ownerId&&String(addendum.linked_by)===ownerId;
  const accountingStatus=accounting.length===1?String(accounting[0].accounting_status):'TO_VERIFY';
  const dsNumber=String(addendum?.document_reference||'').match(/^ДС\s*№\s*(\d+)\b/i);
- // Owner's specific DS #1 instruction defines a contractual interpretation only.
- // It never authorizes a payment, a tax fact, or a Finance/Legal conclusion.
- const netProfitTermOwnerConfirmed=ownerApprovedByUpload&&s.deal_id==='DEAL-2026-004'
-    &&dsNumber?.[1]==='1';
+ // Exact signed agency DS #1 bytes (SHA-256) were cross-verified with the
+ // deal-linked verified storage object. Clause 3: 50% of shipment margin,
+ // not 50% of post-tax net profit. Clause 4: paid in RUB at CBR rate on
+ // the payment date. Clause 6 base agreement number conflicts with the title:
+ // require separate LEGAL resolution, not an inferred contract amendment.
+ const shipmentMarginDs1SourceMatched=ownerApprovedByUpload
+    &&s.deal_id==='DEAL-2026-004'&&dsNumber?.[1]==='1'
+    &&String(addendum?.sha256||'').toLowerCase()==='e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab';
  const termRef=String(term?.term_reference||'');
  const termNumber=termRef.match(/(?:ДС\s*№\s*|Addendum\s*)(\d+)\b/i);
  const termAligned=!!term&&!!addendum&&String(term.id)===String(addendum.term_key)
@@ -187,13 +191,22 @@ async function list(s:any){
    if(review.legal.status!=='APPROVED')missing.push('LEGAL_CONCLUSION_REQUIRED');
    if(!a.generated_document_number)missing.push('ACT_NUMBER_NOT_ASSIGNED');
    const f=a.finance_snapshot||{};
-   if(netProfitTermOwnerConfirmed&&(!Number.isFinite(Number(f.approvedNetProfit))||
-      f.approvedNetProfit==null||f.approvedBasisType!=='NET_PROFIT_AFTER_TAX'))
-     missing.push('VERIFIED_AFTER_TAX_NET_PROFIT_REQUIRED');
+   const legal=a.legal_snapshot||{};
+   if(shipmentMarginDs1SourceMatched){
+     if(f.approvedBasisType!=='SHIPMENT_MARGIN'||f.approvedShipmentMargin==null
+       ||!Number.isFinite(Number(f.approvedShipmentMargin))
+       ||!f.factoryLoadingDocumentRef||!f.guReturnDocumentRef)
+       missing.push('SIGNED_SHIPMENT_MARGIN_AND_CLOSING_DOCUMENTS_REQUIRED');
+     if(!legal.approvedContractReferenceResolutionRef)
+       missing.push('DS1_AGENCY_CONTRACT_REFERENCE_DISCREPANCY');
+     if(!f.approvedCurrency||String(f.approvedCurrency)!=='RUB')
+       missing.push('DS1_RUB_PAYMENT_CONDITION_REQUIRED');
+   }
    enriched.push({...a,review,documents:files,readiness:{
      readyForFinalAct:missing.length===0&&['DRAFT_READY','OWNER_SIGNED'].includes(String(a.request_status)),
-     missing,accountingStatus,netProfitBasis:netProfitTermOwnerConfirmed?'NET_PROFIT_AFTER_TAX':null,
-     contractShare:netProfitTermOwnerConfirmed?0.5:null}});
+     missing,accountingStatus,contractBasis:shipmentMarginDs1SourceMatched?'SHIPMENT_MARGIN':null,
+     paymentCurrency:shipmentMarginDs1SourceMatched?'RUB':null,
+     contractShare:shipmentMarginDs1SourceMatched?0.5:null}});
  }
  return{dealId:s.deal_id,assignmentId:s.assignment_id,agentCompanyId:s.agent_legal_entity_id,
    agentLegalName:s.legal_name,agentName:s.agent_name,assignmentStatus:s.assignment_status,
@@ -204,11 +217,12 @@ async function list(s:any){
      filename:addendum.filename,reference:addendum.document_reference,
      evidenceStatus:addendum.evidence_status,
      ownerApprovedByUpload,sha256:addendum.sha256}:null,
-   ownerConfirmedTerm:netProfitTermOwnerConfirmed
-      ?{mode:'PERCENT',rate:0.5,basis:'NET_PROFIT_AFTER_TAX',status:'OWNER_APPROVED_SOURCE_ONLY'}:null,
+   ownerConfirmedTerm:shipmentMarginDs1SourceMatched
+      ?{mode:'PERCENT',rate:0.5,basis:'SHIPMENT_MARGIN',
+        paymentCurrency:'RUB',status:'SIGNED_SOURCE_TEXT_PENDING_FINANCE_LEGAL'}:null,
    sourceReadiness:{
      accountingStatus,ownerApprovedByUpload,termAligned,
-     rule:netProfitTermOwnerConfirmed?'DS1_50_PERCENT_NET_PROFIT_AFTER_TAX':null,
+     rule:shipmentMarginDs1SourceMatched?'DS1_50_PERCENT_SHIPMENT_MARGIN_RUB':null,
      externalPayableApproved:false
    },
    ownerCorrection:correction?{sourceId:correction.id,version:correction.correction_version,
