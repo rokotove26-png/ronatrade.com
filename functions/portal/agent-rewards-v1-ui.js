@@ -1458,6 +1458,8 @@ async function issueFromSavedOwnerCorrection(deal,button){
         throw new Error('Введите корректную сумму по подписанному ДС');
       ownerReward=round1(ownerReward);
     }
+    if(deal.dealId!=='DEAL-2026-004'&&!ownerActDeclaration(deal,{reward:ownerReward},currencyOf(deal)))
+      throw new Error('Не загружено подтверждённое владельцем подписанное ДС этой сделки. Акт не выпускается.');
     const approved=ownerActSavedCalculation(deal,{
       ...model,reward:ownerReward,
       ronaProfit:model.netProfit-ownerReward,
