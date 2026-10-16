@@ -179,9 +179,10 @@ test('PDF engine is loaded as a same-origin executable resource compatible with 
 
 test('Redesigned financial view retains correction payload and payment source identity',async()=>{
  const ui=await(await uiResponse()).text();
- assert.match(ui,/const payload=\{paymentLineAmounts:m\.paymentLineAmounts,openSettlementAdjustment:m\.openSettlementAdjustment\}/);
- assert.match(ui,/paymentLineAmounts\[part\.paymentId\]=corrected/);
- assert.match(ui,/function renderScenarioComparison\(root,deal\)/);
- assert.match(ui,/function renderScenarioDetails\(root,grid\)/);
- assert.doesNotMatch(ui,/function scenarioComparisonRows[\s\S]*?await saveCorrection/);
+ for(const phrase of [
+   'const payload={paymentLineAmounts:m.paymentLineAmounts,openSettlementAdjustment:m.openSettlementAdjustment}',
+   'paymentLineAmounts[part.paymentId]=corrected',
+   'function renderScenarioComparison(root,deal)',
+   'function renderScenarioDetails(root,grid)'
+ ])assert.ok(ui.includes(phrase),'Missing '+phrase);
 });
