@@ -143,8 +143,9 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
         doc.acts=[{id:requestId,owner_correction_key:doc.ownerCorrection.sourceId,
           addendum_key:doc.currentAddendum.bindingId,correction_version:3,
           request_status:'REVIEW_REQUESTED',review:{approved:true},
+          ownerCalculationStored:true,ownerCalculationVersion:3,
           readiness:{missing:[]},documents:[]}];
-        data={requestId,status:'REVIEW_REQUESTED'};
+        data={requestId,status:'REVIEW_REQUESTED',ownerCalculationStored:true};
       }else if(action==='final-act'){
         actions.push('final-act');
         assert.equal(u.searchParams.get('requestId'),requestId);
