@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {onRequest as uiResponse} from '../functions/portal/agent-rewards-v1-ui.js';
 import {onRequest as pdfScriptResponse} from '../functions/portal/agent-reward-act-pdf-engine.js';
+import {ownerActCandidate,checkedOwnerActAmounts,ownerSignedActIssue} from '../supabase/functions/rona-agent-reward-workflow/owner-signed-act.ts';
 
 test('One-click PDF contract preserves canonical source hashes and protected issuance',async()=>{
   const renderer=await(await pdfScriptResponse()).text();
@@ -187,4 +188,60 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
     assert.deepEqual(errors,[]);
     await page.close();
   }finally{await browser.close()}
+});
+
+function fixtureOwnerAct({profit=1980,reward=Math.round(Math.max(0,profit)*5)/10}={}){
+  const income=profit+3020,expense=3020,tax=Math.max(0,profit)*.1;
+  return{
+    id:'a1111111-1111-4111-8111-111111111111',requested_at:'2026-10-16T10:00:00Z',
+    requested_by:'1eb4902b-3dea-4a04-ad30-2ba47d76cda8',
+    deal_id:'DEAL-2026-004',deal_key:'a2222222-2222-4222-8222-222222222222',
+    assignment_id:'11111111-1111-4111-8111-111111111111',
+    owner_correction_key:'c1111111-1111-4111-8111-111111111111',
+    addendum_key:'b1111111-1111-4111-8111-111111111111',correction_version:3,
+    request_status:'REVIEW_REQUESTED',
+    source_snapshot:{ownerApprovedCalculation:{
+      contract:'OWNER_SECTION_SAVED_CALCULATION_V1',
+      sourceKind:'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE',
+      createsPayable:false,signingAuthority:false,
+      rewardStatus:'OWNER_DS1_SHIPMENT_MARGIN_SAVED_SECTION',
+      correctionId:'c1111111-1111-4111-8111-111111111111',correctionVersion:3,
+      currency:'USD',calculation:{
+        income,expenses:expense,actualFinancialResult:profit,taxes:tax,
+        netProfit:profit-tax,reward,ronaProfit:profit-tax-reward
+      }
+    }}
+  };
+}
+test('Owner only: 50% positive margin, 0% negative margin, reject cross-deal and forged rewards',async()=>{
+  const row=fixtureOwnerAct();
+  assert.equal(ownerActCandidate(row),true);
+  assert.deepEqual(checkedOwnerActAmounts(row),{margin:1980,amount:990,currency:'USD'});
+  assert.equal(checkedOwnerActAmounts(fixtureOwnerAct({profit:-1109.4,reward:0})).amount,0);
+  assert.throws(()=>checkedOwnerActAmounts(fixtureOwnerAct({reward:891})),
+    /ACT_OWNER_DIRECT_MARGIN_MISMATCH/);
+  const wrongDeal=fixtureOwnerAct();wrongDeal.deal_id='DEAL-2026-005';
+  assert.equal(ownerActCandidate(wrongDeal),false);
+  await assert.rejects(()=>ownerSignedActIssue(()=>null,{userId:'different'},row),
+    /ACT_OWNER_DIRECT_ISSUE_NOT_AUTHORIZED/);
+  const sql=async(parts)=>{
+    const stmt=Array.isArray(parts)?parts.join(' '):String(parts);
+    if(stmt.includes('mcp_oauth_tokens'))return[{owner_portal_user_id:row.requested_by}];
+    if(stmt.includes('agent_reward_owner_corrections_v1'))return[{
+      id:row.owner_correction_key,created_by:row.requested_by,correction_version:3}];
+    if(stmt.includes('agent_reward_deal_addenda_v1'))return[{
+      document_id:'AGENCY-S-005-945CF175',
+      sha256:'e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab',
+      uploaded_by:row.requested_by,linked_by:row.requested_by,
+      document_reference:'ДС №1 от 15.07.2026',is_current:true,storage_state:'VERIFIED',
+      legal_name:'Общество с ограниченной ответственностью «ИнКом»'}];
+    throw Error('unexpected query: '+stmt.slice(0,140));
+  };
+  const ready=await ownerSignedActIssue(sql,{userId:row.requested_by},row);
+  assert.equal(ready.amount,990);
+  assert.equal(ready.documentNumber,'RT-ACT-2026-004-C003');
+  assert.equal(ready.dealId,'DEAL-2026-004');
+  assert.equal(ready.createsPayable,false);
+  assert.equal(ready.signatureScope,'PRINCIPAL_ONLY__AGENT_NOT_SIGNED');
+  assert.equal(ready.shipmentMarginSource.basisSourceKind,'OWNER_APPROVED_SECTION');
 });
