@@ -142,3 +142,79 @@ test('General certified Act is generated from exact Owner, Finance, Legal and si
  await assert.rejects(()=>approvedActIssue(makeSql(),{userId:'OTHER_OWNER'},requestId),
    /ACT_OWNER_IDENTITY_REQUIRED/);
 });
+
+test('Rendered Admin offers non-DS1 Agent Act on other deals and does not bypass missing approvals',async()=>{
+ const {chromium}=await import('playwright');
+ const {onRequest}=await import('../functions/portal/agent-rewards-v1-ui.js');
+ const script=await(await onRequest()).text();
+ const browser=await chromium.launch({headless:true});
+ try{
+   for(const [dealId,mode] of [['DEAL-2026-010','FIXED'],['DEAL-2026-011','PERCENT']]){
+     const assignmentId='a1111111-1111-4111-8111-111111111111';
+     const requestId='b1111111-1111-4111-8111-111111111111';
+     const correctionId='c1111111-1111-4111-8111-111111111111';
+     const bindingId='d1111111-1111-4111-8111-111111111111';
+     const deal={dealId,assignmentId,clientName:'Контрагент для '+dealId,
+       agentName:'Агент '+dealId,agentLegalName:'Агент 010',
+       businessStatus:'ACTIVE',financialCurrency:'USD',receiptCurrency:'USD',
+       cashFlow:{status:'APPROVED_CASH_FLOW_DDS',currency:'USD',cashReceived:5000,
+         counterpartyCashOut:3000,bankFees:20,netCashFlow:1980},
+       financeSourceReconciliation:{status:'RECONCILED_CURRENT_FINANCE_V8'},
+       cashPaymentLines:[{paymentId:'PAYMENT-010',counterparty:'Поставщик',
+         canonicalCounterpartyId:'SUPPLIER:010',counterpartyResolutionStatus:'RESOLVED',
+         amount:3000,currency:'USD'}],
+       ownerResultBridge:{recognition_status:'APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE',
+         open_settlement_adjustment:{amount:0}},
+       ownerCorrectionAuthority:{status:'APPROVED_FOR_OWNER_CORRECTION',
+         contract:'PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'},
+       ownerCorrection:{version:2,createdAt:'2026-10-16T10:00:00Z',
+         payload:{paymentLineAmounts:{'PAYMENT-010':3000},openSettlementAdjustment:0}},
+       agentTerm:{mode,status:'ACTIVE',lifecycleState:'ACTIVE',authorityState:'CONFIRMED',
+         currency:'USD',rate:0.25,fixedAmount:400,reference:'ДС № 4 от 15.07.2026'}
+     };
+     const doc={dealId,assignmentId,agentCompanyId:'S-010',agentLegalName:'Агент 010',
+       term:{mode,rate:0.25},sourceReadiness:{termAligned:true,accountingStatus:'CLOSED'},
+       currentAddendum:{bindingId,documentId:'AGENCY-S-010-ABCD1234',
+         reference:'ДС № 4 от 15.07.2026',ownerApprovedByUpload:true},
+       ownerCorrection:{sourceId:correctionId,version:2},acts:[]};
+     const page=await browser.newPage({viewport:{width:1280,height:900}});
+     let requested=0,finalized=0;const errors=[];
+     page.on('pageerror',e=>errors.push(e.message));
+     page.on('dialog',d=>d.dismiss());
+     await page.route('http://rona.generic/portal/admin',r=>r.fulfill({
+       contentType:'text/html',body:'<!doctype html><html lang="ru"><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
+     await page.route('http://rona.generic/portal/owner-api**',r=>r.fulfill({
+       contentType:'application/json',body:JSON.stringify({ok:true,data:{deals:[deal]}})}));
+     await page.route('http://rona.generic/portal/agent-reward-workflow**',r=>{
+       const action=new URL(r.request().url()).searchParams.get('action')||'state';
+       let data=doc;
+       if(action==='request-act'){
+         requested++;
+         const v=JSON.parse(r.request().postData()||'{}').ownerApprovedCalculation;
+         assert.equal(v.dealId,dealId);
+         assert.equal(v.assignmentId,assignmentId);
+         assert.equal(v.correctionVersion,2);
+         assert.deepEqual(v.correctedPayload.paymentLineAmounts,{'PAYMENT-010':3000});
+         doc.acts=[{id:requestId,owner_correction_key:correctionId,addendum_key:bindingId,
+           correction_version:2,ownerCalculationStored:true,ownerCalculationVersion:2,
+           ownerSignReady:false,readiness:{missing:['FINANCE_CONCLUSION_REQUIRED']},
+           documents:[]}];
+         data={requestId,ownerCalculationStored:true};
+       }else if(action==='final-act')finalized++;
+       return r.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
+     });
+     await page.goto('http://rona.generic/portal/admin');
+     await page.addScriptTag({content:script});
+     const button=page.locator('.rona-ar-documents')
+       .getByRole('button',{name:'Сформировать и скачать акт'});
+     await button.waitFor({timeout:12000});
+     await button.click();
+     await page.waitForFunction(()=>document.querySelectorAll('.rona-admin-dialog-backdrop').length>0,
+       {timeout:6000}).catch(()=>null);
+     assert.equal(requested,1,mode+' must request this exact deal Act');
+     assert.equal(finalized,0,mode+' must not sign without Finance conclusion');
+     assert.deepEqual(errors,[]);
+     await page.close();
+   }
+ }finally{await browser.close()}
+});
