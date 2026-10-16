@@ -105,7 +105,7 @@ function ronaActPdfRuntime(){
       ds=needed(d.addendumReference,'ADDENDUM'),deal=needed(d.dealId,'DEAL'),
       authorization=needed(d.facsimileAuthorizationRef,'FACSIMILE_AUTHORIZATION'),
       currency=needed(d.currency,'CURRENCY'),amount=Number(d.amount);
-    if(!Number.isFinite(amount)||amount<=0)throw new Error('ACT_PDF_AMOUNT_NOT_APPROVED');
+    if(!Number.isFinite(amount)||amount<0)throw new Error('ACT_PDF_AMOUNT_NOT_APPROVED');
     if(d.documentStandard!=='RONA-DOC-STANDARD v2')throw new Error('ACT_PDF_STANDARD_MISMATCH');
     if(d.signatureMethod!=='OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES')throw new Error('ACT_PDF_SIGNING_METHOD_MISMATCH');
     if(d.dealId==='DEAL-2026-004'&&(!d.netProfitSource||d.netProfitSource.basis!=='NET_PROFIT_AFTER_TAX'||
