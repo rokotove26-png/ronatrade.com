@@ -461,7 +461,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
           'A missing deal term must be described precisely, not as no agent/contract');
         assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'Расчёт ожидает проверки');
         assert.equal(await page.locator('.rona-ar-col.fact .rona-ar-reward-focus .rona-ar-value').textContent(),'Расчёт ожидает проверки');
-        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Условия вознаграждения проверяются/);
+        assert.equal(await page.locator('.rona-ar-evidence').count(),0,'Do not show technical evidence panel for any deal');
         assert.match(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-value').textContent(),/Расчёт ожидает проверки/);
         assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),0,
           'Never plot an external agent liability without a verified term');
