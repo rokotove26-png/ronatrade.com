@@ -307,3 +307,14 @@ test('Owner only: 50% positive margin, 0% negative margin, reject cross-deal and
   assert.equal(ready.financialAppendix.agentReward,990);
   assert.equal(ready.shipmentMarginSource.basisSourceKind,'OWNER_APPROVED_SECTION');
 });
+
+
+test('Owner console v2 retains the original signed act issue and download path',async()=>{
+  const ui=await(await uiResponse()).text();
+  assert.match(ui,/async function issueFromSavedOwnerCorrection\(/);
+  assert.match(ui,/saveCorrectionAndDownloadSignedAct\(deal,approved\)/);
+  assert.match(ui,/function renderDealDocuments\(root,deal\)/);
+  assert.match(ui,/renderDealDocuments\(root,deal\)/);
+  assert.match(ui,/renderScenarioDetails\(root,grid\)/);
+  assert.match(ui,/const grid=el\('div','rona-ar-pnl-grid'\);grid\.append\(renderPlan\(deal\),renderFact\(deal\),renderOwner\(deal\)\)/);
+});
