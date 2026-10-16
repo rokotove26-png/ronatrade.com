@@ -81,3 +81,24 @@ export function genericOwnerActPayload(row:any,doc:any){
   ownerDeclarationSource:sourceNote
  }
 }
+
+export async function genericOwnerActIssue(sql:any,ctx:any,row:any){
+ const docs=await sql`select a.document_id,a.sha256,a.uploaded_by,
+   b.linked_by,b.document_reference,b.is_current,
+   o.storage_state,l.legal_name,l.tax_identifier,
+   l.registered_address,l.registration_country
+   from portal_private.agent_reward_deal_addenda_v1 b
+   join portal_private.agent_agency_contract_documents a on a.id=b.agency_document_key
+   join portal_private.storage_objects o on o.id=a.storage_object_key
+   join portal_private.agent_legal_entities l on l.id=b.agent_legal_entity_key
+   where b.id=${row.addendum_key}::uuid and b.deal_key=${row.deal_key}::uuid
+   and b.assignment_id=${row.assignment_id}::uuid
+   and b.agent_legal_entity_key=${row.agent_legal_entity_key}::uuid
+   and a.document_kind='AGENCY_ADDENDUM'
+   and a.lifecycle_state::text='ACTIVE'
+   limit 2`;
+ if(docs.length!==1||str(docs[0].uploaded_by)!==str(ctx.userId)
+   ||str(docs[0].linked_by)!==str(ctx.userId))
+   reject('ACT_OWNER_GENERIC_SIGNED_ADDENDUM_DENIED');
+ return genericOwnerActPayload(row,docs[0])
+}
