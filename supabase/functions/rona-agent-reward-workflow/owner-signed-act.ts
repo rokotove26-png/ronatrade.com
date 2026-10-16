@@ -1,25 +1,28 @@
 import {getOwnerActAppendix} from './financial-appendix.ts';
 import {genericOwnerActIssue} from './generic-owner-act.ts';
-// Authorized Owner's one-click signature on exact signed DS1 only.
+// Owner-signed Acts: historical DS1 source lock, and generic exact signed DS declarations.
 // No fake Finance/Legal approvals, external payable or Agent signature.
 const DS='e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab';
 function reject(code:string,status=409):never{throw Object.assign(new Error(code),{status})}
 const rounded=(x:number)=>Math.round((x+Number.EPSILON)*10)/10;
+function legacyDs1(row:any){
+ const a=row?.source_snapshot?.ownerApprovedCalculation;
+ return row?.deal_id==='DEAL-2026-004'&&a?.rewardStatus==='OWNER_DS1_SHIPMENT_MARGIN_SAVED_SECTION'
+  &&!a?.ownerActDeclaration;
+}
 export function ownerActCandidate(row:any){
  const x=row?.source_snapshot?.ownerApprovedCalculation;
  return x?.contract==='OWNER_SECTION_SAVED_CALCULATION_V1'
   &&x?.sourceKind==='OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE'
   &&x?.createsPayable===false&&x?.signingAuthority===false
-  &&(row?.deal_id==='DEAL-2026-004'
-    ?x?.rewardStatus==='OWNER_DS1_SHIPMENT_MARGIN_SAVED_SECTION'
-    :x?.ownerActDeclaration?.contract==='RONA_OWNER_AGENCY_ACT_DECLARATION_V1')
+  &&(legacyDs1(row)||x?.ownerActDeclaration?.contract==='RONA_OWNER_AGENCY_ACT_DECLARATION_V1')
   &&String(x?.correctionId)===String(row?.owner_correction_key)
   &&Number(x?.correctionVersion)===Number(row?.correction_version)
 }
 export function checkedOwnerActAmounts(row:any){
  if(!ownerActCandidate(row))reject('ACT_OWNER_DIRECT_NOT_APPLICABLE');
  const a=row.source_snapshot.ownerApprovedCalculation,c=a.calculation||{};
- if(row.deal_id!=='DEAL-2026-004'){
+ if(!legacyDs1(row)){
    const dec=a.ownerActDeclaration||{};
    const keys=['income','expenses','actualFinancialResult','taxes','netProfit','reward','ronaProfit'];
    if(keys.some(k=>typeof c[k]!=='number'||!Number.isFinite(c[k]))||
@@ -61,7 +64,7 @@ export async function ownerSignedActIssue(sql:any,ctx:any,row:any){
    ||String(saved[0].created_by)!==String(ctx.userId)
    ||Number(saved[0].correction_version)!==Number(row.correction_version))
    reject('ACT_OWNER_DIRECT_CORRECTION_SUPERSEDED');
- if(row.deal_id!=='DEAL-2026-004'){
+ if(!legacyDs1(row)){
    if(!['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW','DRAFT_READY','OWNER_SIGNED'].includes(String(row.request_status)))
      reject('ACT_OWNER_DIRECT_STATUS_INVALID');
    return await genericOwnerActIssue(sql,ctx,row)
