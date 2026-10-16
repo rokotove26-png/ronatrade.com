@@ -172,7 +172,7 @@ async function list(s:any){
    &&!!dsNumber&&!!termNumber&&Number(dsNumber[1])===Number(termNumber[1]);
  const acts=await sql`select r.id,r.request_status,r.correction_version,r.owner_correction_key,
  r.addendum_key,r.term_key,r.generated_document_number,r.finance_snapshot,r.legal_snapshot,
- r.requested_at,r.dispatched_at,r.completed_at
+ r.source_snapshot,r.requested_at,r.dispatched_at,r.completed_at
  from portal_private.agent_reward_act_requests_v1 r
  where r.deal_key=${s.deal_key}::uuid and r.assignment_id=${s.assignment_id}::uuid
  order by r.requested_at desc limit 30`;
@@ -202,7 +202,10 @@ async function list(s:any){
      if(!f.approvedCurrency||String(f.approvedCurrency)!=='RUB')
        missing.push('DS1_RUB_PAYMENT_CONDITION_REQUIRED');
    }
-   enriched.push({...a,review,documents:files,readiness:{
+   enriched.push({...a,review,documents:files,
+     ownerCalculationStored:a.source_snapshot?.ownerApprovedCalculation?.contract==='OWNER_SECTION_SAVED_CALCULATION_V1',
+     ownerCalculationVersion:a.source_snapshot?.ownerApprovedCalculation?.correctionVersion??null,
+     readiness:{
      readyForFinalAct:missing.length===0&&['DRAFT_READY','OWNER_SIGNED'].includes(String(a.request_status)),
      missing,accountingStatus,contractBasis:shipmentMarginDs1SourceMatched?'SHIPMENT_MARGIN':null,
      paymentCurrency:shipmentMarginDs1SourceMatched?'RUB':null,
