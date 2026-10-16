@@ -364,8 +364,7 @@ function ronaActPdfRuntime(){
     // No legal/technical implementation note is printed in the Owner-approved form.
     // Canonical signature and seal remain visually present above.
     const ownerMode=d.sourceMode==='OWNER_SIGNED_SECTION_NOT_FINANCE_PAYABLE';
-    const certifiedMode=d.sourceMode==='FINANCE_LEGAL_CERTIFIED_ACT_V1';
-    if((ownerMode||certifiedMode)&&!d.financialAppendix)
+    if(ownerMode&&!d.financialAppendix)
       throw new Error('ACT_PDF_APPENDIX_REQUIRED_FOR_OWNER');
     const canvases=[canvas];
     if(d.financialAppendix){
@@ -375,14 +374,12 @@ function ronaActPdfRuntime(){
         throw new Error('ACT_PDF_APPENDIX_DOCUMENT_MISMATCH');
       canvases.push(d.financialAppendix.contract==='RONA_OWNER_AGENT_ACT_APPENDIX_V1'
         ?appendOwnerCanvas(d.financialAppendix,number,date,deal,assets[0])
-        :d.financialAppendix.contract==='RONA_AGENT_ACT_TERMS_APPENDIX_V1'
-        ?appendTermsCanvas(d.financialAppendix,number,date,deal,assets[0])
         :appendCanvas(d.financialAppendix,number,date,deal,assets[0]));
     }
     return {blob:makePdf(canvases),pageCount:canvases.length,filename:'RONA_Act_'+safe(deal).replace(/[^A-Za-z0-9_-]/g,'_')+
       '_'+safe(number).replace(/[^A-Za-z0-9_-]/g,'_')+'.pdf'};
   }
-  window.RONA_AGENT_ACT_PDF_ENGINE=Object.freeze({render,version:'v6-generic-certified-two-page-act'});
+  window.RONA_AGENT_ACT_PDF_ENGINE=Object.freeze({render,version:'v6-owner-direct-two-page-agent-act'});
 }
 const SCRIPT='('+ronaActPdfRuntime.toString()+')();';
 export async function onRequest(){
