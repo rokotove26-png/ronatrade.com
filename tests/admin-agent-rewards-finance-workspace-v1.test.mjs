@@ -468,10 +468,10 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Math\.max\(0,openSettlementAdjustment\)/);
   assert.match(ui,/Math\.max\(0,-openSettlementAdjustment\)/);
   assert.doesNotMatch(ui,/basis=result-fx/);
-  assert.match(ui,/const externalFxTermConflict=upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
+  assert.match(ui,/const externalFxTermConflict=!ownerSignedDs1ForManagement\(deal\)&&upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
   assert.doesNotMatch(ui,/Условие FX · сверить договор/);
   // Legal FX-exclusion condition remains in the internal source model, not a UI badge.
-  assert.match(ui,/const externalFxTermConflict=upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
+  assert.match(ui,/const externalFxTermConflict=!ownerSignedDs1ForManagement\(deal\)&&upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
   assert.match(ui,/pnl\.netProfit-reward\.value/);
   assert.match(ui,/function agentStatusText\(status\)/);
   assert.doesNotMatch(ui,/ДС не привязано/);
