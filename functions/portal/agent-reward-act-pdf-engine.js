@@ -108,9 +108,15 @@ function ronaActPdfRuntime(){
     if(!Number.isFinite(amount)||amount<0)throw new Error('ACT_PDF_AMOUNT_NOT_APPROVED');
     if(d.documentStandard!=='RONA-DOC-STANDARD v2')throw new Error('ACT_PDF_STANDARD_MISMATCH');
     if(d.signatureMethod!=='OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES')throw new Error('ACT_PDF_SIGNING_METHOD_MISMATCH');
-    if(d.dealId==='DEAL-2026-004'&&(!d.netProfitSource||d.netProfitSource.basis!=='NET_PROFIT_AFTER_TAX'||
-       Number(d.netProfitSource.rate)!==0.5||Math.abs(Number(d.netProfitSource.netProfit)*0.5-amount)>0.011))
-      throw new Error('ACT_PDF_NET_PROFIT_SOURCE_REQUIRED');
+    if(d.dealId==='DEAL-2026-004'){
+      const m=d.shipmentMarginSource||{},margin=Number(m.margin),
+        exchange=m.exchangeRate==null?1:Number(m.exchangeRate);
+      if(m.basis!=='SHIPMENT_MARGIN'||Number(m.rate)!==0.5
+        ||!Number.isFinite(margin)||margin<0||!Number.isFinite(exchange)||exchange<=0
+        ||!safe(m.marginCurrency)||!safe(m.factoryDocumentRef)||!safe(m.guDocumentRef)
+        ||Math.abs(Math.round(margin*0.5*exchange*100)/100-amount)>0.011)
+        throw new Error('ACT_PDF_SHIPMENT_MARGIN_SOURCE_REQUIRED');
+    }
     const assets=await Promise.all([
       imageFor(requestId,'canonical-letterhead'),
       imageFor(requestId,'canonical-signature'),
@@ -145,11 +151,17 @@ function ronaActPdfRuntime(){
     y+=66;
     font(ctx,47,true);ctx.fillText('ИТОГО:',LEFT+15,y);ctx.textAlign='right';ctx.fillText(amountString,RIGHT-15,y);ctx.textAlign='left';
     y+=74;line(ctx,LEFT,y,RIGHT,y);y+=48;
-    if(d.netProfitSource&&d.netProfitSource.basis==='NET_PROFIT_AFTER_TAX'){
-      const profit=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})
-        .format(Number(d.netProfitSource.netProfit));
-      y=paragraph(ctx,'Основа расчёта: подтверждённая чистая прибыль сделки после налогообложения — '+
-        profit+' '+currency+'. Договорная доля агента: 50%.',LEFT,y,WIDTH,{size:40,lineHeight:54,after:30});
+    if(d.shipmentMarginSource?.basis==='SHIPMENT_MARGIN'){
+      const m=d.shipmentMarginSource,displayMargin=new Intl.NumberFormat('ru-RU',
+        {minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(m.margin));
+      y=paragraph(ctx,'Основа расчёта: подтверждённая маржа Принципала по поставке — '+
+        displayMargin+' '+safe(m.marginCurrency)+'. Доля агента по ДС: 50%.',
+        LEFT,y,WIDTH,{size:39,lineHeight:52,after:18});
+      y=paragraph(ctx,'Основания расчёта: документы завода '+safe(m.factoryDocumentRef)+
+        '; ГУ '+safe(m.guDocumentRef)+'.',LEFT,y,WIDTH,
+        {size:33,lineHeight:44,after:18});
+      y=paragraph(ctx,'Оплата агентского вознаграждения в российских рублях по курсу ЦБ РФ '+
+        'на дату фактической оплаты.',LEFT,y,WIDTH,{size:33,lineHeight:44,after:22});
     }
     y=paragraph(ctx,'Размер вознаграждения установлен на основании подписанного ДС и подтверждённого расчёта.',
       LEFT,y,WIDTH,{size:40,lineHeight:52,after:34});
@@ -175,7 +187,7 @@ function ronaActPdfRuntime(){
     return {blob:makePdf(canvas),filename:'RONA_Act_'+safe(deal).replace(/[^A-Za-z0-9_-]/g,'_')+
       '_'+safe(number).replace(/[^A-Za-z0-9_-]/g,'_')+'.pdf'};
   }
-  window.RONA_AGENT_ACT_PDF_ENGINE=Object.freeze({render,version:'v2-oneclick-canonical-a4-verified'});
+  window.RONA_AGENT_ACT_PDF_ENGINE=Object.freeze({render,version:'v3-shipment-margin-source-locked'});
 }
 const SCRIPT='('+ronaActPdfRuntime.toString()+')();';
 export async function onRequest(){
