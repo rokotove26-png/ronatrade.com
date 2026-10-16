@@ -543,7 +543,7 @@ function ownerAgentReward(deal,netProfit){
   if(basis===null)return{value:null,basis:null,status:'NET_PROFIT_REQUIRED',externalFxTermConflict:false};
   const reward=managementAgentReward(deal,basis);
   const t=deal?.agentTerm||{};
-  const externalFxTermConflict=upper(t.mode)==='PERCENT'&&upper(t.reference).includes('EXCLUDING FX');
+  const externalFxTermConflict=!ownerSignedDs1ForManagement(deal)&&upper(t.mode)==='PERCENT'&&upper(t.reference).includes('EXCLUDING FX');
   return{
     value:reward.value,basis,externalFxTermConflict,
     status:externalFxTermConflict&&reward.value!==null
@@ -1216,8 +1216,7 @@ async function requestAgentAct(deal,button){
   try{
     const result=await docCall(deal,'request-act',{method:'POST'});
     await refreshDealDocuments(deal);
-    docNotice('Заявка на акт выполненных работ зарегистрирована: '+String(result.requestId||'')+
-      '. Проект акта можно подготовить для проверки. Подписание требует фактических заключений Finance и Legal.')
+    docNotice('Запрос на акт сохранён. Акт будет доступен после подтверждения расчёта и реквизитов.')
   }catch(e){docNotice('Акт не запрошен: '+String(e.message||e))}
   finally{button.disabled=false}
 }
