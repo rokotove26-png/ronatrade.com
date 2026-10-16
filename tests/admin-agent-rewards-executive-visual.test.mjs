@@ -28,6 +28,8 @@ test('Executive presentation changes no financial authority, formulas, API or se
   assert.match(js,/script\.onerror=/);
   assert.match(js,/pdf\.pageCount!==2/);
   assert.match(js,/payload=\{paymentLineAmounts:m\.paymentLineAmounts,openSettlementAdjustment:m\.openSettlementAdjustment\}/);
+  assert.match(js,/paymentLineAmounts\[part\.paymentId\]=corrected/);
+  assert.doesNotMatch(js,/Акт сверки · СГ-Транс/);
   assert.match(file,/minimumFractionDigits:1,maximumFractionDigits:1/);
   assert.match(file,/function ownerCorrectionApproved\(deal\)/);
   assert.match(file,/send\.disabled=true/);
@@ -637,7 +639,7 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.equal(await box.locator('input[type=file]').count(),0);
       assert.equal(await box.getByRole('button',{name:'Скачать ДС'}).count(),1);
       assert.equal(await box.getByText('ДС загружено и привязано к сделке').count(),1);
-      assert.equal(await box.getByRole('button',{name:'Акт сверки · СГ-Транс'}).count(),1);
+      assert.equal(await box.getByRole('button',{name:'Акт сверки · СГ-Транс'}).count(),0);
       assert.doesNotMatch(await page.locator('.rona-ar').innerText(),/Основание и статус расчёта|Важно: расчёт PLAN/);
       assert.equal(await box.getByText('50% от маржи по поставке (ДС №1)').count(),1);
       assert.match(await box.innerText(),/По сохранённому расчёту:/);
