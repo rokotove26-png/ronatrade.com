@@ -84,7 +84,7 @@ test('Source loader uses exact correction + deal-bound payments + Operations-app
        corrected_payload:row.source_snapshot.ownerApprovedCalculation.normalizedSavedPayload}];
    if(q.includes('payment_resource_chains_effective_v8'))
      return payments.map(x=>({payment_id:x.paymentId,
-       counterparty_name:x.label.split(' — ')[0],accounting_currency:'USD',accounting_amount:-x.amount}));
+       counterparty_name:x.label.split(' — ')[0],accounting_currency:'USD',accounting_amount:-x.amount,effective_at:'2026-08-16T21:00:00Z'}));
    if(q.includes('ai_coordination_records')){
      if(values.includes('agent_rewards.fact.accrual_basis_v1'))
        return[{record_id:'FINANCE-FEES',payload:{expense_lines:[
