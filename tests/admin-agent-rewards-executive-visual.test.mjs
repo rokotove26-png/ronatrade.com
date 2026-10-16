@@ -23,6 +23,8 @@ test('Executive presentation changes no financial authority, formulas, API or se
   assert.match(js,/function ownerModel\(deal,fact\)/);
   assert.match(js,/Math\.max\(0,openSettlementAdjustment\)/);
   assert.match(js,/await saveCorrection\(deal\.dealId,deal\.assignmentId,payload,''\)/);
+  assert.match(js,/ACT_PDF_TWO_PAGES_REQUIRED/);
+  assert.match(js,/pdf\.pageCount!==2/);
   assert.match(js,/payload=\{paymentLineAmounts:m\.paymentLineAmounts,openSettlementAdjustment:m\.openSettlementAdjustment\}/);
   assert.match(file,/minimumFractionDigits:1,maximumFractionDigits:1/);
   assert.match(file,/function ownerCorrectionApproved\(deal\)/);

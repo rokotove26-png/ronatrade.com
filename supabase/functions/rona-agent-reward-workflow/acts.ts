@@ -100,6 +100,14 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
  if(stage!=='FINANCE_LEGAL_DRAFT'&&!attested)deny('SIGNED_ACT_ATTESTATION_REQUIRED',400);
  const content=await file.arrayBuffer();
  if(new TextDecoder().decode(content.slice(0,5))!=='%PDF-')deny('PDF_SIGNATURE_INVALID',400);
+ if(ownerDirect){
+   // The final Owner-signed document always includes the approved itemized
+   // Appendix 1. Never archive a single-page Act as the finished result.
+   const pdfStructure=new TextDecoder().decode(content);
+   const pageObjects=(pdfStructure.match(/\/Type\s+\/Page\b/g)||[]).length;
+   if(!/\/Count\s+2\b/.test(pdfStructure)||pageObjects!==2)
+     deny('ACT_PDF_TWO_PAGE_APPENDIX_REQUIRED',400);
+ }
  const sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',content)))
    .map(x=>x.toString(16).padStart(2,'0')).join('');
  const objectName='agent-services-acts/'+row.deal_id+'/'+row.id+'/'+stage+'-'+crypto.randomUUID()+'.pdf';

@@ -1360,6 +1360,8 @@ async function saveCorrectionAndDownloadSignedAct(deal,ownerApprovedCalculation)
   const pdf=await engine.render(issued,id);
   if(pdf.blob?.type!=='application/pdf'||pdf.blob.size<5000)
     throw new Error('ACT_PDF_RENDER_FAILED');
+  if(issued.sourceMode==='OWNER_SIGNED_SECTION_NOT_FINANCE_PAYABLE'&&pdf.pageCount!==2)
+    throw new Error('ACT_PDF_TWO_PAGES_REQUIRED');
   const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',
     await pdf.blob.arrayBuffer()))).map(b=>b.toString(16).padStart(2,'0')).join('');
   const form=new FormData();

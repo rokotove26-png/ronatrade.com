@@ -20,6 +20,10 @@ test('One-click PDF contract preserves canonical source hashes and protected iss
   assert.match(renderer,/%PDF-1\.4/);
   assert.match(renderer,/\/\/ Exactly 35 x 35 mm/);
   assert.match(renderer,/ACT_PDF_SHIPMENT_MARGIN_SOURCE_REQUIRED/);
+  assert.match(renderer,/ACT_PDF_APPENDIX_REQUIRED_FOR_OWNER/);
+  assert.match(renderer,/ACT_PDF_APPENDIX_ARITHMETIC_MISMATCH/);
+  assert.match(renderer,/RONA_ACT_APPENDIX_V1/);
+  assert.doesNotMatch(renderer,/Графические подпись и печать Заказчика применены/);
   assert.match(index,/DS1_50_PERCENT_SHIPMENT_MARGIN_RUB/);
   assert.match(acts,/ACT_DS1_BASE_CONTRACT_REFERENCE_UNRESOLVED/);
   assert.doesNotMatch(acts,/ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED/);
@@ -97,7 +101,9 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
       exchangeRateSourceRef:null,settlementNote:'Оплата в RUB по курсу ЦБ РФ на дату оплаты'},
     facsimileAuthorizationRef:'Owner canonical authorization',
     documentStandard:'RONA-DOC-STANDARD v2',
-    signatureMethod:'OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES'
+    signatureMethod:'OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES',
+    sourceMode:'OWNER_SIGNED_SECTION_NOT_FINANCE_PAYABLE',
+    ownerSectionCorrectionVersion:3
   };
   const actions=[];
   const browser=await chromium.launch({headless:true});
@@ -122,7 +128,7 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
       body:'window.RONA_AGENT_ACT_PDF_ENGINE={render:async function(data,id){if(id!=="'+requestId+'")throw Error("wrong request");'+
         'if(data.dealId!=="'+dealId+'")throw Error("wrong deal");'+
         'return {blob:new Blob(['+JSON.stringify(pdfBytes)+'],{type:"application/pdf"}),'+
-        'filename:"RONA_Act_DEAL-2026-004_ACT-QA-001.pdf"}}};'
+        'filename:"RONA_Act_DEAL-2026-004_ACT-QA-001.pdf",pageCount:2}}};'
     }));
     await page.route('http://localhost/portal/agent-reward-workflow**',async r=>{
       const u=new URL(r.request().url()),action=u.searchParams.get('action')||'state';
@@ -206,8 +212,11 @@ function fixtureOwnerAct({profit=1980,reward=Math.round(Math.max(0,profit)*5)/10
       createsPayable:false,signingAuthority:false,
       rewardStatus:'OWNER_DS1_SHIPMENT_MARGIN_SAVED_SECTION',
       correctionId:'c1111111-1111-4111-8111-111111111111',correctionVersion:3,
-      currency:'USD',calculation:{
-        income,expenses:expense,actualFinancialResult:profit,taxes:tax,
+      currency:'USD',
+      normalizedSavedPayload:{paymentLineAmounts:{'PAYMENT-1':3000},openSettlementAdjustment:0},
+      calculation:{
+        income,expenses:expense,counterpartyCashOut:3000,
+        actualFinancialResult:profit,taxes:tax,
         netProfit:profit-tax,reward,ronaProfit:profit-tax-reward
       }
     }}
@@ -224,17 +233,42 @@ test('Owner only: 50% positive margin, 0% negative margin, reject cross-deal and
   assert.equal(ownerActCandidate(wrongDeal),false);
   await assert.rejects(()=>ownerSignedActIssue(()=>null,{userId:'different'},row),
     /ACT_OWNER_DIRECT_ISSUE_NOT_AUTHORIZED/);
-  const sql=async(parts)=>{
+  const sql=async(parts,...values)=>{
     const stmt=Array.isArray(parts)?parts.join(' '):String(parts);
     if(stmt.includes('mcp_oauth_tokens'))return[{owner_portal_user_id:row.requested_by}];
     if(stmt.includes('agent_reward_owner_corrections_v1'))return[{
-      id:row.owner_correction_key,created_by:row.requested_by,correction_version:3}];
+      id:row.owner_correction_key,created_by:row.requested_by,correction_version:3,
+      created_at:'2026-10-16T10:00:00Z',
+      corrected_payload:row.source_snapshot.ownerApprovedCalculation.normalizedSavedPayload}];
     if(stmt.includes('agent_reward_deal_addenda_v1'))return[{
       document_id:'AGENCY-S-005-945CF175',
       sha256:'e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab',
       uploaded_by:row.requested_by,linked_by:row.requested_by,
       document_reference:'ДС №1 от 15.07.2026',is_current:true,storage_state:'VERIFIED',
       legal_name:'Общество с ограниченной ответственностью «ИнКом»'}];
+    if(stmt.includes('payment_resource_chains_effective_v8'))
+      return[{payment_id:'PAYMENT-1',counterparty_name:'Подтверждённый поставщик',
+        accounting_currency:'USD',accounting_amount:3000}];
+    if(stmt.includes('ai_coordination_records')){
+      if(values.includes('agent_rewards.fact.accrual_basis_v1'))
+        return[{record_id:'FINANCE-FEES-QA',payload:{expense_lines:[{
+          key:'ACCRUAL:BANK:QA_FEE',category:'BANK_FEE',
+          label:'Банковская комиссия QA',accounting_amount:20,
+          accounting_currency:'USD'}]}}];
+      if(values.includes('agent_rewards.owner.actual_result_bridge_v1'))
+        return[{record_id:'FINANCE-BRIDGE-QA',payload:{open_settlement_adjustment:{
+          amount:0,currency:'USD',components:[
+            {type:'CLIENT_ADVANCE_EXCESS',counterparty:'Покупатель QA',
+              reporting_amount:-5,reporting_currency:'USD',
+              native_balance:5,native_currency:'USD'},
+            {type:'TRADE_RECEIVABLE_OVERPAYMENT',counterparty:'Поставщик QA',
+              reporting_amount:5,reporting_currency:'USD',
+              native_balance:5,native_currency:'USD'}
+          ]
+        }}}];
+    }
+    if(stmt.includes('owner_deal_finance_summary'))
+      return[{received_amount:5000,currency:'USD',client_name:'Покупатель QA'}];
     throw Error('unexpected query: '+stmt.slice(0,140));
   };
   const ready=await ownerSignedActIssue(sql,{userId:row.requested_by},row);
@@ -243,5 +277,8 @@ test('Owner only: 50% positive margin, 0% negative margin, reject cross-deal and
   assert.equal(ready.dealId,'DEAL-2026-004');
   assert.equal(ready.createsPayable,false);
   assert.equal(ready.signatureScope,'PRINCIPAL_ONLY__AGENT_NOT_SIGNED');
+  assert.equal(ready.financialAppendix.contract,'RONA_ACT_APPENDIX_V1');
+  assert.equal(ready.financialAppendix.cashResult,1980);
+  assert.equal(ready.financialAppendix.agentReward,990);
   assert.equal(ready.shipmentMarginSource.basisSourceKind,'OWNER_APPROVED_SECTION');
 });
