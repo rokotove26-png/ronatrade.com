@@ -208,6 +208,74 @@ function ronaActPdfRuntime(){
     if(y>3240)throw new Error('ACT_PDF_APPENDIX_FOOTER_OVERFLOW');
     return canvas;
   }
+  // Generic Appendix 1: certified agency terms, with no invented bank or tax rows.
+  function appendTermsCanvas(input,number,date,deal,letterhead){
+    const a=input||{},mode=String(a.mode||'');
+    if(a.contract!=='RONA_AGENT_ACT_TERMS_APPENDIX_V1'||a.dealId!==deal
+      ||!['FIXED','PERCENT','PER_TONNE'].includes(mode)
+      ||!Number.isInteger(Number(a.correctionVersion))
+      ||!/^[A-Z]{3}$/.test(safe(a.currency))
+      ||!Number.isFinite(a.agentReward)||a.agentReward<0
+      ||!safe(a.sourceRef)||!safe(a.financeConclusionRef)
+      ||!safe(a.legalConclusionRef)||!safe(a.addendumReference)
+      ||!safe(a.correctionId)||a.sourceKind!=='FINANCE_LEGAL_CERTIFIED_NOT_OWNER_PREVIEW')
+      throw new Error('ACT_PDF_CERTIFIED_APPENDIX_SOURCE_MISSING');
+    const numberValue=x=>x==null?null:Number(x);
+    const basis=numberValue(a.basisAmount),rate=numberValue(a.rate);
+    const qty=numberValue(a.quantity);
+    if(mode==='PERCENT'&&(!Number.isFinite(basis)||!Number.isFinite(rate)||rate<0||rate>1))
+      throw new Error('ACT_PDF_CERTIFIED_PERCENT_INVALID');
+    if(mode==='PER_TONNE'&&(!Number.isFinite(qty)||qty<0||!Number.isFinite(rate)||rate<0))
+      throw new Error('ACT_PDF_CERTIFIED_QUANTITY_INVALID');
+    const round=x=>Math.round((x+Number.EPSILON)*100)/100;
+    let expected=mode==='PERCENT'?Math.max(0,basis)*rate:
+      mode==='PER_TONNE'?qty*rate:a.agentReward;
+    if(a.exchangeRate!=null){
+      if(!Number.isFinite(Number(a.exchangeRate))||Number(a.exchangeRate)<=0
+        ||!safe(a.exchangeSourceRef))
+        throw new Error('ACT_PDF_CERTIFIED_FX_INVALID');
+      expected*=Number(a.exchangeRate);
+    }else if(mode==='PERCENT'&&a.basisCurrency!==a.currency){
+      throw new Error('ACT_PDF_CERTIFIED_FX_SOURCE_MISSING');
+    }
+    if(Math.abs(round(expected)-round(a.agentReward))>.011)
+      throw new Error('ACT_PDF_CERTIFIED_APPENDIX_AMOUNT_MISMATCH');
+    const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
+    const ctx=canvas.getContext('2d',{alpha:false});
+    if(!ctx)throw new Error('ACT_PDF_CERTIFIED_APPENDIX_CANVAS_UNAVAILABLE');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.drawImage(letterhead,0,0,W,H);
+    center(ctx,'ПРИЛОЖЕНИЕ № 1',566,62,true);
+    center(ctx,'к Акту выполненных работ № '+number,635,41,true);
+    center(ctx,'от '+date+' · сделка '+deal,693,37,false);
+    center(ctx,'РАСЧЁТ АГЕНТСКОГО ВОЗНАГРАЖДЕНИЯ',806,45,true);
+    ctx.strokeStyle='#a4abb2';ctx.lineWidth=2;line(ctx,LEFT,850,RIGHT,850);
+    let y=930;
+    const field=(label,value,strong=false)=>{
+      y=paragraph(ctx,label,LEFT+20,y,WIDTH-40,{size:31,bold:true,lineHeight:42,after:4});
+      y=paragraph(ctx,value,LEFT+20,y+8,WIDTH-40,
+        {size:strong?44:36,bold:strong,lineHeight:48,after:28});
+      ctx.strokeStyle='#cdd4da';line(ctx,LEFT,y,RIGHT,y);y+=30;
+      if(y>3140)throw new Error('ACT_PDF_CERTIFIED_APPENDIX_PAGE_OVERFLOW');
+    };
+    field('Подписанное ДС',safe(a.addendumReference));
+    field('Согласованный способ расчёта',mode==='FIXED'?'Фиксированная сумма':
+      mode==='PERCENT'?'Процент от подтверждённой базы':'Тариф за подтверждённую тонну');
+    if(mode==='PERCENT'){
+      field('Подтверждённая база '+safe(a.basisType),fmtMoney(basis,a.basisCurrency));
+      field('Доля агента',String(rate*100)+' %');
+    }else if(mode==='PER_TONNE'){
+      field('Количество и ставка',String(qty)+' т x '+fmtMoney(rate,a.currency)+'/т');
+    }
+    if(a.exchangeRate!=null)
+      field('Курс конвертации и источник',String(a.exchangeRate)+'; '+safe(a.exchangeSourceRef));
+    field('Вознаграждение к утверждению',fmtMoney(a.agentReward,a.currency),true);
+    field('Финансовый источник',safe(a.sourceRef));
+    field('Подтверждения Finance / Legal',
+      safe(a.financeConclusionRef)+' / '+safe(a.legalConclusionRef));
+    field('Сохранённая корректировка',
+      '№ '+a.correctionVersion+' · '+safe(a.correctionId));
+    return canvas;
+  }
   async function render(data,requestId){
     if(!/^[0-9a-f-]{36}$/i.test(safe(requestId)))throw new Error('ACT_PDF_REQUEST_ID_INVALID');
     const d=data||{},number=needed(d.documentNumber,'DOCUMENT_NUMBER'),
