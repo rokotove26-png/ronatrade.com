@@ -66,14 +66,26 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
  // to skip the intermediate print-draft only after full, authoritative source checks.
  let form:FormData;try{form=await req.formData()}catch{deny('INVALID_MULTIPART',400)}
  const canonicalAutomatic=stage==='OWNER_SIGNED'&&String(form!.get('canonicalAutomaticIssue'))==='true';
- if(stage!=='FINANCE_LEGAL_DRAFT'&&!reviews.approved)deny('FINANCE_LEGAL_ACT_REVIEW_REQUIRED');
+ const ownerDirect=canonicalAutomatic&&ownerActCandidate(row);
+ if(stage!=='FINANCE_LEGAL_DRAFT'&&!ownerDirect&&!reviews.approved)
+   deny('FINANCE_LEGAL_ACT_REVIEW_REQUIRED');
  if(stage==='FINANCE_LEGAL_DRAFT'&&!['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW'].includes(row.request_status))
    deny('ACT_DRAFT_WRONG_STAGE');
  if(canonicalAutomatic){
    if(form!.get('ownerConfirmsSigning')!=='true'||form!.get('ownerConfirmsFacsimile')!=='true')
      deny('ACT_OWNER_SIGNING_ATTESTATION_REQUIRED',400);
    if(String(row.requested_by)!==String(ctx.userId))deny('ACT_OWNER_IDENTITY_REQUIRED',403);
-   await approvedActIssue(sql,ctx,String(row.id));
+   const issued=await approvedActIssue(sql,ctx,String(row.id));
+   if(ownerDirect){
+     const proof=await sql`select event_id from portal_private.audit_events
+       where actor_user_id=${ctx.userId}::uuid
+         and entity_type='DEAL' and entity_id=${row.deal_id}
+         and action='AGENT_ACT_CANONICAL_FACSIMILE_RENDER_AUTHORIZED'
+         and metadata->>'documentNumber'=${issued.documentNumber}
+         and metadata->>'facsimileRef'=${issued.facsimileAuthorizationRef}
+       order by event_at desc limit 1`;
+     if(proof.length!==1)deny('ACT_OWNER_DIRECT_ISSUE_NOT_AUTHORIZED',403);
+   }
  }else if(stage==='OWNER_SIGNED'&&(row.request_status!=='DRAFT_READY'||!await stageExists(sql,row.id,'FINANCE_LEGAL_DRAFT')))
    deny('FINANCE_LEGAL_DRAFT_REQUIRED');
  if(stage==='BOTH_SIGNED'&&(!['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'].includes(row.request_status)
@@ -175,9 +187,13 @@ async function download(req:Request,sql:any,service:any,ctx:any,row:any,id:strin
  await audit(sql,ctx,req,'AGENT_ACT_PDF_DOWNLOADED',row,{documentId:id,agent,expiresIn:120});
  return{documentId:id,filename:doc.filename,url:data.signedUrl,expiresIn:120}
 }
+import {ownerActCandidate,ownerSignedActIssue} from './owner-signed-act.ts';
 // Owner-authorized graphic facsimile is not a qualified electronic signature.
 export async function approvedActIssue(sql:any,ctx:any,id:string){
  const row=await rowFor(sql,id);
+ // Exact source-locked Owner Save has its own business signature authority;
+ // this does NOT create payable or counterfeit Finance/Legal conclusions.
+ if(ownerActCandidate(row))return await ownerSignedActIssue(sql,ctx,row);
  if(String(row.requested_by)!==String(ctx.userId))deny('ACT_OWNER_IDENTITY_REQUIRED',403);
  const owners=await sql`select distinct owner_portal_user_id from portal_private.mcp_oauth_tokens
    where owner_portal_user_id is not null limit 2`;

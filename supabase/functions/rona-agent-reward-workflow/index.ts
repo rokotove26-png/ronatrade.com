@@ -2,6 +2,7 @@
 // Administrative document evidence only: never mutates deal terms, payables,
 // representative identities, or a signed agreement's legal approval state.
 import {adminActAction,actFiles,reviewState,agentInbox,agentDownload,approvedActIssue} from "./acts.ts";
+import {ownerActCandidate,checkedOwnerActAmounts} from './owner-signed-act.ts';
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
 
@@ -202,7 +203,14 @@ async function list(s:any){
      if(!f.approvedCurrency||String(f.approvedCurrency)!=='RUB')
        missing.push('DS1_RUB_PAYMENT_CONDITION_REQUIRED');
    }
-   enriched.push({...a,review,documents:files,
+   let ownerSignReady=false;
+   if(shipmentMarginDs1SourceMatched&&ownerApprovedByUpload
+      &&correction&&String(correction.id)===String(a.owner_correction_key)
+      &&ownerActCandidate({...a,deal_id:s.deal_id})){
+     try{checkedOwnerActAmounts({...a,deal_id:s.deal_id});ownerSignReady=true}
+     catch{ownerSignReady=false}
+   }
+   enriched.push({...a,review,documents:files,ownerSignReady,
      ownerCalculationStored:a.source_snapshot?.ownerApprovedCalculation?.contract==='OWNER_SECTION_SAVED_CALCULATION_V1',
      ownerCalculationVersion:a.source_snapshot?.ownerApprovedCalculation?.correctionVersion??null,
      readiness:{

@@ -111,10 +111,14 @@ function ronaActPdfRuntime(){
     if(d.dealId==='DEAL-2026-004'){
       const m=d.shipmentMarginSource||{},margin=Number(m.margin),
         exchange=m.exchangeRate==null?1:Number(m.exchangeRate);
+      const ownerManagement=m.basisSourceKind==='OWNER_APPROVED_SECTION'
+        &&/^[0-9a-f-]{36}$/i.test(safe(m.ownerCorrectionId))
+        &&Number.isInteger(Number(m.ownerCorrectionVersion));
       if(m.basis!=='SHIPMENT_MARGIN'||Number(m.rate)!==0.5
-        ||!Number.isFinite(margin)||margin<0||!Number.isFinite(exchange)||exchange<=0
-        ||!safe(m.marginCurrency)||!safe(m.factoryDocumentRef)||!safe(m.guDocumentRef)
-        ||Math.abs(Math.round(margin*0.5*exchange*100)/100-amount)>0.011)
+        ||!Number.isFinite(margin)||!Number.isFinite(exchange)||exchange<=0
+        ||!safe(m.marginCurrency)
+        ||(!ownerManagement&&(!safe(m.factoryDocumentRef)||!safe(m.guDocumentRef)))
+        ||Math.abs(Math.round(Math.max(0,margin)*0.5*exchange*100)/100-amount)>0.111)
         throw new Error('ACT_PDF_SHIPMENT_MARGIN_SOURCE_REQUIRED');
     }
     const assets=await Promise.all([
@@ -157,9 +161,15 @@ function ronaActPdfRuntime(){
       y=paragraph(ctx,'Основа расчёта: подтверждённая маржа Принципала по поставке — '+
         displayMargin+' '+safe(m.marginCurrency)+'. Доля агента по ДС: 50%.',
         LEFT,y,WIDTH,{size:39,lineHeight:52,after:18});
-      y=paragraph(ctx,'Основания расчёта: документы завода '+safe(m.factoryDocumentRef)+
-        '; ГУ '+safe(m.guDocumentRef)+'.',LEFT,y,WIDTH,
-        {size:33,lineHeight:44,after:18});
+      if(m.basisSourceKind==='OWNER_APPROVED_SECTION'){
+        y=paragraph(ctx,'Основание суммы: утверждённый расчёт владельца по корректировке №'+
+          safe(m.ownerCorrectionVersion)+'.',LEFT,y,WIDTH,
+          {size:33,lineHeight:44,after:18});
+      }else{
+        y=paragraph(ctx,'Основания расчёта: документы завода '+safe(m.factoryDocumentRef)+
+          '; ГУ '+safe(m.guDocumentRef)+'.',LEFT,y,WIDTH,
+          {size:33,lineHeight:44,after:18});
+      }
       y=paragraph(ctx,'Оплата агентского вознаграждения в российских рублях по курсу ЦБ РФ '+
         'на дату фактической оплаты.',LEFT,y,WIDTH,{size:33,lineHeight:44,after:22});
     }
@@ -187,7 +197,7 @@ function ronaActPdfRuntime(){
     return {blob:makePdf(canvas),filename:'RONA_Act_'+safe(deal).replace(/[^A-Za-z0-9_-]/g,'_')+
       '_'+safe(number).replace(/[^A-Za-z0-9_-]/g,'_')+'.pdf'};
   }
-  window.RONA_AGENT_ACT_PDF_ENGINE=Object.freeze({render,version:'v3-shipment-margin-source-locked'});
+  window.RONA_AGENT_ACT_PDF_ENGINE=Object.freeze({render,version:'v4-owner-saved-margin-oneclick'});
 }
 const SCRIPT='('+ronaActPdfRuntime.toString()+')();';
 export async function onRequest(){

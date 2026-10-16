@@ -295,7 +295,7 @@ test('Agent reward remains fail-closed without a calculable confirmed basis',()=
   assert.match(ui,/function validTerm\(deal\)/);
   assert.match(ui,/Math\.max\(0,basis\)\*num\(t\.rate\)/);
   assert.match(ui,/basisValue:netProfit/);
-  assert.match(ui,/const reward=managementAgentReward\(deal,pnl\.netProfit\)/);
+  assert.match(ui,/const reward=managementAgentReward\(deal,ownerSignedDs1ForManagement\(deal\)\?pnl\.preTaxProfit:pnl\.netProfit\)/);
   assert.match(ui,/return num\(netProfit\)===null/);
 });
 
@@ -327,7 +327,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Подтверждённые денежные операции/);
   assert.match(ui,/Подтверждённые денежные поступления/);
   assert.match(ui,/factManagementModel\(deal,m\)/);
-  assert.match(ui,/managementAgentReward\(deal,pnl\.netProfit\)/);
+  assert.match(ui,/managementAgentReward\(deal,ownerSignedDs1ForManagement\(deal\)\?pnl\.preTaxProfit:pnl\.netProfit\)/);
   assert.match(ui,/taxStatus:pnl\.status/);
   assert.match(ui,/sourceAgentReward:num\(p\.agentReward\)/);
   assert.match(ui,/Сохранить корректировку/);
@@ -454,7 +454,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/base\.bridgeApproved&&fact\.approved&&correctionApproved/);
   assert.match(ui,/function ownerAgentReward\(deal,netProfit\)/);
   assert.match(ui,/const basis=num\(netProfit\)/);
-  assert.match(ui,/ownerAgentReward\(deal,pnl\.netProfit\)/);
+  assert.match(ui,/ownerAgentReward\(deal,ownerSignedDs1ForManagement\(deal\)\?pnl\.preTaxProfit:pnl\.netProfit\)/);
   assert.match(ui,/INTERNAL_NET_PROFIT_BASIS_EXTERNAL_FX_TERM_REVIEW_REQUIRED/);
   assert.match(ui,/Корректировка расходов \(доходов\)/);
   assert.match(ui,/Прибыль до налогообложения/);
@@ -616,6 +616,10 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.doesNotMatch(agentActEdge,/VERIFIED_AFTER_TAX_NET_PROFIT_REQUIRED/);
   assert.match(agentActEdge,/externalPayableApproved:false/);
 
+  assert.match(agentActStages,/ACT_OWNER_DIRECT_ISSUE_NOT_AUTHORIZED/);
+  assert.match(agentActStages,/ownerActCandidate/);
+  assert.match(ui,/OWNER_DS1_SHIPMENT_MARGIN_SAVED_SECTION/);
+  assert.match(agentActEdge,/ownerSignReady/);
   assert.match(agentActStages,/FINANCE_LEGAL_ACT_REVIEW_REQUIRED/);
   assert.match(agentActStages,/AGENT_PORTAL_RECIPIENT_NOT_ACTIVE/);
   assert.match(agentActStages,/ACT_CORRECTION_OUTDATED|OWNER_CORRECTION_SUPERSEDED/);
@@ -623,7 +627,7 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(agentActStages,/BOTH_SIGNED/);
   assert.match(agentActStages,/AGENT_PORTAL_INBOX/);
   // Owner 2026-10-15: Agent LK/delivery deferred; Admin draft and offline signed return only.
-  assert.match(agentActStages,/stage!=='FINANCE_LEGAL_DRAFT'\&\&!reviews\.approved/);
+  assert.match(agentActStages,/stage!=='FINANCE_LEGAL_DRAFT'\&\&!ownerDirect\&\&!reviews\.approved/);
   assert.match(agentActStages,/\['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'\]\.includes\(row\.request_status\)/);
   assert.match(agentActStages,/ACT_STAGE_CHANGED/);
   assert.match(agentActStages,/AGENT_PORTAL_INBOX_UI_NOT_DEPLOYED/);
