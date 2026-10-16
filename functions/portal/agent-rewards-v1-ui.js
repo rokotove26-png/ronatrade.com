@@ -1442,9 +1442,21 @@ async function issueFromSavedOwnerCorrection(deal,button){
     const model=ownerModel(deal,fact);
     if(model.netProfit===null||(ownerSignedDs1ForManagement(deal)&&model.reward?.value===null))
       throw new Error('Расчёт агентского вознаграждения по ДС не завершён');
+    let ownerReward=model.reward?.value;
+    if(ownerReward===null&&deal.dealId!=='DEAL-2026-004'){
+      const entered=window.prompt('Укажите сумму вознаграждения, утверждаемую владельцем по подписанному ДС ('+
+        currencyOf(deal)+'). Это не поручение на оплату.','');
+      if(entered===null)throw new Error('Сумма агентского вознаграждения не утверждена');
+      ownerReward=num(String(entered).trim().replace(',','.'));
+      if(ownerReward===null||ownerReward<0||ownerReward>1e13)
+        throw new Error('Введите корректную сумму по подписанному ДС');
+      ownerReward=round1(ownerReward);
+    }
     const approved=ownerActSavedCalculation(deal,{
-      ...model,reward:model.reward.value,rewardStatus:model.reward.status,
-      agentBasis:model.reward.basis
+      ...model,reward:ownerReward,
+      ronaProfit:model.netProfit-ownerReward,
+      rewardStatus:model.reward?.value===null?'OWNER_APPROVED_SIGNED_DS_AMOUNT':model.reward.status,
+      agentBasis:model.reward?.basis
     },currencyOf(deal),{
       version:saved.version,dealId:deal.dealId,assignmentId:deal.assignmentId,
       correctedPayload:saved.payload
