@@ -91,21 +91,21 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
   try{
     const page=await browser.newPage({viewport:{width:1440,height:920},acceptDownloads:true});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
-    await page.route('http://rona.docs/portal/admin',r=>r.fulfill({status:200,
+    await page.route('http://localhost/portal/admin',r=>r.fulfill({status:200,
       contentType:'text/html',body:'<!doctype html><html lang="ru"><head><meta charset="utf-8"></head><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
-    await page.route('http://rona.docs/portal/owner-api**',async r=>{
+    await page.route('http://localhost/portal/owner-api**',async r=>{
       if(r.request().method()==='POST')actions.push('save');
       await r.fulfill({status:200,contentType:'application/json',
         body:JSON.stringify({ok:true,data:{deals:[deal]}})});
     });
-    await page.route('http://rona.docs/portal/agent-reward-act-pdf-engine',r=>r.fulfill({
+    await page.route('http://localhost/portal/agent-reward-act-pdf-engine',r=>r.fulfill({
       status:200,contentType:'application/javascript',
       body:'window.RONA_AGENT_ACT_PDF_ENGINE={render:async function(data,id){if(id!=="'+requestId+'")throw Error("wrong request");'+
         'if(data.dealId!=="'+dealId+'")throw Error("wrong deal");'+
         'return {blob:new Blob(['+JSON.stringify(pdfBytes)+'],{type:"application/pdf"}),'+
         'filename:"RONA_Act_DEAL-2026-004_ACT-QA-001.pdf"}}};'
     }));
-    await page.route('http://rona.docs/portal/agent-reward-workflow**',async r=>{
+    await page.route('http://localhost/portal/agent-reward-workflow**',async r=>{
       const u=new URL(r.request().url()),action=u.searchParams.get('action')||'state';
       let data=doc;
       if(action==='request-act'){
@@ -138,14 +138,18 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
       }
       await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data})});
     });
-    await page.goto('http://rona.docs/portal/admin');
+    await page.goto('http://localhost/portal/admin');
     await page.addScriptTag({content:script});
     await page.locator('.rona-ar-documents').getByText('ДС загружено и привязано к сделке')
       .waitFor({timeout:12000});
     assert.equal(await page.getByRole('button',{name:'Подготовить акт'}).count(),0);
     assert.equal(await page.getByRole('button',{name:'Акт выполненных работ',exact:true}).count(),0);
     const button=page.locator('.rona-ar-col.owner').getByRole('button',{name:'Сохранить корректировку'});
-    const [download]=await Promise.all([page.waitForEvent('download',{timeout:15000}),button.click()]);
+    let download;
+    try{[download]=await Promise.all([page.waitForEvent('download',{timeout:15000}),button.click()])}
+    catch(e){throw new Error(String(e.message||e)+'; actual_sequence='+JSON.stringify(actions)+
+      '; browser_errors='+JSON.stringify(errors)+
+      '; dialog='+JSON.stringify(await page.locator('.rona-admin-dialog-backdrop').allInnerTexts()))}
     assert.equal(download.suggestedFilename(),'RONA_Act_DEAL-2026-004_ACT-QA-001.pdf');
     assert.equal(await download.failure(),null);
     assert.deepEqual(actions,['save','request-act','final-act','upload-act','download-act']);
