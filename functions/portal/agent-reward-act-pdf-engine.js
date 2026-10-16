@@ -117,7 +117,7 @@ function ronaActPdfRuntime(){
       if(m.basis!=='SHIPMENT_MARGIN'||Number(m.rate)!==0.5
         ||!Number.isFinite(margin)||!Number.isFinite(exchange)||exchange<=0
         ||!safe(m.marginCurrency)
-        ||(!ownerManagement&&(!safe(m.factoryDocumentRef)||!safe(m.guReturnDocumentRef)))
+        ||(!ownerManagement&&(!safe(m.factoryDocumentRef)||!safe(m.guDocumentRef)))
         ||Math.abs(Math.round(Math.max(0,margin)*0.5*exchange*100)/100-amount)>0.111)
         throw new Error('ACT_PDF_SHIPMENT_MARGIN_SOURCE_REQUIRED');
     }
