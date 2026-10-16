@@ -77,7 +77,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
     +'</body></html>';
   const browser=await chromium.launch({headless:true});
   try{
-    for(const width of [1750,1440,950,650]){
+    for(const width of [1920,1440,1280,1100,950,650]){
       deal.cashFlow.realizedFxReference=width===950?-10:10;
       deal.agentTerm=width===650
         ?{mode:'FIXED',status:'ACTIVE',lifecycleState:'ACTIVE',authorityState:'CONFIRMED',fixedAmount:400,currency:'USD'}
@@ -219,7 +219,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
           fxAmount:fxValue?.textContent,fxColor:fxValue?getComputedStyle(fxValue).color:null,
           fxMeaning:fx?.querySelector('.rona-ar-fx-label')?.textContent,
           fxNote:fx?.querySelector('.rona-ar-fx-description')?.textContent,
-          fxPrecedesTables:!!fx&&!!fx.nextElementSibling?.classList.contains('rona-ar-pnl-grid'),
+          fxPrecedesTables:!!fx&&!!root.querySelector('.rona-ar-scenarios')&&!!(fx.compareDocumentPosition(root.querySelector('.rona-ar-scenarios')) & Node.DOCUMENT_POSITION_FOLLOWING),
           fxAfterPulse:!!fx&&!!fx.previousElementSibling?.classList.contains('rona-ar-pulse'),
           fxInsideTables:root.querySelectorAll('.rona-ar-pnl-grid [data-rona-ar-fx-reference]').length,
           fxRows:fxTableRows.length,
@@ -344,9 +344,27 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
       assert.equal(result.colors.planRevenue,'rgb(169, 209, 253)','Planned income = blue, not confirmed green at '+width);
       assert.equal(result.colors.factResult,'rgb(133, 237, 198)','Positive cash result = green at '+width);
       assert(result.width<=width+1,'Root panel must fit browser viewport');
-      if(width>=1600)assert(result.columns[1].x>result.columns[0].x,'Wide view: 3 comparable columns');
-      if(width>=1070&&width<=1550)assert(result.columns[2].y>result.columns[0].y,'Medium view: owner receives readable second row');
-      if(width<1070)assert(result.columns[1].y>result.columns[0].y,'Narrow view: one column');
+
+      // V2 compares three source-locked scenarios side by side, but details are full width.
+      assert.equal(await page.locator('.rona-ar-scenarios-table thead th').count(),4,'Four comparison columns at '+width);
+      assert.equal(await page.locator('.rona-ar-scenarios-table tbody tr').count(),7,'Seven financial rows at '+width);
+      assert.equal(await page.locator('.rona-ar-precision .rona-ar-col:not([hidden])').count(),1,'One visible detail at '+width);
+      assert.equal(await page.locator('.rona-ar-col.owner').isVisible(),true,'Owner is default editor at '+width);
+      assert.equal(await page.locator('.rona-ar-col.plan').isVisible(),false);
+      assert.equal(await page.locator('.rona-ar-col.fact').isVisible(),false);
+      const comparisonText=await page.locator('.rona-ar-scenarios-table').textContent();
+      assert.match(comparisonText,/1 800,0 USD/,'PLAN results retained at '+width);
+      assert.match(comparisonText,/1 782,0 USD/,'FACT results retained at '+width);
+      if(width===1440||width===1100){
+        const tabs=page.locator('.rona-ar-scenario-switch');
+        await tabs.getByRole('button',{name:'01 · План'}).click();
+        assert.equal(await page.locator('.rona-ar-col.plan').isVisible(),true);
+        assert.equal(await page.locator('.rona-ar-col.owner').isVisible(),false);
+        await tabs.getByRole('button',{name:'02 · ДДС'}).click();
+        assert.equal(await page.locator('.rona-ar-col.fact').isVisible(),true);
+        await tabs.getByRole('button',{name:'03 · Собственник'}).click();
+        assert.equal(await page.locator('.rona-ar-col.owner').isVisible(),true);
+      }
       const detailsButton=page.locator('.rona-ar-col.owner .rona-ar-owner-adjustment .rona-ar-details-btn');
       const settlementDialog=page.locator('.rona-ar-settlement-dialog');
       await detailsButton.click();
@@ -406,6 +424,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
           'Agent KPI uses matching OWNER after-tax basis');
         assert.equal(await page.locator('.rona-ar-cascade-row.final .rona-ar-cascade-value').textContent(),'+1 441,8 USD',
           'Financial cascade tracks the same unsaved OWNER draft as management KPI');
+        assert.equal(await page.locator('[data-rona-owner-scenario="netProfit"]').textContent(),'+1 602,0 USD','Unsaved positive edit updates compare table');
         assert.equal(await page.locator('.rona-ar-compare-cell.delta .rona-ar-compare-value').textContent(),'-198,0 USD',
           'Owner-versus-plan comparison is live and does not create an external payable');
         await adjust.fill('-50');
@@ -427,6 +446,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
           'Negative adjustment must update OWNER net profit KPI immediately');
         assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'182,7 USD',
           'Corrected OWNER basis must update agent KPI');
+        assert.equal(await page.locator('[data-rona-owner-scenario="netProfit"]').textContent(),'+1 827,0 USD','Unsaved negative edit updates compare table');
         // Previously saved +125 source means income; it must display -125
         // without changing the approved source amount or recalculated profit.
         deal.ownerCorrection={
@@ -528,7 +548,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         deal.cashFlow.cashReceived=oldCash;
         deal.cashFlow.netCashFlow=oldDds;
       }
-      if(width===1750){
+      if(width===1920){
         const second=structuredClone(deal);
         second.assignmentId='VISUAL-QA-SECOND';
         second.dealId='VISUAL-QA-SECOND-DEAL';
@@ -538,6 +558,12 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         data.data.deals.push(second);
         await page.evaluate(()=>window.__RONA_AGENT_REWARDS_FINANCE_REFRESH__());
         assert.equal(await page.locator('.rona-ar-deal').count(),2,'Real sidebar must list both scoped deals');
+        const dealSearch=page.locator('.rona-ar-search');
+        await dealSearch.fill('Второй контрагент');
+        assert.equal(await page.locator('.rona-ar-deal:visible').count(),1,'Search filters clients');
+        assert.equal(await page.locator('.rona-ar-deal:visible').first().getAttribute('data-rona-ar-deal-select'),'VISUAL-QA-SECOND::VISUAL-QA-SECOND-DEAL');
+        await dealSearch.fill('');
+        assert.equal(await page.locator('.rona-ar-deal:visible').count(),2);
         assert.equal(await page.locator('.rona-ar-deal[aria-pressed="true"]').count(),1);
         await page.locator('[data-rona-ar-deal-select="VISUAL-QA-SECOND::VISUAL-QA-SECOND-DEAL"]').click();
         assert.equal(await page.locator('.rona-ar-focus-title').textContent(),'Второй контрагент');
@@ -673,4 +699,22 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       await page.close()
     }
   }finally{await browser.close()}
+});
+
+
+test('Owner Finance Console v2 compares source-locked scenarios with live OWNER preview and accessible detail',async()=>{
+  const js=await(await onRequest()).text();
+  for(const phrase of [
+    'function scenarioComparisonRows(deal,ownerDraft=null)',
+    'function renderScenarioComparison(root,deal)',
+    'function updateScenarioComparisonForDraft(col,deal,draft)',
+    'updateScenarioComparisonForDraft(col,deal,preview)',
+    'renderScenarioDetails(root,grid)',
+    'function installAgentRewardsRefinedStyle()',
+    "const searchField=el('label','rona-ar-search-field')",
+    "root.dataset.ronaAgentRewardsConsole='owner-finance-v2'",
+    'Сравнение финансовых сценариев выбранной сделки'
+  ])assert.ok(js.includes(phrase),'Missing '+phrase);
+  assert.ok(js.includes('p=planModel(deal),f=cashFactModel(deal),fp=factManagementModel(deal,f)'));
+  assert.ok(js.includes('state.searchQuery=search.value'));
 });
