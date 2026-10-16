@@ -225,7 +225,7 @@ function ronaActPdfRuntime(){
     const qty=numberValue(a.quantity);
     if(mode==='FIXED'&&(!Number.isFinite(basis)||basis<0))
       throw new Error('ACT_PDF_CERTIFIED_FIXED_INVALID');
-    if(mode==='PERCENT'&&(!Number.isFinite(basis)||!Number.isFinite(rate)||rate<0||rate>1))
+    if(mode==='PERCENT'&&(!Number.isFinite(basis)||!Number.isFinite(rate)||rate<0||rate>1||(basis<0&&a.approvedBasisSignPolicy!=='POSITIVE_ONLY')))
       throw new Error('ACT_PDF_CERTIFIED_PERCENT_INVALID');
     if(mode==='PER_TONNE'&&(!Number.isFinite(qty)||qty<0||!Number.isFinite(rate)||rate<0))
       throw new Error('ACT_PDF_CERTIFIED_QUANTITY_INVALID');
