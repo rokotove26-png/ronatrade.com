@@ -215,7 +215,8 @@ function fixtureOwnerAct({profit=1980,reward=Math.round(Math.max(0,profit)*5)/10
       currency:'USD',
       normalizedSavedPayload:{paymentLineAmounts:{'PAYMENT-1':3000},openSettlementAdjustment:0},
       calculation:{
-        income,expenses:expense,actualFinancialResult:profit,taxes:tax,
+        income,expenses:expense,counterpartyCashOut:3000,
+        actualFinancialResult:profit,taxes:tax,
         netProfit:profit-tax,reward,ronaProfit:profit-tax-reward
       }
     }}
