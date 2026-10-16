@@ -1340,7 +1340,7 @@ function ownerActSavedCalculation(deal,model,currency,saved){
     agentRewardStatus:String(model.rewardStatus||''),
     agentBasisStatus:String(model.agentBasis||''),
     sourceKind:'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE',
-    ownerActDeclaration:deal.dealId==='DEAL-2026-004'?null:
+    ownerActDeclaration:ownerSignedDs1ForManagement(deal)?null:
       ownerActDeclaration(deal,model,currency),
   })
 }
@@ -1449,7 +1449,7 @@ async function issueFromSavedOwnerCorrection(deal,button){
     if(model.netProfit===null||(ownerSignedDs1ForManagement(deal)&&model.reward?.value===null))
       throw new Error('Расчёт агентского вознаграждения по ДС не завершён');
     let ownerReward=model.reward?.value;
-    if(ownerReward===null&&deal.dealId!=='DEAL-2026-004'){
+    if(ownerReward===null&&!ownerSignedDs1ForManagement(deal)){
       const entered=window.prompt('Укажите сумму вознаграждения, утверждаемую владельцем по подписанному ДС ('+
         currencyOf(deal)+'). Это не поручение на оплату.','');
       if(entered===null)throw new Error('Сумма агентского вознаграждения не утверждена');
@@ -1458,7 +1458,7 @@ async function issueFromSavedOwnerCorrection(deal,button){
         throw new Error('Введите корректную сумму по подписанному ДС');
       ownerReward=round1(ownerReward);
     }
-    if(deal.dealId!=='DEAL-2026-004'&&!ownerActDeclaration(deal,{reward:ownerReward},currencyOf(deal)))
+    if(!ownerSignedDs1ForManagement(deal)&&!ownerActDeclaration(deal,{reward:ownerReward},currencyOf(deal)))
       throw new Error('Не загружено подтверждённое владельцем подписанное ДС этой сделки. Акт не выпускается.');
     const approved=ownerActSavedCalculation(deal,{
       ...model,reward:ownerReward,
