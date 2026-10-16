@@ -348,7 +348,7 @@ function ownerSignedDs1ForManagement(deal){
     ||String(docs?.dealId)!==String(deal?.dealId)
     ||String(docs?.assignmentId)!==String(deal?.assignmentId)
     ||addendum?.ownerApprovedByUpload!==true
-    ||!/^ДС\\s*№\\s*1\\b/i.test(String(addendum.reference||''))
+    ||!/^ДС\s*№\s*1\b/i.test(String(addendum.reference||''))
     ||term?.status!=='OWNER_APPROVED_SOURCE_ONLY'
     ||term?.basis!=='NET_PROFIT_AFTER_TAX'
     ||upper(term?.mode)!=='PERCENT'
