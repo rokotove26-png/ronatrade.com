@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261016-agent-rewards-owner-saved-act-recovery-v4';
+const VERSION='20261016-agent-rewards-generic-certified-act-v1';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='premium-fintech-v2';
@@ -1382,7 +1382,7 @@ async function saveCorrectionAndDownloadSignedAct(deal,ownerApprovedCalculation)
   const pdf=await engine.render(issued,id);
   if(pdf.blob?.type!=='application/pdf'||pdf.blob.size<5000)
     throw new Error('ACT_PDF_RENDER_FAILED');
-  if(issued.sourceMode==='OWNER_SIGNED_SECTION_NOT_FINANCE_PAYABLE'&&pdf.pageCount!==2)
+  if(pdf.pageCount!==2)
     throw new Error('ACT_PDF_TWO_PAGES_REQUIRED');
   const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',
     await pdf.blob.arrayBuffer()))).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -1422,7 +1422,7 @@ async function issueFromSavedOwnerCorrection(deal,button){
     if(!fact.approved||!expected.length||expected.some(id=>!Object.hasOwn(recorded,id)))
       throw new Error('Сохранённая корректировка не содержит всех подтверждённых платежей. Сохраните корректировку ещё раз после обновления страницы.');
     const model=ownerModel(deal,fact);
-    if(model.netProfit===null||model.reward?.value===null)
+    if(model.netProfit===null||(ownerSignedDs1ForManagement(deal)&&model.reward?.value===null))
       throw new Error('Расчёт агентского вознаграждения по ДС не завершён');
     const approved=ownerActSavedCalculation(deal,{
       ...model,reward:model.reward.value,rewardStatus:model.reward.status,
@@ -1559,11 +1559,9 @@ function renderActRecord(deal,docs,act){
         .catch(e=>docNotice('Скачивание акта: '+String(e.message||e)))));
   }else{
     card.append(el('div','rona-ar-doc-note','Корректировка №'+act.correction_version+' сохранена.'));
-    if(ownerSignedDs1ForManagement(deal)){
-      const issue=docButton('Сформировать и скачать акт',
-        ()=>void issueFromSavedOwnerCorrection(deal,issue),true);
-      card.append(issue);
-    }
+    const issue=docButton('Сформировать и скачать акт',
+      ()=>void issueFromSavedOwnerCorrection(deal,issue),true);
+    card.append(issue);
   }
   return card
 }
@@ -1638,11 +1636,9 @@ function renderDealDocuments(root,deal){
     r.append(renderActRecord(deal,docs,matchingActs[0]));
   }else if(current&&correction){
     r.append(el('div','rona-ar-doc-note','Корректировка №'+correction.version+' сохранена.'));
-    if(ownerDs1){
-      const issue=docButton('Сформировать и скачать акт',
-        ()=>void issueFromSavedOwnerCorrection(deal,issue),true);
-      r.append(issue);
-    }
+    const issue=docButton('Сформировать и скачать акт',
+      ()=>void issueFromSavedOwnerCorrection(deal,issue),true);
+    r.append(issue);
   }else if(!correction){
     r.append(el('div','rona-ar-doc-note','Сначала сохраните корректировку.'));
   }else{
