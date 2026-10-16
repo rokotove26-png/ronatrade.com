@@ -62,19 +62,23 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
  if(!['FINANCE_LEGAL_DRAFT','OWNER_SIGNED','BOTH_SIGNED'].includes(stage))deny('ACT_STAGE_INVALID',400);
  await assertCurrent(sql,row);
  const reviews=await reviewState(sql,String(row.id));
- // An unsigned working draft can be filed for review. Only post-approval
- // stages require BOTH authoritative functional conclusions.
+ // Manual paths keep their existing gates. Canonical one-click issuance is allowed
+ // to skip the intermediate print-draft only after full, authoritative source checks.
+ let form:FormData;try{form=await req.formData()}catch{deny('INVALID_MULTIPART',400)}
+ const canonicalAutomatic=stage==='OWNER_SIGNED'&&String(form!.get('canonicalAutomaticIssue'))==='true';
  if(stage!=='FINANCE_LEGAL_DRAFT'&&!reviews.approved)deny('FINANCE_LEGAL_ACT_REVIEW_REQUIRED');
  if(stage==='FINANCE_LEGAL_DRAFT'&&!['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW'].includes(row.request_status))
    deny('ACT_DRAFT_WRONG_STAGE');
- if(stage==='OWNER_SIGNED'&&(row.request_status!=='DRAFT_READY'||!await stageExists(sql,row.id,'FINANCE_LEGAL_DRAFT')))
+ if(canonicalAutomatic){
+   if(form!.get('ownerConfirmsSigning')!=='true'||form!.get('ownerConfirmsFacsimile')!=='true')
+     deny('ACT_OWNER_SIGNING_ATTESTATION_REQUIRED',400);
+   if(String(row.requested_by)!==String(ctx.userId))deny('ACT_OWNER_IDENTITY_REQUIRED',403);
+   await approvedActIssue(sql,ctx,String(row.id));
+ }else if(stage==='OWNER_SIGNED'&&(row.request_status!=='DRAFT_READY'||!await stageExists(sql,row.id,'FINANCE_LEGAL_DRAFT')))
    deny('FINANCE_LEGAL_DRAFT_REQUIRED');
- // Owner may register a PDF signed by both parties through the Admin cabinet.
- // No delivery to the unimplemented Agent cabinet is implied or recorded.
  if(stage==='BOTH_SIGNED'&&(!['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'].includes(row.request_status)
     ||!await stageExists(sql,row.id,'OWNER_SIGNED')))
    deny('OWNER_SIGNED_ACT_REQUIRED');
- let form:FormData;try{form=await req.formData()}catch{deny('INVALID_MULTIPART',400)}
  const file=form!.get('file');
  if(!(file instanceof File)||file.size<1||file.size>MAX)deny('PDF_SIZE_INVALID',400);
  const name=String(file.name||'').normalize('NFC').split(/[\\/]/).pop()||'';
@@ -102,7 +106,9 @@ async function uploadAct(req:Request,sql:any,service:any,ctx:any,row:any,stage:s
      const allowed=stage==='FINANCE_LEGAL_DRAFT'
        ? ['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW'].includes(previous)
        :stage==='OWNER_SIGNED'
-         ? previous==='DRAFT_READY'
+         ? (canonicalAutomatic
+           ? ['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW','DRAFT_READY'].includes(previous)
+           : previous==='DRAFT_READY')
          : ['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'].includes(previous);
      if(!allowed)deny('ACT_STAGE_CHANGED');
      const registered=await tx`insert into portal_private.storage_objects(
