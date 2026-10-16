@@ -139,12 +139,12 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
         assert.equal(typeof approved.netProfit,'number');
         assert.equal(typeof approved.income,'number');
         assert.equal(typeof approved.expenses,'number');
-        assert.equal(approved.reward,null,'Unapproved signed DS must not fabricate payable');
+        assert.equal(approved.reward,990,'Owner Save must carry 50% of displayed shipment margin, without creating payable');
         doc.acts=[{id:requestId,owner_correction_key:doc.ownerCorrection.sourceId,
           addendum_key:doc.currentAddendum.bindingId,correction_version:3,
           request_status:'REVIEW_REQUESTED',review:{approved:true},
-          ownerCalculationStored:true,ownerCalculationVersion:3,
-          readiness:{missing:[]},documents:[]}];
+          ownerCalculationStored:true,ownerCalculationVersion:3,ownerSignReady:true,
+          readiness:{missing:['FINANCE_CONCLUSION_REQUIRED','LEGAL_CONCLUSION_REQUIRED']},documents:[]}];
         data={requestId,status:'REVIEW_REQUESTED',ownerCalculationStored:true};
       }else if(action==='final-act'){
         actions.push('final-act');
