@@ -156,7 +156,7 @@ test('Click generates and archives two-page Owner Act on another deal without AI
  try{
    const page=await browser.newPage({acceptDownloads:true});
    const actions=[],errors=[],dialogs=[];
-   page.on('dialog',d=>{dialogs.push(d.message());d.accept(d.type()==='prompt'?'400':undefined)});
+   page.on('dialog',d=>{dialogs.push(d.message());void d.accept(d.type()==='prompt'?'400':undefined).catch(()=>{});});
    page.on('pageerror',e=>errors.push(e.message));
    await page.route('http://localhost/portal/admin',r=>r.fulfill({status:200,
      contentType:'text/html',body:'<!doctype html><html><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
