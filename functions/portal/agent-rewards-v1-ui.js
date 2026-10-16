@@ -1419,8 +1419,12 @@ async function issueFromSavedOwnerCorrection(deal,button){
     const fact=cashFactModel(deal);
     const expected=(fact.paymentLines||[]).flatMap(group=>group.parts.map(part=>part.paymentId));
     const recorded=saved.payload?.paymentLineAmounts||{};
-    if(!fact.approved||!expected.length||expected.some(id=>!Object.hasOwn(recorded,id)))
-      throw new Error('Сохранённая корректировка не содержит всех подтверждённых платежей. Сохраните корректировку ещё раз после обновления страницы.');
+    // Legacy Owner corrections with no changed payment rows can be reissued
+    // only if the server reconstructs their unchanged baseline from Finance V8
+    // and proves it matches the immutable Owner-saved arithmetic.
+    const partial=Object.keys(recorded).length>0&&expected.some(id=>!Object.hasOwn(recorded,id));
+    if(!fact.approved||!expected.length||partial)
+      throw new Error('Сохранённая корректировка содержит неполные данные платежей. Сохраните корректировку ещё раз после обновления страницы.');
     const model=ownerModel(deal,fact);
     if(model.netProfit===null||model.reward?.value===null)
       throw new Error('Расчёт агентского вознаграждения по ДС не завершён');
