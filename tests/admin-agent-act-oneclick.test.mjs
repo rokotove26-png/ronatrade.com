@@ -44,7 +44,7 @@ test('One-click PDF contract preserves canonical source hashes and protected iss
   assert.match(index,/ACT_OWNER_CORRECTION_SNAPSHOT_MISMATCH/);
   assert.match(index,/ACT_OWNER_DISPLAYED_ARITHMETIC_MISMATCH/);
   assert.match(index,/ownerCalculationStored/);
-  assert.match(ui,/import\('\/portal\/agent-reward-act-pdf-engine'\)/);
+  assert.match(ui,/loadAgentActPdfEngine/);
   assert.match(ui,/agentActDownloadBlob\(pdf\.blob,pdf\.filename\)/);
   assert.match(ui,/issueFromSavedOwnerCorrection/);
   assert.match(ui,/Акт сверки · СГ-Транс/);

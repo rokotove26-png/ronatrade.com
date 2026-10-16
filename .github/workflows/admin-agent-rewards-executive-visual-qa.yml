@@ -84,6 +84,11 @@ jobs:
           node --check functions/portal/agent-rewards-v1-ui.js
           node --check functions/portal/agent-reward-act-pdf-engine.js
           node --test tests/admin-agent-rewards-finance-workspace-v1.test.mjs
+      - name: Compile production Cloudflare Pages Functions
+        run: |
+          mkdir -p .pages-build
+          npx --yes wrangler@4.151.1 pages functions build functions --outfile=.pages-build/worker.js
+          test -s .pages-build/worker.js
       - name: Install Chromium for rendered Admin finance view
         run: |
           npm install --no-save --no-package-lock playwright@1.55.0

@@ -1319,6 +1319,27 @@ function ownerActSavedCalculation(deal,model,currency,saved){
     sourceKind:'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE',
   })
 }
+let agentActPdfEngineLoading=null;
+function loadAgentActPdfEngine(){
+  if(window.RONA_AGENT_ACT_PDF_ENGINE?.render)
+    return Promise.resolve(window.RONA_AGENT_ACT_PDF_ENGINE);
+  if(!agentActPdfEngineLoading){
+    agentActPdfEngineLoading=new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      script.src='/portal/agent-reward-act-pdf-engine';
+      script.async=true;
+      script.onload=()=>{
+        const ready=window.RONA_AGENT_ACT_PDF_ENGINE;
+        if(ready?.render)resolve(ready);
+        else reject(new Error('ACT_PDF_ENGINE_UNAVAILABLE'));
+      };
+      script.onerror=()=>reject(new Error('ACT_PDF_ENGINE_LOAD_FAILED'));
+      document.head.appendChild(script);
+    }).finally(()=>{agentActPdfEngineLoading=null});
+  }
+  return agentActPdfEngineLoading;
+}
+
 async function saveCorrectionAndDownloadSignedAct(deal,ownerApprovedCalculation){
   const docs=await docCall(deal,'state');
   if(!docs.currentAddendum)
@@ -1354,10 +1375,9 @@ async function saveCorrectionAndDownloadSignedAct(deal,ownerApprovedCalculation)
     method:'POST',headers:{accept:'application/json','content-type':'application/json'},
     body:JSON.stringify({ownerConfirmsSigning:true,ownerConfirmsFacsimile:true})
   });
-  if(!window.RONA_AGENT_ACT_PDF_ENGINE)
-    await import('/portal/agent-reward-act-pdf-engine');
-  const engine=window.RONA_AGENT_ACT_PDF_ENGINE;
-  if(!engine?.render)throw new Error('ACT_PDF_ENGINE_UNAVAILABLE');
+  // Standard same-origin script tag: Pages Functions are bundled with esbuild.
+  // A static-looking import('/portal/...') fails Pages deploy at build time.
+  const engine=await loadAgentActPdfEngine();
   const pdf=await engine.render(issued,id);
   if(pdf.blob?.type!=='application/pdf'||pdf.blob.size<5000)
     throw new Error('ACT_PDF_RENDER_FAILED');
