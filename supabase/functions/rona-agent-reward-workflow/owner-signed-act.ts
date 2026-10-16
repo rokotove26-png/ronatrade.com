@@ -61,6 +61,11 @@ export async function ownerSignedActIssue(sql:any,ctx:any,row:any){
    ||String(saved[0].created_by)!==String(ctx.userId)
    ||Number(saved[0].correction_version)!==Number(row.correction_version))
    reject('ACT_OWNER_DIRECT_CORRECTION_SUPERSEDED');
+ if(row.deal_id!=='DEAL-2026-004'){
+   if(!['REVIEW_REQUESTED','FINANCE_LEGAL_REVIEW','DRAFT_READY','OWNER_SIGNED'].includes(String(row.request_status)))
+     reject('ACT_OWNER_DIRECT_STATUS_INVALID');
+   return await genericOwnerActIssue(sql,ctx,row)
+ }
  const docs=await sql`select a.document_id,a.sha256,a.uploaded_by,b.linked_by,b.document_reference,
   b.is_current,o.storage_state,l.legal_name
   from portal_private.agent_reward_deal_addenda_v1 b
