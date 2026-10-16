@@ -348,6 +348,7 @@ function ownerSavedCalculation(input:any,s:any,correction:any,actor:{userId:stri
    rewardStatus:String(input.agentRewardStatus||'').slice(0,140),
    basisStatus:String(input.agentBasisStatus||'').slice(0,140),
    normalizedSavedPayload:expected,
+   ...(declared?{ownerActDeclaration:declared}:{}),
    createsPayable:false,signingAuthority:false
  }
 }
