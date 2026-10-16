@@ -267,7 +267,7 @@ function ronaActPdfRuntime(){
       field('Подтверждённая база '+safe(a.basisType),fmtMoney(basis,a.basisCurrency));
       field('Доля агента',String(rate*100)+' %');
     }else if(mode==='PER_TONNE'){
-      field('Количество и ставка',String(qty)+' т x '+fmtMoney(rate,a.currency)+'/т');
+      field('Количество и ставка',String(qty)+' т x '+fmtMoney(rate,a.basisCurrency)+'/т');
     }
     if(a.exchangeRate!=null)
       field('Курс конвертации и источник',String(a.exchangeRate)+'; '+safe(a.exchangeSourceRef));
