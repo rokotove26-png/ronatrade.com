@@ -454,7 +454,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/base\.bridgeApproved&&fact\.approved&&correctionApproved/);
   assert.match(ui,/function ownerAgentReward\(deal,netProfit\)/);
   assert.match(ui,/const basis=num\(netProfit\)/);
-  assert.match(ui,/ownerAgentReward\(deal,pnl\.netProfit\)/);
+  assert.match(ui,/ownerAgentReward\(deal,ownerSignedDs1ForManagement\(deal\)\?pnl\.preTaxProfit:pnl\.netProfit\)/);
   assert.match(ui,/INTERNAL_NET_PROFIT_BASIS_EXTERNAL_FX_TERM_REVIEW_REQUIRED/);
   assert.match(ui,/Корректировка расходов \(доходов\)/);
   assert.match(ui,/Прибыль до налогообложения/);
