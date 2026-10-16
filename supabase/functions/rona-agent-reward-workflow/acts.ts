@@ -2,6 +2,7 @@
 // No modification to Finance numbers or external settlement; two immutable role conclusions
 // are mandatory before an act can be archived or exposed to the agent.
 import {certifiedAgentTerms} from './generic-agent-terms.ts';
+import {certifiedRoleSnapshots} from './role-certified-snapshots.ts';
 const ID=/^[0-9a-f-]{36}$/i,BUCKET='rona-portal-private',MAX=20*1024*1024;
 function deny(code:string,status=409){throw Object.assign(new Error(code),{status})}
 export async function reviewState(sql:any,id:string){
