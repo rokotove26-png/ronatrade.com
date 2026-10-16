@@ -223,19 +223,21 @@ function ronaActPdfRuntime(){
     const numberValue=x=>x==null?null:Number(x);
     const basis=numberValue(a.basisAmount),rate=numberValue(a.rate);
     const qty=numberValue(a.quantity);
+    if(mode==='FIXED'&&(!Number.isFinite(basis)||basis<0))
+      throw new Error('ACT_PDF_CERTIFIED_FIXED_INVALID');
     if(mode==='PERCENT'&&(!Number.isFinite(basis)||!Number.isFinite(rate)||rate<0||rate>1))
       throw new Error('ACT_PDF_CERTIFIED_PERCENT_INVALID');
     if(mode==='PER_TONNE'&&(!Number.isFinite(qty)||qty<0||!Number.isFinite(rate)||rate<0))
       throw new Error('ACT_PDF_CERTIFIED_QUANTITY_INVALID');
     const round=x=>Math.round((x+Number.EPSILON)*100)/100;
     let expected=mode==='PERCENT'?Math.max(0,basis)*rate:
-      mode==='PER_TONNE'?qty*rate:a.agentReward;
+      mode==='PER_TONNE'?qty*rate:basis;
     if(a.exchangeRate!=null){
       if(!Number.isFinite(Number(a.exchangeRate))||Number(a.exchangeRate)<=0
         ||!safe(a.exchangeSourceRef))
         throw new Error('ACT_PDF_CERTIFIED_FX_INVALID');
       expected*=Number(a.exchangeRate);
-    }else if(mode==='PERCENT'&&a.basisCurrency!==a.currency){
+    }else if(a.basisCurrency!==a.currency){
       throw new Error('ACT_PDF_CERTIFIED_FX_SOURCE_MISSING');
     }
     if(Math.abs(round(expected)-round(a.agentReward))>.011)
