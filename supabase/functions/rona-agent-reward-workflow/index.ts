@@ -210,6 +210,13 @@ async function list(s:any){
      try{checkedOwnerActAmounts({...a,deal_id:s.deal_id});ownerSignReady=true}
      catch{ownerSignReady=false}
    }
+   // Owner's explicit Act authorization supersedes AI review readiness for the
+   // non-payable Owner-signed document. It does not change financial approvals.
+   const issuanceMissing=ownerSignReady
+     ?missing.filter(x=>!['ACCOUNTING_CLOSURE_REQUIRED','FINANCE_CONCLUSION_REQUIRED',
+       'LEGAL_CONCLUSION_REQUIRED','ACT_NUMBER_NOT_ASSIGNED',
+       'FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS'].includes(x))
+     :missing;
    enriched.push({...a,review,documents:files,ownerSignReady,
      ownerCalculationStored:a.source_snapshot?.ownerApprovedCalculation?.contract==='OWNER_SECTION_SAVED_CALCULATION_V1',
      ownerCalculationVersion:a.source_snapshot?.ownerApprovedCalculation?.correctionVersion??null,
