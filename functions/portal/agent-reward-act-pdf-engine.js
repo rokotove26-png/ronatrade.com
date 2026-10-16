@@ -66,33 +66,147 @@ function ronaActPdfRuntime(){
   }
   function line(ctx,x1,y1,x2,y2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
   function encode(v){return new TextEncoder().encode(v)}
-  function makePdf(canvas){
-    // A self-contained, one-page ISO A4 PDF with a 300-dpi JPEG XObject.
-    // The entire page, including canonical images, is snapshotted into this PDF.
-    const encoded=canvas.toDataURL('image/jpeg',0.95).split(',')[1];
-    if(!encoded)throw new Error('ACT_PDF_CANVAS_ENCODING_FAILED');
-    const binary=atob(encoded),jpg=new Uint8Array(binary.length);
-    for(let i=0;i<binary.length;i++)jpg[i]=binary.charCodeAt(i);
-    const PAGE_W='595.2756',PAGE_H='841.8898',parts=[],offsets=[0];let offset=0;
-    function add(bytes){parts.push(bytes);offset+=bytes.length}
-    function str(t){add(encode(t))}
-    function begin(index){offsets[index]=offset;str(index+' 0 obj\n')}
-    function end(){str('\nendobj\n')}
+  function makePdf(canvases){
+    if(!Array.isArray(canvases)||!canvases.length||canvases.length>8)
+      throw new Error('ACT_PDF_PAGE_COUNT_INVALID');
+    const frames=canvases.map(canvas=>{
+      const encoded=canvas.toDataURL('image/jpeg',0.95).split(',')[1];
+      if(!encoded)throw new Error('ACT_PDF_CANVAS_ENCODING_FAILED');
+      const binary=atob(encoded),bytes=new Uint8Array(binary.length);
+      for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+      return bytes;
+    });
+    const pageW='595.2756',pageH='841.8898',parts=[],offsets=[0];let offset=0;
+    const add=bytes=>{parts.push(bytes);offset+=bytes.length},str=t=>add(encode(t));
+    const begin=i=>{offsets[i]=offset;str(i+' 0 obj\n')},end=()=>str('\nendobj\n');
+    const ids=frames.map((_,i)=>({page:3+i*3,image:4+i*3,stream:5+i*3}));
     str('%PDF-1.4\n%RONA\n');
     begin(1);str('<< /Type /Catalog /Pages 2 0 R >>');end();
-    begin(2);str('<< /Type /Pages /Kids [3 0 R] /Count 1 >>');end();
-    begin(3);str('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+PAGE_W+' '+PAGE_H+'] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>');end();
-    begin(4);str('<< /Type /XObject /Subtype /Image /Width '+W+' /Height '+H+
-      ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+jpg.length+' >>\nstream\n');
-    add(jpg);str('\nendstream');end();
-    const command='q '+PAGE_W+' 0 0 '+PAGE_H+' 0 0 cm /Im0 Do Q\n';
-    begin(5);str('<< /Length '+encode(command).length+' >>\nstream\n'+command+'endstream');end();
-    const xref=offset;str('xref\n0 6\n0000000000 65535 f \n');
-    for(let i=1;i<=5;i++)str(String(offsets[i]).padStart(10,'0')+' 00000 n \n');
-    str('trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF\n');
+    begin(2);str('<< /Type /Pages /Kids ['+ids.map(x=>x.page+' 0 R').join(' ')+
+      '] /Count '+frames.length+' >>');end();
+    for(let i=0;i<frames.length;i++){
+      const o=ids[i],jpg=frames[i];
+      begin(o.page);str('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+
+        pageW+' '+pageH+'] /Resources << /XObject << /Im0 '+
+        o.image+' 0 R >> >> /Contents '+o.stream+' 0 R >>');end();
+      begin(o.image);str('<< /Type /XObject /Subtype /Image /Width '+W+' /Height '+H+
+        ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+
+        jpg.length+' >>\nstream\n');add(jpg);str('\nendstream');end();
+      const command='q '+pageW+' 0 0 '+pageH+' 0 0 cm /Im0 Do Q\n';
+      begin(o.stream);str('<< /Length '+encode(command).length+
+        ' >>\nstream\n'+command+'endstream');end();
+    }
+    const total=2+3*frames.length,xref=offset;
+    str('xref\n0 '+(total+1)+'\n0000000000 65535 f \n');
+    for(let i=1;i<=total;i++)str(String(offsets[i]).padStart(10,'0')+' 00000 n \n');
+    str('trailer\n<< /Size '+(total+1)+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF\n');
     const blob=new Blob(parts,{type:'application/pdf'});
     if(blob.size<5000)throw new Error('ACT_PDF_TOO_SMALL');
     return blob;
+  }
+  const fmtMoney=(v,currency)=>new Intl.NumberFormat('ru-RU',
+    {minimumFractionDigits:2,maximumFractionDigits:2}).format(Math.abs(v))+
+    (currency?' '+currency:'');
+  const fmtSigned=v=>(v<0?'−':v>0?'+':'')+fmtMoney(v);
+  function appendCanvas(data,number,date,deal,letterhead){
+    const a=data||{};
+    if(a.contract!=='RONA_ACT_APPENDIX_V1'||a.dealId!==deal
+      ||!Number.isInteger(Number(a.correctionVersion))||a.currency!=='USD'
+      ||!Array.isArray(a.payments)||!a.payments.length
+      ||!Array.isArray(a.bankFees)||!a.bankFees.length
+      ||!Array.isArray(a.adjustmentComponents)||!a.adjustmentComponents.length)
+      throw new Error('ACT_PDF_APPENDIX_SOURCE_MISSING');
+    const sum=(xs)=>xs.reduce((q,x)=>q+Number(x.amount),0);
+    const r2=x=>Math.round((x+Number.EPSILON)*100)/100;
+    if([a.revenue,a.paymentTotal,a.bankFeeTotal,a.adjustment,a.cashResult,a.profit,
+      a.tax,a.net,a.positiveBasis,a.agentReward,a.ronaResult].some(
+        x=>typeof x!=='number'||!Number.isFinite(x))
+      ||Math.abs(r2(sum(a.payments))+a.paymentTotal)>.011
+      ||Math.abs(r2(sum(a.bankFees))+a.bankFeeTotal)>.011
+      ||Math.abs(r2(a.revenue-a.paymentTotal-a.bankFeeTotal)-a.cashResult)>.011
+      ||Math.abs(r2(a.cashResult+a.adjustment)-a.profit)>.011
+      ||Math.abs(r2(a.profit-a.tax)-a.net)>.011
+      ||Math.abs(r2(a.net-a.agentReward)-a.ronaResult)>.011)
+      throw new Error('ACT_PDF_APPENDIX_ARITHMETIC_MISMATCH');
+    const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
+    const ctx=canvas.getContext('2d',{alpha:false});
+    if(!ctx)throw new Error('ACT_PDF_APPENDIX_CANVAS_UNAVAILABLE');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.drawImage(letterhead,0,0,W,H);
+    center(ctx,'ПРИЛОЖЕНИЕ № 1',566,62,true);
+    center(ctx,'к Акту выполненных работ № '+number,635,41,true);
+    center(ctx,'от '+date+' · сделка '+deal,693,37,false);
+    ctx.strokeStyle='#9da5ae';ctx.lineWidth=2;line(ctx,LEFT,734,RIGHT,734);
+    center(ctx,'ПОСТАТЕЙНЫЙ РАСЧЁТ ФИНАНСОВОГО РЕЗУЛЬТАТА',800,45,true);
+    center(ctx,'Сохранённая корректировка № '+a.correctionVersion+
+      (a.correctionDate?' от '+dateRu(a.correctionDate):'')+' · '+a.currency,
+      856,34,false);
+    const x0=LEFT,x1=LEFT+116,x2=RIGHT-430;
+    let y=912;
+    const drawRow=(idx,label,value,{section=false,subtotal=false,final=false,
+       indent=false,header=false}={})=>{
+      const size=section?34:header?35:subtotal?34:33;
+      font(ctx,size,section||subtotal||final||header);
+      const width=x2-x1-(indent?30:0)-38;
+      const words=wrap(ctx,label,width);
+      const height=section?74:Math.max(62,28+(words.length*38));
+      if(y+height>3120)throw new Error('ACT_PDF_APPENDIX_PAGE_OVERFLOW');
+      ctx.fillStyle=header?'#e8edf1':section?'#f0f2f3':
+        final?'#e8edee':subtotal?'#fafafa':'#fff';
+      ctx.fillRect(x0,y,RIGHT-x0,height);
+      ctx.strokeStyle='#d3d8dd';ctx.lineWidth=1;line(ctx,x0,y+height,RIGHT,y+height);
+      font(ctx,size,section||subtotal||final||header);
+      ctx.fillStyle='#182027';
+      if(idx)ctx.fillText(String(idx),x0+17,y+height/2+10);
+      const x=x1+14+(indent?30:0),lineHeight=37;
+      let py=y+height/2-(words.length-1)*lineHeight/2+11;
+      for(const part of words){ctx.fillText(part,x,py);py+=lineHeight}
+      if(value!==null&&value!==undefined){
+        ctx.textAlign='right';ctx.fillText(value,RIGHT-15,y+height/2+10);ctx.textAlign='left';
+      }
+      y+=height;
+    };
+    drawRow('№','Статья расчёта','Сумма, '+a.currency,{header:true});
+    drawRow('','I. ПОСТУПЛЕНИЯ',null,{section:true});
+    let ix=1;
+    drawRow(ix++,'Поступление от покупателя '+safe(a.buyerName),fmtSigned(a.revenue));
+    drawRow('','Итого поступления',fmtMoney(a.revenue),{subtotal:true});
+    drawRow('','II. ВЫПЛАТЫ И БАНКОВСКИЕ КОМИССИИ',null,{section:true});
+    for(const x of a.payments)drawRow(ix++,safe(x.label),fmtSigned(x.amount));
+    drawRow('','Итого выплаты контрагентам','-'+fmtMoney(a.paymentTotal),{subtotal:true});
+    for(const x of a.bankFees)drawRow(ix++,safe(x.label),fmtSigned(x.amount));
+    drawRow('','Итого банковские комиссии','-'+fmtMoney(a.bankFeeTotal),{subtotal:true});
+    drawRow('','Итого выплаты и банковские комиссии',
+      '-'+fmtMoney(a.paymentTotal+a.bankFeeTotal),{subtotal:true});
+    drawRow('','III. ФИНАНСОВЫЙ РЕЗУЛЬТАТ И ВОЗНАГРАЖДЕНИЕ',null,{section:true});
+    drawRow(ix++,'Денежный результат: поступления за вычетом выплат и комиссий',
+      fmtMoney(a.cashResult));
+    const adjustmentId=ix++;
+    drawRow(adjustmentId,'Корректировка незакрытых взаиморасчётов, в том числе:',
+      fmtSigned(a.adjustment),{subtotal:true});
+    a.adjustmentComponents.forEach((x,k)=>drawRow(adjustmentId+'.'+(k+1),
+      safe(x.label),fmtSigned(x.amount),{indent:true}));
+    drawRow(ix++,'Финансовый результат до налогообложения',fmtSigned(a.profit),
+      {subtotal:true});
+    drawRow(ix++,'Расчётный налог (10% только при положительной прибыли)',
+      fmtMoney(a.tax));
+    drawRow(ix++,'Чистый финансовый результат сделки',fmtSigned(a.net),{subtotal:true});
+    drawRow(ix++,'Положительная база вознаграждения агента',
+      fmtMoney(a.positiveBasis));
+    drawRow(ix++,'Агентское вознаграждение (50% положительной маржи)',
+      fmtMoney(a.agentReward),{subtotal:true});
+    drawRow(ix++,'Результат RONA после агентского вознаграждения',
+      fmtSigned(a.ronaResult),{final:true});
+    y+=40;
+    y=paragraph(ctx,'Корректировка раскрывает открытые взаиморасчёты с покупателем, '+
+      'поставщиками и логистическими компаниями. Указанные остатки управленческого '+
+      'расчёта не являются дополнительными банковскими списаниями.',
+      LEFT,y,WIDTH,{size:28,lineHeight:39,after:20});
+    y=paragraph(ctx,'Составляющие корректировки округлены до 0,1 '+a.currency+
+      '; общий финансовый результат показан с точностью 0,01 '+a.currency+'. '+
+      'Итог раздела RONA Trade: '+fmtSigned(Math.round(a.ronaResult*10)/10)+
+      ' '+a.currency+'.',LEFT,y,WIDTH,{size:28,lineHeight:39,after:0});
+    if(y>3240)throw new Error('ACT_PDF_APPENDIX_FOOTER_OVERFLOW');
+    return canvas;
   }
   async function render(data,requestId){
     if(!/^[0-9a-f-]{36}$/i.test(safe(requestId)))throw new Error('ACT_PDF_REQUEST_ID_INVALID');
@@ -191,13 +305,23 @@ function ronaActPdfRuntime(){
     font(ctx,34,false);ctx.fillText(issuerSigner,LEFT+12,assetTop+370);
     ctx.fillText(agentSigner,rightX+12,assetTop+370);
     ctx.strokeStyle='#333';line(ctx,rightX+20,assetTop+330,RIGHT-25,assetTop+330);
-    paragraph(ctx,'Графические подпись и печать Заказчика применены по утверждённому основанию: '+
-      authorization+'. Не являются квалифицированной электронной подписью.',LEFT,
-      Math.max(assetTop+505,y+140),WIDTH,{size:28,lineHeight:40,after:0});
-    return {blob:makePdf(canvas),filename:'RONA_Act_'+safe(deal).replace(/[^A-Za-z0-9_-]/g,'_')+
+    // No legal/technical implementation note is printed in the Owner-approved form.
+    // Canonical signature and seal remain visually present above.
+    const ownerMode=d.sourceMode==='OWNER_SIGNED_SECTION_NOT_FINANCE_PAYABLE';
+    if(ownerMode&&!d.financialAppendix)
+      throw new Error('ACT_PDF_APPENDIX_REQUIRED_FOR_OWNER');
+    const canvases=[canvas];
+    if(d.financialAppendix){
+      if(Number(d.financialAppendix.agentReward)!==amount||
+         Number(d.financialAppendix.correctionVersion)!==
+           Number(d.ownerSectionCorrectionVersion))
+        throw new Error('ACT_PDF_APPENDIX_DOCUMENT_MISMATCH');
+      canvases.push(appendCanvas(d.financialAppendix,number,date,deal,assets[0]));
+    }
+    return {blob:makePdf(canvases),pageCount:canvases.length,filename:'RONA_Act_'+safe(deal).replace(/[^A-Za-z0-9_-]/g,'_')+
       '_'+safe(number).replace(/[^A-Za-z0-9_-]/g,'_')+'.pdf'};
   }
-  window.RONA_AGENT_ACT_PDF_ENGINE=Object.freeze({render,version:'v4-owner-saved-margin-oneclick'});
+  window.RONA_AGENT_ACT_PDF_ENGINE=Object.freeze({render,version:'v5-two-page-canonical-financial-appendix'});
 }
 const SCRIPT='('+ronaActPdfRuntime.toString()+')();';
 export async function onRequest(){
