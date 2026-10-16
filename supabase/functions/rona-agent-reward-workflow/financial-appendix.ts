@@ -69,7 +69,11 @@ export async function getOwnerActAppendix(sql:any,row:any){
      and assignment_id=${row.assignment_id}::uuid limit 2`;
  if(correction.length!==1)blocked('ACT_APPENDIX_CORRECTION_NOT_FOUND');
  const posted=correction[0].corrected_payload||{},edited=posted.paymentLineAmounts||{};
- if(JSON.stringify(edited)!==JSON.stringify(data.paymentLineAmounts||{}))
+ const provided=data.paymentLineAmounts||{};
+ const equalIds=Object.keys(edited).sort(),sameIds=Object.keys(provided).sort();
+ if(equalIds.length!==sameIds.length||equalIds.some((k,i)=>k!==sameIds[i]
+     ||Math.abs(amount(edited[k],'ACT_APPENDIX_PAYMENT_SOURCE_INVALID')-
+       amount(provided[k],'ACT_APPENDIX_PAYMENT_SOURCE_INVALID'))>.00001))
    blocked('ACT_APPENDIX_CORRECTION_PAYMENTS_CHANGED');
  const keys=Object.keys(edited);
  if(!keys.length||keys.length>50)blocked('ACT_APPENDIX_PAYMENT_BREAKDOWN_MISSING');
@@ -164,7 +168,8 @@ export async function getOwnerActAppendix(sql:any,row:any){
    blocked('ACT_APPENDIX_BUYER_RECEIPT_SOURCE_MISSING');
  return calculateActAppendix({
    contract:'RONA_ACT_APPENDIX_SOURCE_V1',
-   correctionVersion:row.correction_version,correctionDate:correction[0].created_at,
+   correctionVersion:row.correction_version,
+   correctionDate:new Date(correction[0].created_at).toISOString().slice(0,10),
    dealId:row.deal_id,currency:snapshot.currency,
    buyerName:receipt[0].client_name,
    ownerCalculation:snapshot.calculation,
