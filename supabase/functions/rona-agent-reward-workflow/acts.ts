@@ -199,7 +199,7 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    (Array.isArray(x.payload?.mandatory_conditions)&&x.payload.mandatory_conditions.length)))
    deny('ACT_FUNCTIONAL_CONCLUSIONS_UNCONFIRMED');
  const terms=await sql`select t.term_reference,t.commission_mode,t.commission_rate,
-   b.document_reference,b.evidence_status,a.document_id,
+   b.document_reference,b.evidence_status,a.document_id,a.sha256 as document_sha256,
    l.legal_name,l.tax_identifier,l.registered_address,l.registration_country
    from portal_private.agent_reward_deal_addenda_v1 b
    join portal_private.agent_agency_contract_documents a on a.id=b.agency_document_key
@@ -229,26 +229,48 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    deny('ACT_FINANCE_SOURCE_SNAPSHOT_MISMATCH');
  if(String(legal.approvedAddendumDocumentId||'')!==String(t.document_id))
    deny('ACT_LEGAL_SOURCE_SNAPSHOT_MISMATCH');
- // Owner confirmed interpretation for DEAL-2026-004 signed DS #1: 50% of
- // VERIFIED NET DEAL PROFIT AFTER TAX, never gross margin or pretax profit.
- // This contract-specific rule MUST NOT silently rewrite other agents' terms.
- let netProfitSource:null|{basis:string,netProfit:number,rate:number}=null;
+ // Exact deal-004 signed agency DS #1, SHA-equal to archived PDF.
+ // Clause 3: 50% of margin on the actual shipment, not net profit after tax.
+ // The final margin requires factory loading records and GU return evidence.
+ // Clause 4: settlement in RUB using CBR rate as of actual payment date.
+ // Title (351C/2026) and paragraph 6 (346C/2026) have a base contract
+ // reference discrepancy; only authoritative Legal can resolve it.
+ let shipmentMarginSource:null|{basis:string,margin:number,marginCurrency:string,
+   rate:number,factoryDocumentRef:string,guDocumentRef:string,
+   exchangeRate:number|null,exchangeRateSourceRef:string|null,
+   settlementNote:string}=null;
  if(String(row.deal_id)==='DEAL-2026-004'&&ds===1){
-   const profit=finance.approvedNetProfit==null?NaN:Number(finance.approvedNetProfit);
-   const share=finance.approvedAgentShare==null?NaN:Number(finance.approvedAgentShare);
-   const correctionVersion=finance.ownerCorrectionVersion==null?NaN:Number(finance.ownerCorrectionVersion);
-   if(String(finance.approvedBasisType)!=='NET_PROFIT_AFTER_TAX'
-       ||!Number.isFinite(profit)||!Number.isFinite(share)||share!==0.5
+   if(String(t.document_sha256)!=='e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab')
+     deny('ACT_DS1_DOCUMENT_HASH_MISMATCH');
+   const margin=finance.approvedShipmentMargin==null?NaN:Number(finance.approvedShipmentMargin),
+     share=finance.approvedAgentShare==null?NaN:Number(finance.approvedAgentShare),
+     marginCurrency=String(finance.approvedMarginCurrency||''),
+     conversion=finance.approvedActConversionRate==null?NaN:Number(finance.approvedActConversionRate),
+     factoryRef=String(finance.factoryLoadingDocumentRef||''),
+     guRef=String(finance.guReturnDocumentRef||'');
+   if(!factoryRef||!guRef)deny('ACT_SHIPMENT_CLOSING_DOCUMENTS_REQUIRED');
+   if(String(finance.approvedBasisType)!=='SHIPMENT_MARGIN'
+       ||!Number.isFinite(margin)||margin<0
+       ||!Number.isFinite(share)||share!==0.5
        ||String(t.commission_mode)!=='PERCENT'||Number(t.commission_rate)!==0.5
-       ||String(finance.ownerCorrectionId||'')!==String(row.owner_correction_key)
-       ||correctionVersion!==Number(row.correction_version)
-       ||String(finance.approvedTermId||'')!==String(row.term_key)
-       ||String(finance.signedAddendumDocumentId||'')!==String(t.document_id))
-     deny('ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED');
-   const calculated=Math.round((Math.max(0,profit)*0.5+Number.EPSILON)*100)/100;
-   if(Math.abs(amount-calculated)>0.0001)
-     deny('ACT_AGENT_AMOUNT_NOT_50_PERCENT_OF_NET_PROFIT');
-   netProfitSource={basis:'NET_PROFIT_AFTER_TAX',netProfit:profit,rate:0.5};
+       ||!/^[A-Z]{3}$/.test(marginCurrency))
+     deny('ACT_VERIFIED_SHIPMENT_MARGIN_REQUIRED');
+   if(!String(legal.approvedContractReferenceResolutionRef||''))
+     deny('ACT_DS1_BASE_CONTRACT_REFERENCE_UNRESOLVED');
+   const rateRequired=currency!==marginCurrency;
+   if(rateRequired&&(currency!=='RUB'||!Number.isFinite(conversion)||conversion<=0
+       ||!finance.approvedActConversionSourceRef||!legal.approvedActCurrencyAndFxTreatment))
+     deny('ACT_MARGIN_CONVERSION_SOURCE_REQUIRED');
+   if(currency!=='RUB'&&legal.approvedForeignCurrencyActAllowed!==true)
+     deny('ACT_DS1_RUB_CURRENCY_REQUIRED');
+   const calculated=Math.round((margin*share*(rateRequired?conversion:1)+Number.EPSILON)*100)/100;
+   if(Math.abs(amount-calculated)>0.01)
+     deny('ACT_AGENT_AMOUNT_NOT_50_PERCENT_OF_SHIPMENT_MARGIN');
+   shipmentMarginSource={basis:'SHIPMENT_MARGIN',margin,marginCurrency,rate:0.5,
+     factoryDocumentRef:factoryRef,guDocumentRef:guRef,
+     exchangeRate:rateRequired?conversion:null,
+     exchangeRateSourceRef:rateRequired?String(finance.approvedActConversionSourceRef):null,
+     settlementNote:'Оплата производится в российских рублях по курсу ЦБ РФ на дату фактической оплаты.'};
  }
  const number=String(row.generated_document_number||''),date=String(legal.approvedActDate||''),
    service=String(legal.approvedServiceText||''),period=String(legal.servicePeriod||''),
@@ -269,7 +291,7 @@ export async function approvedActIssue(sql:any,ctx:any,id:string){
    agentAddress:t.registered_address,agentCountry:t.registration_country,
    addendumReference:t.document_reference,addendumDocumentId:t.document_id,
    financeEvidence:review.finance.recordId,legalEvidence:review.legal.recordId,
-   financeSourceRef:financeRef,netProfitSource,facsimileAuthorizationRef:facsimileRef,
+   financeSourceRef:financeRef,shipmentMarginSource,facsimileAuthorizationRef:facsimileRef,
    documentStandard:'RONA-DOC-STANDARD v2',
    signatureMethod:'OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES',createsPayable:false};
 }

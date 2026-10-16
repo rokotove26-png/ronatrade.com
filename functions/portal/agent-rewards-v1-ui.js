@@ -341,16 +341,18 @@ function validTerm(deal){
   return upper(t.status)==='ACTIVE'&&upper(t.lifecycleState)==='ACTIVE'&&['CONFIRMED','VERIFIED','AUTHORITATIVE'].includes(upper(t.authorityState))
 }
 function ownerSignedDs1ForManagement(deal){
-  // Read-only financial preview. The confirmed legal DS/PDF lives in the
-  // document archive; this must never turn into Finance/payable authority.
+  // Source status only, NEVER an automatically calculated amount.
+  // Exact signed PDF DS1 clause 3: 50% of shipment margin (not after-tax profit).
+  // Clause 4: payment in RUB at CBR rate on actual payment date.
   const docs=state.docCache.get(rowKey(deal)),addendum=docs?.currentAddendum,term=docs?.ownerConfirmedTerm;
   if(String(deal?.dealId)!=='DEAL-2026-004'
     ||String(docs?.dealId)!==String(deal?.dealId)
     ||String(docs?.assignmentId)!==String(deal?.assignmentId)
     ||addendum?.ownerApprovedByUpload!==true
     ||!/^ДС\s*№\s*1\b/i.test(String(addendum.reference||''))
-    ||term?.status!=='OWNER_APPROVED_SOURCE_ONLY'
-    ||term?.basis!=='NET_PROFIT_AFTER_TAX'
+    ||String(addendum.sha256||'').toLowerCase()!=='e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab'
+    ||term?.status!=='SIGNED_SOURCE_TEXT_PENDING_FINANCE_LEGAL'
+    ||term?.basis!=='SHIPMENT_MARGIN'||term?.paymentCurrency!=='RUB'
     ||upper(term?.mode)!=='PERCENT'
     ||num(term?.rate)!==0.5)return false;
   return true
@@ -361,17 +363,15 @@ function documentTermMismatch(deal){
 }
 function termReward(deal,{preferSettlement=false,basisValue=null,managementPreview=false}={}){
   const cur=currencyOf(deal),st=deal?.settlement||{},t=deal?.agentTerm||{},ref=upper(t.reference);
+  // Exact-deal guard comes BEFORE any settlement or legacy finance term.
+  // A shipment-margin contract cannot be calculated from netProfit (including a
+  // managerial 10% tax estimate). Not even as a numeric preview.
+  if(String(deal?.dealId)==='DEAL-2026-004'&&!state.docCache.get(rowKey(deal))?.currentAddendum)
+    return{value:null,status:'SIGNED_DS_SOURCE_LOADING'};
+  if(documentTermMismatch(deal))
+    return{value:null,status:ownerSignedDs1ForManagement(deal)
+      ?'SHIPMENT_MARGIN_SOURCE_REQUIRED':'UPLOADED_DS_TERM_REVIEW_REQUIRED'};
   if(preferSettlement&&num(st.amount)!==null&&String(st.currency||'').trim()===cur&&['APPROVED','PAYABLE_CONFIRMED','PAID'].includes(upper(st.state))&&['CONFIRMED','VERIFIED','AUTHORITATIVE'].includes(upper(st.authorityState)))return{value:num(st.amount),status:'SETTLEMENT_AUTHORITY'};
-  // A stored DS #1 takes precedence for the INTERNAL MANAGEMENT PREVIEW only.
-  // Do not silently apply the mismatching historic DS #2 pre-tax/ex-FX term.
-  if(documentTermMismatch(deal)){
-    const basis=num(basisValue);
-    if(managementPreview&&ownerSignedDs1ForManagement(deal)){
-      return basis===null?{value:null,status:'NET_PROFIT_REQUIRED'}:
-        {value:Math.max(0,basis)*0.5,status:'OWNER_DS1_AFTER_TAX_MANAGEMENT_PREVIEW_ONLY'};
-    }
-    return{value:null,status:'UPLOADED_DS_TERM_REVIEW_REQUIRED'}
-  }
   if(!validTerm(deal))return{value:null,status:t.mode?'TERM_NOT_ACTIVE':'TERM_MISSING'};
   if(upper(t.mode)==='FIXED'&&num(t.fixedAmount)!==null&&String(t.currency||'').trim()===cur)return{value:num(t.fixedAmount),status:'FIXED_TERM'};
   if(upper(t.mode)==='PER_TONNE'&&num(t.rate)!==null&&num(deal.quantityTonnes)!==null&&String(t.currency||'').trim()===cur)return{value:num(t.rate)*num(deal.quantityTonnes),status:'PER_TONNE_TERM'};
@@ -810,6 +810,8 @@ function agentStatusText(status){
   const s=upper(status);
   if(s==='TERM_MISSING')return'Расчёт ожидает проверки';
   if(s==='UPLOADED_DS_TERM_REVIEW_REQUIRED')return'ДС загружено · условия сверяются';
+  if(s==='SHIPMENT_MARGIN_SOURCE_REQUIRED')return'Ожидаются документы завода и ГУ';
+  if(s==='SIGNED_DS_SOURCE_LOADING')return'Загрузка условий ДС';
   if(s==='TERM_NOT_ACTIVE')return'Условие ДС проверяется';
   if(s==='CLOSING_CONDITIONS_REQUIRED')return'Ожидаются закрывающие документы';
   if(s==='FX_REFERENCE_REQUIRED_FOR_AGENT_BASIS')return'Нужна FX-база';
@@ -1105,7 +1107,7 @@ function renderExecutiveInsights(root,deal,ownerDraft=null){
   const attachedDs=state.docCache.get(rowKey(deal));
   const ownerDs1=ownerSignedDs1ForManagement(deal);
   let termDescription=attachedDs?.currentAddendum
-    ?(ownerDs1?'ДС №1 · 50% чистой прибыли после налогов':'ДС загружено · условия сверяются')
+    ?(ownerDs1?'ДС №1 · 50% маржи по поставке':'ДС загружено · условия сверяются')
     :'Условия вознаграждения проверяются';
   if(termActive&&!documentTermMismatch(deal)){
     const mode=upper(t.mode);
@@ -1118,7 +1120,7 @@ function renderExecutiveInsights(root,deal,ownerDraft=null){
           :'Действующее ДС · условия требуют проверки';
   }
   list.append(executiveInfoRow('Условие вознаграждения',
-    termDescription,{kind:ownerDs1||(termActive&&!documentTermMismatch(deal))?'ok':'verify'}));
+    termDescription,{kind:termActive&&!documentTermMismatch(deal)?'ok':'verify'}));
   if(pendingClosing)list.append(executiveInfoRow('Условие действующего ДС',
     'Закрывающие документы ещё ожидаются · только внутренний прогноз',{kind:'verify'}));
   const settlement=deal?.settlement||{},settlementState=upper(settlement.state),
@@ -1226,7 +1228,12 @@ function agentActHumanBlockers(missing){
   if(codes.has('CURRENT_OWNER_CORRECTION_REQUIRED'))items.push('требуется актуальная корректировка');
   if(codes.has('FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS'))items.push('условия вознаграждения ещё не подтверждены по этому ДС');
   if(codes.has('ACCOUNTING_CLOSURE_REQUIRED'))items.push('не завершено закрытие расчётов');
-  if(codes.has('VERIFIED_AFTER_TAX_NET_PROFIT_REQUIRED'))items.push('чистая прибыль после налогов не подтверждена');
+  if(codes.has('SIGNED_SHIPMENT_MARGIN_AND_CLOSING_DOCUMENTS_REQUIRED'))
+    items.push('нет подтверждённой маржи по поставке и документов завода/ГУ');
+  if(codes.has('DS1_AGENCY_CONTRACT_REFERENCE_DISCREPANCY'))
+    items.push('требуется сверка номера агентского договора в ДС №1');
+  if(codes.has('DS1_RUB_PAYMENT_CONDITION_REQUIRED'))
+    items.push('не подтверждена сумма в рублях по условиям ДС');
   if(codes.has('FINANCE_CONCLUSION_REQUIRED'))items.push('нет финансового подтверждения');
   if(codes.has('LEGAL_CONCLUSION_REQUIRED'))items.push('не утверждены юридические реквизиты');
   if(codes.has('ACT_NUMBER_NOT_ASSIGNED'))items.push('не присвоен номер акта');
@@ -1237,7 +1244,11 @@ function agentActIssueMessage(error){
   const code=String(error?.message||error||''),map={
     ACT_FINANCE_APPROVED_AMOUNT_MISSING:'не подтверждена сумма вознаграждения',
     ACT_FINANCE_SOURCE_SNAPSHOT_MISMATCH:'финансовые данные расходятся с корректировкой',
-    ACT_VERIFIED_NET_PROFIT_BASIS_REQUIRED:'не подтверждена чистая прибыль после налогов',
+    ACT_VERIFIED_SHIPMENT_MARGIN_REQUIRED:'не подтверждена маржа по поставке',
+    ACT_SHIPMENT_CLOSING_DOCUMENTS_REQUIRED:'не подтверждены документы завода и ГУ',
+    ACT_DS1_BASE_CONTRACT_REFERENCE_UNRESOLVED:'в ДС №1 расходятся номера агентского договора',
+    ACT_DS1_RUB_CURRENCY_REQUIRED:'вознаграждение должно быть согласовано в рублях',
+    ACT_MARGIN_CONVERSION_SOURCE_REQUIRED:'не подтверждён курс ЦБ РФ для суммы акта',
     ACT_AGENT_AMOUNT_NOT_50_PERCENT_OF_NET_PROFIT:'сумма не соответствует доле агента по ДС',
     ACT_LEGAL_APPROVED_DOCUMENT_FIELDS_MISSING:'не утверждены номер, дата или реквизиты акта',
     ACT_LEGAL_SOURCE_SNAPSHOT_MISMATCH:'не подтверждено юридическое основание по ДС',
@@ -1492,16 +1503,16 @@ function renderDealDocuments(root,deal){
     confirmedTerm=termAligned&&term?.mode==='PERCENT'&&num(term.rate)!==null;
   r.append(el('div','rona-ar-doc-kicker','Агентское вознаграждение'));
   if(ownerDs1)
-    r.append(el('div','rona-ar-doc-name','50% от чистой прибыли после налогов'));
+    r.append(el('div','rona-ar-doc-name','50% от маржи по поставке (ДС №1)'));
   else if(confirmedTerm)
     r.append(el('div','rona-ar-doc-name',fmt(num(term.rate)*100)+'% по действующему ДС'));
   else if(current)
     r.append(el('div','rona-ar-doc-note','ДС получено. Условия расчёта уточняются.'));
   else r.append(el('div','rona-ar-doc-note','Для расчёта требуется ДС.'));
   const preview=ownerModel(deal,cashFactModel(deal)),reward=preview.reward;
-  if(num(reward?.value)!==null&&ownerDs1){
-    r.append(el('div','rona-ar-doc-name','Предварительно: '+money(reward.value,currencyOf(deal))),
-      el('div','rona-ar-doc-note','Окончательная сумма требует подтверждения.'));
+  if(ownerDs1){
+    r.append(el('div','rona-ar-doc-note',
+      'Сумма после документов завода и ГУ. Выплата в рублях по курсу ЦБ РФ на дату оплаты.'));
   }else if(current&&num(reward?.value)===null){
     r.append(el('div','rona-ar-doc-note','Сумма пока не подтверждена.'));
   }
