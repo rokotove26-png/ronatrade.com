@@ -629,7 +629,7 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(agentActEdge,/await context\(req\)/);
   assert.match(agentActProxy,/originAllowed\(request\)/);
   assert.match(agentActProxy,/action==='agent-inbox'&&request.method==='GET'/);
-  assert.match(ui,/Загрузить и привязать подписанное ДС/);
+  assert.match(ui,/Загрузить ДС/);
   assert.match(ui,/Акт выполненных работ/);
   assert.match(ui,/await saveCorrection\(deal\.dealId,deal\.assignmentId,payload,''\)/);
   assert.match(ui,/send\.disabled=true/);
