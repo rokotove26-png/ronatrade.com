@@ -238,15 +238,13 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
       assert.equal(result.cockpit.navCount,1);
       assert.equal(result.cockpit.selectedCount,1);
       assert.equal(result.cockpit.insightCount,1);
-      assert.equal(result.cockpit.insightPanels,2);
+      assert.equal(result.cockpit.insightPanels,1,'No duplicate technical evidence panel');
       assert.deepEqual(result.cockpit.waterfallSteps,['income','expense','subtotal','expense','subtotal','agent','final']);
       assert.equal(result.cockpit.waterfallBars,7,'All seven initial financial waterfall steps are strictly source-derived');
       assert.equal(result.cockpit.waterfallNet,'+1 782,0 USD');
       assert.equal(result.cockpit.delta,'-18,0 USD','Comparison is OWNER net less PLAN net, not a fabricated payables number');
-      assert.match(result.cockpit.evidenceText,/Основание и статус расчёта/);
-      assert.match(result.cockpit.evidenceText,/Не подтверждено в текущем источнике/,
-        'Do not silently turn OWNER preview into an external settlement');
-      assert.equal(result.cockpit.evidenceRows,5);
+      assert.equal(result.cockpit.evidenceText,'','No technical source panel');
+       assert.equal(result.cockpit.evidenceRows,0);
       assert(result.cockpit.navWidth>180 && result.cockpit.rightWidth>180,'Both master and detail panels must be usable');
       assert(result.cockpit.horizontalOverflow<=width+1,'No horizontal overflow in executive cockpit at '+width);
       if(width>=1600)assert(result.cockpit.rightWidth>result.cockpit.navWidth,'Large screens prioritize deal analysis');
@@ -329,7 +327,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
       assert.equal(result.fxRows,0,'Neither FACT nor Owner table may contain realized FX at '+width);
       assert(result.fxPrecedesTables&&result.fxAfterPulse,'Compact FX amount follows KPI group and precedes tables at '+width);
       assert.equal(result.fxNote,undefined,'No technical FX explanation at '+width);
-      assert.equal(result.fxMeaning,'FX');
+      assert.equal(result.fxMeaning,'Курс');
       assert.equal(result.fxAmount,(width===950?'-10,0 USD':'+10,0 USD'),'FX amount must be read from approved FACT without recomputation');
       assert.equal(result.fxColor,width===950?'rgb(255, 156, 172)':'rgb(145, 227, 193)','FX sign color must describe benefit/loss at '+width);
       assert.deepEqual(result.rowMeanings,{receipt:'inflow',outflow:'outflow',agent:'agent'});
@@ -463,7 +461,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
           'A missing deal term must be described precisely, not as no agent/contract');
         assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'Расчёт ожидает проверки');
         assert.equal(await page.locator('.rona-ar-col.fact .rona-ar-reward-focus .rona-ar-value').textContent(),'Расчёт ожидает проверки');
-        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Условия вознаграждения проверяются/);
+        assert.equal(await page.locator('.rona-ar-evidence').count(),0,'Do not show technical evidence panel for any deal');
         assert.match(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-value').textContent(),/Расчёт ожидает проверки/);
         assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),0,
           'Never plot an external agent liability without a verified term');
@@ -490,13 +488,13 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'891,0 USD',
           '011 provisional 50% OWNER estimate calculates before closing, not an external payable');
         assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-value').textContent(),'+891,0 USD');
-        assert.match(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-name').getAttribute('title'),
-          /MANAGEMENT_FORECAST_PENDING_CONTRACTUAL_CLOSING/,
-          'Unfulfilled DS5 closing remains recorded as a forecast state');
+        assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-name').getAttribute('title'),
+          'Вознаграждение по действующему ДС',
+          'Show a readable basis in the Owner UI, never internal status codes');
         assert.equal(await page.locator('.rona-ar-btn.send').isDisabled(),true,
           'A management projection must never enable an external payable or agent send');
-        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Закрывающие документы ещё ожидаются/);
-        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Не подтверждено в текущем источнике/);
+        assert.equal(await page.locator('.rona-ar-evidence').count(),0,'Technical explanation panel must remain hidden');
+        assert.equal(await page.locator('.rona-ar-evidence').count(),0,'Technical explanation panel must remain hidden');
         assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),1,
           'Internally calculable management estimate remains visually distinguishable from payable authority');
       }
@@ -538,7 +536,7 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         await page.locator('[data-rona-ar-deal-select="VISUAL-QA-SECOND::VISUAL-QA-SECOND-DEAL"]').click();
         assert.equal(await page.locator('.rona-ar-focus-title').textContent(),'Второй контрагент');
         assert.equal(await page.locator('[data-rona-ar-deal-select="VISUAL-QA-SECOND::VISUAL-QA-SECOND-DEAL"]').getAttribute('aria-pressed'),'true');
-        assert.match(await page.locator('.rona-ar-evidence').textContent(),/Условия вознаграждения проверяются/);
+        assert.equal(await page.locator('.rona-ar-evidence').count(),0,'Technical explanation panel must remain hidden');
         assert.equal(await page.locator('.rona-ar-cascade-row.agent .rona-ar-cascade-bar').count(),0);
         assert.equal(await page.locator('.rona-ar-cascade-row.final .rona-ar-cascade-bar').count(),0,
           'Switching to a deal without a signed term must not show fabricated net payout result');
@@ -583,7 +581,7 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
     agentName:'Представитель агента',assignmentStatus:'ACTIVE',
     term:null,
     ownerConfirmedTerm:{mode:'PERCENT',rate:0.5,basis:'SHIPMENT_MARGIN',paymentCurrency:'RUB',status:'SIGNED_SOURCE_TEXT_PENDING_FINANCE_LEGAL'},
-    sourceReadiness:{termAligned:false,accountingStatus:'OPEN'},
+    sourceReadiness:{termAligned:false,accountingStatus:'OPEN',rule:'DS1_50_PERCENT_SHIPMENT_MARGIN_RUB'},
     currentAddendum:{bindingId:'b1111111-1111-4111-8111-111111111111',
       documentId:'AGENCY-S-005-A1B2C3D4',filename:'Signed_QA.pdf',
       reference:'ДС №1 от 15.07.2026',evidenceStatus:'RECEIVED_NOT_LEGALLY_VERIFIED',ownerApprovedByUpload:true,sha256:'e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab'},
@@ -637,19 +635,25 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.equal(await box.locator('input[type=file]').count(),0);
       assert.equal(await box.getByRole('button',{name:'Скачать ДС'}).count(),1);
       assert.equal(await box.getByText('ДС загружено и привязано к сделке').count(),1);
+      assert.equal(await box.getByRole('button',{name:'Акт сверки · СГ-Транс'}).count(),1);
+      assert.doesNotMatch(await page.locator('.rona-ar').innerText(),/Основание и статус расчёта|Важно: расчёт PLAN/);
       assert.equal(await box.getByText('50% от маржи по поставке (ДС №1)').count(),1);
       assert.match(await box.innerText(),/По сохранённому расчёту:/);
       assert.match(await page.locator('.rona-ar-col.owner').innerText(),/990,0\s*USD/);
       assert.doesNotMatch(await box.innerText(),/Предварительно:\s*891/);
-      assert.doesNotMatch(await page.locator('.rona-ar-evidence').innerText(),
-        /ДС не привязано|Addendum 2/);
+      assert.doesNotMatch(await page.locator('.rona-ar').innerText(),
+         /ДС не привязано|Основание и статус расчёта/);
       assert.equal(await box.getByRole('button',{name:'Загрузить ДС'}).count(),0);
       assert.equal(await box.getByRole('button',{name:'Подготовить акт'}).count(),0);
       assert.equal(await page.getByRole('button',{name:'Акт выполненных работ',exact:true}).count(),0);
       const notice=page.locator('.rona-admin-dialog-backdrop');
       if(await notice.count())await notice.last().getByRole('button',{name:'Закрыть'}).click();
+      const requestSeen=page.waitForRequest(req=>
+        req.method()==='POST'&&req.url().includes('action=request-act'),{timeout:10000});
       await page.locator('.rona-ar-col.owner').getByRole('button',{name:'Сохранить корректировку'}).click();
-      await box.getByText('Акт будет доступен после подтверждения расчёта и реквизитов.').waitFor({timeout:7000});
+      await requestSeen;
+      await box.getByText('Корректировка №3 сохранена.').waitFor({timeout:7000});
+      assert.equal(await box.getByRole('button',{name:'Сформировать и скачать акт'}).count(),1);
       assert.deepEqual(mutations.map(x=>x.action),['request-act'],
         'Saving a correction creates an Act request once; missing approval must not trigger false signed-PDF issuance');
       const visible=await box.innerText();

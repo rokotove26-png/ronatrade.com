@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261007-agent-rewards-finance-v20-correction-gate-v3';
+const VERSION='20261016-agent-rewards-owner-saved-act-recovery-v4';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='premium-fintech-v2';
@@ -351,7 +351,7 @@ function ownerSignedDs1ForManagement(deal){
     ||addendum?.ownerApprovedByUpload!==true
     ||!/^ДС\s*№\s*1\b/i.test(String(addendum.reference||''))
     ||String(addendum.sha256||'').toLowerCase()!=='e12c2e1f7527ed58a07e081396be9d2b51401d42558be8b3ba7c7be5e9431bab'
-    ||term?.status!=='SIGNED_SOURCE_TEXT_PENDING_FINANCE_LEGAL'
+    ||docs?.sourceReadiness?.rule!=='DS1_50_PERCENT_SHIPMENT_MARGIN_RUB'
     ||term?.basis!=='SHIPMENT_MARGIN'||term?.paymentCurrency!=='RUB'
     ||upper(term?.mode)!=='PERCENT'
     ||num(term?.rate)!==0.5)return false;
@@ -817,7 +817,7 @@ function ownerComputedRow(label,key,value,cur,hint,final=false,signed=true,nullT
 function agentStatusText(status){
   const s=upper(status);
   if(s==='TERM_MISSING')return'Расчёт ожидает проверки';
-  if(s==='UPLOADED_DS_TERM_REVIEW_REQUIRED')return'ДС загружено · условия сверяются';
+  if(s==='UPLOADED_DS_TERM_REVIEW_REQUIRED')return'Вознаграждение не рассчитано';
   if(s==='SHIPMENT_MARGIN_SOURCE_REQUIRED')return'Ожидаются документы завода и ГУ';
   if(s==='SIGNED_DS_SOURCE_LOADING')return'Загрузка условий ДС';
   if(s==='TERM_NOT_ACTIVE')return'Условие ДС проверяется';
@@ -934,7 +934,9 @@ function renderOwner(deal){
   table.append(ownerComputedRow('Прибыль до налогообложения','actualFinancialResult',base.actualFinancialResult,cur,'Доходы − Расходы'));
   table.append(ownerComputedRow('Налоги и платежи (10%)','taxes',base.taxes,cur,'Управленческий расчёт 10% от положительной прибыли',false,false));
   table.append(ownerComputedRow('Чистая прибыль','netProfit',base.netProfit,cur,'Прибыль до налогообложения − расчётный налог'));
-  const rewardRow=ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,'База — Чистая прибыль · '+base.reward.status,false,true,agentStatusText(base.reward.status));
+  const rewardRow=ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,
+    ownerSignedDs1ForManagement(deal)?'50% положительной маржи по ДС №1':'Вознаграждение по действующему ДС',
+    false,true,agentStatusText(base.reward.status));
   // Keep the signed FX contractual status in the source model; omit the UI badge.
   table.append(rewardRow);
   table.append(ownerComputedRow('Прибыль RONA','ronaProfit',base.ronaProfit,cur,'Чистая прибыль − Агентское вознаграждение',true,true,base.reward.value===null?'После расчёта агента':'TO_VERIFY'));
@@ -999,7 +1001,7 @@ function renderFxReference(root,deal){
   fx.dataset.ronaArFxReference='1';
   fx.setAttribute('aria-label','Валютная справка по сделке');
   const copy=el('div','rona-ar-fx-copy');
-  copy.append(el('div','rona-ar-fx-label','FX'));
+  copy.append(el('div','rona-ar-fx-label','Курс'));
   const value=el('strong','rona-ar-fx-value '+tone(fact.realizedFxReference),signedMoney(fact.realizedFxReference,fact.cur));
   fx.append(copy,value);root.append(fx)
 }
@@ -1043,8 +1045,7 @@ function renderExecutiveInsights(root,deal,ownerDraft=null){
   section.dataset.ronaArInsights='source-only-v1';
   section.setAttribute('aria-label','Сравнение и документальные основания выбранной сделки');
   const label=el('div','rona-ar-insights-header');
-  label.append(el('div','rona-ar-insights-eyebrow','АНАЛИТИКА · ЕДИНЫЙ УПРАВЛЕНЧЕСКИЙ РЕЗУЛЬТАТ'),
-    el('div','rona-ar-insights-note','Суммы только из текущих PLAN, FACT и OWNER · без создания права на выплату'));
+  label.append(el('div','rona-ar-insights-eyebrow','Финансовый результат сделки'));
   section.append(label);
   const waterfall=el('section','rona-ar-insight-card rona-ar-waterfall');
   waterfall.append(el('h3','rona-ar-insight-title','Финансовый каскад'),
@@ -1119,7 +1120,7 @@ function renderExecutiveInsights(root,deal,ownerDraft=null){
   const attachedDs=state.docCache.get(rowKey(deal));
   const ownerDs1=ownerSignedDs1ForManagement(deal);
   let termDescription=attachedDs?.currentAddendum
-    ?(ownerDs1?'ДС №1 · 50% маржи по поставке':'ДС загружено · условия сверяются')
+    ?(ownerDs1?'ДС №1 · 50% маржи по поставке':'ДС загружено')
     :'Условия вознаграждения проверяются';
   if(termActive&&!documentTermMismatch(deal)){
     const mode=upper(t.mode);
@@ -1143,9 +1144,9 @@ function renderExecutiveInsights(root,deal,ownerDraft=null){
   list.append(executiveInfoRow('Подтверждённое состояние settlement',
     confirmedSettlement?'Источник: '+settlementState+' · '+money(settlement.amount,cur)
       :'Не подтверждено в текущем источнике',{kind:confirmedSettlement?'ok':'verify'}));
-  evidence.append(list,el('div','rona-ar-evidence-guard',
-    'Важно: расчёт PLAN / OWNER и график не создают начисление, платёж или право агента на выплату. Решение определяется только действующими документами и отдельным авторизованным settlement.'));
-  section.append(waterfall,evidence);
+  // Accounting source details remain available in each financial section.
+  // Hide duplicated technical readiness descriptions from the Owner view.
+  section.append(waterfall);
   const existing=q('.rona-ar-insights',root);
   if(existing)existing.replaceWith(section);else root.append(section);
   return section
@@ -1385,6 +1386,37 @@ async function saveCorrectionAndDownloadSignedAct(deal,ownerApprovedCalculation)
   return{downloaded:true,documentId:archived.documentId}
 }
 
+// Generate the current Owner-signed Act from the correction already persisted
+// before the one-click renderer went live. This does not save a new correction.
+async function issueFromSavedOwnerCorrection(deal,button){
+  if(state.saving)return;
+  const saved=deal?.ownerCorrection;
+  if(!saved||!Number.isInteger(Number(saved.version))||!saved.payload)
+    return docNotice('Сохранённая корректировка сделки не найдена.');
+  state.saving=true;button.disabled=true;button.textContent='Формирую PDF…';
+  try{
+    const model=ownerModel(deal,cashFactModel(deal));
+    if(model.netProfit===null||model.reward?.value===null)
+      throw new Error('Расчёт агентского вознаграждения по ДС не завершён');
+    const approved=ownerActSavedCalculation(deal,{
+      ...model,reward:model.reward.value,rewardStatus:model.reward.status,
+      agentBasis:model.reward.basis
+    },currencyOf(deal),{
+      version:saved.version,dealId:deal.dealId,assignmentId:deal.assignmentId,
+      correctedPayload:saved.payload
+    });
+    const result=await saveCorrectionAndDownloadSignedAct(deal,approved);
+    if(!result?.downloaded)throw new Error(result?.reason||'Акт не подготовлен');
+    await refreshDealDocuments(deal);
+    docNotice('Двухстраничный акт с приложением скачан.');
+  }catch(error){
+    docNotice('Акт не выпущен: '+agentActIssueMessage(error));
+  }finally{
+    state.saving=false;button.disabled=false;
+    button.textContent='Сформировать и скачать акт';
+  }
+}
+
 async function requestAgentAct(deal,button){
   button.disabled=true;
   try{
@@ -1500,9 +1532,12 @@ function renderActRecord(deal,docs,act){
       docButton('Скачать акт (PDF)',()=>void downloadAgentAct(deal,String(act.id),String(finalFile.documentId))
         .catch(e=>docNotice('Скачивание акта: '+String(e.message||e)))));
   }else{
-    card.append(el('div','rona-ar-doc-note',
-      review.approved===true?'Акт готовится к выпуску.':
-        'Акт будет доступен после подтверждения расчёта и реквизитов.'));
+    card.append(el('div','rona-ar-doc-note','Корректировка №'+act.correction_version+' сохранена.'));
+    if(ownerSignedDs1ForManagement(deal)){
+      const issue=docButton('Сформировать и скачать акт',
+        ()=>void issueFromSavedOwnerCorrection(deal,issue),true);
+      card.append(issue);
+    }
   }
   return card
 }
@@ -1548,6 +1583,17 @@ function renderDealDocuments(root,deal){
       deal,docs.agentCompanyId,file,reference,ack,upload),true);
     l.append(docField('Файл PDF',file),docField('Номер и дата',reference),ackLabel,upload);
   }
+  // Real, separately issued signed reconciliation act for the SG-Trans
+  // counterparty of the selected deal. It is not an agency services act.
+  if(String(deal.dealId)==='DEAL-2026-004'){
+    const recon=docButton('Акт сверки · СГ-Транс',()=>{
+      const link=document.createElement('a');
+      link.href='https://drive.google.com/file/d/1qUZS1PEKM3XKac6R_oIfvIKpn8MfQUDO/view';
+      link.target='_blank';link.rel='noopener noreferrer';
+      document.body.appendChild(link);link.click();link.remove();
+    });
+    l.append(el('div','rona-ar-doc-kicker','Акт сверки взаиморасчётов'),recon);
+  }
   const ownerDs1=ownerSignedDs1ForManagement(deal),term=docs.term,
     termAligned=docs.sourceReadiness?.termAligned===true,
     confirmedTerm=termAligned&&term?.mode==='PERCENT'&&num(term.rate)!==null;
@@ -1557,7 +1603,7 @@ function renderDealDocuments(root,deal){
   else if(confirmedTerm)
     r.append(el('div','rona-ar-doc-name',fmt(num(term.rate)*100)+'% по действующему ДС'));
   else if(current)
-    r.append(el('div','rona-ar-doc-note','ДС получено. Условия расчёта уточняются.'));
+    r.append(el('div','rona-ar-doc-note','ДС загружено и привязано к сделке.'));
   else r.append(el('div','rona-ar-doc-note','Для расчёта требуется ДС.'));
   const preview=ownerModel(deal,cashFactModel(deal)),reward=preview.reward;
   if(ownerDs1){
@@ -1576,7 +1622,12 @@ function renderDealDocuments(root,deal){
   if(matchingActs.length){
     r.append(renderActRecord(deal,docs,matchingActs[0]));
   }else if(current&&correction){
-    r.append(el('div','rona-ar-doc-note','Акт формируется автоматически после сохранения корректировки.'));
+    r.append(el('div','rona-ar-doc-note','Корректировка №'+correction.version+' сохранена.'));
+    if(ownerDs1){
+      const issue=docButton('Сформировать и скачать акт',
+        ()=>void issueFromSavedOwnerCorrection(deal,issue),true);
+      r.append(issue);
+    }
   }else if(!correction){
     r.append(el('div','rona-ar-doc-note','Сначала сохраните корректировку.'));
   }else{
