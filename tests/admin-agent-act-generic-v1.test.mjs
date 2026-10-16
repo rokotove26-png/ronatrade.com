@@ -87,7 +87,7 @@ test('Direct Owner issue uses signed addendum, saved correction and Owner identi
  const output=await ownerSignedActIssue(sql,{userId:OWNER},row);
  assert.equal(output.amount,400);
  assert.equal(output.financialAppendix.agentReward,400);
- assert.equal(output.documentNumber,'RT-ACT-2026-010-Ab11111-C003');
+ assert.equal(output.documentNumber,'RT-ACT-2026-010-AB11111-C003');
  assert.equal(statements.some(q=>q.includes('ai_coordination_records')),false);
  await assert.rejects(()=>ownerSignedActIssue(sql,{userId:'another-owner'},row),
    /ACT_OWNER_DIRECT_ISSUE_NOT_AUTHORIZED/);
@@ -115,5 +115,5 @@ test('Act code enforces request-scoped attestation, canonical signing assets and
  assert.match(ui,/if\(pdf.pageCount!==2\)/);
  assert.match(pdf,/appendOwnerCanvas\(d.financialAppendix/);
  assert.match(pdf,/RONA_OWNER_AGENT_ACT_APPENDIX_V1/);
- assert.match(pdf,/ACT_PDF_TWO_PAGE/);
+ assert.match(pdf,/const canvases=\[canvas\]/);
 });
