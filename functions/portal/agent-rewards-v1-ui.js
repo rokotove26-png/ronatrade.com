@@ -340,9 +340,38 @@ function validTerm(deal){
   const t=deal?.agentTerm||{};
   return upper(t.status)==='ACTIVE'&&upper(t.lifecycleState)==='ACTIVE'&&['CONFIRMED','VERIFIED','AUTHORITATIVE'].includes(upper(t.authorityState))
 }
+function ownerSignedDs1ForManagement(deal){
+  // Read-only financial preview. The confirmed legal DS/PDF lives in the
+  // document archive; this must never turn into Finance/payable authority.
+  const docs=state.docCache.get(rowKey(deal)),addendum=docs?.currentAddendum,term=docs?.ownerConfirmedTerm;
+  if(String(deal?.dealId)!=='DEAL-2026-004'
+    ||String(docs?.dealId)!==String(deal?.dealId)
+    ||String(docs?.assignmentId)!==String(deal?.assignmentId)
+    ||addendum?.ownerApprovedByUpload!==true
+    ||!/^ДС\s*№\s*1\b/i.test(String(addendum.reference||''))
+    ||term?.status!=='OWNER_APPROVED_SOURCE_ONLY'
+    ||term?.basis!=='NET_PROFIT_AFTER_TAX'
+    ||upper(term?.mode)!=='PERCENT'
+    ||num(term?.rate)!==0.5)return false;
+  return true
+}
+function documentTermMismatch(deal){
+  const docs=state.docCache.get(rowKey(deal));
+  return !!docs?.currentAddendum&&docs.sourceReadiness?.termAligned!==true
+}
 function termReward(deal,{preferSettlement=false,basisValue=null,managementPreview=false}={}){
   const cur=currencyOf(deal),st=deal?.settlement||{},t=deal?.agentTerm||{},ref=upper(t.reference);
   if(preferSettlement&&num(st.amount)!==null&&String(st.currency||'').trim()===cur&&['APPROVED','PAYABLE_CONFIRMED','PAID'].includes(upper(st.state))&&['CONFIRMED','VERIFIED','AUTHORITATIVE'].includes(upper(st.authorityState)))return{value:num(st.amount),status:'SETTLEMENT_AUTHORITY'};
+  // A stored DS #1 takes precedence for the INTERNAL MANAGEMENT PREVIEW only.
+  // Do not silently apply the mismatching historic DS #2 pre-tax/ex-FX term.
+  if(documentTermMismatch(deal)){
+    const basis=num(basisValue);
+    if(managementPreview&&ownerSignedDs1ForManagement(deal)){
+      return basis===null?{value:null,status:'NET_PROFIT_REQUIRED'}:
+        {value:Math.max(0,basis)*0.5,status:'OWNER_DS1_AFTER_TAX_MANAGEMENT_PREVIEW_ONLY'};
+    }
+    return{value:null,status:'UPLOADED_DS_TERM_REVIEW_REQUIRED'}
+  }
   if(!validTerm(deal))return{value:null,status:t.mode?'TERM_NOT_ACTIVE':'TERM_MISSING'};
   if(upper(t.mode)==='FIXED'&&num(t.fixedAmount)!==null&&String(t.currency||'').trim()===cur)return{value:num(t.fixedAmount),status:'FIXED_TERM'};
   if(upper(t.mode)==='PER_TONNE'&&num(t.rate)!==null&&num(deal.quantityTonnes)!==null&&String(t.currency||'').trim()===cur)return{value:num(t.rate)*num(deal.quantityTonnes),status:'PER_TONNE_TERM'};
@@ -469,7 +498,8 @@ function planModel(deal){
     &&upper(p.expenseStatus).startsWith('APPROVED_FINANCE_MANAGEMENT_PLAN')
     &&Boolean(deal?.planAuthority?.financeProposalRecordId)
     &&Boolean(deal?.planAuthority?.operationsApprovalRecordId);
-  if(reward.value===null&&pnl.netProfit!==null&&planAuthorized){
+  // A historically approved plan must not supersede a newer uploaded DS with conflicting terms.
+  if(reward.value===null&&pnl.netProfit!==null&&planAuthorized&&!documentTermMismatch(deal)){
     if(planMode==='PERCENT'&&num(planTerm.rate)!==null
       &&num(planTerm.rate)>=0&&num(planTerm.rate)<=1
       &&['MANAGEMENT_PLAN_MODEL_ONLY_NOT_EXTERNAL_PAYABLE_AUTHORITY','SIGNED_CURRENT_DS5_PLAN_PROJECTION_NOT_PAYABLE_STATE'].includes(planAuthority)){
@@ -513,7 +543,7 @@ function ownerAgentReward(deal,netProfit){
   if(basis===null)return{value:null,basis:null,status:'NET_PROFIT_REQUIRED',externalFxTermConflict:false};
   const reward=managementAgentReward(deal,basis);
   const t=deal?.agentTerm||{};
-  const externalFxTermConflict=upper(t.mode)==='PERCENT'&&upper(t.reference).includes('EXCLUDING FX');
+  const externalFxTermConflict=!ownerSignedDs1ForManagement(deal)&&upper(t.mode)==='PERCENT'&&upper(t.reference).includes('EXCLUDING FX');
   return{
     value:reward.value,basis,externalFxTermConflict,
     status:externalFxTermConflict&&reward.value!==null
@@ -778,8 +808,9 @@ function ownerComputedRow(label,key,value,cur,hint,final=false,signed=true,nullT
 }
 function agentStatusText(status){
   const s=upper(status);
-  if(s==='TERM_MISSING')return'ДС не привязано';
-  if(s==='TERM_NOT_ACTIVE')return'Условие ДС не подтверждено';
+  if(s==='TERM_MISSING')return'Расчёт ожидает проверки';
+  if(s==='UPLOADED_DS_TERM_REVIEW_REQUIRED')return'ДС загружено · условия сверяются';
+  if(s==='TERM_NOT_ACTIVE')return'Условие ДС проверяется';
   if(s==='CLOSING_CONDITIONS_REQUIRED')return'Ожидаются закрывающие документы';
   if(s==='FX_REFERENCE_REQUIRED_FOR_AGENT_BASIS')return'Нужна FX-база';
   if(s==='ACTUAL_RESULT_REQUIRED'||s==='NET_PROFIT_REQUIRED'||s==='OPEN_SETTLEMENT_BRIDGE_REQUIRED')return'Нет чистой прибыли для расчёта';
@@ -1063,8 +1094,12 @@ function renderExecutiveInsights(root,deal,ownerDraft=null){
     executiveInfoRow('OWNER · управленческий мост',ownerBridgeApproved(deal)?'Подтверждён':'TO_VERIFY / мост не подтверждён',
       {kind:ownerBridgeApproved(deal)?'ok':'verify'})
   );
-  let termDescription='ДС не привязано / источник не подтверждён';
-  if(termActive){
+  const attachedDs=state.docCache.get(rowKey(deal));
+  const ownerDs1=ownerSignedDs1ForManagement(deal);
+  let termDescription=attachedDs?.currentAddendum
+    ?(ownerDs1?'ДС №1 · 50% чистой прибыли после налогов':'ДС загружено · условия сверяются')
+    :'Условия вознаграждения проверяются';
+  if(termActive&&!documentTermMismatch(deal)){
     const mode=upper(t.mode);
     termDescription=mode==='PERCENT'&&num(t.rate)!==null
       ?'Ставка по действующему ДС: '+fmt(num(t.rate)*100)+'%'
@@ -1074,8 +1109,8 @@ function renderExecutiveInsights(root,deal,ownerDraft=null){
           ?'Действующее ДС · ставка за тонну: '+money(t.rate,t.currency||cur)
           :'Действующее ДС · условия требуют проверки';
   }
-  list.append(executiveInfoRow('Договорное основание агента',
-    termDescription,{kind:termActive?'ok':'verify',reference:termActive?String(t.reference||''):''}));
+  list.append(executiveInfoRow('Условие вознаграждения',
+    termDescription,{kind:ownerDs1||(termActive&&!documentTermMismatch(deal))?'ok':'verify'}));
   if(pendingClosing)list.append(executiveInfoRow('Условие действующего ДС',
     'Закрывающие документы ещё ожидаются · только внутренний прогноз',{kind:'verify'}));
   const settlement=deal?.settlement||{},settlementState=upper(settlement.state),
@@ -1181,8 +1216,7 @@ async function requestAgentAct(deal,button){
   try{
     const result=await docCall(deal,'request-act',{method:'POST'});
     await refreshDealDocuments(deal);
-    docNotice('Заявка на акт выполненных работ зарегистрирована: '+String(result.requestId||'')+
-      '. Проект акта можно подготовить для проверки. Подписание требует фактических заключений Finance и Legal.')
+    docNotice('Запрос на акт сохранён. Акт будет доступен после подтверждения расчёта и реквизитов.')
   }catch(e){docNotice('Акт не запрошен: '+String(e.message||e))}
   finally{button.disabled=false}
 }
@@ -1282,57 +1316,20 @@ function actUploadForm(deal,act,stage,title,attestation){
   return field
 }
 function renderActRecord(deal,docs,act){
-  const card=el('section','rona-ar-doc-request');
-  const review=act.review||{},fin=review.finance?.status||'PENDING',
-    legal=review.legal?.status||'PENDING',stage=String(act.request_status||'REVIEW_REQUESTED'),
-    current=docs.ownerCorrection?.sourceId===act.owner_correction_key,
-    approved=review.approved===true;
-  card.append(el('div','rona-ar-doc-name','Акт · OWNER №'+String(act.correction_version||'?')),
-    el('div','rona-ar-doc-note','Стадия: '+stage+' · Finance: '+fin+' · Legal: '+legal));
-  const unreadiness=act.readiness?.missing;
-  if(Array.isArray(unreadiness)&&unreadiness.length){
-    const reasons={
-      SIGNED_DS_MISSING:'Отсутствует подписанное ДС по сделке',
-      CURRENT_OWNER_CORRECTION_REQUIRED:'Требуется актуальная OWNER-корректировка',
-      OWNER_UPLOAD_AUTHORITY_NOT_VERIFIED:'Не подтверждено, что ДС загружено владельцем',
-      FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS:'Finance: ставка не соответствует подписанному ДС',
-      ACCOUNTING_CLOSURE_REQUIRED:'Сделка ещё не закрыта бухгалтерски',
-      FINANCE_CONCLUSION_REQUIRED:'Finance ещё не утвердил фактический расчёт',
-      LEGAL_CONCLUSION_REQUIRED:'Legal ещё не подтвердил акт и подписанта',
-      ACT_NUMBER_NOT_ASSIGNED:'Номер акта пока не присвоен',
-      VERIFIED_AFTER_TAX_NET_PROFIT_REQUIRED:'Чистая прибыль после налогов не подтверждена'
-    };
-    const details=el('div','rona-ar-doc-note');
-    details.append(el('strong','','Для выпуска окончательного акта:'));
-    for(const code of unreadiness)details.append(el('div','',
-      '• '+(reasons[code]||String(code))));
-    card.append(details)
-  }
-  if(!current)card.append(el('div','rona-ar-doc-note',
-    'После заявки OWNER-расчёт был изменён. Требуется новый акт по последней версии.'));
-  const files=Array.isArray(act.documents)?act.documents:[];
-  for(const file of files){
-    const download=docButton('Скачать '+String(file.stage||'PDF')+' · '+String(file.filename||''),
-      ()=>void downloadAgentAct(deal,String(act.id),String(file.documentId))
-        .catch(e=>docNotice('Скачивание: '+String(e.message||e))));
-    card.append(download)
-  }
+  const card=el('section','rona-ar-doc-request'),review=act.review||{},
+    current=String(docs.ownerCorrection?.sourceId||'')===String(act.owner_correction_key),
+    files=Array.isArray(act.documents)?act.documents:[],
+    finalFile=files.find(f=>f.stage==='BOTH_SIGNED')||files.find(f=>f.stage==='OWNER_SIGNED');
   if(!current)return card;
-  card.append(docButton('Открыть проект акта · печать в PDF',()=>openAgentActDraft(deal,docs,act)));
-  if(!approved)card.append(el('div','rona-ar-doc-note',
-    'Finance и Legal: PENDING. Внутренний проект можно сохранить для согласования; подписание до фактического подтверждения не разрешено.'));
-  if(stage==='REVIEW_REQUESTED'||stage==='FINANCE_LEGAL_REVIEW')
-    card.append(actUploadForm(deal,act,'FINANCE_LEGAL_DRAFT','Проект акта для внутренней проверки (PDF)',false));
-  else if(stage==='DRAFT_READY'){
-    if(approved)card.append(actUploadForm(deal,act,'OWNER_SIGNED','Акт с подписью RONA Trade (PDF)',true));
-    else card.append(el('div','rona-ar-doc-note','Проект сохранён. Дождитесь действительных заключений Finance и Legal для подписи.'));
-  }else if(stage==='OWNER_SIGNED'||stage==='AWAITING_AGENT_SIGNATURE'){
-    if(approved)card.append(actUploadForm(deal,act,'BOTH_SIGNED',
-      'Акт с подписями обеих сторон, полученный вне ЛК агента (PDF)',true));
+  if(finalFile){
+    card.append(el('div','rona-ar-doc-name','Акт готов'),
+      docButton('Скачать акт (PDF)',()=>void downloadAgentAct(deal,String(act.id),String(finalFile.documentId))
+        .catch(e=>docNotice('Скачивание акта: '+String(e.message||e)))));
+  }else{
     card.append(el('div','rona-ar-doc-note',
-      'Отправка через ЛК агента не выполняется. Подписанный обеими сторонами PDF можно зарегистрировать вручную после его фактического получения.'));
-  }else if(stage==='SIGNED_ARCHIVED')
-    card.append(el('div','rona-ar-doc-note','Акт с обеими подписями находится в защищённом реестре и доступен для скачивания.'));
+      review.approved===true?'Акт готовится к выпуску.':
+        'Акт будет доступен после подтверждения расчёта и реквизитов.'));
+  }
   return card
 }
 
@@ -1340,79 +1337,77 @@ function renderDealDocuments(root,deal){
   installDealDocumentStyle();
   const section=el('section','rona-ar-documents');
   section.dataset.ronaArDealDocuments='v1';
-  section.append(el('div','rona-ar-doc-head'));
-  const head=q('.rona-ar-doc-head',section);
-  head.append(el('h3','rona-ar-doc-title','Агент · подписанное ДС · акты'),
-    el('span','rona-ar-doc-kicker','Документальный контур'));
+  const head=el('div','rona-ar-doc-head');
+  head.append(el('h3','rona-ar-doc-title','Документы и акт'));
+  section.append(head);
   const key=docKey(deal),docs=state.docCache.get(key);
   if(!docs){
     const err=state.docError.get(key);
-    section.append(el('div','rona-ar-doc-note',err?'Реестр документов недоступен: '+err:
-      'Загрузка агентских документов по сделке…'));
-    const sourceId=String(deal.assignmentId||'');
-    if(!err&&!state.docLoading.has(key)&&/^[0-9a-f-]{36}$/i.test(sourceId)&&/^DEAL-20[0-9]{2}-[0-9]{3,}$/.test(String(deal.dealId||'')))
+    section.append(el('div','rona-ar-doc-note',err?'Не удалось загрузить документы.':'Загружаю документы…'));
+    const assignment=String(deal.assignmentId||'');
+    if(!err&&!state.docLoading.has(key)&&/^[0-9a-f-]{36}$/i.test(assignment)
+      &&/^DEAL-20[0-9]{2}-[0-9]{3,}$/.test(String(deal.dealId||'')))
       setTimeout(()=>void refreshDealDocuments(deal),0);
-    if(err)section.append(docButton('Повторить загрузку документов',()=>{state.docError.delete(key);void refreshDealDocuments(deal)}));
+    if(err)section.append(docButton('Повторить',()=>{
+      state.docError.delete(key);void refreshDealDocuments(deal)
+    }));
     root.append(section);return
   }
   const layout=el('div','rona-ar-doc-columns'),l=el('div','rona-ar-doc-card'),
-    r=el('div','rona-ar-doc-card');
-  l.append(el('div','rona-ar-doc-kicker','Агент конкретной сделки'),
-    el('div','rona-ar-doc-name',docs.agentLegalName||deal.agentLegalName||'Не установлен'),
-    el('div','rona-ar-doc-note','Представитель: '+String(docs.agentName||deal.agentName||'—')+
-      ' · статус назначения: '+String(docs.assignmentStatus||'TO_VERIFY')));
-  l.append(el('div','rona-ar-doc-kicker','Подписанное дополнительное соглашение'));
-  const current=docs.currentAddendum;
+    r=el('div','rona-ar-doc-card'),current=docs.currentAddendum;
+  l.append(el('div','rona-ar-doc-kicker','Агент'),
+    el('div','rona-ar-doc-name',docs.agentLegalName||deal.agentLegalName||'Не указан'));
+  l.append(el('div','rona-ar-doc-kicker','Дополнительное соглашение'));
   if(current){
-    l.append(el('div','rona-ar-doc-name',current.filename),
-      el('div','rona-ar-doc-note','Основание: '+String(current.reference||'—')+
-        ' · '+(current.ownerApprovedByUpload?'Утверждено владельцем при загрузке':String(current.evidenceStatus||'TO_VERIFY'))));
-    l.append(docButton('Скачать подписанное ДС',()=>void signedAgencyDownload(
-      docs.agentCompanyId,current.documentId).catch(e=>docNotice(String(e.message||e)))));
+    l.append(el('div','rona-ar-doc-name',current.reference||'ДС'),
+      el('div','rona-ar-doc-note','ДС загружено и привязано к сделке'));
+    l.append(docButton('Скачать ДС',()=>void signedAgencyDownload(
+      docs.agentCompanyId,current.documentId).catch(e=>docNotice('Скачивание ДС: '+String(e.message||e)))));
   }else{
-    l.append(el('div','rona-ar-doc-note','Подписанное ДС для этой сделки ещё не привязано.'));
+    l.append(el('div','rona-ar-doc-note','ДС ещё не загружено для этой сделки.'));
     const file=el('input');file.type='file';file.accept='application/pdf,.pdf';
     const reference=el('input');reference.type='text';reference.maxLength=180;
     reference.placeholder='ДС №... от ...';
     const ackLabel=el('label','rona-ar-doc-ack'),ack=el('input');ack.type='checkbox';
-    ackLabel.append(ack,el('span','','Подтверждаю наличие подписей обеих сторон на PDF.'));
-    const upload=docButton('Загрузить и привязать подписанное ДС',
-      ()=>void uploadDealAddendum(deal,docs.agentCompanyId,file,reference,ack,upload),true);
-    l.append(docField('Подписанный PDF (до 20 МБ)',file),docField('Номер и дата ДС',reference),ackLabel,upload)
+    ackLabel.append(ack,el('span','','Подтверждаю подписи на ДС.'));
+    const upload=docButton('Загрузить ДС',()=>void uploadDealAddendum(
+      deal,docs.agentCompanyId,file,reference,ack,upload),true);
+    l.append(docField('Файл PDF',file),docField('Номер и дата',reference),ackLabel,upload);
   }
-  const term=docs.term;
-  r.append(el('div','rona-ar-doc-kicker','Параметры вознаграждения'));
-  if(term&&docs.sourceReadiness?.termAligned!==false){
-    const value=term.mode==='PERCENT'&&num(term.rate)!==null?fmt(num(term.rate)*100)+'% · договорная база':
-      term.mode==='FIXED'?money(term.fixedAmount,term.currency||currencyOf(deal)):
-      term.mode==='PER_TONNE'?money(term.rate,term.currency||currencyOf(deal))+' / т':'TO_VERIFY';
-    r.append(el('div','rona-ar-doc-name',value),el('div','rona-ar-doc-note',
-      'Подтверждённый источник условий: '+String(term.reference||'—')));
-  }else if(docs.ownerConfirmedTerm?.status==='OWNER_APPROVED_SOURCE_ONLY'){
-    r.append(el('div','rona-ar-doc-name','50% от чистой прибыли после налогов'),
-      el('div','rona-ar-doc-note',
-        'ДС №1 утверждено владельцем. Фактическая прибыль и сумма вознаграждения должны быть подтверждены Finance.'));
-  }else r.append(el('div','rona-ar-doc-note',
-    'Однозначно действующие условия не обнаружены. Ставка автоматически не назначается.'));
-  r.append(el('div','rona-ar-doc-note',current?
-    'Загрузка PDF не меняет ставку. Совпадение параметров с ДС проверяют Finance и Legal.':
-    'Для применения условий к сделке сначала привяжите соответствующее подписанное ДС.'));
+  const ownerDs1=ownerSignedDs1ForManagement(deal),term=docs.term,
+    termAligned=docs.sourceReadiness?.termAligned===true,
+    confirmedTerm=termAligned&&term?.mode==='PERCENT'&&num(term.rate)!==null;
+  r.append(el('div','rona-ar-doc-kicker','Агентское вознаграждение'));
+  if(ownerDs1)
+    r.append(el('div','rona-ar-doc-name','50% от чистой прибыли после налогов'));
+  else if(confirmedTerm)
+    r.append(el('div','rona-ar-doc-name',fmt(num(term.rate)*100)+'% по действующему ДС'));
+  else if(current)
+    r.append(el('div','rona-ar-doc-note','ДС получено. Условия расчёта уточняются.'));
+  else r.append(el('div','rona-ar-doc-note','Для расчёта требуется ДС.'));
+  const preview=ownerModel(deal,cashFactModel(deal)),reward=preview.reward;
+  if(num(reward?.value)!==null&&ownerDs1){
+    r.append(el('div','rona-ar-doc-name','Предварительно: '+money(reward.value,currencyOf(deal))),
+      el('div','rona-ar-doc-note','Окончательная сумма требует подтверждения.'));
+  }else if(current&&num(reward?.value)===null){
+    r.append(el('div','rona-ar-doc-note','Сумма пока не подтверждена.'));
+  }
   r.append(el('div','rona-ar-doc-kicker','Акт выполненных работ'));
-  const correction=docs.ownerCorrection;
-  r.append(el('div','rona-ar-doc-note',correction?
-    'Сохранённая OWNER-корректировка №'+correction.version+' · '+correction.sourceId:
-    'Сначала сохраните фактическую OWNER-корректировку.'));
-  const request=docButton('Акт выполненных работ',()=>void requestAgentAct(deal,request),true);
-  const existing=!!correction&&!!current&&Array.isArray(docs.acts)&&docs.acts.some(item=>
-    String(item.owner_correction_key)===String(correction.sourceId)
-      &&String(item.addendum_key)===String(current.bindingId));
-  request.disabled=!current||!correction||existing;
-  if(existing)request.textContent='Заявка на акт зарегистрирована';
-  r.append(request);
-  for(const item of (Array.isArray(docs.acts)?docs.acts:[]).slice(0,10))
-    r.append(renderActRecord(deal,docs,item));
-  r.append(el('div','rona-ar-doc-note',
-    'Запрос на акт не является готовым юридическим документом или обязательством к выплате.'));
+  const correction=docs.ownerCorrection,
+    matchingActs=(Array.isArray(docs.acts)?docs.acts:[]).filter(a=>
+      correction&&current&&String(a.owner_correction_key)===String(correction.sourceId)
+        &&String(a.addendum_key)===String(current.bindingId));
+  if(matchingActs.length){
+    r.append(renderActRecord(deal,docs,matchingActs[0]));
+  }else if(current&&correction){
+    r.append(el('div','rona-ar-doc-note','Акт ещё не подготовлен.'));
+    const request=docButton('Подготовить акт',()=>void requestAgentAct(deal,request),true);
+    r.append(request);
+  }else if(!correction){
+    r.append(el('div','rona-ar-doc-note','Сначала сохраните корректировку.'));
+  }else{
+    r.append(el('div','rona-ar-doc-note','Для акта требуется дополнительное соглашение.'));
+  }
   layout.append(l,r);section.append(layout);root.append(section)
 }
 

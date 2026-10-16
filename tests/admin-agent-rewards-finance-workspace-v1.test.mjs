@@ -468,13 +468,16 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Math\.max\(0,openSettlementAdjustment\)/);
   assert.match(ui,/Math\.max\(0,-openSettlementAdjustment\)/);
   assert.doesNotMatch(ui,/basis=result-fx/);
-  assert.match(ui,/const externalFxTermConflict=upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
+  assert.match(ui,/const externalFxTermConflict=!ownerSignedDs1ForManagement\(deal\)&&upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
   assert.doesNotMatch(ui,/Условие FX · сверить договор/);
   // Legal FX-exclusion condition remains in the internal source model, not a UI badge.
-  assert.match(ui,/const externalFxTermConflict=upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
+  assert.match(ui,/const externalFxTermConflict=!ownerSignedDs1ForManagement\(deal\)&&upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
   assert.match(ui,/pnl\.netProfit-reward\.value/);
   assert.match(ui,/function agentStatusText\(status\)/);
-  assert.match(ui,/ДС не привязано/);
+  assert.doesNotMatch(ui,/ДС не привязано/);
+  assert.match(ui,/ДС загружено и привязано к сделке/);
+  assert.match(ui,/OWNER_DS1_AFTER_TAX_MANAGEMENT_PREVIEW_ONLY/);
+  assert.match(ui,/documentTermMismatch\(deal\)/);
   assert.doesNotMatch(ui,/Нет действующего условия/);
   assert.doesNotMatch(ui,/Расчёт после закрытия/);
   assert.match(ui,/После расчёта агента/);
@@ -616,7 +619,8 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(agentActStages,/\['OWNER_SIGNED','AWAITING_AGENT_SIGNATURE'\]\.includes\(row\.request_status\)/);
   assert.match(agentActStages,/ACT_STAGE_CHANGED/);
   assert.match(agentActStages,/AGENT_PORTAL_INBOX_UI_NOT_DEPLOYED/);
-  assert.match(ui,/Открыть проект акта · печать в PDF/);
+  assert.doesNotMatch(ui,/Открыть проект акта · печать в PDF/);
+  assert.match(ui,/Документы и акт/);
   assert.match(ui,/RONA-DOC-STANDARD v2/);
   assert.match(ui,/Подтверждаю, что PDF содержит подписи обеих сторон/);
   assert.doesNotMatch(ui,/Отправить агенту на подписание/);
@@ -625,7 +629,7 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   assert.match(agentActEdge,/await context\(req\)/);
   assert.match(agentActProxy,/originAllowed\(request\)/);
   assert.match(agentActProxy,/action==='agent-inbox'&&request.method==='GET'/);
-  assert.match(ui,/Загрузить и привязать подписанное ДС/);
+  assert.match(ui,/Загрузить ДС/);
   assert.match(ui,/Акт выполненных работ/);
   assert.match(ui,/await saveCorrection\(deal\.dealId,deal\.assignmentId,payload,''\)/);
   assert.match(ui,/send\.disabled=true/);
