@@ -155,8 +155,8 @@ test('Click generates and archives two-page Owner Act on another deal without AI
  const browser=await chromium.launch({headless:true});
  try{
    const page=await browser.newPage({acceptDownloads:true});
-   const actions=[],errors=[];
-   page.on('dialog',d=>d.accept('400'));
+   const actions=[],errors=[],dialogs=[];
+   page.on('dialog',d=>{dialogs.push(d.message());d.accept(d.type()==='prompt'?'400':undefined)});
    page.on('pageerror',e=>errors.push(e.message));
    await page.route('http://rona.owner/portal/admin',r=>r.fulfill({status:200,
      contentType:'text/html',body:'<!doctype html><html><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
@@ -216,7 +216,7 @@ test('Click generates and archives two-page Owner Act on another deal without AI
    let download;
    try{[download]=await Promise.all([page.waitForEvent('download',{timeout:8000}),button.click()])}
    catch(e){throw new Error('Generic Owner Act failure: '+String(e.message||e)+
-     '; calls='+JSON.stringify(actions)+'; errors='+JSON.stringify(errors)+
+     '; calls='+JSON.stringify(actions)+'; errors='+JSON.stringify(errors)+'; dialogs='+JSON.stringify(dialogs)+
      '; notices='+JSON.stringify(await page.locator('.rona-admin-dialog-backdrop').allInnerTexts())+
      '; documents='+JSON.stringify(await page.locator('.rona-ar-documents').allInnerTexts()))}
    assert.equal(download.suggestedFilename(),'Owner_Act_010.pdf');
