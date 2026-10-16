@@ -213,7 +213,12 @@ test('Click generates and archives two-page Owner Act on another deal without AI
    const button=page.locator('.rona-ar-documents')
      .getByRole('button',{name:'Сформировать и скачать акт'});
    await button.waitFor({timeout:12000});
-   const [download]=await Promise.all([page.waitForEvent('download',{timeout:20000}),button.click()]);
+   let download;
+   try{[download]=await Promise.all([page.waitForEvent('download',{timeout:8000}),button.click()])}
+   catch(e){throw new Error('Generic Owner Act failure: '+String(e.message||e)+
+     '; calls='+JSON.stringify(actions)+'; errors='+JSON.stringify(errors)+
+     '; notices='+JSON.stringify(await page.locator('.rona-admin-dialog-backdrop').allInnerTexts())+
+     '; documents='+JSON.stringify(await page.locator('.rona-ar-documents').allInnerTexts()))}
    assert.equal(download.suggestedFilename(),'Owner_Act_010.pdf');
    assert.deepEqual(actions,['request-act','final-act','upload-act','download-act']);
    assert.deepEqual(errors,[]);
