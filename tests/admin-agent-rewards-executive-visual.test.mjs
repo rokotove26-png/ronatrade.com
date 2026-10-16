@@ -488,9 +488,9 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),'891,0 USD',
           '011 provisional 50% OWNER estimate calculates before closing, not an external payable');
         assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-value').textContent(),'+891,0 USD');
-        assert.match(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-name').getAttribute('title'),
-          /MANAGEMENT_FORECAST_PENDING_CONTRACTUAL_CLOSING/,
-          'Unfulfilled DS5 closing remains recorded as a forecast state');
+        assert.equal(await page.locator('.rona-ar-col.owner .rona-ar-reward-focus .rona-ar-name').getAttribute('title'),
+          'Вознаграждение по действующему ДС',
+          'Show a readable basis in the Owner UI, never internal status codes');
         assert.equal(await page.locator('.rona-ar-btn.send').isDisabled(),true,
           'A management projection must never enable an external payable or agent send');
         assert.equal(await page.locator('.rona-ar-evidence').count(),0,'Technical explanation panel must remain hidden');
