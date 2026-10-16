@@ -204,18 +204,25 @@ async function list(s:any){
        missing.push('DS1_RUB_PAYMENT_CONDITION_REQUIRED');
    }
    let ownerSignReady=false;
-   if(shipmentMarginDs1SourceMatched&&ownerApprovedByUpload
-      &&correction&&String(correction.id)===String(a.owner_correction_key)
+   if((shipmentMarginDs1SourceMatched||a.source_snapshot?.ownerApprovedCalculation?.ownerActDeclaration)
+      &&ownerApprovedByUpload&&correction&&String(correction.id)===String(a.owner_correction_key)
       &&ownerActCandidate({...a,deal_id:s.deal_id})){
      try{checkedOwnerActAmounts({...a,deal_id:s.deal_id});ownerSignReady=true}
      catch{ownerSignReady=false}
    }
+   // Owner's explicit Act authorization supersedes AI review readiness for the
+   // non-payable Owner-signed document. It does not change financial approvals.
+   const issuanceMissing=ownerSignReady
+     ?missing.filter(x=>!['ACCOUNTING_CLOSURE_REQUIRED','FINANCE_CONCLUSION_REQUIRED',
+       'LEGAL_CONCLUSION_REQUIRED','ACT_NUMBER_NOT_ASSIGNED',
+       'FINANCE_TERM_NOT_ALIGNED_WITH_SIGNED_DS'].includes(x))
+     :missing;
    enriched.push({...a,review,documents:files,ownerSignReady,
      ownerCalculationStored:a.source_snapshot?.ownerApprovedCalculation?.contract==='OWNER_SECTION_SAVED_CALCULATION_V1',
      ownerCalculationVersion:a.source_snapshot?.ownerApprovedCalculation?.correctionVersion??null,
      readiness:{
-     readyForFinalAct:missing.length===0&&['DRAFT_READY','OWNER_SIGNED'].includes(String(a.request_status)),
-     missing,accountingStatus,contractBasis:shipmentMarginDs1SourceMatched?'SHIPMENT_MARGIN':null,
+     readyForFinalAct:ownerSignReady||(missing.length===0&&['DRAFT_READY','OWNER_SIGNED'].includes(String(a.request_status))),
+     missing:issuanceMissing,accountingStatus,contractBasis:shipmentMarginDs1SourceMatched?'SHIPMENT_MARGIN':null,
      paymentCurrency:shipmentMarginDs1SourceMatched?'RUB':null,
      contractShare:shipmentMarginDs1SourceMatched?0.5:null}});
  }
@@ -275,7 +282,7 @@ async function bind(actor:{userId:string},req:Request,s:any,body:any){
  });
  return{bindingId,documentId:docId,status:"RECEIVED_NOT_LEGALLY_VERIFIED"}
 }
-function ownerSavedCalculation(input:any,s:any,correction:any,actor:{userId:string}){
+function ownerSavedCalculation(input:any,s:any,correction:any,actor:{userId:string},addendum:any){
  if(input==null)return null;
  const denyBad=()=>{throw deny('ACT_OWNER_SAVED_CALCULATION_INVALID',400)};
  if(!input||typeof input!=='object'||Array.isArray(input)
@@ -319,6 +326,25 @@ function ownerSavedCalculation(input:any,s:any,correction:any,actor:{userId:stri
      throw deny('ACT_OWNER_AGENT_REWARD_ARITHMETIC_MISMATCH',409);
  if((amount.reward===null)!==(amount.ronaProfit===null))
      throw deny('ACT_OWNER_REWARD_COMPLETENESS_MISMATCH',409);
+ const declared=input.ownerActDeclaration||null;
+ if(declared){
+   if(!addendum||typeof declared!=='object'||Array.isArray(declared)
+     ||declared.contract!=='RONA_OWNER_AGENCY_ACT_DECLARATION_V1'
+     ||declared.authority!=='OWNER_ACT_BUTTON_APPROVAL'
+     ||declared.createsPayable!==false
+     ||String(declared.dealId)!==String(s.deal_id)
+     ||String(declared.assignmentId)!==String(s.assignment_id)
+     ||String(declared.addendumDocumentId)!==String(addendum.document_id)
+     ||String(declared.addendumBindingId)!==String(addendum.id)
+     ||String(declared.addendumSha256||'').toLowerCase()!==String(addendum.sha256||'').toLowerCase()
+     ||String(declared.addendumReference)!==String(addendum.document_reference)
+     ||String(addendum.uploaded_by)!==String(actor.userId)
+     ||String(addendum.linked_by)!==String(actor.userId)
+     ||declared.currency!==input.currency
+     ||typeof declared.amount!=='number'||!Number.isFinite(declared.amount)
+     ||amount.reward===null||Math.abs(declared.amount-Number(amount.reward))>.11)
+     throw deny('ACT_OWNER_DECLARATION_SOURCE_INVALID',409);
+ }
  return{
    contract:'OWNER_SECTION_SAVED_CALCULATION_V1',
    correctionId:String(correction.id),
@@ -329,6 +355,7 @@ function ownerSavedCalculation(input:any,s:any,correction:any,actor:{userId:stri
    rewardStatus:String(input.agentRewardStatus||'').slice(0,140),
    basisStatus:String(input.agentBasisStatus||'').slice(0,140),
    normalizedSavedPayload:expected,
+   ...(declared?{ownerActDeclaration:declared}:{}),
    createsPayable:false,signingAuthority:false
  }
 }
@@ -338,7 +365,7 @@ async function requestAct(actor:{userId:string},req:Request,s:any){
  if(!correction)throw deny("SAVE_OWNER_CORRECTION_FIRST",409);
  if(!addendum)throw deny("LINK_SIGNED_DEAL_ADDENDUM_FIRST",409);
  const body=await req.json().catch(()=>({}));
- const ownerCalculation=ownerSavedCalculation(body?.ownerApprovedCalculation,s,correction,actor);
+ const ownerCalculation=ownerSavedCalculation(body?.ownerApprovedCalculation,s,correction,actor,addendum);
  const snapshot={dealId:s.deal_id,assignmentId:s.assignment_id,agentCompanyId:s.agent_legal_entity_id,
    correctionId:correction.id,correctionVersion:correction.correction_version,
    addendumId:addendum.document_id,addendumReference:addendum.document_reference,
@@ -427,6 +454,7 @@ Deno.serve(async req=>{
        where actor_user_id=${ctx.userId}::uuid
          and action='AGENT_ACT_CANONICAL_FACSIMILE_RENDER_AUTHORIZED'
          and entity_type='DEAL' and entity_id=${act.dealId}
+         and metadata->>'requestId'=${String(finalAsset[1])}
          and metadata->>'documentNumber'=${act.documentNumber}
          and metadata->>'finance'=${String(act.financeEvidence)}
          and metadata->>'legal'=${String(act.legalEvidence)}

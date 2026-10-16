@@ -131,6 +131,8 @@ test('Source loader uses exact correction + deal-bound payments + Operations-app
 test('Renderer emits two real A4 /Page objects and has no Basis column or technical signature note',async()=>{
  const src=await(await rendererResponse()).text();
  assert.match(src,/RONA_ACT_APPENDIX_V1/);
+ assert.match(src,/RONA_OWNER_AGENT_ACT_APPENDIX_V1/);
+ assert.match(src,/appendOwnerCanvas/);
  assert.match(src,/ПОСТАТЕЙНЫЙ РАСЧЁТ ФИНАНСОВОГО РЕЗУЛЬТАТА/);
  assert.match(src,/Корректировка незакрытых взаиморасчётов/);
  assert.match(src,/Итого банковские комиссии/);

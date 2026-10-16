@@ -23,6 +23,9 @@ test('One-click PDF contract preserves canonical source hashes and protected iss
   assert.match(renderer,/ACT_PDF_APPENDIX_REQUIRED_FOR_OWNER/);
   assert.match(renderer,/ACT_PDF_APPENDIX_ARITHMETIC_MISMATCH/);
   assert.match(renderer,/RONA_ACT_APPENDIX_V1/);
+  assert.match(renderer,/RONA_OWNER_AGENT_ACT_APPENDIX_V1/);
+  assert.match(renderer,/appendOwnerCanvas/);
+  assert.match(ui,/if\(pdf.pageCount!==2\)/);
   assert.doesNotMatch(renderer,/Графические подпись и печать Заказчика применены/);
   assert.match(index,/DS1_50_PERCENT_SHIPMENT_MARGIN_RUB/);
   assert.match(acts,/ACT_DS1_BASE_CONTRACT_REFERENCE_UNRESOLVED/);

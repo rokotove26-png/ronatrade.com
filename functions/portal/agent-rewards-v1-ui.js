@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261016-agent-rewards-owner-saved-act-recovery-v4';
+const VERSION='20261016-agent-rewards-generic-certified-act-v1';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='premium-fintech-v2';
@@ -963,8 +963,14 @@ function renderOwner(deal){
       save.textContent='Формирую акт…';
       let actResult=null,actError=null;
       try{
-        const approved=ownerActSavedCalculation(deal,m,cur,saved);
-        actResult=await saveCorrectionAndDownloadSignedAct(deal,approved);
+        if(deal.dealId!=='DEAL-2026-004'&&m.reward===null){
+          actResult={downloaded:false,reason:'Для выпуска акта нажмите «Сформировать и скачать акт» и утвердите сумму по подписанному ДС.'};
+        }else if(deal.dealId!=='DEAL-2026-004'&&!ownerActDeclaration(deal,m,cur)){
+          actResult={downloaded:false,reason:'Для выпуска акта требуется подписанное ДС, привязанное к этой сделке и агенту.'};
+        }else{
+          const approved=ownerActSavedCalculation(deal,m,cur,saved);
+          actResult=await saveCorrectionAndDownloadSignedAct(deal,approved);
+        }
       }catch(error){actError=agentActIssueMessage(error)}
       await getWorkspace({force:true});
       state.docCache.delete(rowKey(deal));state.selectedKey=rowKey(deal);render();
@@ -1293,6 +1299,22 @@ function agentActDownloadBlob(blob,filename){
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),30000)
 }
+function ownerActDeclaration(deal,model,currency){
+  const d=state.docCache.get(rowKey(deal))?.currentAddendum;
+  const amount=round1(model.reward);
+  if(!d||d.ownerApprovedByUpload!==true||amount===null||amount<0
+    ||!/^[0-9a-f]{64}$/i.test(String(d.sha256||''))
+    ||!/^[0-9a-f-]{36}$/i.test(String(d.bindingId||'')))return null;
+  return{
+    contract:'RONA_OWNER_AGENCY_ACT_DECLARATION_V1',
+    authority:'OWNER_ACT_BUTTON_APPROVAL',dealId:String(deal.dealId),
+    assignmentId:String(deal.assignmentId),
+    addendumDocumentId:String(d.documentId),
+    addendumBindingId:String(d.bindingId),
+    addendumSha256:String(d.sha256),addendumReference:String(d.reference),
+    amount,currency:String(currency||'').trim(),createsPayable:false
+  }
+}
 function ownerActSavedCalculation(deal,model,currency,saved){
   const version=Number(saved?.version);
   if(!Number.isInteger(version)||version<1)
@@ -1318,6 +1340,8 @@ function ownerActSavedCalculation(deal,model,currency,saved){
     agentRewardStatus:String(model.rewardStatus||''),
     agentBasisStatus:String(model.agentBasis||''),
     sourceKind:'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE',
+    ownerActDeclaration:ownerSignedDs1ForManagement(deal)?null:
+      ownerActDeclaration(deal,model,currency),
   })
 }
 let agentActPdfEngineLoading=null;
@@ -1382,7 +1406,7 @@ async function saveCorrectionAndDownloadSignedAct(deal,ownerApprovedCalculation)
   const pdf=await engine.render(issued,id);
   if(pdf.blob?.type!=='application/pdf'||pdf.blob.size<5000)
     throw new Error('ACT_PDF_RENDER_FAILED');
-  if(issued.sourceMode==='OWNER_SIGNED_SECTION_NOT_FINANCE_PAYABLE'&&pdf.pageCount!==2)
+  if(pdf.pageCount!==2)
     throw new Error('ACT_PDF_TWO_PAGES_REQUIRED');
   const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',
     await pdf.blob.arrayBuffer()))).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -1422,11 +1446,25 @@ async function issueFromSavedOwnerCorrection(deal,button){
     if(!fact.approved||!expected.length||expected.some(id=>!Object.hasOwn(recorded,id)))
       throw new Error('Сохранённая корректировка не содержит всех подтверждённых платежей. Сохраните корректировку ещё раз после обновления страницы.');
     const model=ownerModel(deal,fact);
-    if(model.netProfit===null||model.reward?.value===null)
+    if(model.netProfit===null||(ownerSignedDs1ForManagement(deal)&&model.reward?.value===null))
       throw new Error('Расчёт агентского вознаграждения по ДС не завершён');
+    let ownerReward=model.reward?.value;
+    if(ownerReward===null&&!ownerSignedDs1ForManagement(deal)){
+      const entered=window.prompt('Укажите сумму вознаграждения, утверждаемую владельцем по подписанному ДС ('+
+        currencyOf(deal)+'). Это не поручение на оплату.','');
+      if(entered===null)throw new Error('Сумма агентского вознаграждения не утверждена');
+      ownerReward=num(String(entered).trim().replace(',','.'));
+      if(ownerReward===null||ownerReward<0||ownerReward>1e13)
+        throw new Error('Введите корректную сумму по подписанному ДС');
+      ownerReward=round1(ownerReward);
+    }
+    if(!ownerSignedDs1ForManagement(deal)&&!ownerActDeclaration(deal,{reward:ownerReward},currencyOf(deal)))
+      throw new Error('Не загружено подтверждённое владельцем подписанное ДС этой сделки. Акт не выпускается.');
     const approved=ownerActSavedCalculation(deal,{
-      ...model,reward:model.reward.value,rewardStatus:model.reward.status,
-      agentBasis:model.reward.basis
+      ...model,reward:ownerReward,
+      ronaProfit:model.netProfit-ownerReward,
+      rewardStatus:model.reward?.value===null?'OWNER_APPROVED_SIGNED_DS_AMOUNT':model.reward.status,
+      agentBasis:model.reward?.basis
     },currencyOf(deal),{
       version:saved.version,dealId:deal.dealId,assignmentId:deal.assignmentId,
       correctedPayload:saved.payload
@@ -1559,11 +1597,9 @@ function renderActRecord(deal,docs,act){
         .catch(e=>docNotice('Скачивание акта: '+String(e.message||e)))));
   }else{
     card.append(el('div','rona-ar-doc-note','Корректировка №'+act.correction_version+' сохранена.'));
-    if(ownerSignedDs1ForManagement(deal)){
-      const issue=docButton('Сформировать и скачать акт',
-        ()=>void issueFromSavedOwnerCorrection(deal,issue),true);
-      card.append(issue);
-    }
+    const issue=docButton('Сформировать и скачать акт',
+      ()=>void issueFromSavedOwnerCorrection(deal,issue),true);
+    card.append(issue);
   }
   return card
 }
@@ -1638,11 +1674,9 @@ function renderDealDocuments(root,deal){
     r.append(renderActRecord(deal,docs,matchingActs[0]));
   }else if(current&&correction){
     r.append(el('div','rona-ar-doc-note','Корректировка №'+correction.version+' сохранена.'));
-    if(ownerDs1){
-      const issue=docButton('Сформировать и скачать акт',
-        ()=>void issueFromSavedOwnerCorrection(deal,issue),true);
-      r.append(issue);
-    }
+    const issue=docButton('Сформировать и скачать акт',
+      ()=>void issueFromSavedOwnerCorrection(deal,issue),true);
+    r.append(issue);
   }else if(!correction){
     r.append(el('div','rona-ar-doc-note','Сначала сохраните корректировку.'));
   }else{
