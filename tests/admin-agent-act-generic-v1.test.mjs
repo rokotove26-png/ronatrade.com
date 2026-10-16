@@ -62,9 +62,9 @@ test('Owner is sole Act authorization across independently scoped deals',()=>{
 test('Fail closed on cross-deal DS, wrong correction amount, forged SHA or unverified archive',()=>{
  const {row,doc}=fixture();
  const wrongDeal=structuredClone(row);wrongDeal.deal_id='DEAL-2026-011';
- assert.throws(()=>checkedGenericOwnerDeclaration(wrongDeal,doc),/SOURCE_SCOPE_MISMATCH/);
+ assert.throws(()=>checkedGenericOwnerDeclaration(wrongDeal,doc),/DOCUMENT_SCOPE_MISMATCH/);
  const wrongBinding=structuredClone(doc);wrongBinding.sha256='b'.repeat(64);
- assert.throws(()=>checkedGenericOwnerDeclaration(row,wrongBinding),/SOURCE_SCOPE_MISMATCH/);
+ assert.throws(()=>checkedGenericOwnerDeclaration(row,wrongBinding),/DOCUMENT_SCOPE_MISMATCH/);
  const missingArchive={...doc,storage_state:'TO_VERIFY'};
  assert.throws(()=>checkedGenericOwnerDeclaration(row,missingArchive),/VERIFIED_SOURCE_MISSING/);
  const wrongAmount=structuredClone(row);
