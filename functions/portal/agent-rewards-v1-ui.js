@@ -1293,6 +1293,22 @@ function agentActDownloadBlob(blob,filename){
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),30000)
 }
+function ownerActDeclaration(deal,model,currency){
+  const d=state.docCache.get(rowKey(deal))?.currentAddendum;
+  const amount=round1(model.reward);
+  if(!d||d.ownerApprovedByUpload!==true||amount===null||amount<0
+    ||!/^[0-9a-f]{64}$/i.test(String(d.sha256||''))
+    ||!/^[0-9a-f-]{36}$/i.test(String(d.bindingId||'')))return null;
+  return{
+    contract:'RONA_OWNER_AGENCY_ACT_DECLARATION_V1',
+    authority:'OWNER_ACT_BUTTON_APPROVAL',dealId:String(deal.dealId),
+    assignmentId:String(deal.assignmentId),
+    addendumDocumentId:String(d.documentId),
+    addendumBindingId:String(d.bindingId),
+    addendumSha256:String(d.sha256),addendumReference:String(d.reference),
+    amount,currency:String(currency||'').trim(),createsPayable:false
+  }
+}
 function ownerActSavedCalculation(deal,model,currency,saved){
   const version=Number(saved?.version);
   if(!Number.isInteger(version)||version<1)
