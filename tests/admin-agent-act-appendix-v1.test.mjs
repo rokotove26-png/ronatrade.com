@@ -197,3 +197,13 @@ test('Source-locked DS diagnostics retain exact Owner correction and Act appendi
   assert.ok(ui.includes('ACT_PDF_TWO_PAGES_REQUIRED'));
   assert.ok(ui.includes('ACT_PDF_ARCHIVE_VERIFICATION_FAILED'));
 });
+
+test('Owner InKom net-profit policy does not rewrite signed Act financial appendix',async()=>{
+  const ui=await(await uiResponse()).text();
+  assert.ok(ui.includes("source:'OWNER_DIRECTIVE_2026-10-17'"));
+  assert.ok(ui.includes("basis:'POSITIVE_AFTER_TAX_MANAGEMENT_NET_PROFIT',createsPayable:false"));
+  assert.ok(ui.includes('const signedDs1=ownerSignedDs1ForManagement(deal)'));
+  assert.ok(ui.includes('const actReward=signedDs1?round1(Math.max(0,signedMargin)*0.5):round1(model.reward)'));
+  assert.ok(ui.includes("sourceKind:'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE'"));
+  assert.ok(ui.includes('ACT_PDF_TWO_PAGES_REQUIRED'));
+});
