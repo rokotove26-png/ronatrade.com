@@ -647,7 +647,7 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
           assert.equal(snapshot?.correctionVersion,3);
           assert.equal(snapshot?.dealId,dealId);
           assert.equal(snapshot?.assignmentId,assignmentId);
-          assert.equal(snapshot?.reward,990);
+          assert.equal(snapshot?.reward,990,'Historical signed DS1 Act uses independent contract amount, while management is 50% of net profit');
           doc.acts=[{id:'a1111111-1111-4111-8111-111111111111',
             ownerCalculationStored:true,ownerCalculationVersion:3,correction_version:3,
             owner_correction_key:doc.ownerCorrection.sourceId,request_status:'REVIEW_REQUESTED',
@@ -669,10 +669,10 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.equal(await box.getByText('ДС загружено и привязано к сделке').count(),1);
       assert.equal(await box.getByRole('button',{name:'Акт сверки · СГ-Транс'}).count(),0);
       assert.doesNotMatch(await page.locator('.rona-ar').innerText(),/Основание и статус расчёта|Важно: расчёт PLAN/);
-      assert.equal(await box.getByText('50% от маржи по поставке (ДС №1)').count(),1);
-      assert.match(await box.innerText(),/По сохранённому расчёту:/);
-      assert.match(await page.locator('.rona-ar-col.owner').innerText(),/990,0\s*USD/);
-      assert.doesNotMatch(await box.innerText(),/Предварительно:\s*891/);
+      assert.equal(await box.getByText('50% положительной чистой прибыли (правило собственника)').count(),1);
+      assert.match(await box.innerText(),/Управленческое вознаграждение:/);
+      assert.match(await page.locator('.rona-ar-col.owner').innerText(),/891,0\s*USD/);
+      assert.match(await box.innerText(),/50% чистой прибыли для всех сделок ИнКом/);
       assert.doesNotMatch(await page.locator('.rona-ar').innerText(),
          /ДС не привязано|Основание и статус расчёта/);
       assert.equal(await box.getByRole('button',{name:'Загрузить ДС'}).count(),0);
@@ -779,10 +779,12 @@ test('Signed agency DS source isolation: 005 mismatched term, 006 unbound, 010/0
       const diagnostic=page.locator('.rona-ar-doc-source-diagnostic');
       await diagnostic.waitFor({timeout:10000});
       assert.match(await diagnostic.textContent(),new RegExp(item.expect),'Exact source reason '+item.dealId);
-      assert.match(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),
-        new RegExp(item.kpi),'No unsupported reward at '+item.dealId);
+      assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),
+        '891,0 USD','Owner approved management reward regardless legacy DS binding at '+item.dealId);
       assert.equal(await page.locator('.rona-ar-scenarios-table [data-rona-owner-scenario="agentReward"]').textContent(),
-        'TO_VERIFY','Unknown agent amount is not zero or an old assignment amount');
+        '891,0 USD','Owner approved 50% net profit management reward is calculated independently of historical term rows');
+      assert.equal(await page.locator('.rona-ar-scenarios-table [data-rona-owner-scenario="ronaProfit"]').textContent(),
+        '+891,0 USD','RONA result deducts exactly the displayed management reward');
       assert.deepEqual(post,[],'Source inspection is read only');
       await page.close();
     }
