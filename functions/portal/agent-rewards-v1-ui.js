@@ -1825,6 +1825,7 @@ function renderDealDocuments(root,deal){
       deal,docs.agentCompanyId,file,reference,ack,upload),true);
     l.append(docField('Файл PDF',file),docField('Номер и дата',reference),ackLabel,upload);
   }
+  const ownerPolicy=ownerApprovedManagementPolicy(deal);
   const ownerDs1=ownerSignedDs1ForManagement(deal),term=docs.term,
     termAligned=docs.sourceReadiness?.termAligned===true,
     confirmedTerm=termAligned&&term?.mode==='PERCENT'&&num(term.rate)!==null;
@@ -1833,7 +1834,9 @@ function renderDealDocuments(root,deal){
   sourceInfo.setAttribute('role','status');sourceInfo.setAttribute('aria-live','polite');
   sourceInfo.style.cssText='padding:10px 12px;border:1px solid rgba(128,202,223,.24);border-radius:9px;background:rgba(9,42,61,.6);color:#c2dfed;font-size:12px;line-height:1.6;overflow-wrap:anywhere';
   r.append(sourceInfo);
-  if(ownerDs1)
+  if(ownerPolicy)
+    r.append(el('div','rona-ar-doc-name','50% положительной чистой прибыли (правило собственника)'));
+  else if(ownerDs1)
     r.append(el('div','rona-ar-doc-name','50% от маржи по поставке (ДС №1)'));
   else if(confirmedTerm)
     r.append(el('div','rona-ar-doc-name',fmt(num(term.rate)*100)+'% по действующему ДС'));
