@@ -65,8 +65,8 @@ jobs:
           p=d/'RONA_Admin_Client_Source_8065385.tar.gz'
           with tarfile.open(p,'r:gz') as tf:
               names=tf.getnames()
+              actual=sum(m.isfile() for m in tf.getmembers())
           expected=json.loads((d/'MANIFEST.json').read_text())['source_files_in_archive']
-          actual=sum(m.isfile() for m in tf.getmembers())
           assert actual==expected,(actual,expected)
           assert any('portal-src/current/admin.html' in n for n in names)
           assert any('functions/portal/admin-main-ui-current.js' in n for n in names)
