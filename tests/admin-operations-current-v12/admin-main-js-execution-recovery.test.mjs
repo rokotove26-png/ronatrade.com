@@ -61,8 +61,8 @@ test('Radio V11 remains the only boot-time visual radio owner',async()=>{
   const watchdog=file('assets/portal-admin-runtime-watchdog-v1.js');
   const middleware=file('functions/portal/main-ui/_middleware.js');
   assert.match(html,/\/assets\/portal-admin-radio-canonical-v11\.js/);
-  assert.match(html,/20261017-boot-name-shim-v1/);
-  assert.match(html,/20261017-radio-v11-only-v1/);
+  assert.match(html,/20261009-term-curve-v3/);
+  assert.match(html,/20261007-agent-rewards-bootstrap-v18-correction-gate-v3/);
   assert.match(watchdog,/window\.__RONA_ADMIN_RADIO_CANONICAL_V11__/);
   assert.doesNotMatch(watchdog,/\/assets\/portal-admin-radio-final-v9\.js/);
   assert.doesNotMatch(middleware,/\/assets\/portal-admin-radio-wide-v10\.js/);
