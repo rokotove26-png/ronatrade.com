@@ -181,6 +181,8 @@ test('V12 adds only signal triggers to the actual financial source-of-truth chai
   assert.doesNotMatch(sql,/GRANT\s+.*(?:anon|authenticated)/i);
   assert.doesNotMatch(sql,/SECURITY\s+DEFINER/i);
   assert.match(sql,/rona_admin_operations_presence_signal_v12/);
+  assert.ok(sql.trimEnd().endsWith('END '+String.fromCharCode(36,36)+';'));
+
   assert.match(sql,/AFTER INSERT OR DELETE OR UPDATE OF portal_user_id, portal_role, session_subject/);
   assert.match(rollback,/rona_admin_operations_presence_signal_v12/);
 });
