@@ -171,7 +171,7 @@ function ronaOpsV10Open(row){
 }
 async function ronaOpsV10Refresh(reason='SYNC'){
   if(ronaOpsV10Promise)return ronaOpsV10Promise;
-  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort('OPERATIONS_CURRENT_V2_TIMEOUT'),5000);
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort('OPERATIONS_CURRENT_V2_TIMEOUT'),15000);
   window.__RONA_ADMIN_OPERATIONS_V2_STATUS__=ronaOpsV10Snapshot?'REFRESHING':'LOADING';
   ronaOpsV10Promise=(async()=>{
     try{

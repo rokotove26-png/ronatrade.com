@@ -7,7 +7,7 @@
     "previous_rpc_md5": "22291263e5f47bdc726d2aef273cb8a0",
     "migration_blob": "6e7c0fbd905574cd200c774c62c2b0dc3c7040c7",
     "rollback_blob": "60b5fe48a6cfced07dee9a4e61d40ad179e26ec3",
-    "ui_blob": "ca30b1cf4e1f21f1148d8eb7159da1deeed59714",
+    "ui_blob": "2be96722a9520123af677684c8db6c086f50cd59",
     "admin_main_unchanged": "f2e8b14931c7801af36f9b0f6652405b423720b1"
   },
   "contract": "ADMIN_OPERATIONS_SOURCE_TRUTH_V11",

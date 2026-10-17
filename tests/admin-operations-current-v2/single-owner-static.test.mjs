@@ -11,7 +11,7 @@ test('Operations V10 has one canonical V2 source and fail-closed rendering',()=>
   assert.match(v10,/OPERATIONS_CURRENT_V2/);
   assert.match(v10,/DISABLED_BY_V10/);
   assert.match(v10,/AbortController/);
-  assert.match(v10,/5000/);
+  assert.match(v10,/15000/);
   assert.match(v10,/Клиенты в сети/);
   assert.match(v10,/Агенты в сети/);
   assert.match(v10,/Нулевые показатели не подставляются/);
