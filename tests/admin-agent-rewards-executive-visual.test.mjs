@@ -798,7 +798,7 @@ test('Owner InKom management rule applies to future deals, negative profit and n
   const cases=[
     {id:'DEAL-2027-001',agentId:'S-005',revenue:5000,cost:3000,reward:'900,0 USD',rona:'+900,0 USD'},
     {id:'DEAL-2027-002',agentId:'S-005',revenue:1000,cost:2000,reward:'0,0 USD',rona:'-1 000,0 USD'},
-    {id:'DEAL-2027-003',agentId:'S-007',revenue:5000,cost:3000,reward:'TO_VERIFY',rona:'TO_VERIFY'}
+    {id:'DEAL-2027-003',agentId:'S-007',revenue:5000,cost:3000,reward:'Нет агентского ДС по сделке',tableReward:'TO_VERIFY',rona:'TO_VERIFY'}
   ];
   const browser=await chromium.launch({headless:true});
   try{
@@ -841,7 +841,7 @@ test('Owner InKom management rule applies to future deals, negative profit and n
       const kpi=await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent();
       assert.equal(kpi,item.reward,'Owner rule only for InKom '+item.id);
       assert.equal(await page.locator('[data-rona-owner-scenario="agentReward"]').textContent(),
-        item.reward,'Comparison always equals Owner management calculation');
+        item.tableReward||item.reward,'Scenario is numeric for InKom and remains unverified for other agents');
       assert.equal(await page.locator('[data-rona-owner-scenario="ronaProfit"]').textContent(),
         item.rona,'RONA profit includes the same share');
       if(item.agentId==='S-005'){
