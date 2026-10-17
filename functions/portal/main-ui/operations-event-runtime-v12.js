@@ -147,7 +147,21 @@ function operationsV12Controller(){
       diagnostic('OFFLINE','WEBSOCKET_UNAVAILABLE');renderLink();return;
     }
     diagnostic('CONNECTING','SUBSCRIBING');
-    const ws=new WebSocket(URL+'?apikey='+encodeURIComponent(PUBLISHABLE_KEY)+'&vsn=1.0.0');
+    // A browser may reject a WebSocket synchronously (CSP, policy,
+    // unsupported transport). Realtime is optional to shell readiness:
+    // the authoritative operations snapshot remains available by RPC.
+    let ws;
+    try{
+      ws=new WebSocket(URL+'?apikey='+encodeURIComponent(PUBLISHABLE_KEY)+'&vsn=1.0.0');
+    }catch(error){
+      socket=null;
+      connected=false;
+      dirty=true;
+      diagnostic('OFFLINE','WEBSOCKET_CONSTRUCTOR_REJECTED');
+      renderLink();
+      reconnect();
+      return;
+    }
     socket=ws;window.__RONA_ADMIN_OPERATIONS_EVENT_SOCKET_V12__=ws;
     joinRef=String(seq++);
     const expectedRef=joinRef;
