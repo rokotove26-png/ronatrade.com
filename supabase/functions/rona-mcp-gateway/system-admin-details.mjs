@@ -4,6 +4,17 @@ export const SYSTEM_ADMIN_DETAIL_TOOLS = [
   ['pr_detail','object_id','Read an open_delta PR checkpoint and live public GitHub PR metadata and acceptance text. Does not approve or merge.'],
   ['review_detail','object_id','Read PRIVATE_RLS canonical handoff and live catalog security metadata for the four specified tables. Does not complete the review.']
 ].map(([name,key,description])=>({name,description,inputSchema:{type:'object',properties:{[key]:{type:'string',minLength:1,maxLength:160}},required:[key],additionalProperties:false},annotations:READ_HINTS,securitySchemes:[{type:'oauth2',scopes:['mcp:read']}]}));
+SYSTEM_ADMIN_DETAIL_TOOLS.push({
+  name:'staff_handoff_inbox_list',
+  title:'Входящая очередь SYSTEM_ADMIN',
+  description:'Постраничный, role-scoped просмотр всех текущих HANDOFF_REQUEST; снимает лимит 20 записей current_state, ничего не меняет.',
+  inputSchema:{type:'object',properties:{
+    status:{type:'string',enum:['REQUESTED','ACKNOWLEDGED','BLOCKED','VERIFIED_RESOLVED','ALL']},
+    limit:{type:'integer',minimum:1,maximum:50},
+    offset:{type:'integer',minimum:0,maximum:10000}
+  },additionalProperties:false},
+  annotations:READ_HINTS,securitySchemes:[{type:'oauth2',scopes:['mcp:read']}]
+});
 const TABLES=['admin_impersonation_sessions','admin_impersonation_events','admin_entity_retirement_operations','admin_auth_cleanup_outbox'];
 export function createSystemAdminDetails({sql,isAdmin,scopeHas,requestIds,rateAllowed,recordMcpEvent,rpcToolResponse,fetchImpl=fetch}) {
   async function loadObject(ctx,id) {
@@ -56,6 +67,43 @@ export function createSystemAdminDetails({sql,isAdmin,scopeHas,requestIds,rateAl
     if(!ctx||!isAdmin(ctx)||!scopeHas(ctx.scope,'mcp:read'))return deny('SYSTEM_ADMIN_READ_REQUIRED');
     if(!await rateAllowed(ctx))return rpcToolResponse(msg.id,{ok:false,code:'RATE_LIMITED',status:429},true);
     const args=msg?.params?.arguments;
+    if(name==='staff_handoff_inbox_list'){
+      if(!args||typeof args!=='object'||Array.isArray(args)
+        || Object.keys(args).some(k=>!['status','limit','offset'].includes(k)))
+        return deny('INVALID_ARGUMENTS');
+      const status=args.status??'REQUESTED',limit=args.limit??25,offset=args.offset??0;
+      if(!['REQUESTED','ACKNOWLEDGED','BLOCKED','VERIFIED_RESOLVED','ALL'].includes(status)
+        || !Number.isInteger(limit)||limit<1||limit>50
+        || !Number.isInteger(offset)||offset<0||offset>10000)
+        return deny('INVALID_ARGUMENTS');
+      try{
+        const total=await sql`select count(*)::int as n from portal_private.ai_coordination_records r
+          where r.record_type='HANDOFF_REQUEST' and r.qa_only=false
+          and r.target_role='SYSTEM_ADMIN'::portal_private.ai_business_role_enum
+          and not exists(select 1 from portal_private.ai_coordination_records newer
+            where newer.supersedes_id=r.record_id and newer.qa_only=false)
+          and (${status}='ALL' or r.status=${status})`;
+        const rows=await sql`select r.record_id,r.parent_record_id,r.supersedes_id,r.version,
+          r.functional_role::text as from_role,r.target_type,r.target_id,r.status,
+          r.payload->>'subject' as subject,r.payload->>'priority' as priority,
+          r.created_at
+          from portal_private.ai_coordination_records r
+          where r.record_type='HANDOFF_REQUEST' and r.qa_only=false
+          and r.target_role='SYSTEM_ADMIN'::portal_private.ai_business_role_enum
+          and not exists(select 1 from portal_private.ai_coordination_records newer
+            where newer.supersedes_id=r.record_id and newer.qa_only=false)
+          and (${status}='ALL' or r.status=${status})
+          order by r.created_at desc,r.record_id desc
+          limit ${limit} offset ${offset}`;
+        const count=Number(total[0]?.n??0);
+        await recordMcpEvent(ctx,ids,name,'SUCCESS',200,{status,limit,offset,count,returned:rows.length});
+        return rpcToolResponse(msg.id,{ok:true,role:ctx.role,identity_id:ctx.identity_id,
+          correlation_id:ids.correlationId,contract:'RONA_HANDOFF_INBOX_READ_V1',
+          status,total:count,limit,offset,has_more:offset+rows.length<count,records:rows});
+      }catch{
+        return deny('HANDOFF_INBOX_SOURCE_UNAVAILABLE');
+      }
+    }
     if(!args||typeof args!=='object'||Array.isArray(args)||Object.keys(args).length!==1||typeof args.object_id!=='string'||! /^[A-Z][A-Z0-9_]{0,159}$/.test(args.object_id))return deny('INVALID_ARGUMENTS');
     let data;
     try {
