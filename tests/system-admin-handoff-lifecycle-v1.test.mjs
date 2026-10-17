@@ -96,6 +96,39 @@ test('invalid idempotency, missing evidence, unauthorized status fail before any
  for(const v of bad){const f=fixture();const r=await f.invoke('staff_handoff_task_materialize',v);assert.equal(r.body.code,'INVALID_ARGUMENTS');assert.equal(f.statements.length,0);}
  const f=fixture();const r=await f.invoke('staff_handoff_status_submit',{...args,outcome:'COMPLETED'});assert.equal(r.body.code,'INVALID_ARGUMENTS');
 });
+test('status JSONB source/evidence/payload and audit metadata bind as text before JSONB cast',async()=>{
+ const f=fixture({outcome:'ACKNOWLEDGED'});
+ const res=await f.invoke('staff_handoff_status_submit',{...args,outcome:'ACKNOWLEDGED'});
+ assert.equal(res.body.ok,true);
+ const write=f.statements.find(x=>x.query.startsWith('INSERT INTO portal_private.ai_coordination_records'));
+ assert.ok(write.query.includes('$12::text::jsonb,$13::text::jsonb,$14::text::jsonb'));
+ assert.deepEqual(JSON.parse(write.params[11]),source().source_refs);
+ assert.deepEqual(JSON.parse(write.params[12]),args.evidence_refs);
+ assert.equal(JSON.parse(write.params[13]).handoff_lifecycle.outcome,'ACKNOWLEDGED');
+ const audit=f.statements.find(x=>x.query.startsWith('INSERT INTO portal_private.ai_coordination_audit_events'));
+ assert.ok(audit.query.includes('$14::text::jsonb'));
+ assert.equal(typeof audit.params[13],'string');
+ assert.equal(JSON.parse(audit.params[13]).new_status,'ACKNOWLEDGED');
+});
+test('legacy JSONB scalar-string audit receipt is replayed without duplicate technical task',async()=>{
+ const expectedHash=sha(JSON.stringify({record_id:args.record_id,outcome:null,note:args.note,evidence_refs:args.evidence_refs}));
+ const taskId=technicalHandoffTaskId(ROOT);
+ const receipt=JSON.stringify({task_id:taskId,root_record_id:ROOT,kind:'TASK_MATERIALIZED'});
+ const f=fixture({auditPrior:[{payload_hash:expectedHash,metadata:receipt}],existing:[{task_id:taskId,status:'NEW',source_type:'SYSTEM_ADMIN_HANDOFF_V1',source_object_id:ROOT}]});
+ const res=await f.invoke('staff_handoff_task_materialize');
+ assert.equal(res.body.ok,true);
+ assert.equal(res.body.replay,true);
+ assert.equal(res.body.task_id,taskId);
+ assert.ok(!f.statements.some(x=>x.query.startsWith('INSERT INTO portal_private.staff_tasks')));
+});
+test('malformed legacy metadata fails closed without task mutation',async()=>{
+ const expectedHash=sha(JSON.stringify({record_id:args.record_id,outcome:null,note:args.note,evidence_refs:args.evidence_refs}));
+ const f=fixture({auditPrior:[{payload_hash:expectedHash,metadata:'not-json'}]});
+ const res=await f.invoke('staff_handoff_task_materialize');
+ assert.equal(res.body.code,'AUDIT_RECEIPT_INCOMPLETE');
+ assert.ok(!f.statements.some(x=>x.query.startsWith('INSERT INTO portal_private.staff_tasks')));
+});
+
 test('runtime dispatcher registers both tools and keeps the existing coordination/role gates',()=>{
  const index=readFileSync(new URL('../supabase/functions/rona-mcp-gateway/index.ts',import.meta.url),'utf8');
  assert.ok(index.includes('SYSTEM_ADMIN_HANDOFF_WRITE_TOOLS'));
