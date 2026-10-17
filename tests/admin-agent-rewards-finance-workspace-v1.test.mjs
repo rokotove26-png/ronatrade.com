@@ -283,7 +283,7 @@ test('Agent reward remains fail-closed without a calculable confirmed basis',()=
   assert.match(ui,/PERCENT_TERM_BASE_EXCLUDING_FX/);
   assert.match(ui,/CLOSING_CONDITIONS_REQUIRED/);
   assert.match(ui,/if\(pendingClosing&&!managementPreview\)return\{value:null,status:'CLOSING_CONDITIONS_REQUIRED'\}/);
-  assert.match(ui,/termReward\(deal,\{preferSettlement:false,basisValue:netProfit,managementPreview:true\}\)/);
+  assert.match(ui,/termReward\(deal,\{preferSettlement:false,basisValue:basis,managementPreview:true\}\)/);
   assert.match(ui,/MANAGEMENT_FORECAST_PENDING_CONTRACTUAL_CLOSING/);
   assert.match(ui,/function planModel\(deal\)/);
   assert.match(ui,/Boolean\(deal\?\.planAuthority\?\.financeProposalRecordId\)/);
