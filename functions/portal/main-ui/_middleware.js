@@ -1,4 +1,5 @@
 import paymentsMoneyDisplayContract from './payments-money-display-contract.js';
+import {patchAdminOperationsEventRuntimeV12} from './operations-event-runtime-v12.js';
 
 const CASH_OWNER='cash-r2-exclusive-v1';
 const PAYMENTS_OWNER='admin-payments-v7-native-v2';
@@ -106,6 +107,7 @@ export async function onRequest(context){
   try{
     const paymentsPatched=patchPaymentsCurrentSemantics(await response.text());
     patched=patchCashSingleOwner(paymentsPatched);
+    patched=patchAdminOperationsEventRuntimeV12(patched);
   }catch(error){
     return new Response(String(error?.message||error||'ADMIN_MAIN_UI_PATCH_FAILED'),{
       status:500,
@@ -124,7 +126,8 @@ export async function onRequest(context){
   headers.set('x-rona-payments-handoff','canonical-v8-bootstrap');
   headers.set('x-rona-payments-current-runtime','due-now-conditional-v3');
   headers.set('x-rona-payments-money-display','max-1-v1');
+  headers.set('x-rona-operations-refresh','realtime-invalidation-v12');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
 
-export const __test={patchCashSingleOwner,patchPaymentsCurrentSemantics,CASH_OWNER,PAYMENTS_OWNER,PAYMENTS_V8_BOOTSTRAP_OWNER,RADIO_VISUAL_VERSION};
+export const __test={patchCashSingleOwner,patchPaymentsCurrentSemantics,patchAdminOperationsEventRuntimeV12,CASH_OWNER,PAYMENTS_OWNER,PAYMENTS_V8_BOOTSTRAP_OWNER,RADIO_VISUAL_VERSION};

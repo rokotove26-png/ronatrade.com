@@ -1,0 +1,46 @@
+name: Admin Operations V12 Event Source QA
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/main-ui/operations-event-runtime-v12.js'
+      - 'functions/portal/main-ui/_middleware.js'
+      - 'supabase/migrations/*admin_operations_v12_current_read_semantics.sql'
+      - 'supabase/rollbacks/*admin_operations_v12_current_read_semantics_rollback.sql'
+      - 'supabase/migrations/*admin_operations_v12_finance_document_invalidation.sql'
+      - 'supabase/rollbacks/*admin_operations_v12_finance_document_invalidation_rollback.sql'
+      - 'tests/admin-operations-current-v12/**'
+      - '.github/workflows/admin-operations-current-v12-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/main-ui/operations-event-runtime-v12.js'
+      - 'functions/portal/main-ui/_middleware.js'
+      - 'supabase/migrations/*admin_operations_v12_current_read_semantics.sql'
+      - 'supabase/rollbacks/*admin_operations_v12_current_read_semantics_rollback.sql'
+      - 'supabase/migrations/*admin_operations_v12_finance_document_invalidation.sql'
+      - 'supabase/rollbacks/*admin_operations_v12_finance_document_invalidation_rollback.sql'
+      - 'tests/admin-operations-current-v12/**'
+permissions:
+  contents: read
+jobs:
+  operations-v12:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify scoped JS syntax
+        run: |
+          node --check functions/portal/main-ui/operations-event-runtime-v12.js
+          node --check functions/portal/main-ui/_middleware.js
+      - name: V12 realtime no-polling and V11 source-lock contracts
+        run: |
+          node --test tests/admin-operations-current-v12/event-driven-v12.test.mjs
+          node --test tests/admin-operations-source-truth-v11.test.mjs tests/admin-operations-current-v2/single-owner-static.test.mjs
+      - name: Compile Cloudflare Pages canonical Admin/Client build
+        run: npm run build
+      - name: Admin shell and current-only guards
+        run: node --test tests/admin-shell-resilience.test.mjs tests/admin-current-only-shell-contract.test.mjs
