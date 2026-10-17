@@ -295,8 +295,8 @@ test('Agent reward remains fail-closed without a calculable confirmed basis',()=
   assert.match(ui,/function validTerm\(deal\)/);
   assert.match(ui,/Math\.max\(0,basis\)\*num\(t\.rate\)/);
   assert.match(ui,/basisValue:netProfit/);
-  assert.match(ui,/const reward=managementAgentReward\(deal,ownerSignedDs1ForManagement\(deal\)\?pnl\.preTaxProfit:pnl\.netProfit\)/);
-  assert.match(ui,/return num\(netProfit\)===null/);
+  assert.match(ui,/const reward=managementAgentReward\(deal,managementAgentBasis\(deal,pnl\)/);
+  assert.match(ui,/const basis=num\(netProfit\)/);
 });
 
 test('Agent Rewards runtime serialization ships its transform helper',()=>{
@@ -304,7 +304,7 @@ test('Agent Rewards runtime serialization ships its transform helper',()=>{
 });
 
 test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defined order',()=>{
-  assert.match(ui,/20261016-agent-rewards-generic-certified-act-v1/);
+  assert.match(ui,/20261017-owner-inkom-management-net-profit-50pct-v1/);
   assert.match(ui,/1 · ПЛАН/);
   assert.match(ui,/2 · ФАКТ/);
   assert.match(ui,/3 · OWNER \/ АГЕНТ/);
