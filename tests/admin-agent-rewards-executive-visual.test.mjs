@@ -790,3 +790,67 @@ test('Signed agency DS source isolation: 005 mismatched term, 006 unbound, 010/0
     }
   }finally{await browser.close()}
 });
+
+
+test('Owner InKom management rule applies to future deals, negative profit and no unrelated agents',async()=>{
+  const {chromium}=await import('playwright');
+  const script=await(await onRequest()).text();
+  const cases=[
+    {id:'DEAL-2027-001',agentId:'S-005',revenue:5000,cost:3000,reward:'900,0 USD',rona:'+900,0 USD'},
+    {id:'DEAL-2027-002',agentId:'S-005',revenue:1000,cost:2000,reward:'0,0 USD',rona:'-1 000,0 USD'},
+    {id:'DEAL-2027-003',agentId:'S-007',revenue:5000,cost:3000,reward:'TO_VERIFY',rona:'TO_VERIFY'}
+  ];
+  const browser=await chromium.launch({headless:true});
+  try{
+    for(const item of cases){
+      const assignmentId='22222222-2222-4222-8222-222222222222';
+      const deal={
+        dealId:item.id,assignmentId,agentLegalEntityId:item.agentId,
+        clientName:'Будущая сделка',agentName:'Тестовый представитель',
+        businessStatus:'EXECUTING',financialCurrency:'USD',receiptCurrency:'USD',
+        planInputs:{revenue:item.revenue,expenseKnownTotal:item.cost,
+          revenueStatus:'APPROVED_FINANCE_MANAGEMENT_PLAN',
+          expenseStatus:'APPROVED_FINANCE_MANAGEMENT_PLAN'},
+        cashFlow:{status:'APPROVED_CASH_FLOW_DDS',currency:'USD',cashReceived:item.revenue,
+          counterpartyCashOut:item.cost,bankFees:0,netCashFlow:item.revenue-item.cost},
+        cashPaymentLines:[{paymentId:'QA-1',counterparty:'Поставщик',
+          canonicalCounterpartyId:'SUPPLIER:QA',counterpartyResolutionStatus:'RESOLVED',
+          amount:item.cost,currency:'USD'}],
+        financeSourceReconciliation:{status:'RECONCILED_CURRENT_FINANCE_V8'},
+        ownerResultBridge:{recognition_status:'APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE',
+          open_settlement_adjustment:{amount:0}},
+        ownerCorrectionAuthority:{status:'APPROVED_FOR_OWNER_CORRECTION',
+          contract:'PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'}
+      };
+      const doc={dealId:item.id,assignmentId,agentCompanyId:item.agentId,
+        agentLegalName:item.agentId==='S-005'?'ООО «ИнКом»':'Иная организация',
+        currentAddendum:null,term:null,sourceReadiness:{termAligned:false},
+        ownerCorrection:null,acts:[]};
+      const page=await browser.newPage({viewport:{width:1100,height:840}});
+      const posts=[];
+      page.on('request',r=>{if(r.method()!=='GET')posts.push(r.url())});
+      await page.route('http://rona.owner/portal/admin',r=>r.fulfill({status:200,contentType:'text/html',
+        body:'<!doctype html><html lang="ru"><head><meta charset="utf-8"></head><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
+      await page.route('http://rona.owner/portal/owner-api**',r=>r.fulfill({status:200,contentType:'application/json',
+        body:JSON.stringify({ok:true,data:{deals:[deal]}})}));
+      await page.route('http://rona.owner/portal/agent-reward-workflow**',r=>r.fulfill({status:200,contentType:'application/json',
+        body:JSON.stringify({ok:true,data:doc})}));
+      await page.goto('http://rona.owner/portal/admin');
+      await page.addScriptTag({content:script});
+      await page.locator('.rona-ar-documents .rona-ar-doc-source-diagnostic').waitFor({timeout:10000});
+      const kpi=await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent();
+      assert.equal(kpi,item.reward,'Owner rule only for InKom '+item.id);
+      assert.equal(await page.locator('[data-rona-owner-scenario="agentReward"]').textContent(),
+        item.reward,'Comparison always equals Owner management calculation');
+      assert.equal(await page.locator('[data-rona-owner-scenario="ronaProfit"]').textContent(),
+        item.rona,'RONA profit includes the same share');
+      if(item.agentId==='S-005'){
+        assert.equal(await page.locator('.rona-ar-metric.agent-primary .rona-ar-metric-value').textContent(),
+          item.reward,'Plan uses the same Owner policy on future deals');
+        assert.match(await page.locator('.rona-ar-documents').innerText(),/50% положительной чистой прибыли/);
+      }
+      assert.deepEqual(posts,[],'No external payable or payment mutations');
+      await page.close();
+    }
+  }finally{await browser.close()}
+});
