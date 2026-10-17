@@ -58,12 +58,26 @@ jobs:
           grep -Fq "identity_id='AI-COMMERCIAL-DIRECTOR'" supabase/migrations/20260826233503_commercial_director_runtime_cutover_v2.sql
           grep -Fq "where identity_id='AI-MARKET-ANALYST';" supabase/migrations/20260826233503_commercial_director_runtime_cutover_v2.sql
 
-          # Historical migrations are immutable evidence, not deployable runtime.
-          # Enforce the System Admin no-coordinate-pilot invariant against active sources only.
-          if grep -R -Eq "rona-mcp-system-admin-pilot|/system-admin-pilot" functions supabase/functions _routes.json; then
-            echo SYSTEM_ADMIN_COORDINATE_PILOT_FORBIDDEN
-            exit 1
-          fi
+          # SYSTEM_ADMIN Pilot is live. It is permitted for technical coordination
+          # but must retain its exact fixed identity and technical-only entity scope.
+          node --check 'functions/system-admin-pilot/[[path]].js'
+          grep -Fq "'rona-mcp-system-admin-pilot':['SYSTEM_ADMIN','AI-SYSTEM-ADMIN']" supabase/functions/rona-mcp-gateway/index.js
+          grep -Fq "SYSTEM_ADMIN:new Set(['TASK','SYSTEM'])" supabase/functions/rona-mcp-gateway/index.js
+          grep -Fq "SYSTEM_ADMIN_BUSINESS_WRITE_BLOCKED" supabase/functions/rona-mcp-gateway/index.js
+          grep -Fq "SYSTEM_ADMIN_BUSINESS_HANDOFF_BLOCKED" supabase/functions/rona-mcp-gateway/index.js
+          grep -Fq "\"/system-admin-pilot/*\"" _routes.json
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          const source=readFileSync('supabase/functions/rona-mcp-gateway/index.js','utf8');
+          const matches=[...source.matchAll(/SYSTEM_ADMIN:new Set\(\[([^\]]*)\]\)/g)];
+          assert.equal(matches.length,1,'System Admin entity scope must be declared once');
+          assert.equal(matches[0][1],"'TASK','SYSTEM'",'System Admin business entity scope expansion forbidden');
+          assert.match(source,/assigned_functional_role!==expected/,'role-specific task ownership is required');
+          assert.match(source,/SYSTEM_ADMIN_BUSINESS_WRITE_BLOCKED/);
+          assert.match(source,/SYSTEM_ADMIN_BUSINESS_HANDOFF_BLOCKED/);
+          console.log('SYSTEM_ADMIN_PILOT_TECHNICAL_ONLY=PASS');
+          NODE
 
           if grep -Eq "name:'(deal_status_write|payment_status_write|accounting_close|shipment_fact_create|rail_movement_fact_create|publication_publish|contract_mutate|document_mutate|client_binding_mutate)'" supabase/functions/rona-mcp-gateway/index.js; then
             echo AUTHORITATIVE_BUSINESS_MUTATION_TOOL_FORBIDDEN
