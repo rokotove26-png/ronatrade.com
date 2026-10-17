@@ -356,3 +356,15 @@ test('Archived signed DS reuse only creates a deal link; Act readiness and payab
   assert.match(registry,/and so\.storage_state='VERIFIED'/);
   assert.ok(ui.includes('ACT_PDF_TWO_PAGES_REQUIRED'));
 });
+
+
+test('Spectrum V3 redesign preserves signed agreement bindings and Owner Act issuance boundaries',async()=>{
+  const ui=await(await uiResponse()).text();
+  assert.match(ui,/function installSpectrumDesignStyle\(\)/);
+  assert.match(ui,/function renderDealDocuments\(root,deal\)/);
+  assert.match(ui,/function linkArchivedAddendum\(deal,companyId,documentId,button\)/);
+  assert.match(ui,/ACT_PDF_TWO_PAGES_REQUIRED/);
+  assert.match(ui,/ACT_PDF_ARCHIVE_VERIFICATION_FAILED/);
+  assert.match(ui,/createsPayable:false/);
+  assert.match(ui,/await docCall\(deal,'bind'/);
+});
