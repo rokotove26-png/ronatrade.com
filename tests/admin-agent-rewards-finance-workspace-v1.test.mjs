@@ -294,7 +294,7 @@ test('Agent reward remains fail-closed without a calculable confirmed basis',()=
   assert.match(ui,/DS4_INVALIDATED_BY_CURRENT_DS5/);
   assert.match(ui,/function validTerm\(deal\)/);
   assert.match(ui,/Math\.max\(0,basis\)\*num\(t\.rate\)/);
-  assert.match(ui,/basisValue:netProfit/);
+  assert.match(ui,/basisValue:basis/);
   assert.match(ui,/const reward=managementAgentReward\(deal,managementAgentBasis\(deal,pnl\)/);
   assert.match(ui,/const basis=num\(netProfit\)/);
 });
