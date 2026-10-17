@@ -191,3 +191,6 @@ import './finance-current-state-budget-v1.test.mjs';
 
 // Role-safe SYSTEM_ADMIN coordination lifecycle regression.
 import './system-admin-handoff-lifecycle-v1.test.mjs';
+
+// Finance reads Assistant source metadata ONLY under an exact current audited handoff.
+import './finance-assistant-document-read-v1.test.mjs';
