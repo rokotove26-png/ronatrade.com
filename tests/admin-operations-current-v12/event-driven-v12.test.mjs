@@ -16,7 +16,7 @@ test('V12 wraps the canonical V10/V11 source without touching its source-locked 
   assert.match(current,/call\('\/admin\/operations-current-v2'/);
   assert.doesNotMatch(current,/call\('\/admin\/operations-current-v1'/);
   assert.doesNotMatch(current,/realtime:rona-admin-operations-current-v1/);
-  assert.match(current,/realtime:rona-admin-operations-current-v12/);
+  assert.match(current,/realtime:rona-operations-current-v2-events/);
   assert.match(current,/REALTIME_INVALIDATION_NO_60S_POLL_V12/);
   assert.match(current,/__RONA_ADMIN_OPERATIONS_LEGACY_60S_POLL_DISABLED__/);
   assert.doesNotMatch(current,/RONA_OPS_AUTO_REFRESH_MS=60000/);
