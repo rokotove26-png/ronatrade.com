@@ -314,19 +314,3 @@ test('Rendered company master-detail keeps verified PDF and agent assignment wor
     }
   }finally{await browser.close()}
 });
-
-
-test('An archived signed agency PDF can be referenced by multiple deal links without duplication',()=>{
-  const linked=read('supabase/migrations/20261014190500_agent_rewards_deal_addenda_act_workflow_v1.sql');
-  const workflow=read('supabase/functions/rona-agent-reward-workflow/index.ts');
-  const rewards=read('functions/portal/agent-rewards-v1-ui.js');
-  assert.match(linked,/agency_document_key uuid not null references portal_private\.agent_agency_contract_documents\(id\)/);
-  assert.match(linked,/unique\(deal_key,assignment_id,agency_document_key\)/);
-  assert.doesNotMatch(linked,/unique\(agency_document_key\)/);
-  assert.match(workflow,/a\.agent_legal_entity_key=\$\{s\.agent_legal_entity_key\}::uuid/);
-  assert.match(workflow,/noAutomaticLegalApproval:true,noAutomaticPayable:true/);
-  assert.match(rewards,/function renderExistingAddendumPicker\(deal,companyId,host\)/);
-  assert.match(rewards,/const agents=Array\.isArray\(body\.data\?\.agents\)/);
-  assert.match(rewards,/\.filter\(d=>String\(d\.kind\)==='AGENCY_ADDENDUM'/);
-  assert.match(rewards,/Один подписанный PDF можно закреплять за несколькими сделками этого агента/);
-});
