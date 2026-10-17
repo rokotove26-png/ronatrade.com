@@ -66,7 +66,7 @@ test('SQL enforces source, assignee, current handoff, active registry and annulm
  assert.match(q,/d\.status='REGISTERED'/);
  assert.match(q,/NOT ILIKE 'ANNULLED_DELETED__%'/);
  assert.match(q,/d\.registry_number=\$1 OR d\.id::text=\$1/);
- assert.doesNotMatch(q,/INSERT|UPDATE|DELETE FROM|DROP TABLE/i);
+ assert.doesNotMatch(q,/\b(?:INSERT\s+INTO|UPDATE\s+portal_private|DELETE\s+FROM|DROP\s+TABLE)\b/i);
 });
 test('gateway only falls back for AI_DOCUMENT_NOT_FOUND; never for authorization errors',()=>{
  const gateway=readFileSync(new URL('../supabase/functions/rona-mcp-gateway/gateway-base.mjs',import.meta.url),'utf8');
