@@ -327,7 +327,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Подтверждённые денежные операции/);
   assert.match(ui,/Подтверждённые денежные поступления/);
   assert.match(ui,/factManagementModel\(deal,m\)/);
-  assert.match(ui,/managementAgentReward\(deal,ownerSignedDs1ForManagement\(deal\)\?pnl\.preTaxProfit:pnl\.netProfit\)/);
+  assert.match(ui,/managementAgentReward\(deal,managementAgentBasis\(deal,pnl\)/);
   assert.match(ui,/taxStatus:pnl\.status/);
   assert.match(ui,/sourceAgentReward:num\(p\.agentReward\)/);
   assert.match(ui,/Сохранить корректировку/);
@@ -458,7 +458,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/base\.bridgeApproved&&fact\.approved&&correctionApproved/);
   assert.match(ui,/function ownerAgentReward\(deal,netProfit\)/);
   assert.match(ui,/const basis=num\(netProfit\)/);
-  assert.match(ui,/ownerAgentReward\(deal,ownerSignedDs1ForManagement\(deal\)\?pnl\.preTaxProfit:pnl\.netProfit\)/);
+  assert.match(ui,/ownerAgentReward\(deal,managementAgentBasis\(deal,pnl\)/);
   assert.match(ui,/INTERNAL_NET_PROFIT_BASIS_EXTERNAL_FX_TERM_REVIEW_REQUIRED/);
   assert.match(ui,/Корректировка расходов \(доходов\)/);
   assert.match(ui,/Прибыль до налогообложения/);
@@ -472,10 +472,10 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Math\.max\(0,openSettlementAdjustment\)/);
   assert.match(ui,/Math\.max\(0,-openSettlementAdjustment\)/);
   assert.doesNotMatch(ui,/basis=result-fx/);
-  assert.match(ui,/const externalFxTermConflict=!ownerSignedDs1ForManagement\(deal\)&&upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
+  assert.match(ui,/const externalFxTermConflict=!ownerApprovedManagementPolicy\(deal\)/);
   assert.doesNotMatch(ui,/Условие FX · сверить договор/);
   // Legal FX-exclusion condition remains in the internal source model, not a UI badge.
-  assert.match(ui,/const externalFxTermConflict=!ownerSignedDs1ForManagement\(deal\)&&upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
+  assert.match(ui,/const externalFxTermConflict=!ownerApprovedManagementPolicy\(deal\)/);
   assert.match(ui,/pnl\.netProfit-reward\.value/);
   assert.match(ui,/function agentStatusText\(status\)/);
   assert.doesNotMatch(ui,/ДС не привязано/);
