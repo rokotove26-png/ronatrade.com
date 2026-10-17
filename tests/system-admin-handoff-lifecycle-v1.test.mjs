@@ -15,6 +15,7 @@ function fixture(opts={}){
   return fn({unsafe:async(query,params=[])=>{
    statements.push({query,params});
    if(query.includes('pg_advisory_xact_lock'))return[{}];
+   if(query.includes('FROM portal_private.ai_coordination_audit_events'))return opts.auditPrior||[];
    if(query.includes('WHERE identity_id=$1 AND tool_name=$2'))return opts.prior||[];
    if(query.includes('WHERE record_id=$1::uuid AND record_type'))return opts.source===false?[]:[opts.source||source()];
    if(query.includes('WHERE supersedes_id=$1::uuid'))return opts.newer?[{record_id:ROOT}]:[];
@@ -99,4 +100,11 @@ test('runtime dispatcher registers both tools and keeps the existing coordinatio
  assert.ok(index.includes('staff_handoff_task_materialize'));
  assert.ok(index.includes('staff_handoff_status_submit'));
  assert.ok(index.includes('primaryTechnicalCtx(ctx) && scopeHas(ctx.scope, "mcp:coordinate")'));
+});
+
+test('idempotency reuse with a changed payload is rejected before any task insert',async()=>{
+ const f=fixture({auditPrior:[{payload_hash:'f'.repeat(64),metadata:{task_id:technicalHandoffTaskId(ROOT),root_record_id:ROOT}}]});
+ const res=await f.invoke('staff_handoff_task_materialize');
+ assert.equal(res.body.code,'IDEMPOTENCY_CONFLICT');
+ assert.equal(f.statements.some(s=>s.query.startsWith('INSERT INTO portal_private.staff_tasks')),false);
 });
