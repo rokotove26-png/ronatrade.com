@@ -70,6 +70,17 @@ export function createSystemAdminHandoffWorkflow(deps) {
   try{
    result=await sql.begin(async tx=>{
     await tx.unsafe("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[rootKey]);
+    await tx.unsafe("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",['SYSTEM_ADMIN_HANDOFF_IDEMP:'+ctx.identity_id+'|'+name+'|'+idemHash]);
+    // Task creation is audited directly in ai_coordination_audit_events,
+    // not in HANDOFF_REQUEST. Reused idempotency keys must still fail closed.
+    if(name==='staff_handoff_task_materialize'){
+      const priorAudit=await tx.unsafe("SELECT payload_hash,metadata FROM portal_private.ai_coordination_audit_events WHERE identity_id=$1 AND tool_name=$2 AND idempotency_key_hash=$3 AND result='SUCCESS' AND qa_only=false ORDER BY event_at DESC LIMIT 1",[ctx.identity_id,name,idemHash]);
+      if(priorAudit.length){
+        if(priorAudit[0].payload_hash!==payloadHash)return{error:'IDEMPOTENCY_CONFLICT'};
+        const receipt=priorAudit[0].metadata||{};
+        return{task_id:receipt.task_id,root_record_id:receipt.root_record_id,replay:true,task_status:null};
+      }
+    }
     const prior=await tx.unsafe(priorSql,[ctx.identity_id,name,idemHash]);
     if(prior.length){
       if(prior[0].payload_hash!==payloadHash)return{error:'IDEMPOTENCY_CONFLICT'};
