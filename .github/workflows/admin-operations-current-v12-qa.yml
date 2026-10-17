@@ -5,6 +5,8 @@ on:
     paths:
       - 'functions/portal/main-ui/operations-event-runtime-v12.js'
       - 'functions/portal/main-ui/_middleware.js'
+      - 'supabase/migrations/*admin_operations_v12_finance_document_invalidation.sql'
+      - 'supabase/rollbacks/*admin_operations_v12_finance_document_invalidation_rollback.sql'
       - 'tests/admin-operations-current-v12/**'
       - '.github/workflows/admin-operations-current-v12-qa.yml'
   push:
@@ -12,6 +14,8 @@ on:
     paths:
       - 'functions/portal/main-ui/operations-event-runtime-v12.js'
       - 'functions/portal/main-ui/_middleware.js'
+      - 'supabase/migrations/*admin_operations_v12_finance_document_invalidation.sql'
+      - 'supabase/rollbacks/*admin_operations_v12_finance_document_invalidation_rollback.sql'
       - 'tests/admin-operations-current-v12/**'
 permissions:
   contents: read
