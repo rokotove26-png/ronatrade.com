@@ -1,0 +1,82 @@
+name: Emergency Admin Client Source Snapshot
+on:
+  push:
+    branches:
+      - backup/emergency-admin-client-20261017-8065385
+    paths:
+      - .github/workflows/rona-emergency-source-snapshot-20261017.yml
+permissions:
+  contents: read
+jobs:
+  build-source-snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout emergency archive branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Produce immutable exact-production archive
+        shell: bash
+        env:
+          SOURCE_SHA: 8065385bf0c0c8b0ddd0736d28ac02c2bec07124
+          SOURCE_BRANCH: release/public-go-live-v1.1
+        run: |
+          set -euo pipefail
+          mkdir -p recovery_payload
+          git cat-file -e "$SOURCE_SHA^{commit}"
+          git archive --format=tar --prefix=source/ "$SOURCE_SHA" | gzip -9 > recovery_payload/RONA_Admin_Client_Source_8065385.tar.gz
+          tar -tzf recovery_payload/RONA_Admin_Client_Source_8065385.tar.gz > recovery_payload/SOURCE_FILE_INDEX.txt
+          python3 - <<'PY'
+          import json,os,datetime,pathlib
+          sha=os.environ['SOURCE_SHA']
+          paths=pathlib.Path('recovery_payload/SOURCE_FILE_INDEX.txt').read_text().splitlines()
+          manifest={
+              'snapshot_kind':'IMMUTABLE_PRODUCTION_SOURCE',
+              'repository':'rokotove26-png/ronatrade.com',
+              'production_branch':'release/public-go-live-v1.1',
+              'source_commit_sha':sha,
+              'build_time_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'source_files_in_archive':sum(p!='source/' and not p.endswith('/') for p in paths),
+              'target_apps':['Admin','Client','Agent'],
+              'included':['tracked production repo source','Cloudflare Pages functions','portal HTML, CSS, JS, assets','Supabase Edge Functions source','Supabase SQL migrations','CI/QA tests','deployment configs'],
+              'excluded':['Git history','untracked files','runtime credentials','database row contents','Supabase Storage object contents'],
+              'recovery_method':'Extract RONA_Admin_Client_Source_8065385.tar.gz or checkout exact SHA from repository; restore DB and storage from separately verified backup, then configure credentials'
+          }
+          pathlib.Path('recovery_payload/MANIFEST.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+          PY
+          cat > recovery_payload/RESTORE.md <<'EOF'
+          # RONA Trade Admin & Client emergency source restore
+          Source commit: 8065385bf0c0c8b0ddd0736d28ac02c2bec07124
+          Branch: release/public-go-live-v1.1
+          Extract RONA_Admin_Client_Source_8065385.tar.gz into a clean directory.
+          Verify SHA256SUMS before use. The tarball includes production-tracked
+          assets, Pages functions, HTML, JS, Supabase SQL/Edge source and tests.
+          Do not deploy to active production without a tested isolated restore.
+          Runtime secrets, credentials, DB rows and Storage object bytes are
+          intentionally not embedded in this source archive. Obtain them from
+          authorized independent recovery sources.
+          EOF
+          (cd recovery_payload && sha256sum RONA_Admin_Client_Source_8065385.tar.gz MANIFEST.json RESTORE.md SOURCE_FILE_INDEX.txt > SHA256SUMS)
+          sha256sum -c recovery_payload/SHA256SUMS --ignore-missing || true
+          python3 - <<'PY'
+          import json,hashlib,pathlib,tarfile
+          d=pathlib.Path('recovery_payload')
+          p=d/'RONA_Admin_Client_Source_8065385.tar.gz'
+          with tarfile.open(p,'r:gz') as tf:
+              names=tf.getnames()
+          expected=json.loads((d/'MANIFEST.json').read_text())['source_files_in_archive']
+          actual=sum(n!='source' and not n.endswith('/') for n in names)
+          assert actual==expected,(actual,expected)
+          assert any('portal-src/current/admin.html' in n for n in names)
+          assert any('functions/portal/admin-main-ui-current.js' in n for n in names)
+          assert any('supabase/functions/rona-portal-api' in n for n in names)
+          print('Verified',len(names),'tar entries and',actual,'source files; archive bytes:',p.stat().st_size)
+          PY
+      - name: Preserve source archive as transferable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RONA-Admin-Client-Production-8065385
+          path: recovery_payload/
+          if-no-files-found: error
+          retention-days: 30
