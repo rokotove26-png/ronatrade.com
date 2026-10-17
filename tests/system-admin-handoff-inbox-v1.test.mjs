@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {SYSTEM_ADMIN_DETAIL_TOOLS,createSystemAdminDetails} from '../supabase/functions/rona-mcp-gateway/system-admin-details.mjs';
 
 const tool=SYSTEM_ADMIN_DETAIL_TOOLS.find(x=>x.name==='staff_handoff_inbox_list');
@@ -64,6 +65,15 @@ test('invalid filters fail closed before any SQL',async()=>{
     assert.equal(h.queries.length,0);
   }
 });
+test('gateway authenticates inbox read before role-scoped dispatch (regression)',()=>{
+  const index=readFileSync(new URL('../supabase/functions/rona-mcp-gateway/index.ts',import.meta.url),'utf8');
+  const route=index.match(/const needsCtx = ([^\\n]+);/);
+  assert.ok(route,'central gateway must expose explicit auth-context preflight');
+  assert.match(route[1], /"staff_handoff_inbox_list"/,'inbox must request auth context rather than silently falling through to TOOL_NOT_FOUND');
+  assert.match(index, /SYSTEM_ADMIN_DETAIL_TOOLS\\.some\\(t => t\\.name === name\\) && ctx/,'authenticated inbox must be handled by role-safe dispatcher');
+  assert.deepEqual(tool.securitySchemes[0].scopes,['mcp:read'],'read-only inbox must not request write scope');
+});
+
 test('MCP declaration is strictly read-only and no production write contract is added',()=>{
   assert.equal(tool.annotations.readOnlyHint,true);
   assert.equal(tool.annotations.destructiveHint,false);
