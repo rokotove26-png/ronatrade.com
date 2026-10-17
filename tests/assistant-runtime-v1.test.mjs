@@ -182,3 +182,6 @@ test('current_state bounds execution recovery workstreams to metadata summaries'
   assert.equal('objective' in out.execution_recovery.execution_resume.workstreams[0],false);
   assert.ok(Buffer.byteLength(JSON.stringify(out),'utf8') < 24000);
 });
+
+// Shared MCP gateway CI exercises the SYSTEM_ADMIN inbox role boundary as well.
+import './system-admin-handoff-inbox-v1.test.mjs';
