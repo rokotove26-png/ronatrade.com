@@ -78,7 +78,11 @@ export function createSystemAdminHandoffWorkflow(deps) {
       if(priorAudit.length){
         if(priorAudit[0].payload_hash!==payloadHash)return{error:'IDEMPOTENCY_CONFLICT'};
         const receipt=priorAudit[0].metadata||{};
-        return{task_id:receipt.task_id,root_record_id:receipt.root_record_id,replay:true,task_status:null};
+        if(!receipt.task_id||!receipt.root_record_id)return{error:'AUDIT_RECEIPT_INCOMPLETE'};
+        const task=await tx.unsafe("SELECT task_id,status::text,source_type,source_object_id FROM portal_private.staff_tasks WHERE task_id=$1 LIMIT 1",[receipt.task_id]);
+        if(task.length!==1||task[0].source_type!=='SYSTEM_ADMIN_HANDOFF_V1'||task[0].source_object_id!==receipt.root_record_id)
+          return{error:'AUDIT_TASK_SOURCE_MISMATCH'};
+        return{task_id:receipt.task_id,root_record_id:receipt.root_record_id,replay:true,task_status:task[0].status};
       }
     }
     const prior=await tx.unsafe(priorSql,[ctx.identity_id,name,idemHash]);
