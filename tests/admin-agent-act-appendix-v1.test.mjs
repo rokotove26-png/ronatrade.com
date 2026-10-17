@@ -227,3 +227,14 @@ test('Reusing signed DS across deals preserves separate correction, PDF and sign
   assert.ok(ui.includes('ACT_PDF_ARCHIVE_VERIFICATION_FAILED'));
   assert.ok(ui.includes('createsPayable:false'));
 });
+
+
+test('Spectrum V3 changes presentation, not signed financial appendix or correction payload',async()=>{
+  const ui=await(await uiResponse()).text();
+  assert.match(ui,/__RONA_AGENT_REWARDS_DESIGN__='spectrum-v3'/);
+  assert.match(ui,/function installSpectrumDesignStyle\(\)/);
+  assert.match(ui,/function ownerActSavedCalculation\(deal,model,currency,saved\)/);
+  assert.match(ui,/paymentLineAmounts:m\.paymentLineAmounts,openSettlementAdjustment:m\.openSettlementAdjustment/);
+  assert.match(ui,/ACT_PDF_ARCHIVE_VERIFICATION_FAILED/);
+  assert.match(ui,/rona-ar-spectrum-jumpbar/);
+});

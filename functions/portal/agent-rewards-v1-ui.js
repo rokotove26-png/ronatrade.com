@@ -1,9 +1,10 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261017-agent-signed-ds-archive-reuse-v1';
+const VERSION='20261017-agent-rewards-spectrum-v3';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='premium-fintech-v2';
 window.__RONA_AGENT_REWARDS_PRESENTATION__='executive-finance-v1';
+window.__RONA_AGENT_REWARDS_DESIGN__='spectrum-v3';
 if(location.pathname!=='/portal/admin')return;
 
 const API='/portal/owner-api';
@@ -285,6 +286,436 @@ function installAgentRewardsRefinedStyle(){
   const style=el('style');style.id='ronaArOwnerFinanceConsoleV2Style';
   style.textContent="\n/* Agent Rewards console v2 — scoped presentation, no business data changes. */\n#page-agent-settlements{background:linear-gradient(180deg,rgba(3,13,26,.985),rgba(6,21,35,.975))!important}\n#page-agent-settlements .rona-ar{font-size:14px;--ar-muted:#b4cbd8}\n#page-agent-settlements .rona-ar::before,#page-agent-settlements .rona-ar::after{opacity:.08}\n#page-agent-settlements .rona-ar-canonical-head>.rona-ar-hero{min-height:105px;padding:20px 24px;grid-template-columns:minmax(0,1fr) minmax(315px,.76fr);gap:20px;border-radius:16px}\n#page-agent-settlements .rona-ar-canonical-head .rona-visual-title{font-size:clamp(25px,2.25vw,38px)}\n#page-agent-settlements .rona-ar-hero-kicker{font-size:9px;margin-bottom:7px;padding:4px 8px}\n#page-agent-settlements .rona-ar-flow-step{min-height:57px;padding:9px 10px}\n#page-agent-settlements .rona-ar-flow-name{font-size:10px;margin-top:6px}\n#page-agent-settlements .rona-ar-workspace{grid-template-columns:minmax(238px,258px) minmax(0,1fr);gap:15px}\n#page-agent-settlements .rona-ar-directory{top:72px;padding:15px;gap:11px;border-radius:16px}\n#page-agent-settlements .rona-ar-directory-title{font-size:18px}\n#page-agent-settlements .rona-ar-directory-kicker{font-size:9px}\n#page-agent-settlements .rona-ar-search-field{display:block;min-width:0}\n#page-agent-settlements .rona-ar-search{display:block;width:100%;min-width:0;min-height:41px;padding:10px 12px;border:1px solid rgba(124,179,207,.25);border-radius:10px;background:rgba(4,18,31,.94);color:#effaff;font:inherit;font-size:12px;outline:none}\n#page-agent-settlements .rona-ar-search::placeholder{color:#8aaabc}\n#page-agent-settlements .rona-ar-search:focus{border-color:#66cce8;box-shadow:0 0 0 3px rgba(71,199,234,.1)}\n#page-agent-settlements .rona-ar-search-empty{padding:15px 9px;color:#b6cad6;font-size:12px;line-height:1.5}\n#page-agent-settlements .rona-ar-search-empty[hidden],#page-agent-settlements .rona-ar-deal[hidden]{display:none!important}\n#page-agent-settlements .rona-ar-deals{gap:7px}\n#page-agent-settlements .rona-ar-deal{min-height:91px;padding:11px 12px}\n#page-agent-settlements .rona-ar-deal-client{font-size:11.5px}\n#page-agent-settlements .rona-ar-deal-result{font-size:12.5px}\n#page-agent-settlements .rona-ar-focus{gap:13px}\n#page-agent-settlements .rona-ar-focus>*{order:0!important}\n#page-agent-settlements .rona-ar-focus-intro{padding:18px 20px;border-radius:14px;box-shadow:0 8px 25px rgba(0,0,0,.15)}\n#page-agent-settlements .rona-ar-focus-title{font-size:clamp(18px,1.45vw,24px)}\n#page-agent-settlements .rona-ar-status{min-height:36px;padding:8px 12px}\n#page-agent-settlements .rona-ar-pulse{grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}\n#page-agent-settlements .rona-ar-metric{min-height:96px;padding:13px 14px;border-radius:12px}\n#page-agent-settlements .rona-ar-metric-label{font-size:10px;line-height:1.4}\n#page-agent-settlements .rona-ar-metric-value{font-size:clamp(17px,1.5vw,24px)}\n#page-agent-settlements .rona-ar-fx-reference{padding:9px 13px}\n#page-agent-settlements .rona-ar-documents{order:0!important;padding:17px 18px;gap:12px;border-radius:14px;background:linear-gradient(145deg,rgba(9,30,45,.96),rgba(7,20,33,.97))}\n#page-agent-settlements .rona-ar-doc-columns{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}\n#page-agent-settlements .rona-ar-doc-card{padding:14px 16px}\n#page-agent-settlements .rona-ar-doc-name{font-size:13.5px}\n#page-agent-settlements .rona-ar-doc-note{font-size:12px}\n#page-agent-settlements .rona-ar-doc-btn{font-size:12px;min-height:40px}\n#page-agent-settlements .rona-ar-scenarios,#page-agent-settlements .rona-ar-precision,#page-agent-settlements .rona-ar-explain{min-width:0;border:1px solid rgba(121,180,210,.25);border-radius:15px;background:linear-gradient(150deg,rgba(8,27,43,.98),rgba(5,17,29,.99));box-shadow:0 12px 32px rgba(0,0,0,.15)}\n#page-agent-settlements .rona-ar-scenarios{padding:17px 18px 13px}\n#page-agent-settlements .rona-ar-scenarios-heading,#page-agent-settlements .rona-ar-precision-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:15px;flex-wrap:wrap}\n#page-agent-settlements .rona-ar-scenarios-kicker{color:#7bd5ed;font-size:10px;font-weight:900;letter-spacing:.09em}\n#page-agent-settlements .rona-ar-scenarios-title{margin:4px 0 0;color:#f1faff;font-size:18px;line-height:1.3;font-weight:900;letter-spacing:-.015em}\n#page-agent-settlements .rona-ar-scenarios-subtitle{margin:6px 0 0;color:#aac1d0;font-size:12px;line-height:1.5}\n#page-agent-settlements .rona-ar-scenarios-unit{color:#99b7c7;font-size:11px;line-height:1.4}\n#page-agent-settlements .rona-ar-scenarios-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-color:rgba(103,180,208,.55) rgba(9,26,40,.65);border:1px solid rgba(111,173,211,.2);border-radius:11px}\n#page-agent-settlements .rona-ar-scenarios-table{width:100%;min-width:645px;border-collapse:separate;border-spacing:0;table-layout:fixed;font-variant-numeric:tabular-nums}\n#page-agent-settlements .rona-ar-scenarios-table th,#page-agent-settlements .rona-ar-scenarios-table td{padding:12px 12px;border-bottom:1px solid rgba(126,186,209,.13)}\n#page-agent-settlements .rona-ar-scenarios-table thead th{height:76px;text-align:right;vertical-align:middle;background:#0b2a3c;color:#e9f8ff;white-space:normal}\n#page-agent-settlements .rona-ar-scenarios-table thead th:first-child{width:29%;text-align:left;background:#0c283a}\n#page-agent-settlements .rona-ar-scenarios-table thead th:nth-child(2){border-top:2px solid #70bdfa}\n#page-agent-settlements .rona-ar-scenarios-table thead th:nth-child(3){border-top:2px solid #56dab0}\n#page-agent-settlements .rona-ar-scenarios-table thead th:nth-child(4){border-top:2px solid #d3a8ff;background:#17243f}\n#page-agent-settlements .rona-ar-scenario-head-label{display:block;font-size:12.5px;font-weight:900;line-height:1.35}\n#page-agent-settlements .rona-ar-scenario-source{display:block;margin-top:6px;color:#a1bfd0;font-size:10px;line-height:1.35;font-weight:500}\n#page-agent-settlements .rona-ar-scenario-row{background:rgba(3,13,23,.4)}\n#page-agent-settlements .rona-ar-scenario-row:nth-child(even){background:rgba(15,37,53,.34)}\n#page-agent-settlements .rona-ar-scenario-row:hover{background:rgba(30,77,99,.29)}\n#page-agent-settlements .rona-ar-scenario-row th{text-align:left;font-size:12.5px;line-height:1.4;font-weight:700;color:#c9dfeb}\n#page-agent-settlements .rona-ar-scenario-row td{text-align:right;font-size:14px;line-height:1.3;font-weight:800;color:#eefaff;white-space:nowrap}\n#page-agent-settlements .rona-ar-scenario-row td:last-child{background:rgba(136,97,211,.07)}\n#page-agent-settlements .rona-ar-scenario-row td.positive{color:#71e6b8}\n#page-agent-settlements .rona-ar-scenario-row td.negative{color:#ff8fa5}\n#page-agent-settlements .rona-ar-scenario-row td.verify{font-size:11px;color:#ffd081;white-space:normal}\n#page-agent-settlements .rona-ar-scenario-row.emphasis th,#page-agent-settlements .rona-ar-scenario-row.emphasis td{font-weight:950}\n#page-agent-settlements .rona-ar-scenario-row.final{background:rgba(29,94,78,.2)}\n#page-agent-settlements .rona-ar-scenario-row.final th,#page-agent-settlements .rona-ar-scenario-row.final td{font-size:15px;border-bottom:0;color:#ddfbed}\n#page-agent-settlements .rona-ar-scenario-row.final td.negative{color:#ff8fa5}\n#page-agent-settlements .rona-ar-scenario-row.final td.verify{color:#ffd081}\n#page-agent-settlements .rona-ar-scenarios-footer{margin-top:11px;color:#95b3c2;font-size:11px;line-height:1.55}\n#page-agent-settlements .rona-ar-precision{padding:17px 18px 18px}\n#page-agent-settlements .rona-ar-scenario-switch{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:5px;border:1px solid rgba(112,177,207,.16);border-radius:11px;background:rgba(2,13,24,.56)}\n#page-agent-settlements .rona-ar-scenario-switch-btn{flex:1 1 125px;min-height:40px;padding:9px 12px;border:1px solid transparent;border-radius:8px;background:transparent;color:#b3cede;font:inherit;font-size:12.5px;font-weight:850;cursor:pointer}\n#page-agent-settlements .rona-ar-scenario-switch-btn.is-active{border-color:rgba(106,201,234,.46);background:rgba(29,102,130,.34);color:#f4fcff}\n#page-agent-settlements .rona-ar-scenario-switch-btn[data-rona-scenario-tab=owner].is-active{border-color:rgba(201,161,245,.5);background:rgba(117,84,180,.3)}\n#page-agent-settlements .rona-ar-scenario-switch-btn:hover{color:#ffffff}\n#page-agent-settlements .rona-ar-scenario-switch-btn:focus-visible,#page-agent-settlements .rona-ar-search:focus-visible{outline:2px solid #7fe9ff;outline-offset:2px}\n#page-agent-settlements .rona-ar-precision .rona-ar-pnl-grid{display:block!important;overflow:visible!important;padding:0!important}\n#page-agent-settlements .rona-ar-precision .rona-ar-col{display:block;min-width:0!important;width:100%;transform:none!important;margin:0}\n#page-agent-settlements .rona-ar-precision .rona-ar-col[hidden]{display:none!important}\n#page-agent-settlements .rona-ar-precision .rona-ar-col-head{min-height:85px;padding:16px 18px}\n#page-agent-settlements .rona-ar-precision .rona-ar-col-title{font-size:16px}\n#page-agent-settlements .rona-ar-precision .rona-ar-col-meta{font-size:11.5px}\n#page-agent-settlements .rona-ar-precision .rona-ar-row{grid-template-columns:minmax(0,1fr) max-content}\n#page-agent-settlements .rona-ar-precision .rona-ar-expenses{padding:10px 18px}\n#page-agent-settlements .rona-ar-precision .rona-ar-input{width:170px;min-height:41px}\n#page-agent-settlements .rona-ar-explain{padding:13px 17px}\n#page-agent-settlements .rona-ar-explain-summary{cursor:pointer;color:#bbd7e8;font-size:13px;font-weight:850;padding:7px 2px;line-height:1.45}\n#page-agent-settlements .rona-ar-explain-summary:focus-visible{outline:2px solid #73d9f0;outline-offset:2px}\n#page-agent-settlements .rona-ar-explain>.rona-ar-insights{display:block;order:0!important;margin-top:14px}\n#page-agent-settlements .rona-ar-explain .rona-ar-insights-header{margin-bottom:12px}\n#page-agent-settlements .rona-ar-explain .rona-ar-insight-card{box-shadow:none}\n@media(max-width:1580px){#page-agent-settlements .rona-ar-workspace{grid-template-columns:minmax(218px,244px) minmax(0,1fr);gap:12px}#page-agent-settlements .rona-ar-pulse{grid-template-columns:repeat(2,minmax(0,1fr))}}\n@media(max-width:1250px){#page-agent-settlements .rona-ar-workspace{grid-template-columns:minmax(0,1fr)}#page-agent-settlements .rona-ar-directory{position:static;max-height:none}#page-agent-settlements .rona-ar-deals{grid-template-columns:repeat(3,minmax(0,1fr));max-height:245px}#page-agent-settlements .rona-ar-doc-columns{grid-template-columns:repeat(2,minmax(0,1fr))}#page-agent-settlements .rona-ar-flow{grid-template-columns:repeat(4,minmax(0,1fr))}}\n@media(max-width:870px){#page-agent-settlements .rona-ar-canonical-head>.rona-ar-hero{grid-template-columns:1fr}#page-agent-settlements .rona-ar-deals{grid-template-columns:repeat(2,minmax(0,1fr))}#page-agent-settlements .rona-ar-doc-columns{grid-template-columns:1fr}#page-agent-settlements .rona-ar-focus-intro{flex-wrap:wrap}}\n@media(max-width:610px){#page-agent-settlements .rona-ar-canonical-head>.rona-ar-hero{padding:16px}#page-agent-settlements .rona-ar-flow{grid-template-columns:repeat(2,minmax(0,1fr))}#page-agent-settlements .rona-ar-directory{padding:11px}#page-agent-settlements .rona-ar-deals{grid-template-columns:1fr;max-height:245px}#page-agent-settlements .rona-ar-pulse{grid-template-columns:repeat(2,minmax(0,1fr))}#page-agent-settlements .rona-ar-metric{padding:12px;min-height:104px}#page-agent-settlements .rona-ar-metric-value{font-size:17px}#page-agent-settlements .rona-ar-documents,#page-agent-settlements .rona-ar-scenarios,#page-agent-settlements .rona-ar-precision{padding:13px}#page-agent-settlements .rona-ar-scenarios-title{font-size:16px}#page-agent-settlements .rona-ar-precision .rona-ar-row{grid-template-columns:minmax(0,1fr) auto}#page-agent-settlements .rona-ar-precision .rona-ar-input{width:115px;font-size:13px}#page-agent-settlements .rona-ar-scenario-switch-btn{flex:1 1 100px;font-size:11px}}\n@media(prefers-reduced-motion:reduce){#page-agent-settlements .rona-ar-scenario-switch-btn{transition:none}}\n";
   document.head.append(style)
+}
+
+
+function installSpectrumDesignStyle(){
+  let style=q('#ronaArSpectrumDesignV3Style');
+  if(!style){style=el('style');style.id='ronaArSpectrumDesignV3Style'}
+  style.textContent=`
+/* RONA SPECTRUM V3 — scoped visual composition only.
+   Source-locked amounts, contractual states, corrections and uploads are untouched. */
+#page-agent-settlements{
+  --ar-spectrum-ice:#dff8ff;--ar-spectrum-cyan:#61e7ff;
+  --ar-spectrum-violet:#c9b5ff;--ar-spectrum-gold:#ffd68d;
+  --ar-spectrum-mint:#78efc2;--ar-spectrum-muted:#abc6d8;
+  position:relative;
+  background:
+    radial-gradient(ellipse 68% 34% at 101% 2%,rgba(117,77,227,.17),transparent 72%),
+    radial-gradient(ellipse 62% 39% at -6% 39%,rgba(13,168,207,.14),transparent 70%),
+    radial-gradient(ellipse 52% 42% at 97% 88%,rgba(12,130,134,.1),transparent 75%),
+    linear-gradient(155deg,#060b1b 0%,#07172b 49%,#060e20 100%)!important;
+  color:var(--ar-spectrum-ice);
+  overflow-x:clip;
+}
+#page-agent-settlements::before{
+  content:"";pointer-events:none;position:absolute;inset:0;opacity:.25;
+  background-image:
+    linear-gradient(rgba(125,191,229,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(125,191,229,.046) 1px,transparent 1px);
+  background-size:56px 56px;
+  mask-image:linear-gradient(to bottom,#000 0%,transparent 76%);
+}
+#page-agent-settlements .rona-ar-canonical-head,
+#page-agent-settlements .rona-ar-host{position:relative;z-index:1}
+#page-agent-settlements .rona-ar-canonical-head{margin-bottom:18px}
+#page-agent-settlements .rona-ar-canonical-head>.rona-ar-hero{
+  min-height:170px;isolation:isolate;overflow:hidden;padding:28px 30px;
+  border:1px solid rgba(125,189,253,.33);border-radius:23px;
+  background:
+    radial-gradient(ellipse 55% 150% at 94% 5%,rgba(119,83,232,.37),transparent 66%),
+    radial-gradient(ellipse 45% 110% at 15% 100%,rgba(16,183,191,.18),transparent 71%),
+    linear-gradient(115deg,#101f42 1%,#0a1631 52%,#172446 100%);
+  box-shadow:0 24px 62px rgba(2,7,21,.43),
+    inset 0 1px rgba(239,244,255,.12),inset 0 -1px rgba(82,178,234,.12);
+}
+#page-agent-settlements .rona-ar-canonical-head>.rona-ar-hero::before{
+  background-image:linear-gradient(rgba(127,197,241,.075) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(127,197,241,.075) 1px,transparent 1px);
+  background-size:34px 34px;opacity:.75;
+}
+#page-agent-settlements .rona-ar-canonical-head>.rona-ar-hero::after{
+  width:310px;height:310px;right:12%;top:-155px;
+  border:1px solid rgba(174,146,255,.46);
+  box-shadow:0 0 0 27px rgba(117,116,255,.05),
+    0 0 0 61px rgba(92,224,238,.035),0 0 80px rgba(155,117,255,.19);
+}
+#page-agent-settlements .rona-ar-hero-kicker{
+  color:#d0c1ff;border-color:rgba(193,156,255,.5);
+  background:rgba(132,97,221,.18);letter-spacing:.16em;
+}
+#page-agent-settlements .rona-ar-hero-kicker::before{
+  background:#ffc46f;box-shadow:0 0 0 3px rgba(255,196,111,.1),0 0 17px rgba(255,196,111,.6);
+}
+#page-agent-settlements .rona-ar-canonical-head .rona-visual-title{
+  font-size:clamp(29px,2.9vw,48px);font-weight:950;letter-spacing:-.036em;
+  color:#fff;text-shadow:0 3px 22px rgba(60,117,243,.27);
+}
+#page-agent-settlements .rona-ar-canonical-head .rona-ar-sub{
+  max-width:690px;color:#c3d8ed;font-size:12.5px;line-height:1.6;
+}
+#page-agent-settlements .rona-ar-flow{gap:10px}
+#page-agent-settlements .rona-ar-flow-step{
+  min-height:82px;padding:13px;border-radius:13px;
+  border:1px solid rgba(105,199,248,.28);
+  background:linear-gradient(153deg,rgba(22,54,88,.76),rgba(9,22,45,.88));
+  box-shadow:0 10px 24px rgba(0,7,32,.28),inset 0 1px rgba(233,246,255,.07);
+}
+#page-agent-settlements .rona-ar-flow-step:nth-child(2){
+  border-color:rgba(202,157,255,.36);
+  background:linear-gradient(148deg,rgba(79,48,123,.45),rgba(22,20,55,.87));
+}
+#page-agent-settlements .rona-ar-flow-step:nth-child(3){
+  border-color:rgba(101,228,232,.35);
+  background:linear-gradient(148deg,rgba(21,98,108,.48),rgba(11,33,49,.87));
+}
+#page-agent-settlements .rona-ar-flow-step:last-child{
+  border-color:rgba(125,245,187,.52);
+  background:linear-gradient(147deg,rgba(26,111,87,.48),rgba(8,37,41,.92));
+}
+#page-agent-settlements .rona-ar-flow-index{font-size:10px;color:#9dc3ed;letter-spacing:.12em}
+#page-agent-settlements .rona-ar-flow-name{font-size:11px;color:#f2faff}
+#page-agent-settlements .rona-ar-workspace{gap:19px;grid-template-columns:minmax(238px,268px) minmax(0,1fr)}
+#page-agent-settlements .rona-ar-directory{
+  top:76px;border:1px solid rgba(102,176,239,.34);border-radius:19px;
+  background:radial-gradient(ellipse 130% 38% at 0 0,rgba(82,73,168,.24),transparent 75%),
+    linear-gradient(168deg,rgba(17,32,63,.98),rgba(7,20,42,.98) 76%);
+  box-shadow:0 18px 50px rgba(1,7,22,.32),inset 0 1px rgba(242,249,255,.055);
+}
+#page-agent-settlements .rona-ar-directory-title{font-size:20px;letter-spacing:-.025em}
+#page-agent-settlements .rona-ar-directory-kicker{color:#b6aaff}
+#page-agent-settlements .rona-ar-directory-count{
+  border-color:rgba(132,213,242,.33);background:rgba(77,171,227,.13);color:#e2f7ff
+}
+#page-agent-settlements .rona-ar-search{
+  min-height:44px;border-color:rgba(107,180,226,.37);
+  background:rgba(4,15,37,.87);color:#f4fbff;
+  box-shadow:inset 0 1px 8px rgba(0,0,0,.26)
+}
+#page-agent-settlements .rona-ar-search:focus{
+  border-color:#8feeff;box-shadow:0 0 0 3px rgba(65,205,255,.19)
+}
+#page-agent-settlements .rona-ar-deal{
+  min-height:104px;border:1px solid rgba(117,174,224,.16);border-radius:13px;
+  background:linear-gradient(115deg,rgba(18,36,65,.96),rgba(6,22,43,.91));
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+#page-agent-settlements .rona-ar-deal::before{
+  height:2px;opacity:.7;background:linear-gradient(90deg,rgba(122,106,237,.64),rgba(65,220,239,.22),transparent)
+}
+#page-agent-settlements .rona-ar-deal:hover{
+  border-color:rgba(106,224,245,.63);
+  background:linear-gradient(115deg,rgba(25,54,86,.96),rgba(12,32,56,.96));
+  transform:translateY(-2px);box-shadow:0 9px 25px rgba(4,10,27,.36);
+}
+#page-agent-settlements .rona-ar-deal.is-active{
+  border-color:#6ee7f3;
+  background:linear-gradient(125deg,rgba(29,83,117,.78),rgba(33,37,89,.94));
+  box-shadow:inset 4px 0 0 #71f1f7,0 0 0 1px rgba(110,231,243,.15),0 12px 30px rgba(2,15,36,.35)
+}
+#page-agent-settlements .rona-ar-deal-id{font-weight:950;font-size:12.5px;color:#f7fcff}
+#page-agent-settlements .rona-ar-deal-client{color:#a9c5dc;font-size:11.5px}
+#page-agent-settlements .rona-ar-deal-result{font-size:13px}
+#page-agent-settlements .rona-ar-directory-footer{color:#99b7d0;border-color:rgba(113,172,242,.2)}
+#page-agent-settlements .rona-ar-focus{gap:15px}
+#page-agent-settlements .rona-ar-focus-intro{
+  position:relative;overflow:hidden;
+  min-height:129px;padding:23px 26px 23px 31px;border-radius:20px;
+  border:1px solid rgba(182,149,249,.39);
+  background:
+    radial-gradient(ellipse 58% 140% at 100% 5%,rgba(108,79,212,.34),transparent 75%),
+    linear-gradient(111deg,rgba(26,37,81,.95),rgba(13,31,58,.98) 64%,rgba(16,53,76,.94));
+  box-shadow:0 16px 44px rgba(3,8,28,.31),inset 0 1px rgba(252,249,255,.095);
+}
+#page-agent-settlements .rona-ar-focus-intro::before{
+  content:"";position:absolute;left:0;top:20px;bottom:20px;width:4px;border-radius:0 4px 4px 0;
+  background:linear-gradient(#ae90ff,#68e7f8);box-shadow:0 0 22px rgba(150,135,255,.5)
+}
+#page-agent-settlements .rona-ar-focus-kicker{color:#d3b9ff;font-size:10.5px}
+#page-agent-settlements .rona-ar-focus-title{
+  font-size:clamp(18px,1.7vw,26px);color:#fff;line-height:1.28;
+}
+#page-agent-settlements .rona-ar-focus-agent{color:#bdd7e8;font-size:12.5px}
+#page-agent-settlements .rona-ar-focus-tags>.rona-ar-chip{
+  background:rgba(93,108,199,.16);border-color:rgba(158,189,254,.37);
+  color:#e7f4ff;font-size:10px
+}
+#page-agent-settlements .rona-ar-spectrum-jumpbar{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px;
+  border:1px solid rgba(118,182,236,.24);border-radius:14px;
+  background:linear-gradient(110deg,rgba(10,25,53,.86),rgba(10,35,53,.82));
+  box-shadow:inset 0 1px rgba(222,245,255,.05)
+}
+#page-agent-settlements .rona-ar-spectrum-jumpbar button{
+  flex:1 1 auto;display:inline-flex;justify-content:center;align-items:center;gap:8px;
+  min-height:39px;padding:8px 13px;border-radius:9px;
+  border:1px solid transparent;background:transparent;color:#c8e1f0;
+  font:inherit;font-size:11.5px;font-weight:820;letter-spacing:.012em;
+  cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease
+}
+#page-agent-settlements .rona-ar-spectrum-jumpbar button::before{
+  content:attr(data-rona-ar-jump-index);color:#a99dff;font-size:10px;font-weight:900;letter-spacing:.09em
+}
+#page-agent-settlements .rona-ar-spectrum-jumpbar button:hover{
+  color:#fff;border-color:rgba(132,218,251,.37);background:rgba(63,146,204,.18);
+  transform:translateY(-1px)
+}
+#page-agent-settlements .rona-ar-spectrum-jumpbar button:focus-visible,
+#page-agent-settlements .rona-ar-doc-btn:focus-visible,
+#page-agent-settlements .rona-ar-scenario-switch-btn:focus-visible{
+  outline:2px solid #c0f7ff;outline-offset:3px
+}
+#page-agent-settlements .rona-ar-status{
+  padding:12px 16px;border-color:rgba(116,207,219,.29);
+  background:linear-gradient(110deg,rgba(8,43,60,.76),rgba(9,23,49,.86));
+  color:#b6d5e5
+}
+#page-agent-settlements .rona-ar-status strong{color:#e6fcff}
+#page-agent-settlements .rona-ar-pulse{gap:12px}
+#page-agent-settlements .rona-ar-metric{
+  --ar-card-top:rgba(81,198,245,.19);
+  --ar-card-accent:#86d4ff;
+  --ar-card-border:rgba(119,196,240,.3);
+  min-height:132px;padding:18px 19px;border-radius:18px;
+  border-color:var(--ar-card-border);
+  background:radial-gradient(ellipse 100% 75% at 93% 0,var(--ar-card-top),transparent 73%),
+    linear-gradient(145deg,rgba(14,32,61,.98),rgba(6,22,42,.99));
+  box-shadow:0 16px 32px rgba(2,9,29,.31),inset 0 1px rgba(249,252,255,.075);
+}
+#page-agent-settlements .rona-ar-metric::before{
+  top:17px;bottom:17px;height:auto;width:4px;border-radius:4px;
+  background:var(--ar-card-accent)!important;
+  box-shadow:0 0 19px var(--ar-card-top)
+}
+#page-agent-settlements .rona-ar-metric::after{
+  top:-44px;right:-24px;width:128px;height:128px;
+  background:radial-gradient(circle,var(--ar-card-top),transparent 73%)!important
+}
+#page-agent-settlements .rona-ar-metric.agent-primary{
+  --ar-card-top:rgba(174,119,255,.28);--ar-card-accent:#caafff;
+  --ar-card-border:rgba(196,157,255,.39);
+  background:radial-gradient(ellipse 102% 95% at 97% 0,rgba(150,91,245,.25),transparent 75%),
+    linear-gradient(143deg,rgba(42,27,78,.94),rgba(15,26,56,.99))
+}
+#page-agent-settlements .rona-ar-metric.owner-calculated-reward{
+  --ar-card-top:rgba(63,216,221,.24);--ar-card-accent:#61e8ee;
+  --ar-card-border:rgba(85,225,236,.38);
+  background:radial-gradient(ellipse 110% 96% at 91% 0,rgba(38,193,216,.23),transparent 75%),
+    linear-gradient(143deg,rgba(10,58,73,.95),rgba(10,29,51,.98))
+}
+#page-agent-settlements .rona-ar-metric.plan{
+  --ar-card-top:rgba(247,173,91,.23);--ar-card-accent:#ffd187;
+  --ar-card-border:rgba(246,192,116,.35);
+  background:radial-gradient(ellipse 100% 90% at 96% 0,rgba(236,167,81,.2),transparent 72%),
+    linear-gradient(143deg,rgba(68,47,45,.83),rgba(26,27,47,.99))
+}
+#page-agent-settlements .rona-ar-metric.fact{
+  --ar-card-top:rgba(76,223,155,.22);--ar-card-accent:#77efb8;
+  --ar-card-border:rgba(101,228,175,.37);
+  background:radial-gradient(ellipse 110% 92% at 96% 0,rgba(44,199,130,.2),transparent 72%),
+    linear-gradient(143deg,rgba(13,59,58,.94),rgba(10,32,49,.99))
+}
+#page-agent-settlements .rona-ar-metric-label{
+  color:#c3d9e8;font-size:10.75px;line-height:1.5;letter-spacing:.075em
+}
+#page-agent-settlements .rona-ar-metric-value{
+  font-size:clamp(20px,1.7vw,30px);line-height:1.15;
+  font-weight:950;letter-spacing:-.035em;color:#f5fdff;
+  overflow-wrap:anywhere;text-shadow:0 6px 20px rgba(0,0,0,.28)
+}
+#page-agent-settlements .rona-ar-metric.fact .rona-ar-metric-value{color:#a4f9d6}
+#page-agent-settlements .rona-ar-metric.verify .rona-ar-metric-value{color:#ffdc92;font-size:clamp(15px,1.25vw,20px)}
+#page-agent-settlements .rona-ar-fx-reference{
+  border-color:rgba(242,189,120,.39);border-radius:12px;
+  background:linear-gradient(115deg,rgba(67,46,44,.68),rgba(20,31,55,.88))
+}
+#page-agent-settlements .rona-ar-documents{
+  border:1px solid rgba(146,164,250,.34);border-radius:20px;
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 0,rgba(111,91,209,.12),transparent 75%),
+    linear-gradient(140deg,rgba(17,30,58,.94),rgba(8,24,43,.98));
+  box-shadow:0 17px 41px rgba(0,5,24,.28),inset 0 1px rgba(248,246,255,.055)
+}
+#page-agent-settlements .rona-ar-doc-head{
+  padding-bottom:12px;margin-bottom:12px;
+  border-bottom:1px solid rgba(165,166,244,.24)
+}
+#page-agent-settlements .rona-ar-doc-title{
+  font-size:clamp(16px,1.35vw,21px);color:#fff;letter-spacing:-.02em
+}
+#page-agent-settlements .rona-ar-doc-columns{gap:13px}
+#page-agent-settlements .rona-ar-doc-card{
+  position:relative;overflow:hidden;border-radius:15px;
+  border:1px solid rgba(134,182,240,.26);
+  background:linear-gradient(153deg,rgba(20,41,76,.82),rgba(7,23,44,.96));
+  box-shadow:inset 0 1px rgba(244,250,255,.045)
+}
+#page-agent-settlements .rona-ar-doc-card::before{
+  content:"";position:absolute;top:0;left:15px;right:15px;height:2px;
+  background:linear-gradient(90deg,#a4a1ff,rgba(89,209,250,.4),transparent)
+}
+#page-agent-settlements .rona-ar-doc-card:nth-child(2){
+  border-color:rgba(92,220,177,.32);
+  background:linear-gradient(152deg,rgba(11,57,62,.8),rgba(8,26,48,.94))
+}
+#page-agent-settlements .rona-ar-doc-card:nth-child(2)::before{
+  background:linear-gradient(90deg,#68e7bc,rgba(95,207,252,.42),transparent)
+}
+#page-agent-settlements .rona-ar-doc-kicker{font-size:10px;letter-spacing:.1em;color:#accdf0}
+#page-agent-settlements .rona-ar-doc-name{font-size:13px;font-weight:850;color:#f4fcff}
+#page-agent-settlements .rona-ar-doc-note{color:#b0cbda;line-height:1.65}
+#page-agent-settlements .rona-ar-doc-source-diagnostic{
+  border-color:rgba(122,231,207,.3)!important;
+  background:linear-gradient(112deg,rgba(13,72,72,.67),rgba(19,45,68,.7))!important;
+  color:#d5f6f0!important
+}
+#page-agent-settlements .rona-ar-doc-archive-picker{
+  border-color:rgba(173,147,242,.42);
+  background:linear-gradient(145deg,rgba(68,45,112,.35),rgba(18,40,65,.8))
+}
+#page-agent-settlements .rona-ar-doc-btn{
+  border-color:rgba(124,191,247,.45);
+  background:linear-gradient(110deg,rgba(22,84,130,.88),rgba(32,123,155,.88));
+  color:#f0fcff;box-shadow:0 7px 20px rgba(2,10,26,.23);
+  transition:transform .16s ease,filter .16s ease,box-shadow .16s ease
+}
+#page-agent-settlements .rona-ar-doc-btn:hover:not(:disabled){
+  filter:brightness(1.18);transform:translateY(-1px);
+  box-shadow:0 10px 22px rgba(15,65,106,.3)
+}
+#page-agent-settlements .rona-ar-doc-btn:disabled{opacity:.55;cursor:not-allowed}
+#page-agent-settlements .rona-ar-scenarios{
+  border:1px solid rgba(108,199,246,.36);border-radius:20px;
+  background:linear-gradient(155deg,rgba(15,32,63,.96),rgba(7,22,42,.99));
+  box-shadow:0 18px 43px rgba(2,7,27,.3)
+}
+#page-agent-settlements .rona-ar-scenarios-title{color:#fff;font-size:clamp(17px,1.4vw,22px)}
+#page-agent-settlements .rona-ar-scenarios-kicker{color:#aab7ff;font-size:10px}
+#page-agent-settlements .rona-ar-scenarios-subtitle,
+#page-agent-settlements .rona-ar-scenarios-unit{color:#b9d1e1}
+#page-agent-settlements .rona-ar-scenarios-table{min-width:645px}
+#page-agent-settlements .rona-ar-scenarios-table thead th{
+  background:linear-gradient(165deg,#112f50,#10233e);border-bottom:1px solid rgba(116,184,226,.34)
+}
+#page-agent-settlements .rona-ar-scenarios-table thead th:nth-child(2){
+  border-top:3px solid #82c5ff;background:linear-gradient(165deg,#17365c,#0e2748)
+}
+#page-agent-settlements .rona-ar-scenarios-table thead th:nth-child(3){
+  border-top:3px solid #6feac4;background:linear-gradient(165deg,#104f50,#0c343d)
+}
+#page-agent-settlements .rona-ar-scenarios-table thead th:nth-child(4){
+  border-top:3px solid #d0a5ff;background:linear-gradient(165deg,#392653,#19233e)
+}
+#page-agent-settlements .rona-ar-scenario-row:nth-child(even){
+  background:rgba(43,58,94,.19)
+}
+#page-agent-settlements .rona-ar-scenario-row:hover{
+  background:rgba(53,107,144,.3)
+}
+#page-agent-settlements .rona-ar-scenario-row td:last-child{background:rgba(134,88,208,.095)}
+#page-agent-settlements .rona-ar-scenario-row.emphasis{
+  background:rgba(53,117,130,.2)
+}
+#page-agent-settlements .rona-ar-scenario-row.final{
+  background:linear-gradient(90deg,rgba(37,119,104,.33),rgba(35,67,102,.32))
+}
+#page-agent-settlements .rona-ar-scenario-row.final th{
+  border-left:3px solid #7fe9c4;color:#ebfff7;padding-left:12px
+}
+#page-agent-settlements .rona-ar-precision{
+  border:1px solid rgba(195,151,239,.32);border-radius:19px;
+  background:linear-gradient(145deg,rgba(23,28,60,.92),rgba(8,22,43,.98));
+  box-shadow:0 16px 40px rgba(2,7,22,.27)
+}
+#page-agent-settlements .rona-ar-scenario-switch{
+  border-color:rgba(156,162,242,.31);
+  background:rgba(10,19,45,.72)
+}
+#page-agent-settlements .rona-ar-scenario-switch-btn{
+  min-height:43px;color:#c4d8ed
+}
+#page-agent-settlements .rona-ar-scenario-switch-btn.is-active{
+  background:linear-gradient(110deg,rgba(32,100,160,.65),rgba(64,81,153,.45));
+  color:#fff;box-shadow:0 4px 13px rgba(10,16,44,.24)
+}
+#page-agent-settlements .rona-ar-scenario-switch-btn[data-rona-scenario-tab=owner].is-active{
+  background:linear-gradient(110deg,rgba(122,71,195,.62),rgba(54,88,149,.53));
+  border-color:rgba(218,159,255,.57)
+}
+#page-agent-settlements .rona-ar-precision .rona-ar-col-head{
+  background:linear-gradient(115deg,rgba(65,49,103,.43),rgba(13,51,74,.48));
+}
+#page-agent-settlements .rona-ar-explain{
+  border:1px solid rgba(111,167,232,.3);border-radius:15px;
+  background:linear-gradient(115deg,rgba(15,35,69,.79),rgba(7,25,46,.9))
+}
+#page-agent-settlements .rona-ar-explain-summary{
+  min-height:42px;display:flex;align-items:center;color:#d8eaff
+}
+#page-agent-settlements .rona-ar-explain-summary:hover{color:#fff}
+#page-agent-settlements .rona-ar-insight-card{
+  border-color:rgba(146,183,241,.29);
+  background:linear-gradient(140deg,rgba(18,44,74,.93),rgba(11,28,56,.98))
+}
+#page-agent-settlements .rona-ar-waterfall{
+  background:linear-gradient(145deg,rgba(12,60,79,.62),rgba(10,28,58,.94))
+}
+#page-agent-settlements .rona-ar-compare{background:rgba(7,22,48,.64)}
+#page-agent-settlements .rona-ar-cascade-track{height:13px;background:rgba(89,136,182,.14)}
+#page-agent-settlements .rona-ar-cascade-row.agent .rona-ar-cascade-bar{
+  background:linear-gradient(90deg,#9872d8,#d2b2ff)
+}
+#page-agent-settlements .rona-ar-cascade-row.final .rona-ar-cascade-bar{
+  background:linear-gradient(90deg,#0b9b87,#7bf3c1)
+}
+#page-agent-settlements .rona-ar-metric,
+#page-agent-settlements .rona-ar-scenarios,
+#page-agent-settlements .rona-ar-documents,
+#page-agent-settlements .rona-ar-precision,
+#page-agent-settlements .rona-ar-focus-intro{scroll-margin-top:90px}
+@media(max-width:1580px){
+  #page-agent-settlements .rona-ar-workspace{grid-template-columns:minmax(215px,245px) minmax(0,1fr)}
+  #page-agent-settlements .rona-ar-metric{min-height:115px;padding:15px}
+  #page-agent-settlements .rona-ar-metric-value{font-size:clamp(17px,1.5vw,25px)}
+}
+@media(max-width:1250px){
+  #page-agent-settlements .rona-ar-workspace{grid-template-columns:minmax(0,1fr)}
+  #page-agent-settlements .rona-ar-directory{position:static;max-height:none}
+  #page-agent-settlements .rona-ar-deals{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:870px){
+  #page-agent-settlements .rona-ar-canonical-head>.rona-ar-hero{grid-template-columns:1fr}
+  #page-agent-settlements .rona-ar-focus-intro{padding:19px 21px}
+  #page-agent-settlements .rona-ar-flow-step{min-height:68px}
+  #page-agent-settlements .rona-ar-deals{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #page-agent-settlements .rona-ar-doc-columns{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:610px){
+  #page-agent-settlements .rona-ar-canonical-head>.rona-ar-hero{padding:20px;border-radius:16px}
+  #page-agent-settlements .rona-ar-flow{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #page-agent-settlements .rona-ar-flow-step{min-height:65px;padding:10px}
+  #page-agent-settlements .rona-ar-focus-intro{padding:18px 17px 18px 21px}
+  #page-agent-settlements .rona-ar-pulse{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #page-agent-settlements .rona-ar-metric{min-height:119px;padding:13px}
+  #page-agent-settlements .rona-ar-metric-value{font-size:clamp(15px,4.1vw,20px)}
+  #page-agent-settlements .rona-ar-documents,
+  #page-agent-settlements .rona-ar-scenarios,
+  #page-agent-settlements .rona-ar-precision{border-radius:14px;padding:13px}
+  #page-agent-settlements .rona-ar-spectrum-jumpbar{gap:4px;padding:5px}
+  #page-agent-settlements .rona-ar-spectrum-jumpbar button{flex:1 1 42%;padding:9px 5px;font-size:11px}
+  #page-agent-settlements .rona-ar-directory{padding:13px}
+}
+@media(max-width:380px){
+  #page-agent-settlements .rona-ar-pulse{grid-template-columns:minmax(0,1fr)}
+  #page-agent-settlements .rona-ar-spectrum-jumpbar button{font-size:10px;gap:5px}
+}
+@media(prefers-reduced-motion:reduce){
+  #page-agent-settlements .rona-ar-deal,
+  #page-agent-settlements .rona-ar-doc-btn,
+  #page-agent-settlements .rona-ar-spectrum-jumpbar button{transition:none;transform:none}
+}
+`;
+  document.head.append(style);
 }
 
 function page(){return document.getElementById('page-agent-settlements')}
@@ -2041,6 +2472,22 @@ function renderExecutiveWorkspace(root,deals,deal){
   tags.append(chip(String(deal.dealId||'Сделка'),''),
     chip(String(deal.businessStatus||'TO_VERIFY'),''),chip(currencyOf(deal)||'TO_VERIFY',''));
   intro.append(profile,tags);right.append(intro);
+  const jumpbar=el('nav','rona-ar-spectrum-jumpbar');
+  jumpbar.setAttribute('aria-label','Быстрая навигация по разделу вознаграждений');
+  [['01','Показатели','.rona-ar-pulse'],
+   ['02','Документы','.rona-ar-documents'],
+   ['03','Сравнение','.rona-ar-scenarios'],
+   ['04','Детализация','.rona-ar-precision']].forEach(([index,title,selector])=>{
+    const button=el('button','rona-ar-spectrum-jump',title);
+    button.type='button';button.dataset.ronaArJump=selector;
+    button.dataset.ronaArJumpIndex=index;
+    button.addEventListener('click',()=>{
+      const target=q(selector,right);
+      if(target)target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+    });
+    jumpbar.append(button);
+  });
+  right.append(jumpbar);
   for(const selector of ['.rona-ar-status','.rona-ar-pulse','.rona-ar-fx-reference',
     '.rona-ar-documents','.rona-ar-scenarios','.rona-ar-precision']){
     const element=q(selector,root);
@@ -2056,7 +2503,7 @@ function renderExecutiveWorkspace(root,deals,deal){
 }
 
 function render(){
-  installStyle();installExecutiveCockpitStyle();installAgentRewardsRefinedStyle();const root=el('div','rona-ar'),data=state.data;root.dataset.ronaAgentRewardsVisual='premium-fintech-v2';root.dataset.ronaAgentRewardsCockpit='executive-cockpit-v1';root.dataset.ronaAgentRewardsConsole='owner-finance-v2';
+  installStyle();installExecutiveCockpitStyle();installAgentRewardsRefinedStyle();const root=el('div','rona-ar'),data=state.data;root.dataset.ronaAgentRewardsVisual='premium-fintech-v2';root.dataset.ronaAgentRewardsCockpit='executive-cockpit-v1';root.dataset.ronaAgentRewardsConsole='owner-finance-v2';root.dataset.ronaAgentRewardsDesign='spectrum-v3';
   if(!data){root.append(el('div','rona-ar-loader','Загрузка финансового P&L-контура…'));replace(root);return}
   const deals=Array.isArray(data.deals)?data.deals:[];
   if(state.selectedKey&&!deals.some(d=>rowKey(d)===state.selectedKey))state.selectedKey=null;
@@ -2075,6 +2522,7 @@ function render(){
     renderExecutiveInsights(root,deal);
     renderExecutiveWorkspace(root,deals,deal);
   }
+  installSpectrumDesignStyle();
   replace(root)
 }
 async function start(){

@@ -304,7 +304,7 @@ test('Agent Rewards runtime serialization ships its transform helper',()=>{
 });
 
 test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defined order',()=>{
-  assert.match(ui,/20261017-agent-signed-ds-archive-reuse-v1/);
+  assert.match(ui,/20261017-agent-rewards-spectrum-v3/);
   assert.match(ui,/1 · ПЛАН/);
   assert.match(ui,/2 · ФАКТ/);
   assert.match(ui,/3 · OWNER \/ АГЕНТ/);
