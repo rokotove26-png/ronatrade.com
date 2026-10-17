@@ -37,6 +37,9 @@ test('scope: only SYSTEM_ADMIN with exact identity + mcp:read gets inbox',async(
   const denied=await h.invoke({}, {role:'FINANCE',identity_id:'AI-FINANCE',scope:'mcp:read'});
   assert.equal(denied.payload.code,'SYSTEM_ADMIN_READ_REQUIRED');
   assert.equal(denied.isError,true);
+  const spoofed=await h.invoke({}, {role:'SYSTEM_ADMIN',identity_id:'AI-FINANCE',scope:'mcp:read'});
+  assert.equal(spoofed.payload.code,'SYSTEM_ADMIN_READ_REQUIRED');
+  assert.equal(spoofed.isError,true);
   const absent=await h.invoke({}, {role:'SYSTEM_ADMIN',identity_id:'AI-SYSTEM-ADMIN',scope:''});
   assert.equal(absent.payload.code,'SYSTEM_ADMIN_READ_REQUIRED');
   assert.equal(h.queries.length,0);
