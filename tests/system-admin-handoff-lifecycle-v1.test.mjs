@@ -86,6 +86,8 @@ test('acknowledge appends version, supersedes source, writes audit, without edit
  assert.equal(res.body.version,3);
  const statements=f.statements.map(x=>x.query);
  assert.ok(statements.some(x=>x.startsWith('INSERT INTO portal_private.ai_coordination_records')));
+ const receipt=f.statements.find(x=>x.query.startsWith('INSERT INTO portal_private.ai_coordination_records'));
+ assert.equal(receipt.params[6],null,'ACK must not falsely settle original runtime queue');
  assert.ok(statements.some(x=>x.startsWith('INSERT INTO portal_private.ai_coordination_audit_events')));
  assert.ok(statements.every(x=>!/^UPDATE |^DELETE |^DROP /i.test(x)));
 });
@@ -107,4 +109,12 @@ test('idempotency reuse with a changed payload is rejected before any task inser
  const res=await f.invoke('staff_handoff_task_materialize');
  assert.equal(res.body.code,'IDEMPOTENCY_CONFLICT');
  assert.equal(f.statements.some(s=>s.query.startsWith('INSERT INTO portal_private.staff_tasks')),false);
+});
+
+test('verified resolution settles only after canonical task_complete proof',async()=>{
+ const f=fixture({completed:true,outcome:'VERIFIED_RESOLVED'});
+ const res=await f.invoke('staff_handoff_status_submit',{...args,outcome:'VERIFIED_RESOLVED'});
+ assert.equal(res.body.ok,true);
+ const receipt=f.statements.find(x=>x.query.startsWith('INSERT INTO portal_private.ai_coordination_records'));
+ assert.equal(receipt.params[6],ROOT,'only VERIFIED_RESOLVED may respond to source runtime queue');
 });
