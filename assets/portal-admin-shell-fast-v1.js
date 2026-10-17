@@ -69,7 +69,17 @@ async function loadModule(name,src,{attempts=3,ready=null,timeout=14000}={}){
         if(typeof ready==='function'){
           const deadline=Date.now()+Math.min(10000,timeout);
           while(Date.now()<deadline&&!ready())await sleep(100);
-          if(!ready())throw new Error('MODULE_NOT_READY:'+name)
+          if(!ready()){
+            // Script fetched and evaluated (possibly only partially); never
+            // execute it again as a classic script. A retry would redeclare
+            // top-level const/let and hide the original exception.
+            const err=new Error('MODULE_NOT_READY:'+name);
+            state.status='FAILED_EXECUTION';state.error=String(err.message);
+            state.failedAt=new Date().toISOString();
+            recordError('module:'+name+':execution',err);
+            if(name==='main')window.__RONA_ADMIN_MAIN_BOOT_ERROR__=state.error;
+            return false;
+          }
         }
         state.status='READY';state.readyAt=new Date().toISOString();restoreSelectedPage();return true
       }catch(e){state.status='RETRY';state.error=String(e?.message||e);recordError('module:'+name+':'+attempt,e);const stale=document.getElementById('rona-single-'+name);if(stale)stale.remove();if(attempt<attempts)await sleep(350*attempt)}
