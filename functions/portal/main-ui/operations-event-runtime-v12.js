@@ -9,7 +9,7 @@ function replaceOnce(source,from,to,label){
 }
 
 function operationsV12Controller(){
-  const CHANNEL='realtime:rona-admin-operations-current-v12';
+  const CHANNEL='realtime:rona-operations-current-v2-events';
   const URL='wss://sxawrwzeobaqwwmlkzws.supabase.co/realtime/v1/websocket';
   // Public publishable key only; the subscribed table exposes domain/version,
   // not business data. All authoritative reads use authenticated same-origin RPC.
@@ -298,7 +298,7 @@ export function patchAdminOperationsEventRuntimeV12(input){
 
   if(/setInterval\(\(\)=>\{if\(document\.visibilityState==='visible'&&ronaOpsV10HomeVisible\(\)\)ronaOpsV10Refresh/.test(output))
     throw new Error('OPERATIONS_V12_UNREMOVED_60S_POLL');
-  if(!output.includes('realtime:rona-admin-operations-current-v12')||
+  if(!output.includes('realtime:rona-operations-current-v2-events')||
      !output.includes("case 'irrelevant-sentinel'".replace("case 'irrelevant-sentinel'",'OPERATIONS_V12_REALTIME_INVALIDATION')))
     throw new Error('OPERATIONS_V12_TRANSPORT_CONTRACT_MISSING');
   return output;
