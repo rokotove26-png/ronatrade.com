@@ -215,3 +215,15 @@ test('Owner source status wording preserves external signed-Act checks and ledge
   assert.ok(ui.includes("docCall(deal,'request-act'"));
   assert.ok(ui.includes('ACT_PDF_ARCHIVE_VERIFICATION_FAILED'));
 });
+
+
+test('Reusing signed DS across deals preserves separate correction, PDF and signing records',async()=>{
+  const ui=await(await uiResponse()).text();
+  assert.ok(ui.includes("const fresh=await docCall(deal,'state')"));
+  assert.ok(ui.includes('fresh.currentAddendum?.documentId'));
+  assert.ok(ui.includes('state.docCache.set(docKey(deal),fresh)'));
+  assert.ok(ui.includes("if(state.docCache.get(docKey(deal))?.currentAddendum)"));
+  assert.ok(ui.includes('function ownerActSavedCalculation(deal,model,currency,saved)'));
+  assert.ok(ui.includes('ACT_PDF_ARCHIVE_VERIFICATION_FAILED'));
+  assert.ok(ui.includes('createsPayable:false'));
+});

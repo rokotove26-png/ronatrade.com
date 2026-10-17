@@ -340,3 +340,19 @@ test('Owner InKom approval is visible without requiring a second DS-term approva
   assert.ok(ui.includes('const signedDs1=ownerSignedDs1ForManagement(deal)'));
   assert.ok(ui.includes('createsPayable:false'));
 });
+
+
+test('Archived signed DS reuse only creates a deal link; Act readiness and payable stay separate',async()=>{
+  const ui=await(await uiResponse()).text();
+  const edge=readFileSync('supabase/functions/rona-agent-reward-workflow/index.ts','utf8');
+  const registry=readFileSync('supabase/functions/rona-agent-agreements/index.ts','utf8');
+  assert.ok(ui.includes('async function linkArchivedAddendum(deal,companyId,documentId,button)'));
+  assert.ok(ui.includes("await docCall(deal,'bind',{method:'POST'"));
+  assert.ok(ui.includes("const fresh=await docCall(deal,'state')"));
+  assert.ok(ui.includes("throw new Error('SIGNED_DS_BIND_READBACK_MISMATCH')"));
+  assert.match(edge,/a\.document_id=\$\{docId\} and a\.agent_legal_entity_key=\$\{s.agent_legal_entity_key\}/);
+  assert.match(edge,/AGENT_SIGNED_ADDENDUM_LINKED_TO_DEAL/);
+  assert.match(edge,/noAutomaticLegalApproval:true,noAutomaticPayable:true/);
+  assert.match(registry,/and so\.storage_state='VERIFIED'/);
+  assert.ok(ui.includes('ACT_PDF_TWO_PAGES_REQUIRED'));
+});

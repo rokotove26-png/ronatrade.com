@@ -855,3 +855,130 @@ test('Owner InKom management rule applies to future deals, negative profit and n
     }
   }finally{await browser.close()}
 });
+
+
+test('Owner reuses a previously uploaded signed DS for a second deal of the same agent without uploading PDF',async()=>{
+  const {chromium}=await import('playwright');
+  const source=await(await onRequest()).text();
+  const first='DEAL-2026-005',second='DEAL-2026-006';
+  const assignmentOne='a1111111-1111-4111-8111-111111111111';
+  const assignmentTwo='a2222222-2222-4222-8222-222222222222';
+  const signedId='AGENCY-S-005-ABCD1234',secondId='AGENCY-S-005-XYZ98765';
+  const makeDeal=(dealId,assignmentId)=>({
+    dealId,assignmentId,clientName:'Универсал Солярис',agentName:'Агент ИнКом',
+    agentLegalEntityId:'S-005',agentLegalName:'ООО «ИнКом»',businessStatus:'EXECUTING',
+    receiptCurrency:'USD',financialCurrency:'USD',
+    planInputs:{revenue:5000,expenseKnownTotal:3000,
+      revenueStatus:'APPROVED_FINANCE_MANAGEMENT_PLAN',
+      expenseStatus:'APPROVED_FINANCE_MANAGEMENT_PLAN'},
+    cashFlow:{status:'APPROVED_CASH_FLOW_DDS',currency:'USD',cashReceived:5000,
+      counterpartyCashOut:3000,bankFees:0,netCashFlow:2000},
+    financeSourceReconciliation:{status:'RECONCILED_CURRENT_FINANCE_V8'},
+    cashPaymentLines:[{paymentId:'PAY-A',counterparty:'Поставщик',
+      canonicalCounterpartyId:'SUPPLIER:TEST',counterpartyResolutionStatus:'RESOLVED',
+      amount:3000,currency:'USD'}],
+    ownerResultBridge:{recognition_status:'APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE',
+      open_settlement_adjustment:{amount:0}},
+    ownerCorrectionAuthority:{status:'APPROVED_FOR_OWNER_CORRECTION',
+      contract:'PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'}
+  });
+  const bound=new Map([[first,signedId]]);
+  const makeDoc=(id,assignmentId)=>{
+    const documentId=bound.get(id);
+    return {
+      dealId:id,assignmentId,agentCompanyId:'S-005',
+      agentLegalName:'ООО «ИнКом»',assignmentStatus:'ACTIVE',term:null,
+      sourceReadiness:{termAligned:false,accountingStatus:'OPEN'},
+      currentAddendum:documentId?{
+        bindingId:id===first?'b1111111-1111-4111-8111-111111111111':'b2222222-2222-4222-8222-222222222222',
+        documentId,filename:'Signed DS 2.pdf',reference:'ДС №2 от 12.08.2026',
+        evidenceStatus:'RECEIVED_NOT_LEGALLY_VERIFIED',ownerApprovedByUpload:true,
+        sha256:'a'.repeat(64)
+      }:null,
+      ownerCorrection:null,acts:[]
+    };
+  };
+  const browser=await chromium.launch({headless:true});
+  try{
+    for(const width of [1440,390]){
+      bound.delete(second);
+      let uploads=0,bindings=0,archiveReads=0;
+      const errors=[];
+      const page=await browser.newPage({viewport:{width,height:950}});
+      page.on('pageerror',e=>errors.push(e.message));
+      await page.route('http://rona.reuse/portal/admin',r=>r.fulfill({
+        status:200,contentType:'text/html',
+        body:'<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
+      await page.route('http://rona.reuse/portal/owner-api**',r=>r.fulfill({
+        status:200,contentType:'application/json',
+        body:JSON.stringify({ok:true,data:{deals:[
+          makeDeal(first,assignmentOne),makeDeal(second,assignmentTwo)]}})}));
+      await page.route('http://rona.reuse/portal/agency-contracts**',async r=>{
+        const url=new URL(r.request().url());
+        if(r.request().method()==='POST'){uploads++;return r.fulfill({status:409,
+          contentType:'application/json',body:'{"ok":false,"code":"DUPLICATE_PDF"}'})}
+        assert.equal(url.searchParams.get('action'),'list');
+        archiveReads++;
+        await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+          ok:true,data:{agents:[
+            {agentCompanyId:'S-005',legalName:'ООО «ИнКом»',documents:[
+              {documentId:signedId,kind:'AGENCY_ADDENDUM',reference:'ДС №2 от 12.08.2026',filename:'Signed DS 2.pdf'},
+              {documentId:secondId,kind:'AGENCY_ADDENDUM',reference:'ДС №5 от 15.09.2026',filename:'Signed DS 5.pdf'},
+              {documentId:'AGENCY-S-005-BASE0001',kind:'AGENCY_CONTRACT',reference:'Основной договор',filename:'Main.pdf'}
+            ]},
+            {agentCompanyId:'S-007',legalName:'Другой агент',documents:[
+              {documentId:'AGENCY-S-007-OTHER123',kind:'AGENCY_ADDENDUM',reference:'Чужое ДС',filename:'Other.pdf'}
+            ]}
+          ]}})})
+      });
+      await page.route('http://rona.reuse/portal/agent-reward-workflow**',async r=>{
+        const url=new URL(r.request().url());
+        const dealId=url.searchParams.get('dealId'),assignmentId=url.searchParams.get('assignmentId');
+        const action=url.searchParams.get('action')||'state';
+        if(action==='bind'&&r.request().method()==='POST'){
+          bindings++;
+          const body=JSON.parse(r.request().postData()||'{}');
+          assert.equal(dealId,second,'Only selected deal is mutated');
+          assert.equal(assignmentId,assignmentTwo,'Only selected assignment is mutated');
+          assert.equal(body.documentId,signedId,'Existing canonical document reused');
+          assert.equal(bound.get(first),signedId,'Original deal retains PDF');
+          bound.set(dealId,body.documentId);
+          return r.fulfill({status:200,contentType:'application/json',
+            body:JSON.stringify({ok:true,data:{bindingId:'b2222222-2222-4222-8222-222222222222',
+              documentId:body.documentId,status:'RECEIVED_NOT_LEGALLY_VERIFIED'}})})
+        }
+        return r.fulfill({status:200,contentType:'application/json',
+          body:JSON.stringify({ok:true,data:makeDoc(dealId,assignmentId)})});
+      });
+      await page.goto('http://rona.reuse/portal/admin');
+      await page.addScriptTag({content:source});
+      await page.locator('.rona-ar-documents').getByText('ДС загружено и привязано к сделке').waitFor({timeout:10000});
+      assert.equal(await page.locator('.rona-ar-doc-archive-select').count(),0,
+        'Already linked deal cannot replace its current signed PDF');
+      await page.locator('[data-rona-ar-deal-select]').filter({hasText:second}).click();
+      const picker=page.locator('.rona-ar-doc-archive-picker');
+      const select=picker.locator('select');
+      await select.waitFor({timeout:10000});
+      assert.equal(await select.locator('option').count(),3,
+        'Placeholder plus two signed addenda of the selected agent, excluding contract and another agent');
+      assert.doesNotMatch(await picker.innerText(),/Чужое ДС|Основной договор/);
+      const button=picker.getByRole('button',{name:'Закрепить ДС за сделкой'});
+      assert.equal(await button.isDisabled(),true,'No accidental link before explicit selection');
+      await select.selectOption(signedId);
+      assert.equal(await button.isEnabled(),true);
+      await button.click();
+      await page.locator('.rona-ar-documents').getByText('ДС загружено и привязано к сделке').waitFor({timeout:10000});
+      assert.equal(await page.locator('.rona-ar-documents .rona-ar-doc-archive-select').count(),0);
+      assert.equal(await page.locator('.rona-ar-documents input[type=file]').count(),0);
+      assert.equal(await page.locator('.rona-ar-documents').getByRole('button',{name:'Скачать ДС'}).count(),1);
+      assert.equal(bound.get(first),bound.get(second),'Same immutable document is bound to both deals');
+      assert.equal(bindings,1,'Exactly one audited deal binding');
+      assert.equal(uploads,0,'No duplicate PDF upload');
+      assert.equal(archiveReads,1,'Reuse cached agent archive within page');
+      assert.deepEqual(errors,[],'No browser exceptions');
+      const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+      assert(overflow<=2,'No horizontal overflow at '+width+'px, got '+overflow);
+      await page.close();
+    }
+  }finally{await browser.close()}
+});
