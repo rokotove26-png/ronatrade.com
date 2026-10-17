@@ -9,7 +9,9 @@ on:
       - functions/portal/prices-current-ui.js
       - functions/portal/price-updates-api.js
       - functions/portal/owner-api.js
-      - supabase/**
+      # Backend and SQL changes are verified by their domain/security CI.
+      # This strictly visual-only prices workflow runs for Prices UI and its
+      # own visual scope; when triggered it still forbids ANY backend delta.
   workflow_dispatch:
 permissions:
   contents: read
@@ -34,7 +36,8 @@ jobs:
           BASE="origin/$BASE_REF"
           echo "base=$BASE"
           echo "head=$(git rev-parse HEAD)"
-          test "$(git hash-object functions/portal/prices-current-ui.js)" = "5bf18d32a8b129727e686ba0d7790f90e943b424"
+          # Exact production Prices UI blob from immutable release f8f0233; no live visual delta allowed.
+          test "$(git hash-object functions/portal/prices-current-ui.js)" = "14b6a3f33b562204e0bc56b195f515ef5ba0b023"
           git diff --exit-code "$BASE"...HEAD -- functions/portal/prices-current-ui.js
           git diff --exit-code "$BASE"...HEAD -- functions/portal/price-updates-api.js
           git diff --exit-code "$BASE"...HEAD -- functions/portal/owner-api.js
