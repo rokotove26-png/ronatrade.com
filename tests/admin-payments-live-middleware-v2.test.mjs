@@ -55,7 +55,9 @@ assert.match(fullyPatched, /renderPayments\(\);ensureCashR2Host\(\);renderRailCu
 assert.doesNotMatch(fullyPatched,/renderRail\(\);/,'Cash middleware must not revive legacy Rail owner');
 
 const middlewareSource = readFileSync('functions/portal/main-ui/_middleware.js','utf8');
-const paymentsOrder = middlewareSource.indexOf('const paymentsPatched=patchPaymentsCurrentSemantics(await response.text());');
+const paymentsOrder = middlewareSource.indexOf('const paymentsPatched=patchPaymentsSourceAware(await response.text());');
+assert.match(middlewareSource,/if\(embeddedPaymentsV7\)return patchPaymentsCurrentSemantics\(script\)/,'Embedded V7 must retain strict financial source validation');
+assert.match(middlewareSource,/__RONA_PAYMENTS_CANONICAL_FIRST_PAINT_GUARD_V3__/,'Split V8 bootstrap must be source-identified');
 const cashOrder = middlewareSource.indexOf('patched=patchCashSingleOwner(paymentsPatched);');
 assert.ok(paymentsOrder >= 0 && cashOrder > paymentsOrder, 'Middleware must verify Payments before applying Cash single-owner isolation');
 assert.match(middlewareSource, /headers\.set\('x-rona-payments-current-runtime','due-now-conditional-v3'\)/,'Production V8 diagnostic header missing');
