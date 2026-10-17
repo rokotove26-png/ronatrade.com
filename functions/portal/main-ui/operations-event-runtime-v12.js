@@ -273,6 +273,15 @@ export function patchAdminOperationsEventRuntimeV12(input){
     "ronaOpsV12Controller.start();}\n";
   output=output.slice(0,a)+controller+start+output.slice(b);
 
+  // V12 source health: a current, authorized database read is not a new
+  // business mutation. Never mark a long-unchanged record as stale solely
+  // because updated_at is old; still fail closed if the source is absent.
+  output=replaceOnce(output,"    deals:['RECENT_RECORD_CHANGE','NO_ACTIVE_RECORDS'],","    deals:['RECENT_RECORD_CHANGE','CURRENT_REGISTRY_READ','NO_ACTIVE_RECORDS'],","deals-source");
+  output=replaceOnce(output,"    finance:['RECENT_AUTHORITY_DATE'],rail:['RECENT_OBSERVATION'],","    finance:['RECENT_AUTHORITY_DATE','CURRENT_AUTHORITY_READ'],rail:['RECENT_OBSERVATION'],","finance-source");
+  output=replaceOnce(output,"    documents:['RECENT_RECORD_CHANGE','NO_DOCUMENT_RECORDS'],","    documents:['RECENT_RECORD_CHANGE','CURRENT_DOCUMENT_REGISTRY_READ','NO_DOCUMENT_RECORDS'],","document-source");
+  output=replaceOnce(output,"    contracts:['RECENT_RECORD_CHANGE'],","    contracts:['RECENT_RECORD_CHANGE','CURRENT_CONTRACT_REGISTRY_READ'],","contract-source");
+  output=replaceOnce(output,"  const sourceFoot=name=>!opsTruth?'Источник не подтверждён':\n    sourceGood(name)?('Изменено '+ronaOpsV11ShortDate(opsSourceAsOf[name])):\n    ('ТРЕБУЕТ СВЕРКИ · '+ronaOpsV11ShortDate(opsSourceAsOf[name]));","  const sourceFoot=name=>{if(!opsTruth)return'Источник не подтверждён';\n    const source=String(opsSources[name]||'');\n    if(source==='NO_ACTIVE_RECORDS')return'Активных сделок нет';\n    if(source==='NO_DOCUMENT_RECORDS')return'Документов нет';\n    if(source==='NO_ACTIVE_MONITORING')return'ЖД-мониторинг не активирован';\n    if(source==='NO_OPEN_TASKS')return'Открытых задач нет';\n    const when=ronaOpsV11ShortDate(opsSourceAsOf[name]);\n    return sourceGood(name)?('Состояние из реестра · изменено '+when):\n      ('ИСТОЧНИК НЕ ПОДТВЕРЖДЁН · '+when);\n  };",'source-foot-truth');
+
   output=replaceOnce(output,
     "onclick:()=>ronaOpsV10Refresh('MANUAL')",
     "onclick:()=>ronaOpsV12Controller.refresh('MANUAL')",
@@ -299,7 +308,7 @@ export function patchAdminOperationsEventRuntimeV12(input){
   if(/setInterval\(\(\)=>\{if\(document\.visibilityState==='visible'&&ronaOpsV10HomeVisible\(\)\)ronaOpsV10Refresh/.test(output))
     throw new Error('OPERATIONS_V12_UNREMOVED_60S_POLL');
   if(!output.includes('realtime:rona-operations-current-v2-events')||
-     !output.includes("case 'irrelevant-sentinel'".replace("case 'irrelevant-sentinel'",'OPERATIONS_V12_REALTIME_INVALIDATION')))
+     !output.includes('OPERATIONS_V12_REALTIME_INVALIDATION'))
     throw new Error('OPERATIONS_V12_TRANSPORT_CONTRACT_MISSING');
   return output;
 }
