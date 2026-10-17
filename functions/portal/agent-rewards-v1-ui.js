@@ -419,6 +419,7 @@ function installSpectrumDesignStyle(){
 #page-agent-settlements .rona-ar-directory-footer{color:#99b7d0;border-color:rgba(113,172,242,.2)}
 #page-agent-settlements .rona-ar-focus{gap:15px}
 #page-agent-settlements .rona-ar-focus-intro{
+  position:relative;overflow:hidden;
   min-height:129px;padding:23px 26px 23px 31px;border-radius:20px;
   border:1px solid rgba(182,149,249,.39);
   background:
