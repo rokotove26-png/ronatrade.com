@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {SYSTEM_ADMIN_DETAIL_TOOLS,createSystemAdminDetails} from '../supabase/functions/rona-mcp-gateway/system-admin-details.mjs';
 
 const tool=SYSTEM_ADMIN_DETAIL_TOOLS.find(x=>x.name==='staff_handoff_inbox_list');
@@ -36,6 +37,9 @@ test('scope: only SYSTEM_ADMIN with exact identity + mcp:read gets inbox',async(
   const denied=await h.invoke({}, {role:'FINANCE',identity_id:'AI-FINANCE',scope:'mcp:read'});
   assert.equal(denied.payload.code,'SYSTEM_ADMIN_READ_REQUIRED');
   assert.equal(denied.isError,true);
+  const spoofed=await h.invoke({}, {role:'SYSTEM_ADMIN',identity_id:'AI-FINANCE',scope:'mcp:read'});
+  assert.equal(spoofed.payload.code,'SYSTEM_ADMIN_READ_REQUIRED');
+  assert.equal(spoofed.isError,true);
   const absent=await h.invoke({}, {role:'SYSTEM_ADMIN',identity_id:'AI-SYSTEM-ADMIN',scope:''});
   assert.equal(absent.payload.code,'SYSTEM_ADMIN_READ_REQUIRED');
   assert.equal(h.queries.length,0);
@@ -64,6 +68,14 @@ test('invalid filters fail closed before any SQL',async()=>{
     assert.equal(h.queries.length,0);
   }
 });
+test('gateway inbox requests read auth before dispatch',()=>{
+  const source=readFileSync(new URL('../supabase/functions/rona-mcp-gateway/index.ts',import.meta.url),'utf8');
+  const routing=source.split('\n').find(line=>line.includes('const needsCtx ='));
+  assert.ok(routing?.includes('"staff_handoff_inbox_list"'));
+  assert.ok(source.includes('if (SYSTEM_ADMIN_DETAIL_TOOLS.some(t => t.name === name) && ctx)'));
+  assert.deepEqual(tool.securitySchemes[0].scopes,['mcp:read']);
+});
+
 test('MCP declaration is strictly read-only and no production write contract is added',()=>{
   assert.equal(tool.annotations.readOnlyHint,true);
   assert.equal(tool.annotations.destructiveHint,false);
