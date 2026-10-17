@@ -1,6 +1,7 @@
 // Historical production lineage before the v61 in-repo sync: https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/36727a94820e1e85e95d4abfc5d6aab8234c5c18/supabase/functions/rona-mcp-gateway/index.js
 // Lineage only. Current runtime authority is this self-contained in-repo source; no remote runtime import is performed.
 import { SYSTEM_ADMIN_DETAIL_TOOLS, createSystemAdminDetails } from "./system-admin-details.mjs";
+import { SYSTEM_ADMIN_HANDOFF_WRITE_TOOLS, createSystemAdminHandoffWorkflow } from "./system-admin-handoff-workflow.mjs";
 import { observeRuntimeResponse } from "./runtime-continuity.mjs";
 import { buildRegistryContract, compactEnvelope, stateErrorEnvelope, addStateDetail, identityError } from "./state-projection.mjs";
 import postgres from "npm:postgres@3.4.7";
@@ -167,6 +168,8 @@ const SYSTEM_ADMIN_COORDINATE_TOOLS = new Set([
   "handoff_request_submit",
   "task_complete",
   "task_close",
+  "staff_handoff_task_materialize",
+  "staff_handoff_status_submit",
 ]);
 const COORDINATION_DETAIL_TOOL = {
   name: "coordination_detail",
@@ -850,6 +853,9 @@ async function augmentToolsListResponse(res, ctx) {
   if (ctx && primaryTechnicalCtx(ctx) && scopeHas(ctx.scope, "mcp:read")) {
     for (const tool of SYSTEM_ADMIN_DETAIL_TOOLS) if (!tools.some(t => t?.name === tool.name)) tools.push(tool);
   }
+  if (ctx && primaryTechnicalCtx(ctx) && scopeHas(ctx.scope, "mcp:coordinate")) {
+    for (const tool of SYSTEM_ADMIN_HANDOFF_WRITE_TOOLS) if (!tools.some(t => t?.name === tool.name)) tools.push(tool);
+  }
 
   const handoff = tools.find(t => t?.name === "handoff_request_submit");
   if (handoff?.inputSchema?.properties?.target_role) {
@@ -1078,6 +1084,7 @@ async function assistantHistory(ctx, req, msg) {
 
 const assistantAdminRuntime = createAssistantAdminRuntime({ sql, scopeHas, requestIds, rateAllowed, recordMcpEvent, rpcToolResponse });
 const systemAdminDetails = createSystemAdminDetails({ sql, isAdmin: primaryTechnicalCtx, scopeHas, requestIds, rateAllowed, recordMcpEvent, rpcToolResponse });
+const systemAdminHandoffWorkflow = createSystemAdminHandoffWorkflow({ sql, primaryTechnicalCtx, scopeHas, requestIds, rateAllowed, recordMcpEvent, rpcToolResponse, sha256Hex, stableStringify });
 
 async function wrappedRequest(handler, req) {
   const discovery = oauthDiscoveryResponse(req);
@@ -1133,6 +1140,10 @@ async function dispatchWrappedRequest(handler, req, msg, name, ctx, segment) {
   }
   if (SYSTEM_ADMIN_DETAIL_TOOLS.some(t => t.name === name) && ctx) {
     const direct = await systemAdminDetails(ctx, req, msg);
+    if (direct) return direct;
+  }
+  if (SYSTEM_ADMIN_HANDOFF_WRITE_TOOLS.some(t => t.name === name) && ctx) {
+    const direct = await systemAdminHandoffWorkflow(ctx, req, msg);
     if (direct) return direct;
   }
   if (name === "coordination_detail" && ctx && scopeHas(ctx.scope, "mcp:read")) {
