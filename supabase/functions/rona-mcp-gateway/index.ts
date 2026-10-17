@@ -1102,7 +1102,7 @@ async function wrappedRequest(handler, req) {
 
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
-  const needsCtx = msg?.method === "tools/list" || name === "history" || name.startsWith("assistant_") || name.startsWith("mail_") || SYSTEM_ADMIN_COORDINATE_TOOLS.has(name) || ["current_state","coordination_detail","execution_checkpoint_read","exception_cockpit","object_detail","pr_detail","review_detail"].includes(name);
+  const needsCtx = msg?.method === "tools/list" || name === "history" || name.startsWith("assistant_") || name.startsWith("mail_") || SYSTEM_ADMIN_COORDINATE_TOOLS.has(name) || ["current_state","coordination_detail","execution_checkpoint_read","exception_cockpit","object_detail","pr_detail","review_detail","staff_handoff_inbox_list"].includes(name);
   let ctx;
   try { ctx = needsCtx ? await authContext(req) : null; }
   catch (e) {
