@@ -31,6 +31,9 @@ test('returns provenance only for exact incoming Assistant -> Finance document h
  assert.equal(o.data.metadata_only,true);
  assert.equal(o.data.canonical_document_materialized,false);
  assert.equal(o.data.signed_url,null);
+ assert.equal(o.data.source_checksum_asserted_in_registry,true);
+ assert.equal(o.data.source_content_verified_by_bridge,false);
+ assert.equal(o.data.untrusted_external_metadata,true);
  assert.equal(o.data.financial_validation,'NOT_PERFORMED');
  assert.equal(o.data.legal_validation,'NOT_PERFORMED');
  assert.equal(o.data.authorized_handoff_record_id,handoff);
@@ -76,4 +79,12 @@ test('gateway only falls back for AI_DOCUMENT_NOT_FOUND; never for authorization
  assert.ok(gateway.includes('auditProvenance:bridge.audit_provenance'));
  assert.ok(gateway.includes('source_bridge:out.auditProvenance'));
  assert.ok(gateway.includes("return{error:String(res.data?.code||'AI_BACKEND_DENIED')"));
+});
+
+test('absent SHA never masquerades as independently verified bytes',async()=>{
+ const f=fixture([{...sample,sha256:null,drive_file_id:null,drive_url:null}]);
+ const o=await read(f);
+ assert.equal(o.data.source_checksum_asserted_in_registry,false);
+ assert.equal(o.data.source_content_verified_by_bridge,false);
+ assert.equal(o.data.source_locator.access_not_guaranteed,true);
 });
