@@ -38,12 +38,13 @@ test('A module with an executed but not-ready script must not be loaded a second
   assert.ok(a>=0&&b>a);
   const win={__RONA_ADMIN_MODULES__:Object.create(null)};
   let calls=0,tick=0;
+  class StubDate extends Date{static now(){tick+=250;return tick}}
   const errors=[];
   const factory=new Function('window','document','scriptOnce','sleep','recordError','restoreSelectedPage','Date',
     source.slice(a,b)+'\nreturn loadModule;');
   const loader=factory(win,{getElementById:()=>null},async()=>{calls++;return {dataset:{ronaLoaded:'true'}}},
     async()=>{},(stage,e)=>errors.push({stage,message:e.message}),()=>{},
-    {now:()=>{tick+=250;return tick},toString:Date.toString});
+    StubDate);
   const loaded=await loader('main','/portal/main-ui',{
     attempts:3,ready:()=>false,timeout:950
   });
