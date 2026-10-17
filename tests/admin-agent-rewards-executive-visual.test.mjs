@@ -647,7 +647,7 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
           assert.equal(snapshot?.correctionVersion,3);
           assert.equal(snapshot?.dealId,dealId);
           assert.equal(snapshot?.assignmentId,assignmentId);
-          assert.equal(snapshot?.reward,990);
+          assert.equal(snapshot?.reward,990,'Historical signed DS1 Act uses independent contract amount, while management is 50% of net profit');
           doc.acts=[{id:'a1111111-1111-4111-8111-111111111111',
             ownerCalculationStored:true,ownerCalculationVersion:3,correction_version:3,
             owner_correction_key:doc.ownerCorrection.sourceId,request_status:'REVIEW_REQUESTED',
@@ -669,10 +669,10 @@ test('One signed DS per deal, no archive or replacement controls, and act tied t
       assert.equal(await box.getByText('ДС загружено и привязано к сделке').count(),1);
       assert.equal(await box.getByRole('button',{name:'Акт сверки · СГ-Транс'}).count(),0);
       assert.doesNotMatch(await page.locator('.rona-ar').innerText(),/Основание и статус расчёта|Важно: расчёт PLAN/);
-      assert.equal(await box.getByText('50% от маржи по поставке (ДС №1)').count(),1);
-      assert.match(await box.innerText(),/По сохранённому расчёту:/);
-      assert.match(await page.locator('.rona-ar-col.owner').innerText(),/990,0\s*USD/);
-      assert.doesNotMatch(await box.innerText(),/Предварительно:\s*891/);
+      assert.equal(await box.getByText('50% положительной чистой прибыли (правило собственника)').count(),1);
+      assert.match(await box.innerText(),/Управленческое вознаграждение:/);
+      assert.match(await page.locator('.rona-ar-col.owner').innerText(),/891,0\s*USD/);
+      assert.match(await box.innerText(),/50% чистой прибыли для всех сделок ИнКом/);
       assert.doesNotMatch(await page.locator('.rona-ar').innerText(),
          /ДС не привязано|Основание и статус расчёта/);
       assert.equal(await box.getByRole('button',{name:'Загрузить ДС'}).count(),0);
@@ -779,11 +779,77 @@ test('Signed agency DS source isolation: 005 mismatched term, 006 unbound, 010/0
       const diagnostic=page.locator('.rona-ar-doc-source-diagnostic');
       await diagnostic.waitFor({timeout:10000});
       assert.match(await diagnostic.textContent(),new RegExp(item.expect),'Exact source reason '+item.dealId);
-      assert.match(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),
-        new RegExp(item.kpi),'No unsupported reward at '+item.dealId);
+      assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),
+        '891,0 USD','Owner approved management reward regardless legacy DS binding at '+item.dealId);
       assert.equal(await page.locator('.rona-ar-scenarios-table [data-rona-owner-scenario="agentReward"]').textContent(),
-        'TO_VERIFY','Unknown agent amount is not zero or an old assignment amount');
+        '891,0 USD','Owner approved 50% net profit management reward is calculated independently of historical term rows');
+      assert.equal(await page.locator('.rona-ar-scenarios-table [data-rona-owner-scenario="ronaProfit"]').textContent(),
+        '+891,0 USD','RONA result deducts exactly the displayed management reward');
       assert.deepEqual(post,[],'Source inspection is read only');
+      await page.close();
+    }
+  }finally{await browser.close()}
+});
+
+
+test('Owner InKom management rule applies to future deals, negative profit and no unrelated agents',async()=>{
+  const {chromium}=await import('playwright');
+  const script=await(await onRequest()).text();
+  const cases=[
+    {id:'DEAL-2027-001',agentId:'S-005',revenue:5000,cost:3000,reward:'900,0 USD',rona:'+900,0 USD'},
+    {id:'DEAL-2027-002',agentId:'S-005',revenue:1000,cost:2000,reward:'0,0 USD',rona:'-1 000,0 USD'},
+    {id:'DEAL-2027-003',agentId:'S-007',revenue:5000,cost:3000,reward:'Нет агентского ДС по сделке',tableReward:'TO_VERIFY',rona:'TO_VERIFY'}
+  ];
+  const browser=await chromium.launch({headless:true});
+  try{
+    for(const item of cases){
+      const assignmentId='22222222-2222-4222-8222-222222222222';
+      const deal={
+        dealId:item.id,assignmentId,agentLegalEntityId:item.agentId,
+        clientName:'Будущая сделка',agentName:'Тестовый представитель',
+        businessStatus:'EXECUTING',financialCurrency:'USD',receiptCurrency:'USD',
+        planInputs:{revenue:item.revenue,expenseKnownTotal:item.cost,
+          revenueStatus:'APPROVED_FINANCE_MANAGEMENT_PLAN',
+          expenseStatus:'APPROVED_FINANCE_MANAGEMENT_PLAN'},
+        cashFlow:{status:'APPROVED_CASH_FLOW_DDS',currency:'USD',cashReceived:item.revenue,
+          counterpartyCashOut:item.cost,bankFees:0,netCashFlow:item.revenue-item.cost},
+        cashPaymentLines:[{paymentId:'QA-1',counterparty:'Поставщик',
+          canonicalCounterpartyId:'SUPPLIER:QA',counterpartyResolutionStatus:'RESOLVED',
+          amount:item.cost,currency:'USD'}],
+        financeSourceReconciliation:{status:'RECONCILED_CURRENT_FINANCE_V8'},
+        ownerResultBridge:{recognition_status:'APPROVED_MANAGEMENT_ACTUAL_RESULT_BRIDGE',
+          open_settlement_adjustment:{amount:0}},
+        ownerCorrectionAuthority:{status:'APPROVED_FOR_OWNER_CORRECTION',
+          contract:'PAYMENT_LINE_AMOUNTS_PLUS_OPEN_SETTLEMENT_ADJUSTMENT'}
+      };
+      const doc={dealId:item.id,assignmentId,agentCompanyId:item.agentId,
+        agentLegalName:item.agentId==='S-005'?'ООО «ИнКом»':'Иная организация',
+        currentAddendum:null,term:null,sourceReadiness:{termAligned:false},
+        ownerCorrection:null,acts:[]};
+      const page=await browser.newPage({viewport:{width:1100,height:840}});
+      const posts=[];
+      page.on('request',r=>{if(r.method()!=='GET')posts.push(r.url())});
+      await page.route('http://rona.owner/portal/admin',r=>r.fulfill({status:200,contentType:'text/html',
+        body:'<!doctype html><html lang="ru"><head><meta charset="utf-8"></head><body><main id="page-agent-settlements" class="page active"></main></body></html>'}));
+      await page.route('http://rona.owner/portal/owner-api**',r=>r.fulfill({status:200,contentType:'application/json',
+        body:JSON.stringify({ok:true,data:{deals:[deal]}})}));
+      await page.route('http://rona.owner/portal/agent-reward-workflow**',r=>r.fulfill({status:200,contentType:'application/json',
+        body:JSON.stringify({ok:true,data:doc})}));
+      await page.goto('http://rona.owner/portal/admin');
+      await page.addScriptTag({content:script});
+      await page.locator('.rona-ar-documents .rona-ar-doc-source-diagnostic').waitFor({timeout:10000});
+      const kpi=await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent();
+      assert.equal(kpi,item.reward,'Owner rule only for InKom '+item.id);
+      assert.equal(await page.locator('[data-rona-owner-scenario="agentReward"]').textContent(),
+        item.tableReward||item.reward,'Scenario is numeric for InKom and remains unverified for other agents');
+      assert.equal(await page.locator('[data-rona-owner-scenario="ronaProfit"]').textContent(),
+        item.rona,'RONA profit includes the same share');
+      if(item.agentId==='S-005'){
+        assert.equal(await page.locator('.rona-ar-metric.agent-primary .rona-ar-metric-value').textContent(),
+          item.reward,'Plan uses the same Owner policy on future deals');
+        assert.match(await page.locator('.rona-ar-documents').innerText(),/50% положительной чистой прибыли/);
+      }
+      assert.deepEqual(posts,[],'No external payable or payment mutations');
       await page.close();
     }
   }finally{await browser.close()}

@@ -283,7 +283,7 @@ test('Agent reward remains fail-closed without a calculable confirmed basis',()=
   assert.match(ui,/PERCENT_TERM_BASE_EXCLUDING_FX/);
   assert.match(ui,/CLOSING_CONDITIONS_REQUIRED/);
   assert.match(ui,/if\(pendingClosing&&!managementPreview\)return\{value:null,status:'CLOSING_CONDITIONS_REQUIRED'\}/);
-  assert.match(ui,/termReward\(deal,\{preferSettlement:false,basisValue:netProfit,managementPreview:true\}\)/);
+  assert.match(ui,/termReward\(deal,\{preferSettlement:false,basisValue:basis,managementPreview:true\}\)/);
   assert.match(ui,/MANAGEMENT_FORECAST_PENDING_CONTRACTUAL_CLOSING/);
   assert.match(ui,/function planModel\(deal\)/);
   assert.match(ui,/Boolean\(deal\?\.planAuthority\?\.financeProposalRecordId\)/);
@@ -294,9 +294,9 @@ test('Agent reward remains fail-closed without a calculable confirmed basis',()=
   assert.match(ui,/DS4_INVALIDATED_BY_CURRENT_DS5/);
   assert.match(ui,/function validTerm\(deal\)/);
   assert.match(ui,/Math\.max\(0,basis\)\*num\(t\.rate\)/);
-  assert.match(ui,/basisValue:netProfit/);
-  assert.match(ui,/const reward=managementAgentReward\(deal,ownerSignedDs1ForManagement\(deal\)\?pnl\.preTaxProfit:pnl\.netProfit\)/);
-  assert.match(ui,/return num\(netProfit\)===null/);
+  assert.match(ui,/basisValue:basis/);
+  assert.match(ui,/const reward=managementAgentReward\(deal,managementAgentBasis\(deal,pnl\)/);
+  assert.match(ui,/const basis=num\(netProfit\)/);
 });
 
 test('Agent Rewards runtime serialization ships its transform helper',()=>{
@@ -304,7 +304,7 @@ test('Agent Rewards runtime serialization ships its transform helper',()=>{
 });
 
 test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defined order',()=>{
-  assert.match(ui,/20261016-agent-rewards-generic-certified-act-v1/);
+  assert.match(ui,/20261017-owner-inkom-management-net-profit-50pct-v1/);
   assert.match(ui,/1 · ПЛАН/);
   assert.match(ui,/2 · ФАКТ/);
   assert.match(ui,/3 · OWNER \/ АГЕНТ/);
@@ -327,7 +327,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Подтверждённые денежные операции/);
   assert.match(ui,/Подтверждённые денежные поступления/);
   assert.match(ui,/factManagementModel\(deal,m\)/);
-  assert.match(ui,/managementAgentReward\(deal,ownerSignedDs1ForManagement\(deal\)\?pnl\.preTaxProfit:pnl\.netProfit\)/);
+  assert.match(ui,/managementAgentReward\(deal,managementAgentBasis\(deal,pnl\)/);
   assert.match(ui,/taxStatus:pnl\.status/);
   assert.match(ui,/sourceAgentReward:num\(p\.agentReward\)/);
   assert.match(ui,/Сохранить корректировку/);
@@ -458,7 +458,7 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/base\.bridgeApproved&&fact\.approved&&correctionApproved/);
   assert.match(ui,/function ownerAgentReward\(deal,netProfit\)/);
   assert.match(ui,/const basis=num\(netProfit\)/);
-  assert.match(ui,/ownerAgentReward\(deal,ownerSignedDs1ForManagement\(deal\)\?pnl\.preTaxProfit:pnl\.netProfit\)/);
+  assert.match(ui,/ownerAgentReward\(deal,managementAgentBasis\(deal,pnl\)/);
   assert.match(ui,/INTERNAL_NET_PROFIT_BASIS_EXTERNAL_FX_TERM_REVIEW_REQUIRED/);
   assert.match(ui,/Корректировка расходов \(доходов\)/);
   assert.match(ui,/Прибыль до налогообложения/);
@@ -472,10 +472,10 @@ test('Dedicated UI is P&L-first with PLAN, FACT and OWNER CONTROL in owner-defin
   assert.match(ui,/Math\.max\(0,openSettlementAdjustment\)/);
   assert.match(ui,/Math\.max\(0,-openSettlementAdjustment\)/);
   assert.doesNotMatch(ui,/basis=result-fx/);
-  assert.match(ui,/const externalFxTermConflict=!ownerSignedDs1ForManagement\(deal\)&&upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
+  assert.match(ui,/const externalFxTermConflict=!ownerApprovedManagementPolicy\(deal\)/);
   assert.doesNotMatch(ui,/Условие FX · сверить договор/);
   // Legal FX-exclusion condition remains in the internal source model, not a UI badge.
-  assert.match(ui,/const externalFxTermConflict=!ownerSignedDs1ForManagement\(deal\)&&upper\(t.mode\)==='PERCENT'&&upper\(t.reference\)\.includes\('EXCLUDING FX'\)/);
+  assert.match(ui,/const externalFxTermConflict=!ownerApprovedManagementPolicy\(deal\)/);
   assert.match(ui,/pnl\.netProfit-reward\.value/);
   assert.match(ui,/function agentStatusText\(status\)/);
   assert.doesNotMatch(ui,/ДС не привязано/);
@@ -657,4 +657,14 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
   for(const source of [agentActMigration,agentActEdge,agentActStages]){
     assert.doesNotMatch(source,/\b(?:update|insert into|delete from)\s+portal_private\.(?:agent_settlements|payments|agent_deal_terms)\b/i);
   }
+});
+
+test('Owner 2026-10-17 InKom 50%-net management rule is independent from historical DS terms',()=>{
+  assert.match(ui,/source:'OWNER_DIRECTIVE_2026-10-17'/);
+  assert.match(ui,/agentLegalEntityId:'S-005',rate:0\.5/);
+  assert.match(ui,/basis:'POSITIVE_AFTER_TAX_MANAGEMENT_NET_PROFIT',createsPayable:false/);
+  assert.match(ui,/value:Math\.max\(0,basis\)\*policy.rate/);
+  assert.match(ui,/return ownerApprovedManagementPolicy\(deal\)\?pnl.netProfit/);
+  assert.match(ui,/const signedDs1=ownerSignedDs1ForManagement\(deal\)/);
+  assert.match(ui,/const actReward=signedDs1\?round1\(Math\.max\(0,signedMargin\)\*0\.5\):round1\(model.reward\)/);
 });

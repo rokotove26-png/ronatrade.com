@@ -155,7 +155,7 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
         assert.equal(typeof approved.netProfit,'number');
         assert.equal(typeof approved.income,'number');
         assert.equal(typeof approved.expenses,'number');
-        assert.equal(approved.reward,990,'Owner Save must carry 50% of displayed shipment margin, without creating payable');
+        assert.equal(approved.reward,990,'Signed DS1 Act uses its own shipment-margin basis; Owner management uses 50% net profit');
         doc.acts=[{id:requestId,owner_correction_key:doc.ownerCorrection.sourceId,
           addendum_key:doc.currentAddendum.bindingId,correction_version:3,
           request_status:'REVIEW_REQUESTED',review:{approved:true},
@@ -189,6 +189,7 @@ test('Click Save correction → finalize → archive SHA-verified PDF → browse
     await page.addScriptTag({content:script});
     await page.locator('.rona-ar-documents').getByText('ДС загружено и привязано к сделке')
       .waitFor({timeout:12000});
+    assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(), '891,0 USD', 'Owner management rule is 50% after-tax net profit');
     assert.equal(await page.getByRole('button',{name:'Подготовить акт'}).count(),0);
     assert.equal(await page.getByRole('button',{name:'Акт выполненных работ',exact:true}).count(),0);
     const button=page.locator('.rona-ar-col.owner').getByRole('button',{name:'Сохранить корректировку'});

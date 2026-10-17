@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261016-agent-rewards-generic-certified-act-v1';
+const VERSION='20261017-owner-inkom-management-net-profit-50pct-v1';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='premium-fintech-v2';
@@ -343,6 +343,26 @@ function correctionValue(deal,newKey,legacyKey,fallback){
   return num(fallback)
 }
 function currencyOf(deal){return String(deal?.financialCurrency||deal?.receiptCurrency||'').trim()}
+// Technical projection of the Owner instruction. No external payment authority.
+const OWNER_INKOM_MANAGEMENT_POLICY=Object.freeze({
+  source:'OWNER_DIRECTIVE_2026-10-17',
+  agentLegalEntityId:'S-005',rate:0.5,
+  basis:'POSITIVE_AFTER_TAX_MANAGEMENT_NET_PROFIT',createsPayable:false
+});
+function ownerApprovedManagementPolicy(deal){
+  const ids=[deal?.agentLegalEntityId,deal?.agentCompanyId]
+    .filter(Boolean).map(v=>String(v).trim().toUpperCase());
+  const docs=state.docCache.get(rowKey(deal));
+  if(String(docs?.dealId||'')===String(deal?.dealId||'') &&
+    String(docs?.assignmentId||'')===String(deal?.assignmentId||'') && docs?.agentCompanyId)
+    ids.push(String(docs.agentCompanyId).trim().toUpperCase());
+  return ids.length>0&&ids.every(id=>id===OWNER_INKOM_MANAGEMENT_POLICY.agentLegalEntityId)
+    ?OWNER_INKOM_MANAGEMENT_POLICY:null
+}
+function managementAgentBasis(deal,pnl){
+  return ownerApprovedManagementPolicy(deal)?pnl.netProfit
+    :ownerSignedDs1ForManagement(deal)?pnl.preTaxProfit:pnl.netProfit
+}
 function validTerm(deal){
   const t=deal?.agentTerm||{};
   return upper(t.status)==='ACTIVE'&&upper(t.lifecycleState)==='ACTIVE'&&['CONFIRMED','VERIFIED','AUTHORITATIVE'].includes(upper(t.authorityState))
@@ -378,7 +398,7 @@ function agencyDsTermDiagnostic(deal,docs){
     return 'ДС загружено, но происхождение документа от собственника не подтверждено. Расчёт по нему заблокирован.';
   if(ownerSignedDs1ForManagement(deal))
     return 'Источник подтверждён: '+String(addendum.reference||'ДС')+
-      '. Для управленческого расчёта применяется специальная проверенная формула данного ДС; это не платёжное поручение.';
+      '. Для внешнего акта сохраняется договорная формула ДС; управленческий расчёт ИнКом отдельно следует утверждённому правилу 50% чистой прибыли.';
   if(!term)return 'ДС загружено: '+String(addendum.reference||'ДС')+
     '. Для текущего назначения агента действующее связанное условие вознаграждения отсутствует. Не переносим условие со старого назначения автоматически.';
   if(docs.sourceReadiness?.termAligned!==true){
@@ -518,15 +538,21 @@ function managementProfitModel(income,expenses){
   }
 }
 function managementAgentReward(deal,netProfit){
-  return num(netProfit)===null
-    ?{value:null,status:'NET_PROFIT_REQUIRED'}
-    :termReward(deal,{preferSettlement:false,basisValue:netProfit,managementPreview:true})
+  const basis=num(netProfit);
+  if(basis===null)return{value:null,status:'NET_PROFIT_REQUIRED'};
+  const policy=ownerApprovedManagementPolicy(deal);
+  if(policy)return{
+    value:Math.max(0,basis)*policy.rate,
+    status:'OWNER_APPROVED_INKOM_50_PERCENT_NET_PROFIT_MANAGEMENT',
+    source:policy.source,createsPayable:false
+  };
+  return termReward(deal,{preferSettlement:false,basisValue:basis,managementPreview:true})
 }
 function factManagementModel(deal,fact){
   const expenses=fact.approved&&fact.counterpartyCashOut!==null&&fact.bankFees!==null
     ?fact.counterpartyCashOut+fact.bankFees:null;
   const pnl=managementProfitModel(fact.cashReceived,expenses);
-  const reward=managementAgentReward(deal,ownerSignedDs1ForManagement(deal)?pnl.preTaxProfit:pnl.netProfit);
+  const reward=managementAgentReward(deal,managementAgentBasis(deal,pnl));
   return{...pnl,reward,ronaProfit:pnl.netProfit===null||reward.value===null
     ?null:pnl.netProfit-reward.value}
 }
@@ -535,7 +561,7 @@ function planModel(deal){
     lines=Array.isArray(p.expenseLines)?p.expenseLines.filter(x=>String(x.currency||'').trim()===cur&&num(x.amount)!==null):[];
   const expTotal=num(p.expenseKnownTotal),revenue=num(p.revenue);
   const pnl=managementProfitModel(revenue,expTotal);
-  let reward=managementAgentReward(deal,ownerSignedDs1ForManagement(deal)?pnl.preTaxProfit:pnl.netProfit);
+  let reward=managementAgentReward(deal,managementAgentBasis(deal,pnl));
   // Read-only PLAN fallback: Finance + Operations approved this projection, but
   // it does not create an effective agent deal term or an external payable.
   const planTerm=p.agentPlan||{},planMode=upper(planTerm.mode),planAuthority=upper(planTerm.authority);
@@ -588,7 +614,8 @@ function ownerAgentReward(deal,netProfit){
   if(basis===null)return{value:null,basis:null,status:'NET_PROFIT_REQUIRED',externalFxTermConflict:false};
   const reward=managementAgentReward(deal,basis);
   const t=deal?.agentTerm||{};
-  const externalFxTermConflict=!ownerSignedDs1ForManagement(deal)&&upper(t.mode)==='PERCENT'&&upper(t.reference).includes('EXCLUDING FX');
+  const externalFxTermConflict=!ownerApprovedManagementPolicy(deal)
+    &&!ownerSignedDs1ForManagement(deal)&&upper(t.mode)==='PERCENT'&&upper(t.reference).includes('EXCLUDING FX');
   return{
     value:reward.value,basis,externalFxTermConflict,
     status:externalFxTermConflict&&reward.value!==null
@@ -626,7 +653,7 @@ function ownerModel(deal,fact){
     ?null:counterpartyCashOut+fact.bankFees+Math.max(0,-openSettlementAdjustment);
   const pnl=managementProfitModel(income,expenses);
   const actualFinancialResult=pnl.preTaxProfit;
-  const reward=bridgeApproved?ownerAgentReward(deal,ownerSignedDs1ForManagement(deal)?pnl.preTaxProfit:pnl.netProfit)
+  const reward=bridgeApproved?ownerAgentReward(deal,managementAgentBasis(deal,pnl))
     :{value:null,basis:null,status:'OPEN_SETTLEMENT_BRIDGE_REQUIRED'};
   const ronaProfit=pnl.netProfit===null||reward.value===null?null:pnl.netProfit-reward.value;
   return{
@@ -853,6 +880,8 @@ function ownerComputedRow(label,key,value,cur,hint,final=false,signed=true,nullT
 }
 function agentStatusText(status){
   const s=upper(status);
+  if(s==='OWNER_APPROVED_INKOM_50_PERCENT_NET_PROFIT_MANAGEMENT')
+    return'Утверждено собственником · 50% чистой прибыли';
   if(s==='TERM_MISSING')return'Расчёт ожидает проверки';
   if(s==='UPLOADED_DS_TERM_REVIEW_REQUIRED')return'ДС загружено, но условие не совпадает';
   if(s==='SIGNED_AGENCY_DS_NOT_BOUND')return'Нет агентского ДС по сделке';
@@ -918,7 +947,7 @@ function recomputeOwner(col,deal,fact,cur){
     ?null:counterpartyCashOut+fact.bankFees+Math.max(0,-openSettlementAdjustment);
   const pnl=managementProfitModel(income,expenses);
   const actualFinancialResult=pnl.preTaxProfit;
-  const reward=ownerAgentReward(deal,ownerSignedDs1ForManagement(deal)?pnl.preTaxProfit:pnl.netProfit);
+  const reward=ownerAgentReward(deal,managementAgentBasis(deal,pnl));
   const ronaProfit=pnl.netProfit===null||reward.value===null?null:pnl.netProfit-reward.value;
   const set=(k,v)=>{const row=q('[data-owner-computed="'+k+'"]',col),n=q('.rona-ar-value',row);if(n){n.textContent=num(v)===null?'TO_VERIFY':row.dataset.ownerSigned==='false'?money(v,cur):signedMoney(v,cur);n.className='rona-ar-value '+tone(v)}};
   set('income',pnl.income);
@@ -976,7 +1005,8 @@ function renderOwner(deal){
   table.append(ownerComputedRow('Налоги и платежи (10%)','taxes',base.taxes,cur,'Управленческий расчёт 10% от положительной прибыли',false,false));
   table.append(ownerComputedRow('Чистая прибыль','netProfit',base.netProfit,cur,'Прибыль до налогообложения − расчётный налог'));
   const rewardRow=ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,
-    ownerSignedDs1ForManagement(deal)?'50% положительной маржи по ДС №1':'Вознаграждение по действующему ДС',
+    ownerApprovedManagementPolicy(deal)?'50% чистой прибыли · решение собственника':
+      ownerSignedDs1ForManagement(deal)?'50% положительной маржи по ДС №1':'Вознаграждение по действующему ДС',
     false,true,agentStatusText(base.reward.status));
   // Keep the signed FX contractual status in the source model; omit the UI badge.
   table.append(rewardRow);
@@ -1475,9 +1505,19 @@ function ownerActSavedCalculation(deal,model,currency,saved){
   const corrected=saved.correctedPayload||{};
   if(!corrected.paymentLineAmounts||!Object.hasOwn(corrected,'openSettlementAdjustment'))
     throw new Error('OWNER_SAVED_CORRECTION_PAYLOAD_MISSING');
+  // Preserve signed DS1 external Act semantics independently of the global
+  // Owner 50%-of-net-profit management projection. Do not silently alter an
+  // existing signed PDF or imply its clauses have changed.
+  const signedDs1=ownerSignedDs1ForManagement(deal);
+  const signedMargin=num(model.actualFinancialResult);
+  if(signedDs1&&signedMargin===null)throw new Error('ACT_VERIFIED_SHIPMENT_MARGIN_REQUIRED');
+  const actReward=signedDs1?round1(Math.max(0,signedMargin)*0.5):round1(model.reward);
+  const actRonaProfit=signedDs1&&actReward!==null&&num(model.netProfit)!==null
+    ?num(model.netProfit)-actReward:model.ronaProfit;
   const fields=['income','expenses','counterpartyCashOut','netCashFlow',
     'actualFinancialResult','taxes','netProfit','reward','ronaProfit'];
-  const numbers=Object.fromEntries(fields.map(k=>[k,round1(model[k])]));
+  const numbers=Object.fromEntries(fields.map(k=>[k,round1(
+    k==='reward'?actReward:k==='ronaProfit'?actRonaProfit:model[k])]));
   return Object.freeze({
     contract:'OWNER_SECTION_SAVED_CALCULATION_V1',
     dealId:String(deal.dealId),assignmentId:String(deal.assignmentId),
@@ -1487,7 +1527,7 @@ function ownerActSavedCalculation(deal,model,currency,saved){
       openSettlementAdjustment:corrected.openSettlementAdjustment
     },
     ...numbers,
-    agentRewardStatus:String(model.rewardStatus||''),
+    agentRewardStatus:signedDs1?'OWNER_DS1_SHIPMENT_MARGIN_SAVED_SECTION':String(model.rewardStatus||''),
     agentBasisStatus:String(model.agentBasis||''),
     sourceKind:'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE',
     ownerActDeclaration:ownerSignedDs1ForManagement(deal)?null:
@@ -1795,6 +1835,7 @@ function renderDealDocuments(root,deal){
       deal,docs.agentCompanyId,file,reference,ack,upload),true);
     l.append(docField('Файл PDF',file),docField('Номер и дата',reference),ackLabel,upload);
   }
+  const ownerPolicy=ownerApprovedManagementPolicy(deal);
   const ownerDs1=ownerSignedDs1ForManagement(deal),term=docs.term,
     termAligned=docs.sourceReadiness?.termAligned===true,
     confirmedTerm=termAligned&&term?.mode==='PERCENT'&&num(term.rate)!==null;
@@ -1803,7 +1844,9 @@ function renderDealDocuments(root,deal){
   sourceInfo.setAttribute('role','status');sourceInfo.setAttribute('aria-live','polite');
   sourceInfo.style.cssText='padding:10px 12px;border:1px solid rgba(128,202,223,.24);border-radius:9px;background:rgba(9,42,61,.6);color:#c2dfed;font-size:12px;line-height:1.6;overflow-wrap:anywhere';
   r.append(sourceInfo);
-  if(ownerDs1)
+  if(ownerPolicy)
+    r.append(el('div','rona-ar-doc-name','50% положительной чистой прибыли (правило собственника)'));
+  else if(ownerDs1)
     r.append(el('div','rona-ar-doc-name','50% от маржи по поставке (ДС №1)'));
   else if(confirmedTerm)
     r.append(el('div','rona-ar-doc-name',fmt(num(term.rate)*100)+'% по действующему ДС'));
@@ -1811,7 +1854,11 @@ function renderDealDocuments(root,deal){
     r.append(el('div','rona-ar-doc-note','ДС загружено и привязано к сделке.'));
   else r.append(el('div','rona-ar-doc-note','Для расчёта требуется ДС.'));
   const preview=ownerModel(deal,cashFactModel(deal)),reward=preview.reward;
-  if(ownerDs1){
+  if(ownerPolicy){
+    if(num(reward?.value)!==null)
+      r.append(el('div','rona-ar-doc-name','Управленческое вознаграждение: '+money(reward.value,currencyOf(deal))));
+    r.append(el('div','rona-ar-doc-note','По распоряжению собственника от 17.10.2026: 50% чистой прибыли для всех сделок ИнКом. Не создаёт платёжное обязательство.'));
+  }else if(ownerDs1){
     if(num(reward?.value)!==null)
       r.append(el('div','rona-ar-doc-name','По сохранённому расчёту: '+money(reward.value,currencyOf(deal))));
     r.append(el('div','rona-ar-doc-note',
