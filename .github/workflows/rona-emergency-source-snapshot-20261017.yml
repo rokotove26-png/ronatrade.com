@@ -58,7 +58,7 @@ jobs:
           authorized independent recovery sources.
           EOF
           (cd recovery_payload && sha256sum RONA_Admin_Client_Source_8065385.tar.gz MANIFEST.json RESTORE.md SOURCE_FILE_INDEX.txt > SHA256SUMS)
-          sha256sum -c recovery_payload/SHA256SUMS --ignore-missing || true
+          (cd recovery_payload && sha256sum -c SHA256SUMS)
           python3 - <<'PY'
           import json,hashlib,pathlib,tarfile
           d=pathlib.Path('recovery_payload')
@@ -66,7 +66,7 @@ jobs:
           with tarfile.open(p,'r:gz') as tf:
               names=tf.getnames()
           expected=json.loads((d/'MANIFEST.json').read_text())['source_files_in_archive']
-          actual=sum(n!='source' and not n.endswith('/') for n in names)
+          actual=sum(m.isfile() for m in tf.getmembers())
           assert actual==expected,(actual,expected)
           assert any('portal-src/current/admin.html' in n for n in names)
           assert any('functions/portal/admin-main-ui-current.js' in n for n in names)
