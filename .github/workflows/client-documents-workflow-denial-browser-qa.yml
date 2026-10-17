@@ -1,0 +1,61 @@
+name: Client Documents workflow denial browser QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'assets/portal-runtime/client-deal-documents-v5.js'
+      - 'scripts/apply-client-context-coherence-432-consumer-v2.mjs'
+      - 'scripts/qa-client-documents-workflow-denial-browser-v1.mjs'
+      - 'scripts/qa-client-documents-context-race-browser-v1.mjs'
+      - 'tests/client-documents-workflow-unavailable.test.mjs'
+      - '.github/workflows/client-documents-workflow-denial-browser-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-denial-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify source contract and syntax
+        run: |
+          set -euo pipefail
+          node --check scripts/qa-client-documents-workflow-denial-browser-v1.mjs
+          node --check scripts/qa-client-documents-context-race-browser-v1.mjs
+          node --check scripts/apply-client-context-coherence-432-consumer-v2.mjs
+          node --test tests/client-documents-workflow-unavailable.test.mjs
+      - name: Materialize exact canonical Client build
+        run: |
+          set -euo pipefail
+          npm run build
+          node --check dist/assets/portal-runtime/client-deal-documents-v5.js
+      - name: Install isolated Chromium test dependency
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install chromium
+      - name: Verify workflow failure and recovery in actual Chromium DOM
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-documents-workflow-denial-browser-v1.mjs | tee browser-denial.log
+          grep -Fq 'QA_DOCUMENT_WORKFLOW_DENIAL_FAIL_CLOSED=PASS' browser-denial.log
+          grep -Fq 'QA_DOCUMENT_WORKFLOW_DENIAL_RECOVERY=PASS' browser-denial.log
+          node scripts/qa-client-documents-context-race-browser-v1.mjs | tee browser-context-race.log
+          grep -Fq 'QA_DOCUMENTS_PENDING_A_TO_B_CONTEXT_RACE=PASS' browser-context-race.log
+          grep -Fq 'QA_DOCUMENTS_A_B_A_CONTEXT_ISOLATION=PASS' browser-context-race.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-documents-workflow-denial-qa
+          path: |
+            browser-denial.log
+            browser-context-race.log
+          if-no-files-found: ignore

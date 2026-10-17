@@ -65,7 +65,20 @@ if(!dealDocuments.includes(DEAL_DOCUMENTS_MARK)){
   dealDocuments=replaceOnce(dealDocuments,"const API='/portal/api',PANEL='rona-deal-documents-v5',HOST='rona-deal-card-v5';",`const API='/portal/api',PANEL='rona-deal-documents-v5',HOST='rona-deal-card-v5',${DEAL_DOCUMENTS_MARK}='${DEAL_DOCUMENTS_MARK}';`,'ISSUE432_DEAL_DOCUMENTS_MARK');
   const oldBlock="const [context,workflow]=await Promise.all([\n      getJson(`${API}/v1/client/context?clientId=${encodeURIComponent(clientId)}&contractId=${encodeURIComponent(contractId)}`),\n      getJson(`${API}/v1/client/deal-documents/state?clientId=${encodeURIComponent(clientId)}&contractId=${encodeURIComponent(contractId)}`).catch(()=>({deals:[]}))\n    ]);";
   const newBlock="const authority=contextAuthority();if(!authority?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');\n    const [projected,workflow]=await Promise.all([\n      authority.whenCurrentProjection('client-deal-documents-v5'),\n      getJson(`${API}/v1/client/deal-documents/state?clientId=${encodeURIComponent(clientId)}&contractId=${encodeURIComponent(contractId)}`).catch(()=>({deals:[]}))\n    ]);\n    if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const context={data:projected};";
-  dealDocuments=replaceOnce(dealDocuments,oldBlock,newBlock,'ISSUE432_DEAL_DOCUMENTS_CONTEXT_READ');
+  // Two exact accepted source shapes: the released Client-only fallback and the
+  // separately reviewed fail-closed unavailable-state candidate.
+  const safeFallback='.catch(()=>({deals:[],workflow_unavailable:true}))';
+  const baselineFallback='.catch(()=>({deals:[]}))';
+  const reviewedOldBlock=oldBlock.replace(baselineFallback,safeFallback);
+  if(reviewedOldBlock===oldBlock)throw new Error('ISSUE432_DOCUMENTS_BASELINE_FALLBACK_DRIFT');
+  const selectedSourceBlock=dealDocuments.includes(oldBlock)?oldBlock:dealDocuments.includes(reviewedOldBlock)?reviewedOldBlock:null;
+  if(!selectedSourceBlock)throw new Error('ISSUE432_DEAL_DOCUMENTS_CONTEXT_READ_TARGET_MISSING');
+  if(selectedSourceBlock===reviewedOldBlock&&!dealDocuments.includes('workflowUnavailable:workflow?.workflow_unavailable===true'))
+    throw new Error('ISSUE432_DOCUMENT_WORKFLOW_UNAVAILABLE_STATE_GUARD_MISSING');
+  const selectedEmittedBlock=selectedSourceBlock===reviewedOldBlock
+    ?newBlock.replace(baselineFallback,safeFallback)
+    :newBlock;
+  dealDocuments=replaceOnce(dealDocuments,selectedSourceBlock,selectedEmittedBlock,'ISSUE432_DEAL_DOCUMENTS_CONTEXT_READ');
 }
 await validateAndWrite(dealDocuments,dealDocumentsPath,'ISSUE432_DEAL_DOCUMENTS',[DEAL_DOCUMENTS_MARK,"authority.whenCurrentProjection('client-deal-documents-v5')"],'/v1/client/context?clientId=');
 
