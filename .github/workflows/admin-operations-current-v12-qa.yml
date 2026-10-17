@@ -3,6 +3,7 @@ on:
   pull_request:
     branches: [release/public-go-live-v1.1]
     paths:
+      - 'functions/portal/admin.js'
       - 'functions/portal/main-ui/operations-event-runtime-v12.js'
       - 'functions/portal/main-ui/_middleware.js'
       - 'supabase/migrations/*admin_operations_v12_current_read_semantics.sql'
@@ -14,6 +15,7 @@ on:
   push:
     branches: [release/public-go-live-v1.1]
     paths:
+      - 'functions/portal/admin.js'
       - 'functions/portal/main-ui/operations-event-runtime-v12.js'
       - 'functions/portal/main-ui/_middleware.js'
       - 'supabase/migrations/*admin_operations_v12_current_read_semantics.sql'
