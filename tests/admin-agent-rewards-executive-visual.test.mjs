@@ -36,6 +36,13 @@ test('Executive presentation changes no financial authority, formulas, API or se
   assert.match(file,/function ownerCorrectionApproved\(deal\)/);
   assert.match(file,/send\.disabled=true/);
   assert.match(file,/\.rona-ar-canonical-head \.rona-visual-title\{position:relative;margin:0;color:#f7fbff;font-size:clamp\(31px,3\.25vw,48px\)/);
+  assert.match(js,/function installSpectrumDesignStyle\(\)/);
+  assert.match(js,/__RONA_AGENT_REWARDS_DESIGN__='spectrum-v3'/);
+  assert.match(js,/installSpectrumDesignStyle\(\);\s*replace\(root\)/);
+  assert.match(js,/--ar-spectrum-violet/);
+  assert.match(js,/prefers-reduced-motion:reduce/);
+  assert.match(js,/function renderExecutiveWorkspace\(root,deals,deal\)/);
+  assert.match(js,/data-rona-ar-jump-index|dataset\.ronaArJumpIndex=index/);
   assert.doesNotMatch(js,/function.*new.*finance.*schema|fetch\(['"]https?:\/\//i);
 });
 
@@ -147,6 +154,16 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
         const delta=root.querySelector('.rona-ar-compare-cell.delta .rona-ar-compare-value');
         const payoutRows=[...root.querySelectorAll('.rona-ar-evidence-row')];
         return {version:window.__RONA_AGENT_REWARDS_PRESENTATION__,names,values,sections,
+          spectrum:{
+            marker:root.dataset.ronaAgentRewardsDesign,
+            stylesheet:!!document.querySelector('#ronaArSpectrumDesignV3Style'),
+            quickNav:[...root.querySelectorAll('.rona-ar-spectrum-jumpbar button')].map(b=>b.dataset.ronaArJump),
+            cardSurfaces:tiles.map(n=>getComputedStyle(n).backgroundImage),
+            heroSurface:getComputedStyle(document.querySelector('.rona-ar-hero')).backgroundImage,
+            documentSurface:getComputedStyle(root.querySelector('.rona-ar-documents')).backgroundImage,
+            scenarioSurface:getComputedStyle(root.querySelector('.rona-ar-scenarios')).backgroundImage,
+            focusSurface:getComputedStyle(root.querySelector('.rona-ar-focus-intro')).backgroundImage
+          },
           cockpit:{
             version:root.dataset.ronaAgentRewardsCockpit,
             workspaces:root.querySelectorAll('.rona-ar-workspace').length,
@@ -240,6 +257,16 @@ test('Real executable Agent Rewards UI: clean financial hierarchy, functional de
       });
       assert.equal(result.version,'executive-finance-v1');
       assert.equal(result.cockpit.version,'executive-cockpit-v1');
+      assert.equal(result.spectrum.marker,'spectrum-v3','New design rendered in actual Admin section');
+      assert.equal(result.spectrum.stylesheet,true,'Spectrum styles were injected after document module');
+      assert.deepEqual(result.spectrum.quickNav,[
+        '.rona-ar-pulse','.rona-ar-documents','.rona-ar-scenarios','.rona-ar-precision'
+      ],'All four quick-nav items target real working sections');
+      assert.equal(new Set(result.spectrum.cardSurfaces).size,4,
+        'KPI categories have four distinctive and grounded visual surfaces');
+      for(const key of ['heroSurface','documentSurface','scenarioSurface','focusSurface'])
+        assert.match(result.spectrum[key],/gradient/,
+          'Real '+key+' receives a dedicated spectrum presentation');
       assert.equal(result.cockpit.workspaces,1);
       assert.equal(result.cockpit.navCount,1);
       assert.equal(result.cockpit.selectedCount,1);
