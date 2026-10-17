@@ -1,5 +1,5 @@
 function agentRewardsRuntime(){'use strict';
-const VERSION='20261017-owner-inkom-management-net-profit-50pct-v1';
+const VERSION='20261017-agent-signed-ds-archive-reuse-v1';
 if(window.__RONA_AGENT_REWARDS_FINANCE_V1__===VERSION)return;
 window.__RONA_AGENT_REWARDS_FINANCE_V1__=VERSION;
 window.__RONA_AGENT_REWARDS_VISUAL__='premium-fintech-v2';
@@ -7,7 +7,7 @@ window.__RONA_AGENT_REWARDS_PRESENTATION__='executive-finance-v1';
 if(location.pathname!=='/portal/admin')return;
 
 const API='/portal/owner-api';
-const state={data:null,selectedKey:null,saving:false,workspacePromise:null,loadedAt:0,lastError:null,docCache:new Map(),docLoading:new Set(),docError:new Map(),activeScenario:'owner',searchQuery:''};
+const state={data:null,selectedKey:null,saving:false,workspacePromise:null,loadedAt:0,lastError:null,docCache:new Map(),docLoading:new Set(),docError:new Map(),archiveDocs:new Map(),archiveLoading:new Set(),archiveErrors:new Map(),activeScenario:'owner',searchQuery:''};
 let ownerRepairTimer=null;
 const q=(s,r=document)=>r.querySelector(s);
 const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
@@ -1408,6 +1408,105 @@ async function signedAgencyDownload(companyId,documentId){
   if(!/^https:\/\//.test(String(url||'')))throw new Error('SIGNED_URL_INVALID');
   window.open(url,'_blank','noopener,noreferrer')
 }
+
+// Previously uploaded canonical PDFs are reusable evidence for more than one deal.
+// The signed file itself is immutable; a new audited deal-to-document binding is made.
+async function loadAgencyArchive(companyId){
+  if(!/^S-[0-9]{3,}$/.test(String(companyId||'')))return;
+  if(state.archiveLoading.has(companyId))return;
+  state.archiveLoading.add(companyId);
+  try{
+    const response=await fetch(AGREEMENT_API+'?action=list',{
+      credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
+    const body=await response.json().catch(()=>({}));
+    if(!response.ok||body.ok===false)
+      throw new Error(String(body.code||'AGENCY_ARCHIVE_UNAVAILABLE'));
+    const agents=Array.isArray(body.data?.agents)?body.data.agents:[];
+    const company=agents.find(a=>String(a.agentCompanyId)===companyId);
+    if(!company)throw new Error('AGENCY_ARCHIVE_COMPANY_NOT_FOUND');
+    const addenda=(Array.isArray(company.documents)?company.documents:[])
+      .filter(d=>String(d.kind)==='AGENCY_ADDENDUM'
+        &&/^AGENCY-S-[0-9]{3,}-[A-Z0-9]{8}$/.test(String(d.documentId||'')))
+      .map(d=>({documentId:String(d.documentId),
+        reference:String(d.reference||'ДС без номера'),
+        filename:String(d.filename||d.documentId),
+        uploadedAt:String(d.uploadedAt||'')}));
+    state.archiveDocs.set(companyId,addenda);
+    state.archiveErrors.delete(companyId);
+  }catch(error){
+    state.archiveErrors.set(companyId,String(error?.message||error));
+  }finally{
+    state.archiveLoading.delete(companyId);
+    const active=selectedDeal();
+    if(active&&String(state.docCache.get(docKey(active))?.agentCompanyId||
+      active.agentLegalEntityId||'')===companyId)render()
+  }
+}
+async function linkArchivedAddendum(deal,companyId,documentId,button){
+  if(state.docCache.get(docKey(deal))?.currentAddendum)
+    return docNotice('К этой сделке уже закреплено ДС. Повторная привязка недоступна.');
+  const existing=state.archiveDocs.get(companyId)||[];
+  if(!existing.some(d=>d.documentId===documentId))
+    return docNotice('Выберите ранее загруженное ДС этого агента.');
+  button.disabled=true;
+  try{
+    await docCall(deal,'bind',{method:'POST',
+      headers:{accept:'application/json','content-type':'application/json'},
+      body:JSON.stringify({documentId})});
+    // Verify the exact scoped deal/assignment binding before success feedback.
+    const fresh=await docCall(deal,'state');
+    if(String(fresh.dealId)!==String(deal.dealId)
+      ||String(fresh.assignmentId)!==String(deal.assignmentId)
+      ||String(fresh.currentAddendum?.documentId)!==documentId)
+      throw new Error('SIGNED_DS_BIND_READBACK_MISMATCH');
+    state.docCache.set(docKey(deal),fresh);
+    state.docError.delete(docKey(deal));
+    if(state.selectedKey===docKey(deal))render();
+    docNotice('Ранее загруженное ДС закреплено за сделкой '+String(deal.dealId)+'. PDF повторно не загружался.');
+  }catch(error){
+    await refreshDealDocuments(deal);
+    docNotice('Не удалось закрепить ДС: '+String(error?.message||error));
+  }finally{button.disabled=false}
+}
+function renderExistingAddendumPicker(deal,companyId,host){
+  const panel=el('div','rona-ar-doc-archive-picker');
+  panel.append(el('div','rona-ar-doc-kicker','Закрепить ранее загруженное ДС'));
+  if(!/^S-[0-9]{3,}$/.test(String(companyId||''))){
+    panel.append(el('div','rona-ar-doc-note','Не определена организация агента для выбора ДС.'));
+  }else if(state.archiveErrors.has(companyId)){
+    panel.append(el('div','rona-ar-doc-note','Реестр ДС временно недоступен: '+state.archiveErrors.get(companyId)));
+    panel.append(docButton('Повторить загрузку списка',()=>{
+      state.archiveErrors.delete(companyId);
+      void loadAgencyArchive(companyId)
+    }));
+  }else if(!state.archiveDocs.has(companyId)){
+    panel.append(el('div','rona-ar-doc-note','Загружаю ранее утверждённые ДС агента…'));
+    if(!state.archiveLoading.has(companyId))
+      setTimeout(()=>void loadAgencyArchive(companyId),0);
+  }else{
+    const docs=state.archiveDocs.get(companyId)||[];
+    if(!docs.length){
+      panel.append(el('div','rona-ar-doc-note','В архиве этого агента пока нет загруженных ДС. Используйте загрузку нового PDF ниже.'));
+    }else{
+      const select=el('select','rona-ar-doc-archive-select');
+      select.setAttribute('aria-label','Выберите ранее загруженное ДС агента');
+      const placeholder=el('option','', 'Выберите ДС из архива ('+docs.length+')');
+      placeholder.value='';select.append(placeholder);
+      for(const d of docs){
+        const option=el('option','',d.reference+' · '+d.filename);
+        option.value=d.documentId;select.append(option)
+      }
+      const button=docButton('Закрепить ДС за сделкой',
+        ()=>void linkArchivedAddendum(deal,companyId,select.value,button),true);
+      button.disabled=true;
+      select.addEventListener('change',()=>{button.disabled=!select.value});
+      panel.append(docField('Ранее загруженные соглашения',select),button,
+        el('div','rona-ar-doc-note','Один подписанный PDF можно закреплять за несколькими сделками этого агента. Документ и его подписи не изменяются.'));
+    }
+  }
+  host.append(panel)
+}
+
 async function uploadDealAddendum(deal,companyId,fileControl,refControl,ackControl,button){
   if(state.docCache.get(docKey(deal))?.currentAddendum)
     return docNotice('Для этой сделки ДС уже привязано. Повторная загрузка недоступна.');
@@ -1427,6 +1526,8 @@ async function uploadDealAddendum(deal,companyId,fileControl,refControl,ackContr
     if(!j.data?.documentId)throw new Error('DOCUMENT_ID_NOT_RETURNED');
     await docCall(deal,'bind',{method:'POST',headers:{accept:'application/json','content-type':'application/json'},
       body:JSON.stringify({documentId:j.data.documentId})});
+    state.archiveDocs.delete(companyId);
+    state.archiveErrors.delete(companyId);
     await refreshDealDocuments(deal);
     docNotice('Подписанное ДС загружено и привязано к выбранной сделке.')
   }catch(e){await refreshDealDocuments(deal);docNotice('Ошибка сохранения ДС: '+String(e.message||e))}
@@ -1836,7 +1937,9 @@ function renderDealDocuments(root,deal){
     l.append(docButton('Скачать ДС',()=>void signedAgencyDownload(
       docs.agentCompanyId,current.documentId).catch(e=>docNotice('Скачивание ДС: '+String(e.message||e)))));
   }else{
-    l.append(el('div','rona-ar-doc-note','ДС ещё не загружено для этой сделки.'));
+    l.append(el('div','rona-ar-doc-note','Для сделки пока не выбрано ДС. Можно закрепить уже загруженный документ агента или добавить новый.'));
+    renderExistingAddendumPicker(deal,String(docs.agentCompanyId||deal.agentLegalEntityId||''),l);
+    l.append(el('div','rona-ar-doc-kicker','Или загрузить новое ДС'));
     const file=el('input');file.type='file';file.accept='application/pdf,.pdf';
     const reference=el('input');reference.type='text';reference.maxLength=180;
     reference.placeholder='ДС №... от ...';
