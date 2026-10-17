@@ -57,18 +57,14 @@ function requestRetry(p){const module=moduleFor(p);if(!module)return false;const
 function schedule(ms=1000){clearTimeout(timer);timer=setTimeout(run,ms)}
 async function run(){if(running)return;running=true;try{const p=selected();state.status='CHECKING:'+p;if(ready(p)){clearError(p);state.pageAttempts[p]=0;state.lastRetryAt[p]=0;state.status='READY:'+p;window.__RONA_ADMIN_RUNTIME_RECOVERY_READY__=true;if(p==='messages'){loadRadioFinal();ensureRadioHeading();observeRadioHeading()}return}const module=moduleFor(p);if(!module)return;const attempt=state.pageAttempts[p]||0;if(attempt<state.autoRetryLimit){const dispatched=requestRetry(p);if(dispatched){await sleep(p==='market-news'?650:1800+attempt*800);if(ready(p)){clearError(p);state.pageAttempts[p]=0;state.lastRetryAt[p]=0;state.status='RECOVERED:'+p;if(p==='messages'){loadRadioFinal();ensureRadioHeading();observeRadioHeading()}return}}else state.status='COOLDOWN:'+p}if((state.pageAttempts[p]||0)>=state.autoRetryLimit&&!ready(p)){state.status='DEGRADED:'+p;showError(p,module)}}catch(e){note('watchdog',e)}finally{running=false;schedule(5000)}}
 function loadRadioFinal(){
+  // V11 radio is already installed by its canonical deferred script.
+  // The retired v9 asset is absent and returned HTML (strict MIME failure).
+  // Maintain only the watchdog's presentation repair; never load a competitor.
   ensureRadioHeading();observeRadioHeading();
-  if(window.__RONA_ADMIN_RADIO_FINAL_V9__){scheduleRadioHeading(80);return}
-  document.getElementById('rona-admin-radio-icc-loader')?.remove();
-  document.getElementById('rona-admin-radio-final-v9-loader')?.remove();
-  const s=document.createElement('script');
-  s.id='rona-admin-radio-final-v9-loader';
-  s.src='/assets/portal-admin-radio-final-v9.js?v=20260915-final-v9-r1&ts='+Date.now();
-  s.async=false;
-  s.dataset.ronaVisualOnly='radio-final-v9';
-  s.onload=()=>{[0,80,250,700].forEach(ms=>setTimeout(ensureRadioHeading,ms))};
-  s.onerror=()=>note('radio-final-v9','SCRIPT_LOAD_FAILED');
-  document.body.appendChild(s)
+  if(!window.__RONA_ADMIN_RADIO_CANONICAL_V11__){
+    note('radio-canonical-v11','WAITING_FOR_DIRECT_LOADER');
+  }
+  scheduleRadioHeading(80);
 }
 function boot(){loadRadioFinal();window.addEventListener('rona:admin-pagechange',event=>{const p=String(event?.detail?.page||'');if(p==='messages'){loadRadioFinal();[80,250,700].forEach(ms=>setTimeout(ensureRadioHeading,ms))}if(p==='market-news'&&!marketNewsReady())setTimeout(()=>{if(selected()==='market-news'&&!marketNewsReady())repairMarketNews()},180);schedule(450)},{passive:true});window.addEventListener('rona:admin-single-owner-ready',()=>schedule(300),{passive:true});window.addEventListener('online',()=>schedule(500),{passive:true});window.addEventListener('pageshow',()=>{loadRadioFinal();scheduleRadioHeading(120);schedule(500)},{passive:true});schedule(1000)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
