@@ -185,3 +185,6 @@ test('current_state bounds execution recovery workstreams to metadata summaries'
 
 // Shared MCP gateway CI exercises the SYSTEM_ADMIN inbox role boundary as well.
 import './system-admin-handoff-inbox-v1.test.mjs';
+
+// Finance current_state limit regression (full history remains canonical).
+import './finance-current-state-budget-v1.test.mjs';
