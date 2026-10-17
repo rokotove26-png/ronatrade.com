@@ -165,3 +165,19 @@ test('V12 pauses hidden tabs, re-subscribes after visibility return and re-syncs
   assert.equal(h.calls.length,oldCalls+1);
   assert.equal(h.context.window.__RONA_ADMIN_OPERATIONS_EVENTS_V12__.status,'CONNECTED');
 });
+
+test('V12 adds only signal triggers to the actual financial source-of-truth chain',()=>{
+  const sql=read('supabase/migrations/20261017131500_admin_operations_v12_finance_document_invalidation.sql');
+  const rollback=read('supabase/rollbacks/20261017131500_admin_operations_v12_finance_document_invalidation_rollback.sql');
+  for(const name of ['deal_finance_authority_v7','finance_signed_schedule_jobs_v8','document_versions']){
+    assert.ok(sql.includes(name));
+    assert.ok(rollback.includes(name));
+  }
+  assert.match(sql,/AFTER INSERT OR UPDATE OR DELETE/);
+  assert.match(sql,/rona_admin_operations_touch_v1/);
+  assert.match(sql,/OPERATIONS_V12_SOURCE_SIGNAL_ALREADY_PRESENT/);
+  assert.doesNotMatch(sql,/\bUPDATE\s+portal_private\./i);
+  assert.doesNotMatch(sql,/\bINSERT\s+INTO\s+portal_private\./i);
+  assert.doesNotMatch(sql,/GRANT\s+.*(?:anon|authenticated)/i);
+  assert.doesNotMatch(sql,/SECURITY\s+DEFINER/i);
+});
