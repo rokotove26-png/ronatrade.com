@@ -4,6 +4,22 @@ on:
   pull_request:
     branches:
       - release/public-go-live-v1.1
+    # Exact PR429/Issue430 lineage gate; unrelated Admin/audit changes must not fail this source lock.
+    paths:
+      - 'functions/portal/api/v1/client/**'
+      - 'functions/portal/api/_browser-impersonation.js'
+      - 'assets/portal-runtime/client-contract-download-v3.js'
+      - 'assets/portal-runtime/portal-client-company-directory-authority-v1.js'
+      - 'supabase/functions/rona-portal-api/**'
+      - 'supabase/functions/rona-portal-api-candidate-20260817/**'
+      - 'supabase/migrations/*client*'
+      - 'scripts/build-pages-direct-canonical.mjs'
+      - 'scripts/qa-client-multiclient-parity-430.mjs'
+      - 'scripts/qa-client-owner-authenticated-*.mjs'
+      - 'scripts/qa-client-portal-visual-freeze.mjs'
+      - 'tests/*430*'
+      - '_routes.json'
+      - '.github/workflows/client-multiclient-parity-430-qa.yml'
   workflow_dispatch:
 
 permissions:
@@ -14,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      ISSUE430_CURRENT_PRODUCTION_SHA: 77588541119bb1a96375beed3e853e067ab1422f
+      ISSUE430_CURRENT_PRODUCTION_SHA: f8f0233a33b321e8fc54a7e404cd85e3eff21718
     steps:
       - name: Checkout exact history
         uses: actions/checkout@v4
@@ -26,6 +42,8 @@ jobs:
         with:
           node-version: '22'
 
+      # Maintain strict verified release ancestry. The original PR429 historical
+      # baseline is still checked separately by the unchanged QA script.
       - name: Bind issue 430 gate to exact current production
         shell: bash
         run: |
