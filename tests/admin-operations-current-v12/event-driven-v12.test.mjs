@@ -45,7 +45,7 @@ test('V12 transport patch is connected only after protected same-origin Admin co
   assert.match(v12,/postgres_changes/);
   assert.match(v12,/rona_admin_operations_invalidation_v1/);
   assert.match(v12,/status==='CONNECTED'/);
-  assert.match(v12,/reason==='MANUAL'/);
+  assert.match(v12,/reason!=='MANUAL'/);
   assert.match(v12,/const SAFETY_MS=12\*60\*1000/);
   assert.doesNotMatch(v12,/\/admin\/bootstrap/);
   assert.doesNotMatch(v12,/\/admin\/deals-current-v4/);
