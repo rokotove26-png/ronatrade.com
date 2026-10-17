@@ -658,3 +658,13 @@ test('Agent Rewards document workflow binds signed DS, source Owner version and 
     assert.doesNotMatch(source,/\b(?:update|insert into|delete from)\s+portal_private\.(?:agent_settlements|payments|agent_deal_terms)\b/i);
   }
 });
+
+test('Owner 2026-10-17 InKom 50%-net management rule is independent from historical DS terms',()=>{
+  assert.match(ui,/source:'OWNER_DIRECTIVE_2026-10-17'/);
+  assert.match(ui,/agentLegalEntityId:'S-005',rate:0\.5/);
+  assert.match(ui,/basis:'POSITIVE_AFTER_TAX_MANAGEMENT_NET_PROFIT',createsPayable:false/);
+  assert.match(ui,/value:Math\.max\(0,basis\)\*policy.rate/);
+  assert.match(ui,/return ownerApprovedManagementPolicy\(deal\)\?pnl.netProfit/);
+  assert.match(ui,/const signedDs1=ownerSignedDs1ForManagement\(deal\)/);
+  assert.match(ui,/const actReward=signedDs1\?round1\(Math\.max\(0,signedMargin\)\*0\.5\):round1\(model.reward\)/);
+});
