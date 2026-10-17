@@ -1844,7 +1844,11 @@ function renderDealDocuments(root,deal){
     r.append(el('div','rona-ar-doc-note','ДС загружено и привязано к сделке.'));
   else r.append(el('div','rona-ar-doc-note','Для расчёта требуется ДС.'));
   const preview=ownerModel(deal,cashFactModel(deal)),reward=preview.reward;
-  if(ownerDs1){
+  if(ownerPolicy){
+    if(num(reward?.value)!==null)
+      r.append(el('div','rona-ar-doc-name','Управленческое вознаграждение: '+money(reward.value,currencyOf(deal))));
+    r.append(el('div','rona-ar-doc-note','По распоряжению собственника от 17.10.2026: 50% чистой прибыли для всех сделок ИнКом. Не создаёт платёжное обязательство.'));
+  }else if(ownerDs1){
     if(num(reward?.value)!==null)
       r.append(el('div','rona-ar-doc-name','По сохранённому расчёту: '+money(reward.value,currencyOf(deal))));
     r.append(el('div','rona-ar-doc-note',
