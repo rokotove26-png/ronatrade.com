@@ -65,13 +65,12 @@ test('invalid filters fail closed before any SQL',async()=>{
     assert.equal(h.queries.length,0);
   }
 });
-test('gateway authenticates inbox read before role-scoped dispatch (regression)',()=>{
-  const index=readFileSync(new URL('../supabase/functions/rona-mcp-gateway/index.ts',import.meta.url),'utf8');
-  const route=index.match(/const needsCtx = ([^\\n]+);/);
-  assert.ok(route,'central gateway must expose explicit auth-context preflight');
-  assert.match(route[1], /"staff_handoff_inbox_list"/,'inbox must request auth context rather than silently falling through to TOOL_NOT_FOUND');
-  assert.match(index, /SYSTEM_ADMIN_DETAIL_TOOLS\\.some\\(t => t\\.name === name\\) && ctx/,'authenticated inbox must be handled by role-safe dispatcher');
-  assert.deepEqual(tool.securitySchemes[0].scopes,['mcp:read'],'read-only inbox must not request write scope');
+test('gateway inbox requests read auth before dispatch',()=>{
+  const source=readFileSync(new URL('../supabase/functions/rona-mcp-gateway/index.ts',import.meta.url),'utf8');
+  const routing=source.split('\n').find(line=>line.includes('const needsCtx ='));
+  assert.ok(routing?.includes('"staff_handoff_inbox_list"'));
+  assert.ok(source.includes('if (SYSTEM_ADMIN_DETAIL_TOOLS.some(t => t.name === name) && ctx)'));
+  assert.deepEqual(tool.securitySchemes[0].scopes,['mcp:read']);
 });
 
 test('MCP declaration is strictly read-only and no production write contract is added',()=>{
