@@ -45,4 +45,4 @@ BEGIN
    AFTER INSERT OR DELETE OR UPDATE OF portal_user_id, portal_role, session_subject
    ON portal_private.portal_presence_connections_v1
    FOR EACH ROW EXECUTE FUNCTION portal_private.rona_admin_operations_touch_v1('OPERATIONS');
-END $;
+END $$;
