@@ -14,7 +14,7 @@ const ALLOWED = new Set([
   "analyst@ronaoil.com",
   "rail_spec@ronaoil.com",
 ]);
-const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, max: 1 });
+const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, max: 1, idle_timeout: 5, connect_timeout: 5 });
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
