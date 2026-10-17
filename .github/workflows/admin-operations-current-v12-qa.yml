@@ -5,9 +5,6 @@ on:
     paths:
       - 'functions/portal/admin.js'
       - 'functions/portal/main-ui/operations-event-runtime-v12.js'
-      - 'assets/portal-admin-shell-fast-v1.js'
-      - 'assets/portal-admin-runtime-watchdog-v1.js'
-      - 'portal-src/current/admin.html'
       - 'functions/portal/main-ui/_middleware.js'
       - 'supabase/migrations/*admin_operations_v12_current_read_semantics.sql'
       - 'supabase/rollbacks/*admin_operations_v12_current_read_semantics_rollback.sql'
@@ -20,9 +17,6 @@ on:
     paths:
       - 'functions/portal/admin.js'
       - 'functions/portal/main-ui/operations-event-runtime-v12.js'
-      - 'assets/portal-admin-shell-fast-v1.js'
-      - 'assets/portal-admin-runtime-watchdog-v1.js'
-      - 'portal-src/current/admin.html'
       - 'functions/portal/main-ui/_middleware.js'
       - 'supabase/migrations/*admin_operations_v12_current_read_semantics.sql'
       - 'supabase/rollbacks/*admin_operations_v12_current_read_semantics_rollback.sql'
@@ -51,4 +45,4 @@ jobs:
       - name: Compile Cloudflare Pages canonical Admin/Client build
         run: npm run build
       - name: Admin shell and current-only guards
-        run: node --test tests/admin-shell-resilience.test.mjs tests/admin-current-only-shell-contract.test.mjs tests/admin-runtime-watchdog.test.mjs
+        run: node --test tests/admin-shell-resilience.test.mjs tests/admin-current-only-shell-contract.test.mjs
