@@ -17,7 +17,9 @@ const CASH_R2_CURRENT_RAIL_BOOT_SEQUENCE='renderPayments();ensureCashR2Host();re
 const OWNED_PAGE_MARKER='function renderOwnedAdminPage(id){';
 const CASH_R2_HOST_FUNCTION="function ensureCashR2Host(){const p=page('accounting');if(!p)return null;let host=q(':scope > .rona-owner-page-content[data-owner-page=\\\"accounting\\\"]',p)||q(':scope > .rona-owner-page-content',p);if(!host){for(const child of Array.from(p.children))child.classList.add('rona-owner-original-hidden');host=e('div',{class:'rona-owner-page-content','data-owner-page':'accounting','data-rona-cash-host':'r2'});p.append(host)}host.dataset.ronaCashHost='r2';host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display');return host}\n";
 const RADIO_VISUAL_VERSION='20260915-radio-wide-v10-r1';
-const RADIO_VISUAL_LOADER="\n;(()=>{try{if(!window.__RONA_ADMIN_RADIO_WIDE_V10__&&!document.getElementById('rona-admin-radio-wide-v10')){const s=document.createElement('script');s.id='rona-admin-radio-wide-v10';s.src='/assets/portal-admin-radio-wide-v10.js?v="+RADIO_VISUAL_VERSION+"';s.async=false;s.dataset.ronaVisualOnly='radio-wide-v10';document.body.appendChild(s)}}catch(_e){}})();\n";
+// Radio visual owner is the direct, version-locked V11 script in admin.html.
+// The removed wide-v10 asset must never be dynamically injected again.
+const RADIO_VISUAL_LOADER='';
 const PAYMENTS_V8_BOOTSTRAP_LOADER="\n;(()=>{try{if(!window.__RONA_PAYMENTS_V8_UI_INSTALLED__&&!document.getElementById('rona-payments-v8-bootstrap-ui')){const s=document.createElement('script');s.id='rona-payments-v8-bootstrap-ui';s.src='/portal/payments-v8-ui?v=20260921-passport-selfheal-v1';s.async=false;s.dataset.ronaPaymentsOwner='"+PAYMENTS_V8_BOOTSTRAP_OWNER+"';document.body.appendChild(s)}}catch(error){window.__RONA_PAYMENTS_V8_UI_ERROR__=String(error&&error.message?error.message:error)}})();\n";
 const LEGACY_PAYMENTS_V7_FORMATTERS=[
   "function paymentsV7Fmt(v){const n=paymentsV7Num(v);return n===null?'TO_VERIFY':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n)}",
@@ -123,6 +125,13 @@ export async function onRequest(context){
     const paymentsPatched=patchPaymentsSourceAware(await response.text());
     patched=patchCashSingleOwner(paymentsPatched);
     patched=patchAdminOperationsEventRuntimeV12(patched);
+    // The Cloudflare/esbuild-compiled function.toString() snippets contain
+    // __name(...) calls. These snippets execute as a classic standalone
+    // browser script, outside the original bundler's private helper scope.
+    // Prepend its narrowly scoped equivalent BEFORE any injected controller.
+    const nameHelper="var __name=function(target,name){try{return Object.defineProperty(target,'name',{value:name,configurable:true})}catch(_){return target}};\n";
+    if(/\b(?:const|let|function)\s+__name\b/.test(patched))throw new Error('ADMIN_RUNTIME_NAME_HELPER_COLLISION');
+    patched=nameHelper+patched;
   }catch(error){
     return new Response(String(error?.message||error||'ADMIN_MAIN_UI_PATCH_FAILED'),{
       status:500,
