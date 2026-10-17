@@ -55,7 +55,7 @@ test('V12 transport patch is connected only after protected same-origin Admin co
   assert.doesNotMatch(v12,/\b(?:POST|PUT|PATCH|DELETE)\s+\/admin\/deals/i);
 });
 
-function harness(){
+function harness(snapshotOverride=null){
   const connections=[],calls=[],timeouts=new Map(),intervals=new Map(),listeners={};
   let serial=1,clock=0,pageActive=true;
   class FakeSocket{
@@ -92,7 +92,7 @@ function harness(){
     async ronaOpsV10Refresh(reason){
       calls.push(reason);
       context.window.__RONA_ADMIN_OPERATIONS_V2_STATUS__='READY';
-      return {version:'OPERATIONS_CURRENT_V2',generatedAt:new Date().toISOString()};
+      return snapshotOverride||{version:'OPERATIONS_CURRENT_V2',generatedAt:new Date().toISOString()};
     }
   };
   context.window.addEventListener=(type,fn)=>{listeners['window:'+type]=fn};
@@ -180,4 +180,55 @@ test('V12 adds only signal triggers to the actual financial source-of-truth chai
   assert.doesNotMatch(sql,/\bINSERT\s+INTO\s+portal_private\./i);
   assert.doesNotMatch(sql,/GRANT\s+.*(?:anon|authenticated)/i);
   assert.doesNotMatch(sql,/SECURITY\s+DEFINER/i);
+  assert.match(sql,/rona_admin_operations_presence_signal_v12/);
+  assert.match(sql,/AFTER INSERT OR DELETE OR UPDATE OF portal_user_id, portal_role, session_subject/);
+  assert.match(rollback,/rona_admin_operations_presence_signal_v12/);
+});
+
+test('V12.1 uses current authoritative read, not last mutation, as business-source availability',async()=>{
+  const sql=read('supabase/migrations/20261017163000_admin_operations_v12_current_read_semantics.sql');
+  const rollback=read('supabase/rollbacks/20261017163000_admin_operations_v12_current_read_semantics_rollback.sql');
+  const v11=read('supabase/migrations/20261011190000_admin_operations_source_truth_v11.sql');
+  const original=(await(await adminMain()).text());
+  const patched=patchAdminOperationsEventRuntimeV12(original);
+  assert.match(sql,/OPS_V12_READ_MODEL_BASE_SOURCE_DRIFT/);
+  assert.match(sql,/CURRENT_REGISTRY_READ/);
+  assert.match(sql,/CURRENT_AUTHORITY_READ/);
+  assert.match(sql,/CURRENT_DOCUMENT_REGISTRY_READ/);
+  assert.match(sql,/CURRENT_CONTRACT_REGISTRY_READ/);
+  assert.match(sql,/sourceReadIsNotBusinessReconfirmation/);
+  assert.match(sql,/NOT_RECONFIRMED_BY_SYSTEM_ADMIN/);
+  assert.match(sql,/m.active_deals>0 and ev.finance_last_authority is null/);
+  assert.match(sql,/ev.rail_active_targets>0/);
+  assert.match(sql,/OBSERVATION_OUTDATED/);
+  assert.doesNotMatch(sql,/72 hours/);
+  assert.doesNotMatch(sql,/RECONFIRM_REQUIRED/);
+  assert.doesNotMatch(sql,/AUTHORITY_DATE_OLD/);
+  assert.doesNotMatch(sql,/\bUPDATE\s+portal_private\./i);
+  assert.doesNotMatch(sql,/\bINSERT\s+INTO\s+portal_private\./i);
+  assert.match(rollback,/RECONFIRM_REQUIRED/);
+  assert.match(v11,/RECONFIRM_REQUIRED/);
+  assert.match(patched,/CURRENT_REGISTRY_READ/);
+  assert.match(patched,/CURRENT_AUTHORITY_READ/);
+  assert.match(patched,/CURRENT_DOCUMENT_REGISTRY_READ/);
+  assert.match(patched,/CURRENT_CONTRACT_REGISTRY_READ/);
+  assert.match(patched,/Состояние из реестра/);
+  new Function(patched);
+});
+
+test('V12 only reconciles online Client/Agent presence at its 75-second TTL boundary',async()=>{
+  const h=harness({version:'OPERATIONS_CURRENT_V2',generatedAt:new Date().toISOString(),
+    kpis:{clientsOnline:1,agentsOnline:0},systems:{presence:{ttlSeconds:75}}});
+  h.ctl.start(); const ws=h.connections[0];ws.open();ws.replyJoin();await h.flush();
+  assert.equal(h.calls.length,1);
+  await h.advance(74000);
+  assert.equal(h.calls.length,1);
+  await h.advance(2000);
+  assert.equal(h.calls.length,2,'Online presence expires unless resynchronized at TTL');
+  const idle=harness({version:'OPERATIONS_CURRENT_V2',generatedAt:new Date().toISOString(),
+    kpis:{clientsOnline:0,agentsOnline:0}});
+  idle.ctl.start(); const idleWs=idle.connections[0];
+  idleWs.open();idleWs.replyJoin();await idle.flush();
+  await idle.advance(110000);
+  assert.equal(idle.calls.length,1,'No active sessions must not trigger presence polling');
 });
