@@ -2446,7 +2446,10 @@ function renderDealDocuments(root,deal){
         confirmedTerm?fmt(num(term.rate)*100)+'% по действующему ДС':
           current?'Условия ДС требуют проверки':'Подписанное ДС пока не выбрано';
   const amount=el('div','rona-ar-doc-amount');
-  amount.append(el('div','rona-ar-doc-kicker',ownerPolicy?'Управленческое вознаграждение:':'Агентское вознаграждение'),
+  const amountLabel=el('div','rona-ar-doc-kicker',
+    ownerPolicy?'Управленческое вознаграждение:':'Агентское вознаграждение');
+  amountLabel.style.textTransform='none';
+  amount.append(amountLabel,
     el('div','rona-ar-doc-amount-value',
       amountKnown?money(reward.value,currencyOf(deal)):'—'),
     el('div','rona-ar-doc-amount-rule',rule));
