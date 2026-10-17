@@ -2444,9 +2444,9 @@ function renderDealDocuments(root,deal){
     rule=ownerPolicy?'50% положительной чистой прибыли (правило собственника)':
       ownerDs1?'50% от маржи по поставке (ДС №1)':
         confirmedTerm?fmt(num(term.rate)*100)+'% по действующему ДС':
-          current?'Условия ДС требуют проверки':'Подписанное ДС не привязано';
+          current?'Условия ДС требуют проверки':'Подписанное ДС пока не выбрано';
   const amount=el('div','rona-ar-doc-amount');
-  amount.append(el('div','rona-ar-doc-kicker','Агентское вознаграждение'),
+  amount.append(el('div','rona-ar-doc-kicker',ownerPolicy?'Управленческое вознаграждение:':'Агентское вознаграждение'),
     el('div','rona-ar-doc-amount-value',
       amountKnown?money(reward.value,currencyOf(deal)):'—'),
     el('div','rona-ar-doc-amount-rule',rule));
