@@ -8,9 +8,20 @@ const DB=Deno.env.get('SUPABASE_DB_URL');
 const SUPA_URL=Deno.env.get('SUPABASE_URL');
 const SERVICE_ROLE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 if(!DB) throw new Error('SUPABASE_DB_URL missing');
-const sql=postgres(DB,{prepare:false,max:2});
-const vaultSigning=await sql`select decrypted_secret from vault.decrypted_secrets where name='rona_ai_token_signing_key_v1' limit 1`;
-const SIGNING_KEY=Deno.env.get('RONA_AI_TOKEN_SIGNING_KEY')||String(vaultSigning[0]?.decrypted_secret||'');
+const sql=postgres(DB,{prepare:false,max:1,idle_timeout:2,connect_timeout:5,max_lifetime:60});
+const SIGNING_ENV=Deno.env.get('RONA_AI_TOKEN_SIGNING_KEY')||'';
+let vaultSigningCache=null;
+let vaultSigningInFlight=null;
+async function resolveSigningKey(){
+  if(SIGNING_ENV)return SIGNING_ENV;
+  if(vaultSigningCache!==null)return vaultSigningCache;
+  if(!vaultSigningInFlight){
+    vaultSigningInFlight=sql`select decrypted_secret from vault.decrypted_secrets where name='rona_ai_token_signing_key_v1' limit 1`
+      .then(rows=>{vaultSigningCache=String(rows[0]?.decrypted_secret||'');return vaultSigningCache})
+      .finally(()=>{vaultSigningInFlight=null});
+  }
+  return await vaultSigningInFlight;
+}
 const encoder=new TextEncoder(),decoder=new TextDecoder();
 const AI_ROLES=new Set(['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','COMMERCIAL_DIRECTOR','RAIL_LOGISTICS','SYSTEM_ADMIN']);
 const FIN_DOC_TYPES=new Set(['ИНВОЙС','КЛИЕНТСКИЙ ПАСПОРТ СДЕЛКИ','КОНТРАКТ','ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ']);
@@ -27,9 +38,10 @@ function safeBytes(a,b){if(!(a instanceof Uint8Array)||!(b instanceof Uint8Array
 async function hmac(keyText,input){const key=await crypto.subtle.importKey('raw',encoder.encode(String(keyText)),{name:'HMAC',hash:'SHA-256'},false,['sign']);return new Uint8Array(await crypto.subtle.sign('HMAC',key,encoder.encode(input)))}
 async function verifyToken(token){
   try{
-    if(!SIGNING_KEY||String(SIGNING_KEY).length<32)return{ok:false,code:'AI_IDENTITY_RUNTIME_NOT_CONFIGURED',status:503};
+    let key;try{key=await resolveSigningKey()}catch{return{ok:false,code:'AI_IDENTITY_RUNTIME_UNAVAILABLE',status:503}}
+    if(!key||String(key).length<32)return{ok:false,code:'AI_IDENTITY_RUNTIME_NOT_CONFIGURED',status:503};
     const p=String(token||'').split('.');if(p.length!==3)return{ok:false,code:'AI_TOKEN_INVALID',status:401};
-    const expected=await hmac(SIGNING_KEY,`${p[0]}.${p[1]}`),actual=b64urlDecodeBytes(p[2]);if(!safeBytes(expected,actual))return{ok:false,code:'AI_TOKEN_SIGNATURE_INVALID',status:401};
+    const expected=await hmac(key,`${p[0]}.${p[1]}`),actual=b64urlDecodeBytes(p[2]);if(!safeBytes(expected,actual))return{ok:false,code:'AI_TOKEN_SIGNATURE_INVALID',status:401};
     const header=b64urlDecodeJson(p[0]),x=b64urlDecodeJson(p[1]),now=Math.floor(Date.now()/1000);
     if(header?.alg!=='HS256'||header?.typ!=='JWT')return{ok:false,code:'AI_TOKEN_HEADER_INVALID',status:401};
     if(x?.iss!=='rona-ai-identity-broker'||x?.aud!=='rona-ai-read-only'||x?.actor_type!=='AI'||x?.scope!=='READ_ONLY')return{ok:false,code:'AI_TOKEN_SCOPE_INVALID',status:401};
