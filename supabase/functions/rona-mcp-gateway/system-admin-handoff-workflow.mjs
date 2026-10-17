@@ -42,9 +42,9 @@ export function createSystemAdminHandoffWorkflow(deps) {
  const error=(msg,code,status=403)=>rpcToolResponse(msg.id,{ok:false,code,status},true);
  const priorSql="SELECT record_id,status,version,payload_hash FROM portal_private.ai_coordination_records WHERE identity_id=$1 AND tool_name=$2 AND idempotency_key_hash=$3 LIMIT 1";
  const currentSql="SELECT record_id,parent_record_id,record_type,status,version,target_type,target_id,target_role::text AS target_role,functional_role::text AS sender,payload,source_refs,qa_only FROM portal_private.ai_coordination_records WHERE record_id=$1::uuid AND record_type='HANDOFF_REQUEST' AND target_role='SYSTEM_ADMIN'::portal_private.ai_business_role_enum AND qa_only=false FOR UPDATE";
- const auditSql="INSERT INTO portal_private.ai_coordination_audit_events(functional_role,identity_id,token_id,client_id,server_slug,tool_name,target_type,target_id,correlation_id,mcp_request_id,idempotency_key_hash,payload_hash,result,denial_code,resulting_record_id,resulting_version,qa_only,metadata) VALUES('SYSTEM_ADMIN'::portal_private.ai_business_role_enum,$1,$2::uuid,$3,$4,$5,$6,$7,$8::uuid,$9::uuid,$10,$11,'SUCCESS',null,$12::uuid,$13,false,$14::jsonb)";
+ const auditSql="INSERT INTO portal_private.ai_coordination_audit_events(functional_role,identity_id,token_id,client_id,server_slug,tool_name,target_type,target_id,correlation_id,mcp_request_id,idempotency_key_hash,payload_hash,result,denial_code,resulting_record_id,resulting_version,qa_only,metadata) VALUES('SYSTEM_ADMIN'::portal_private.ai_business_role_enum,$1,$2::uuid,$3,$4,$5,$6,$7,$8::uuid,$9::uuid,$10,$11,'SUCCESS',null,$12::uuid,$13,false,$14::text::jsonb)";
  const taskSql="INSERT INTO portal_private.staff_tasks(task_id,title,description,status,priority,authority_domain,assigned_functional_role,source_type,source_object_id,source_version,source_hash,qa_only) VALUES($1,$2,$3,'NEW'::portal_private.staff_task_status_enum,$4::portal_private.staff_priority_enum,'TECHNICAL','SYSTEM_ADMIN'::portal_private.staff_functional_role_enum,'SYSTEM_ADMIN_HANDOFF_V1',$5,'HANDOFF_SOURCE_V1',$6,false) ON CONFLICT(task_id) DO NOTHING RETURNING task_id,status::text";
- const insertCoordSql="INSERT INTO portal_private.ai_coordination_records(record_type,functional_role,identity_id,token_id,client_id,server_slug,tool_name,target_type,target_id,target_role,parent_record_id,version,supersedes_id,idempotency_key_hash,payload_hash,source_refs,evidence_refs,payload,status,correlation_id,mcp_request_id,qa_only) VALUES('HANDOFF_REQUEST','SYSTEM_ADMIN'::portal_private.ai_business_role_enum,$1,$2::uuid,$3,$4,'staff_handoff_status_submit',$5,$6,'SYSTEM_ADMIN'::portal_private.ai_business_role_enum,$7::uuid,$8,$9::uuid,$10,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15,$16::uuid,$17::uuid,false) RETURNING record_id,status,version";
+ const insertCoordSql="INSERT INTO portal_private.ai_coordination_records(record_type,functional_role,identity_id,token_id,client_id,server_slug,tool_name,target_type,target_id,target_role,parent_record_id,version,supersedes_id,idempotency_key_hash,payload_hash,source_refs,evidence_refs,payload,status,correlation_id,mcp_request_id,qa_only) VALUES('HANDOFF_REQUEST','SYSTEM_ADMIN'::portal_private.ai_business_role_enum,$1,$2::uuid,$3,$4,'staff_handoff_status_submit',$5,$6,'SYSTEM_ADMIN'::portal_private.ai_business_role_enum,$7::uuid,$8,$9::uuid,$10,$11,$12::text::jsonb,$13::text::jsonb,$14::text::jsonb,$15,$16::uuid,$17::uuid,false) RETURNING record_id,status,version";
  async function handle(ctx,req,msg){
   const name=String(msg?.params?.name||'');
   if(!toolSet.has(name))return null;
@@ -77,8 +77,15 @@ export function createSystemAdminHandoffWorkflow(deps) {
       const priorAudit=await tx.unsafe("SELECT payload_hash,metadata FROM portal_private.ai_coordination_audit_events WHERE identity_id=$1 AND tool_name=$2 AND idempotency_key_hash=$3 AND result='SUCCESS' AND qa_only=false ORDER BY event_at DESC LIMIT 1",[ctx.identity_id,name,idemHash]);
       if(priorAudit.length){
         if(priorAudit[0].payload_hash!==payloadHash)return{error:'IDEMPOTENCY_CONFLICT'};
-        const receipt=priorAudit[0].metadata||{};
-        if(!receipt.task_id||!receipt.root_record_id)return{error:'AUDIT_RECEIPT_INCOMPLETE'};
+        // Earlier postgres.js unsafe JSONB binds stored serialized receipts as JSON scalar strings.
+        // Preserve idempotency for those immutable audit events while writing native JSON objects going forward.
+        const storedReceipt=priorAudit[0].metadata;
+        let receipt=storedReceipt;
+        if(typeof receipt==='string'){
+          try{receipt=JSON.parse(receipt);}catch{return{error:'AUDIT_RECEIPT_INCOMPLETE'};}
+        }
+        if(!receipt||typeof receipt!=='object'||Array.isArray(receipt)||!receipt.task_id||!receipt.root_record_id)
+          return{error:'AUDIT_RECEIPT_INCOMPLETE'};
         const task=await tx.unsafe("SELECT task_id,status::text,source_type,source_object_id FROM portal_private.staff_tasks WHERE task_id=$1 LIMIT 1",[receipt.task_id]);
         if(task.length!==1||task[0].source_type!=='SYSTEM_ADMIN_HANDOFF_V1'||task[0].source_object_id!==receipt.root_record_id)
           return{error:'AUDIT_TASK_SOURCE_MISMATCH'};
