@@ -1005,7 +1005,8 @@ function renderOwner(deal){
   table.append(ownerComputedRow('Налоги и платежи (10%)','taxes',base.taxes,cur,'Управленческий расчёт 10% от положительной прибыли',false,false));
   table.append(ownerComputedRow('Чистая прибыль','netProfit',base.netProfit,cur,'Прибыль до налогообложения − расчётный налог'));
   const rewardRow=ownerComputedRow('Агентское вознаграждение','agentReward',base.reward.value,cur,
-    ownerSignedDs1ForManagement(deal)?'50% положительной маржи по ДС №1':'Вознаграждение по действующему ДС',
+    ownerApprovedManagementPolicy(deal)?'50% чистой прибыли · решение собственника':
+      ownerSignedDs1ForManagement(deal)?'50% положительной маржи по ДС №1':'Вознаграждение по действующему ДС',
     false,true,agentStatusText(base.reward.status));
   // Keep the signed FX contractual status in the source model; omit the UI badge.
   table.append(rewardRow);
