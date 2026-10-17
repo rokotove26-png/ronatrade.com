@@ -778,13 +778,14 @@ test('Signed agency DS source isolation: 005 mismatched term, 006 unbound, 010/0
       await page.addScriptTag({content:js});
       const diagnostic=page.locator('.rona-ar-doc-source-diagnostic');
       await diagnostic.waitFor({timeout:10000});
-      assert.match(await diagnostic.textContent(),new RegExp(item.expect),'Exact source reason '+item.dealId);
+      assert.match(await diagnostic.textContent(),/Управленческий расчёт утверждён собственником: 50% положительной чистой прибыли/,'Owner management rule must not be blocked by legacy DS references');
       assert.equal(await page.locator('.rona-ar-metric.owner-calculated-reward .rona-ar-metric-value').textContent(),
         '891,0 USD','Owner approved management reward regardless legacy DS binding at '+item.dealId);
       assert.equal(await page.locator('.rona-ar-scenarios-table [data-rona-owner-scenario="agentReward"]').textContent(),
         '891,0 USD','Owner approved 50% net profit management reward is calculated independently of historical term rows');
       assert.equal(await page.locator('.rona-ar-scenarios-table [data-rona-owner-scenario="ronaProfit"]').textContent(),
         '+891,0 USD','RONA result deducts exactly the displayed management reward');
+      assert.doesNotMatch(await diagnostic.textContent(),/условие не совпадает|Сумма по противоречивому основанию не начисляется/,'No obsolete warning in Owner management status');
       assert.deepEqual(post,[],'Source inspection is read only');
       await page.close();
     }
