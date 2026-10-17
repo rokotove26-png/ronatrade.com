@@ -167,8 +167,50 @@ export function compactEnvelope(envelope,payload,ctx,registry) {
   if (!payload?.data?.checkpoint || !Array.isArray(payload.data.global_role_policies)) return stateErrorEnvelope(envelope.id,'ROLE_STATE_SOURCE_INVALID');
   const projected = {...payload,data:compactState(payload.data,ctx,registry)};
   const out = structuredClone(envelope);
-  out.result.content[0].text = JSON.stringify(projected);
-  if (encoder.encode(JSON.stringify(out)).length > 24000) return stateErrorEnvelope(envelope.id,'CURRENT_STATE_BUDGET_EXCEEDED');
+  const measure = () => {
+    out.result.content[0].text = JSON.stringify(projected);
+    return encoder.encode(JSON.stringify(out)).length;
+  };
+  // The gateway limit applies to the complete MCP envelope (24 KiB). Finance
+  // can have numerous active assigned tasks. Full task detail remains intact
+  // in the existing history(tasks) tool; only compact current_state is reduced.
+  if (measure() > 24000) {
+    const tasks = projected.data.active_tasks;
+    if (Array.isArray(tasks) && tasks.length) {
+      projected.data.active_tasks = tasks.slice(0,10).map(t => select(t,[
+        'task_id','title','status','priority','authority_domain',
+        'assigned_functional_role','created_at','updated_at'
+      ]));
+      projected.data.active_tasks_projection = {
+        mode:'SUMMARY',source_task_count:tasks.length,
+        records_returned:projected.data.active_tasks.length,
+        truncated:tasks.length>10,
+        detail_tool:'history',detail_arguments:{domain:'tasks'},
+      };
+    }
+  }
+  if (measure() > 24000) {
+    const resume = projected.data.execution_recovery?.execution_resume;
+    const workstreams = resume?.workstreams;
+    if (Array.isArray(workstreams) && workstreams.length) {
+      resume.workstreams = workstreams.slice(0,3);
+      resume.workstreams_truncated = true;
+      resume.workstreams_projection = 'SUMMARY_LIMITED_TO_3';
+      resume.full_detail_tool = 'execution_checkpoint_read';
+    }
+  }
+  if (measure() > 24000) {
+    // Client tool reference is diagnostic, NOT an authority source. Never
+    // truncate enabled/authorized tool lists or bootstrap role policies.
+    const reference = projected.data.tool_registry?.client_visible;
+    if (Array.isArray(reference?.reference_names)) {
+      reference.reference_source_count = reference.reference_names.length;
+      reference.reference_names = [];
+      reference.reference_projection = 'COUNTS_ONLY_CHECK_CLIENT_TOOL_REGISTRY';
+      reference.status = 'UNKNOWN';
+    }
+  }
+  if (measure() > 24000) return stateErrorEnvelope(envelope.id,'CURRENT_STATE_BUDGET_EXCEEDED');
   return out;
 }
 
