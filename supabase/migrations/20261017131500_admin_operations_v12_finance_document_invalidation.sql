@@ -30,4 +30,19 @@ BEGIN
      item.table_name,item.domain
    );
  END LOOP;
-END $$;
+ -- Presence connection lifecycle, not 25-second last_seen_at heartbeats:
+ -- publish a small OPERATIONS version only when a client/agent connects,
+ -- disconnects or their identity/role changes.
+ IF to_regclass('portal_private.portal_presence_connections_v1') IS NULL THEN
+   RAISE EXCEPTION 'OPERATIONS_V12_PRESENCE_TABLE_MISSING';
+ END IF;
+ IF EXISTS (SELECT 1 FROM pg_catalog.pg_trigger
+   WHERE tgrelid='portal_private.portal_presence_connections_v1'::regclass
+     AND tgname='rona_admin_operations_presence_signal_v12') THEN
+   RAISE EXCEPTION 'OPERATIONS_V12_PRESENCE_SIGNAL_ALREADY_PRESENT';
+ END IF;
+ CREATE TRIGGER rona_admin_operations_presence_signal_v12
+   AFTER INSERT OR DELETE OR UPDATE OF portal_user_id, portal_role, session_subject
+   ON portal_private.portal_presence_connections_v1
+   FOR EACH ROW EXECUTE FUNCTION portal_private.rona_admin_operations_touch_v1('OPERATIONS');
+END $;
