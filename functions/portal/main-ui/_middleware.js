@@ -68,6 +68,21 @@ function patchPaymentsCurrentSemantics(source){
   return paymentsMoneyDisplayContract+'\n'+script;
 }
 
+function patchPaymentsSourceAware(source){
+  const script=String(source||'');
+  const embeddedPaymentsV7=script.includes('paymentsV7Deal=function paymentsV7DealFinalDisplay(deal){');
+  if(embeddedPaymentsV7)return patchPaymentsCurrentSemantics(script);
+  // Current Admin first-paint shell contains only the V7-owned visual guard.
+  // Its canonical signed/payment values are loaded separately through
+  // /portal/payments-v8-ui by patchCashSingleOwner. Applying the retired
+  // embedded V7 source rewrite here caused HTTP 500 and blank Admin Home.
+  if(script.includes('__RONA_PAYMENTS_CANONICAL_FIRST_PAINT_GUARD_V3__')
+     && !script.includes('paymentsV7OwnerMoney(deal?.due_now')){
+    return paymentsMoneyDisplayContract+'\n'+script;
+  }
+  throw new Error('ADMIN_PAYMENTS_SOURCE_UNRECOGNIZED_FAIL_CLOSED');
+}
+
 function patchCashSingleOwner(source){
   let script=String(source||'');
   const start=script.indexOf(LEGACY_RENDER_START);
@@ -105,7 +120,7 @@ export async function onRequest(context){
   if(!contentType.includes('javascript'))return response;
   let patched;
   try{
-    const paymentsPatched=patchPaymentsCurrentSemantics(await response.text());
+    const paymentsPatched=patchPaymentsSourceAware(await response.text());
     patched=patchCashSingleOwner(paymentsPatched);
     patched=patchAdminOperationsEventRuntimeV12(patched);
   }catch(error){
@@ -130,4 +145,4 @@ export async function onRequest(context){
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
 
-export const __test={patchCashSingleOwner,patchPaymentsCurrentSemantics,patchAdminOperationsEventRuntimeV12,CASH_OWNER,PAYMENTS_OWNER,PAYMENTS_V8_BOOTSTRAP_OWNER,RADIO_VISUAL_VERSION};
+export const __test={patchCashSingleOwner,patchPaymentsCurrentSemantics,patchPaymentsSourceAware,patchAdminOperationsEventRuntimeV12,CASH_OWNER,PAYMENTS_OWNER,PAYMENTS_V8_BOOTSTRAP_OWNER,RADIO_VISUAL_VERSION};
