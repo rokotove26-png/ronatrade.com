@@ -96,7 +96,7 @@ export function createSystemAdminHandoffWorkflow(deps) {
     const newer=await tx.unsafe("SELECT record_id FROM portal_private.ai_coordination_records WHERE supersedes_id=$1::uuid AND qa_only=false LIMIT 1",[args.record_id]);
     if(newer.length)return{error:'HANDOFF_VERSION_SUPERSEDED'};
     if(!['REQUESTED','ACKNOWLEDGED','BLOCKED'].includes(src.status))return{error:'HANDOFF_STATUS_TERMINAL'};
-    const root=String(src.parent_record_id||src.record_id);
+    const root=String(src.payload?.handoff_lifecycle?.root_record_id||src.parent_record_id||src.record_id);
     const taskId=technicalHandoffTaskId(root);
     const isTechnical=src.target_type==='SYSTEM'&&EXACT_SYSTEM.has(src.target_id);
     if(name==='staff_handoff_task_materialize') {
@@ -127,7 +127,7 @@ export function createSystemAdminHandoffWorkflow(deps) {
       previous_record_id:src.record_id,outcome:args.outcome,note:args.note,evidence_refs:args.evidence_refs}};
     const inserted=await tx.unsafe(insertCoordSql,[
       ctx.identity_id,ctx.token_id,ctx.client_id,ctx.server_slug,src.target_type,src.target_id,
-      root,Number(src.version)+1,src.record_id,idemHash,payloadHash,
+      args.outcome==='VERIFIED_RESOLVED'?root:null,Number(src.version)+1,src.record_id,idemHash,payloadHash,
       JSON.stringify(src.source_refs||[]),JSON.stringify(args.evidence_refs),JSON.stringify(payload),
       args.outcome,ids.correlationId,ids.mcpRequestId
     ]);
