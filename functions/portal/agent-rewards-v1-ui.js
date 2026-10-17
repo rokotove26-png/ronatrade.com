@@ -390,6 +390,17 @@ function documentTermMismatch(deal){
 }
 
 function agencyDsTermDiagnostic(deal,docs){
+  // For InKom, Owner's management instruction is already the rule of record.
+  // A legacy addendum/term identifier mismatch cannot block the management
+  // projection. The signed Act and external payment keep their own guards.
+  const management=ownerApprovedManagementPolicy(deal);
+  if(management){
+    const uploaded=docs?.currentAddendum?.ownerApprovedByUpload===true;
+    return 'Управленческий расчёт утверждён собственником: 50% положительной чистой прибыли.'+
+      (uploaded?' Загруженное ДС учтено; повторного подтверждения собственника не требуется.'
+        :' Для внешнего акта подписанное ДС регистрируется отдельно.')+
+      ' Формирование юридического акта и оплата остаются отдельными действиями.'
+  }
   const addendum=docs?.currentAddendum,term=docs?.term;
   if(!addendum)return deal?.agentTerm?.mode
     ?'Есть расчётное условие, но связанный подписанный агентский документ отсутствует у этой сделки и назначения агента. Договорное вознаграждение не подтверждено.'

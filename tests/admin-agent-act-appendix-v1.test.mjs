@@ -207,3 +207,11 @@ test('Owner InKom net-profit policy does not rewrite signed Act financial append
   assert.ok(ui.includes("sourceKind:'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE'"));
   assert.ok(ui.includes('ACT_PDF_TWO_PAGES_REQUIRED'));
 });
+
+test('Owner source status wording preserves external signed-Act checks and ledger',async()=>{
+  const ui=await(await uiResponse()).text();
+  assert.ok(ui.includes('Управленческий расчёт утверждён собственником: 50% положительной чистой прибыли'));
+  assert.ok(ui.includes('Формирование юридического акта и оплата остаются отдельными действиями'));
+  assert.ok(ui.includes("docCall(deal,'request-act'"));
+  assert.ok(ui.includes('ACT_PDF_ARCHIVE_VERIFICATION_FAILED'));
+});

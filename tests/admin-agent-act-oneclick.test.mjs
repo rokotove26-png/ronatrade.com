@@ -332,3 +332,11 @@ test('Signed DS diagnostics never authorize an Act or a payable on their own',as
   assert.ok(ui.includes('ownerConfirmsSigning:true,ownerConfirmsFacsimile:true'));
   assert.ok(ui.includes("if(docs.sourceReadiness?.termAligned!==true)"));
 });
+
+test('Owner InKom approval is visible without requiring a second DS-term approval',async()=>{
+  const ui=await(await uiResponse()).text();
+  assert.ok(ui.includes('Управленческий расчёт утверждён собственником: 50% положительной чистой прибыли'));
+  assert.ok(ui.includes("uploaded?' Загруженное ДС учтено; повторного подтверждения собственника не требуется.'"));
+  assert.ok(ui.includes('const signedDs1=ownerSignedDs1ForManagement(deal)'));
+  assert.ok(ui.includes('createsPayable:false'));
+});
