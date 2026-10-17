@@ -38,7 +38,7 @@ jobs:
           node --check functions/portal/main-ui/_middleware.js
       - name: V12 realtime no-polling and V11 source-lock contracts
         run: |
-          node --test tests/admin-operations-current-v12/event-driven-v12.test.mjs
+          node --test tests/admin-operations-current-v12/*.test.mjs
           node --test tests/admin-operations-source-truth-v11.test.mjs tests/admin-operations-current-v2/single-owner-static.test.mjs
       - name: Compile Cloudflare Pages canonical Admin/Client build
         run: npm run build
