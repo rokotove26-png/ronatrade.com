@@ -1505,9 +1505,19 @@ function ownerActSavedCalculation(deal,model,currency,saved){
   const corrected=saved.correctedPayload||{};
   if(!corrected.paymentLineAmounts||!Object.hasOwn(corrected,'openSettlementAdjustment'))
     throw new Error('OWNER_SAVED_CORRECTION_PAYLOAD_MISSING');
+  // Preserve signed DS1 external Act semantics independently of the global
+  // Owner 50%-of-net-profit management projection. Do not silently alter an
+  // existing signed PDF or imply its clauses have changed.
+  const signedDs1=ownerSignedDs1ForManagement(deal);
+  const signedMargin=num(model.actualFinancialResult);
+  if(signedDs1&&signedMargin===null)throw new Error('ACT_VERIFIED_SHIPMENT_MARGIN_REQUIRED');
+  const actReward=signedDs1?round1(Math.max(0,signedMargin)*0.5):round1(model.reward);
+  const actRonaProfit=signedDs1&&actReward!==null&&num(model.netProfit)!==null
+    ?num(model.netProfit)-actReward:model.ronaProfit;
   const fields=['income','expenses','counterpartyCashOut','netCashFlow',
     'actualFinancialResult','taxes','netProfit','reward','ronaProfit'];
-  const numbers=Object.fromEntries(fields.map(k=>[k,round1(model[k])]));
+  const numbers=Object.fromEntries(fields.map(k=>[k,round1(
+    k==='reward'?actReward:k==='ronaProfit'?actRonaProfit:model[k])]));
   return Object.freeze({
     contract:'OWNER_SECTION_SAVED_CALCULATION_V1',
     dealId:String(deal.dealId),assignmentId:String(deal.assignmentId),
@@ -1517,7 +1527,7 @@ function ownerActSavedCalculation(deal,model,currency,saved){
       openSettlementAdjustment:corrected.openSettlementAdjustment
     },
     ...numbers,
-    agentRewardStatus:String(model.rewardStatus||''),
+    agentRewardStatus:signedDs1?'OWNER_DS1_SHIPMENT_MARGIN_SAVED_SECTION':String(model.rewardStatus||''),
     agentBasisStatus:String(model.agentBasis||''),
     sourceKind:'OWNER_APPROVED_SECTION_AT_SAVE_NOT_FINANCE_PAYABLE',
     ownerActDeclaration:ownerSignedDs1ForManagement(deal)?null:
