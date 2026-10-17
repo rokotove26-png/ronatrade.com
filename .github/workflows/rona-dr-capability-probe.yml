@@ -1,0 +1,46 @@
+name: RONA emergency backup capability probe (no data)
+on:
+  push:
+    branches:
+      - ops/dr-secure-egress-check-20261017
+    paths:
+      - .github/workflows/rona-dr-capability-probe.yml
+permissions:
+  contents: read
+jobs:
+  secure-egress-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      DB_URL_PRIMARY: ${{ secrets.SUPABASE_DB_URL }}
+      DB_URL_COMPAT: ${{ secrets.DATABASE_URL }}
+      DB_URL_ALT: ${{ secrets.POSTGRES_URL }}
+      STORAGE_KEY_PRIMARY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      STORAGE_KEY_COMPAT: ${{ secrets.SUPABASE_SECRET_KEY }}
+    steps:
+      - name: Test access without exporting data or writing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_url="${DB_URL_PRIMARY:-${DB_URL_COMPAT:-${DB_URL_ALT:-}}}"
+          if [ -n "$db_url" ]; then
+            if command -v pg_isready >/dev/null && pg_isready -d "$db_url" -t 6 >/dev/null 2>&1; then
+              echo "POSTGRES_ACCESS=PASS"
+            else
+              echo "POSTGRES_ACCESS=NO_CONNECTION"
+            fi
+          else
+            echo "POSTGRES_ACCESS=NO_AUTHORIZED_URL"
+          fi
+          storage_key="${STORAGE_KEY_PRIMARY:-${STORAGE_KEY_COMPAT:-}}"
+          if [ -n "$storage_key" ]; then
+            code="$(curl -sS --max-time 12 -o /dev/null -w '%{http_code}' -X POST -H "apikey: $storage_key" -H "Authorization: Bearer $storage_key" -H 'Content-Type: application/json' --data '{"limit":1}' 'https://sxawrwzeobaqwwmlkzws.supabase.co/storage/v1/object/list/rona-documents' || true)"
+            if [ "$code" = 200 ] || [ "$code" = 404 ]; then
+              echo "STORAGE_API_REACHABILITY=PASS"
+            else
+              echo "STORAGE_API_REACHABILITY=NEEDS_AUTH_OR_BUCKET_REVIEW"
+            fi
+          else
+            echo "STORAGE_API_REACHABILITY=NO_AUTHORIZED_KEY"
+          fi
+          echo "BACKUP_DATA_EXPORTED=NO"
