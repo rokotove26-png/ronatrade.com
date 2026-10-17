@@ -16,11 +16,12 @@ function operationsV12Controller(){
   const PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
   const DOMAIN_NAMES=new Set(['DEALS','OPERATIONS','DOCUMENTS','FINANCE','RAIL','REGISTRY']);
   const SAFETY_MS=12*60*1000;
+  const PRESENCE_TTL_MS=75*1000;
   const reconnectSteps=[1200,2600,5500,12000,30000];
   let started=false,connected=false,everConnected=false,paused=false;
   let socket=null,seq=1,joinRef='',reconnectCount=0,lastRead=0,read=null;
   let dirty=true,pending=false,eventEpoch=0,bootstrapFetched=false,bootstrapFallback=false;
-  let initialTimer=0,eventTimer=0,safetyTimer=0,reconnectTimer=0,heartbeatTimer=0,retryTimer=0;
+  let initialTimer=0,eventTimer=0,safetyTimer=0,reconnectTimer=0,heartbeatTimer=0,retryTimer=0,presenceTimer=0;
   const versions=new Map(),stats={reads:0,events:0,coalesced:0};
   const now=()=>Date.now();
   const home=()=>document.visibilityState==='visible'&&ronaOpsV10HomeVisible();
@@ -41,6 +42,7 @@ function operationsV12Controller(){
     if(name==='event'){clearTimeout(eventTimer);eventTimer=0}
     if(name==='initial'){clearTimeout(initialTimer);initialTimer=0}
     if(name==='safety'){clearTimeout(safetyTimer);safetyTimer=0}
+    if(name==='presence'){clearTimeout(presenceTimer);presenceTimer=0}
     if(name==='retry'){clearTimeout(retryTimer);retryTimer=0}
     if(name==='reconnect'){clearTimeout(reconnectTimer);reconnectTimer=0}
   }
@@ -52,6 +54,22 @@ function operationsV12Controller(){
       if(home())void refresh('SAFETY_REVALIDATION');
       else dirty=true;
     },SAFETY_MS);
+  }
+  function presenceExpiry(snapshot){
+    timerClear('presence');
+    if(!home())return;
+    const clients=Number(snapshot?.kpis?.clientsOnline||0),
+      agents=Number(snapshot?.kpis?.agentsOnline||0);
+    if(!(clients>0||agents>0))return;
+    // Only while real sessions are reported online: one bounded read at
+    // their TTL boundary. A disconnected session must not remain online
+    // indefinitely, even when no new database event arrives.
+    const ttl=Math.min(90*1000,Math.max(PRESENCE_TTL_MS,
+      Number(snapshot?.systems?.presence?.ttlSeconds||75)*1000));
+    presenceTimer=setTimeout(()=>{
+      presenceTimer=0;
+      if(home())void refresh('PRESENCE_TTL_RECONCILE');
+    },ttl);
   }
   function retry(){
     if(retryTimer||!home())return;
@@ -79,6 +97,7 @@ function operationsV12Controller(){
         dirty=eventEpoch!==epoch;
         diagnostic(connected?'CONNECTED':'OFFLINE',reason);
         safety();
+        presenceExpiry(result);
       }else{
         dirty=true;
         window.__RONA_ADMIN_OPERATIONS_V12_FAILURES__=
@@ -208,7 +227,7 @@ function operationsV12Controller(){
   function suspend(){
     paused=true;dirty=true;
     timerClear('reconnect');timerClear('event');timerClear('initial');
-    timerClear('safety');heartbeatStop();
+    timerClear('safety');timerClear('presence');heartbeatStop();
     if(socket){
       const current=socket;socket=null;connected=false;
       window.__RONA_ADMIN_OPERATIONS_EVENT_SOCKET_V12__=null;
