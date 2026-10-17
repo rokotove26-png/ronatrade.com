@@ -5,7 +5,7 @@ const PORTAL_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
 const ADMIN_FALLBACK_API=`${SUPABASE_URL}/functions/v1/rona-admin-control-plane`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
-const ADMIN_CSP="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tiles.openfreemap.org; connect-src 'self'; font-src 'self' data: https://tiles.openfreemap.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'";
+const ADMIN_CSP="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tiles.openfreemap.org; connect-src 'self' wss://sxawrwzeobaqwwmlkzws.supabase.co; font-src 'self' data: https://tiles.openfreemap.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'";
 const SESSION_RETRY_DELAYS_MS=Object.freeze([0,250,500,1000]);
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
