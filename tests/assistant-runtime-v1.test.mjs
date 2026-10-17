@@ -188,3 +188,6 @@ import './system-admin-handoff-inbox-v1.test.mjs';
 
 // Finance current_state limit regression (full history remains canonical).
 import './finance-current-state-budget-v1.test.mjs';
+
+// Role-safe SYSTEM_ADMIN coordination lifecycle regression.
+import './system-admin-handoff-lifecycle-v1.test.mjs';
