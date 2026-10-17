@@ -234,3 +234,27 @@ test('V12 only reconciles online Client/Agent presence at its 75-second TTL boun
   await idle.advance(110000);
   assert.equal(idle.calls.length,1,'No active sessions must not trigger presence polling');
 });
+
+test('RONA Admin Content Security Policy permits exact realtime WSS origin only',()=>{
+  const source=read('functions/portal/admin.js');
+  assert.match(source,/connect-src 'self' wss:\/\/sxawrwzeobaqwwmlkzws\.supabase\.co;/);
+  assert.doesNotMatch(source,/connect-src[^;]*(?:\*\.supabase\.co|wss:\/\/\*|unsafe-eval)/);
+  assert.match(source,/frame-ancestors 'none'/);
+  assert.match(source,/object-src 'none'/);
+  assert.match(source,/form-action 'self'/);
+});
+
+test('WebSocket constructor security failure never prevents initial Admin rendering',async()=>{
+  const h=harness();
+  h.context.WebSocket=class DeniedWebSocket{
+    constructor(){throw new Error('SecurityError: CSP connect-src blocked websocket')}
+  };
+  assert.doesNotThrow(()=>h.ctl.start());
+  assert.equal(h.context.window.__RONA_ADMIN_OPERATIONS_EVENTS_V12__.status,'OFFLINE');
+  assert.equal(h.context.window.__RONA_ADMIN_OPERATIONS_EVENTS_V12__.reason,'WEBSOCKET_CONSTRUCTOR_REJECTED');
+  await h.advance(1400);
+  assert.deepEqual(h.calls,['INITIAL_SOCKET_WAIT_TIMEOUT']);
+  assert.equal(h.context.window.__RONA_ADMIN_OPERATIONS_V2_STATUS__,'READY');
+  await h.advance(70000);
+  assert.equal(h.calls.length,1,'WebSocket retry must not spam authenticated Operations RPC');
+});
