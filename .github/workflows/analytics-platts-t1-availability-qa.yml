@@ -1,0 +1,26 @@
+name: Analytics Platts T+1 source-availability QA
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/migrations/20261009133000_analytics_platts_t1_availability_gate_v1.sql'
+      - 'supabase/rollbacks/20261009133000_analytics_platts_t1_availability_gate_v1_rollback.sql'
+      - 'tests/analytics-platts-t1-availability-gate-v1.test.mjs'
+      - '.github/workflows/analytics-platts-t1-availability-qa.yml'
+permissions:
+  contents: read
+jobs:
+  t1-availability-source-safe:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify T+1 cutoff and complete rollback
+        run: node --test tests/analytics-platts-t1-availability-gate-v1.test.mjs
+      - name: Confirm this PR cannot publish stale or raw quotes by itself
+        run: |
+          test -f supabase/rollbacks/20261009133000_analytics_platts_t1_availability_gate_v1_rollback.sql
+          grep -q "do not apply until confirmed derived-content licensing" supabase/migrations/20261009133000_analytics_platts_t1_availability_gate_v1.sql
+          echo 'PLATTS_SOURCE_AVAILABILITY_DRAFT_GATE=PASS'
