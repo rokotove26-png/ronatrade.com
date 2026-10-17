@@ -238,3 +238,14 @@ test('Spectrum V3 changes presentation, not signed financial appendix or correct
   assert.match(ui,/ACT_PDF_ARCHIVE_VERIFICATION_FAILED/);
   assert.match(ui,/rona-ar-spectrum-jumpbar/);
 });
+
+test('Compact Act panel does not promote unsaved management values into a signed Act',async()=>{
+  const js=await(await uiResponse()).text();
+  assert.match(js,/if\(matchingActs\.length\)actBlock\.append\(renderActRecord/);
+  assert.match(js,/else if\(current\&\&correction\)/);
+  assert.match(js,/Сначала сохраните корректировку/);
+  assert.match(js,/Для акта требуется дополнительное соглашение/);
+  assert.match(js,/Не создаёт платёжное обязательство/);
+  assert.match(js,/Условия ДС требуют проверки/);
+  assert.match(js,/ownerModel\(deal,cashFactModel\(deal\)\)/);
+});

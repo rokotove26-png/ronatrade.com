@@ -1009,3 +1009,20 @@ test('Owner reuses a previously uploaded signed DS for a second deal of the same
     }
   }finally{await browser.close()}
 });
+
+test('Compact Documents and Act layout is source-locked and responsive',async()=>{
+  const js=await(await onRequest()).text();
+  assert.match(js,/function installDealDocumentsCompactStyle\(\)/);
+  assert.match(js,/rona-ar-doc-card--agreement/);
+  assert.match(js,/rona-ar-doc-card--act/);
+  assert.match(js,/rona-ar-doc-file-row/);
+  assert.match(js,/rona-ar-doc-amount-rule/);
+  assert.match(js,/rona-ar-doc-diagnostic-toggle/);
+  assert.match(js,/align-items:start/);
+  assert.match(js,/@media\(max-width:1250px\)/);
+  assert.match(js,/@media\(max-width:760px\)/);
+  assert.match(js,/toggle\.setAttribute\('aria-controls',sourceInfo\.id\)/);
+  assert.match(js,/sourceInfo\.setAttribute\('role','status'\)/);
+  assert.match(js,/setExpanded\(!current\|\|\(!ownerPolicy\&\&!ownerDs1\&\&!confirmedTerm\)\)/);
+  assert.match(js,/installSpectrumDesignStyle\(\);\s*replace\(root\)/);
+});

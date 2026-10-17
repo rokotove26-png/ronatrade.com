@@ -368,3 +368,19 @@ test('Spectrum V3 redesign preserves signed agreement bindings and Owner Act iss
   assert.match(ui,/createsPayable:false/);
   assert.match(ui,/await docCall\(deal,'bind'/);
 });
+
+test('Compact document surface retains immutable signed PDF actions',async()=>{
+  const js=await(await uiResponse()).text();
+  for(const phrase of [
+    'renderExistingAddendumPicker(deal,',
+    'signedAgencyDownload(',
+    'uploadDealAddendum(',
+    'issueFromSavedOwnerCorrection(deal,issue)',
+    'renderActRecord(deal,docs,matchingActs[0])',
+    "current?'ДС привязано':'Нет ДС'",
+    'hasArchivedAct',
+    'ДС загружено и привязано к сделке',
+    'Скачать ДС',
+    'Сформировать и скачать акт'
+  ])assert.ok(js.includes(phrase),'Missing signed-document guard/action: '+phrase);
+});

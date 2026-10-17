@@ -716,6 +716,7 @@ function installSpectrumDesignStyle(){
 }
 `;
   document.head.append(style);
+  installDealDocumentsCompactStyle();
 }
 
 function page(){return document.getElementById('page-agent-settlements')}
@@ -1792,6 +1793,15 @@ function updateExecutiveInsightsForDraft(col,deal,draft){
 }
 
 const AGREEMENT_API='/portal/agency-contracts',DEAL_DOCUMENT_API='/portal/agent-reward-workflow';
+function installDealDocumentsCompactStyle(){
+  let style=q('#ronaArDealDocumentsCompactStyle');
+  if(!style){
+    style=el('style');style.id='ronaArDealDocumentsCompactStyle';
+    style.textContent="\n#page-agent-settlements .rona-ar-documents{\n  padding:13px 15px;gap:9px;border-radius:15px;\n  border-color:rgba(135,171,237,.29);\n  background:linear-gradient(135deg,rgba(15,30,58,.95),rgba(8,23,43,.97));\n  box-shadow:0 12px 31px rgba(0,6,25,.22),inset 0 1px rgba(245,250,255,.04)\n}\n#page-agent-settlements .rona-ar-doc-head{\n  padding:0 0 9px;margin:0;border-color:rgba(157,180,237,.17)\n}\n#page-agent-settlements .rona-ar-doc-title{font-size:16px;line-height:1.35}\n#page-agent-settlements .rona-ar-doc-columns{\n  display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);\n  gap:11px;align-items:start\n}\n#page-agent-settlements .rona-ar-doc-card{\n  display:flex;flex-direction:column;align-self:start;\n  min-height:0;padding:12px 13px;gap:9px;border-radius:13px;\n  background:linear-gradient(145deg,rgba(20,41,77,.79),rgba(7,22,43,.94))\n}\n#page-agent-settlements .rona-ar-doc-card--act{\n  border-color:rgba(97,212,193,.29);\n  background:linear-gradient(155deg,rgba(12,54,63,.74),rgba(9,28,50,.95))\n}\n#page-agent-settlements .rona-ar-doc-card-heading{\n  display:flex;align-items:center;gap:10px;min-width:0\n}\n#page-agent-settlements .rona-ar-doc-card-icon{\n  flex:0 0 32px;display:grid;place-items:center;width:32px;height:32px;\n  border:1px solid rgba(108,214,244,.33);border-radius:9px;\n  background:rgba(37,123,152,.25);color:#9beeff;font-size:19px\n}\n#page-agent-settlements .rona-ar-doc-card--act .rona-ar-doc-card-icon{\n  border-color:rgba(102,226,181,.3);color:#9bf1d0;\n  background:rgba(27,138,121,.21)\n}\n#page-agent-settlements .rona-ar-doc-heading-text{min-width:0;flex:1}\n#page-agent-settlements .rona-ar-doc-card-title{\n  margin:0;color:#f6fdff;font-size:13px;line-height:1.3;font-weight:900\n}\n#page-agent-settlements .rona-ar-doc-card-sub{\n  margin-top:2px;color:#9fbacf;font-size:10px;line-height:1.35\n}\n#page-agent-settlements .rona-ar-doc-status{\n  flex:0 0 auto;max-width:135px;padding:4px 7px;border-radius:100px;\n  border:1px solid rgba(241,186,104,.32);background:rgba(143,92,39,.14);\n  color:#ffca87;font-size:9.5px;font-weight:850;text-align:center\n}\n#page-agent-settlements .rona-ar-doc-status.is-ready{\n  color:#88e9c9;border-color:rgba(98,227,171,.3);\n  background:rgba(26,131,95,.15)\n}\n#page-agent-settlements .rona-ar-doc-agent-row{\n  display:flex;align-items:baseline;gap:10px;min-width:0;\n  padding:7px 0;border-top:1px solid rgba(129,176,217,.12);\n  border-bottom:1px solid rgba(129,176,217,.12)\n}\n#page-agent-settlements .rona-ar-doc-agent-row .rona-ar-doc-kicker{font-size:9px}\n#page-agent-settlements .rona-ar-doc-agent-name{\n  min-width:0;color:#b7d2e2;font-size:11px;\n  white-space:nowrap;overflow:hidden;text-overflow:ellipsis\n}\n#page-agent-settlements .rona-ar-doc-file-row{\n  display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0;\n  padding:9px 10px;border:1px solid rgba(109,180,238,.2);\n  border-radius:9px;background:rgba(5,19,37,.55)\n}\n#page-agent-settlements .rona-ar-doc-pdf{\n  display:grid;place-items:center;flex:0 0 30px;\n  width:30px;height:33px;border-radius:7px;\n  color:#fff2f1;background:linear-gradient(145deg,#ae354c,#68253d);\n  font-size:10px;font-weight:950\n}\n#page-agent-settlements .rona-ar-doc-file-copy{flex:1 1 160px;min-width:110px}\n#page-agent-settlements .rona-ar-doc-file-copy .rona-ar-doc-name{font-size:12px}\n#page-agent-settlements .rona-ar-doc-file-copy .rona-ar-doc-note{\n  font-size:10px;line-height:1.4;margin-top:2px\n}\n#page-agent-settlements .rona-ar-doc-file-row .rona-ar-doc-btn{\n  flex:0 0 auto;min-height:32px;padding:6px 10px;\n  white-space:nowrap;font-size:10.5px;box-shadow:none\n}\n#page-agent-settlements .rona-ar-doc-amount{\n  display:grid;grid-template-columns:minmax(0,1fr) auto;\n  align-items:center;gap:4px 12px;min-width:0;padding:10px 11px;\n  border:1px solid rgba(95,208,191,.24);border-radius:10px;\n  background:linear-gradient(105deg,rgba(13,80,89,.27),rgba(8,26,48,.47))\n}\n#page-agent-settlements .rona-ar-doc-amount .rona-ar-doc-kicker{\n  grid-column:1;grid-row:1;font-size:9px\n}\n#page-agent-settlements .rona-ar-doc-amount-value{\n  grid-column:2;grid-row:1 / span 2;\n  color:#c3fbe0;font-size:clamp(17px,1.6vw,22px);\n  font-weight:950;letter-spacing:-.025em;white-space:nowrap\n}\n#page-agent-settlements .rona-ar-doc-amount-rule{\n  grid-column:1;grid-row:2;\n  color:#c8ddec;font-size:11px;line-height:1.4\n}\n#page-agent-settlements .rona-ar-doc-amount>.rona-ar-doc-note{\n  grid-column:1 / -1;font-size:10px\n}\n#page-agent-settlements .rona-ar-doc-act-block{\n  display:flex;flex-wrap:wrap;align-items:center;gap:8px 11px;\n  padding:7px 0;border-top:1px solid rgba(132,196,210,.15)\n}\n#page-agent-settlements .rona-ar-doc-act-title{\n  color:#d7ebf7;font-size:11px;font-weight:850\n}\n#page-agent-settlements .rona-ar-doc-act-block>.rona-ar-doc-note{\n  flex:1 1 140px;font-size:10.5px\n}\n#page-agent-settlements .rona-ar-doc-request{\n  display:flex;flex:1 1 160px;align-items:center;justify-content:flex-end;\n  gap:8px;flex-wrap:wrap;padding:0;border:0\n}\n#page-agent-settlements .rona-ar-doc-request .rona-ar-doc-name{font-size:11px}\n#page-agent-settlements .rona-ar-doc-act-block .rona-ar-doc-btn{\n  min-height:32px;padding:6px 11px;font-size:10.5px\n}\n#page-agent-settlements .rona-ar-doc-diagnostic-wrapper{\n  display:grid;gap:5px;padding-top:6px;\n  border-top:1px solid rgba(131,193,207,.13)\n}\n#page-agent-settlements .rona-ar-doc-diagnostic-toggle{\n  justify-self:start;padding:2px 0;border:0;background:none;\n  color:#8bc5db;font:inherit;font-size:10.5px;cursor:pointer\n}\n#page-agent-settlements .rona-ar-doc-diagnostic-toggle::after{content:\" ▾\"}\n#page-agent-settlements .rona-ar-doc-diagnostic-toggle[aria-expanded=\"true\"]::after{content:\" ▴\"}\n#page-agent-settlements .rona-ar-doc-diagnostic-toggle:focus-visible{\n  outline:2px solid #b8f2ff;outline-offset:3px\n}\n#page-agent-settlements .rona-ar-doc-source-diagnostic{\n  max-height:30px;overflow:hidden;padding:0!important;border:0!important;\n  color:#a7cbd7!important;background:transparent!important;\n  font-size:10.5px;line-height:1.45;\n  mask-image:linear-gradient(to bottom,#000 35%,transparent 100%)\n}\n#page-agent-settlements .rona-ar-doc-source-diagnostic.is-expanded{\n  max-height:none;padding:9px 10px!important;\n  border:1px solid rgba(122,231,207,.25)!important;\n  border-radius:9px;background:rgba(17,67,74,.43)!important;\n  mask-image:none;color:#d0e8e7!important\n}\n#page-agent-settlements .rona-ar-doc-source-diagnostic>.rona-ar-doc-note{\n  font-size:10.5px;line-height:1.45;margin-top:7px\n}\n#page-agent-settlements .rona-ar-doc-upload-form{\n  display:grid;gap:9px;padding-top:9px;\n  border-top:1px solid rgba(126,180,222,.14)\n}\n#page-agent-settlements .rona-ar-doc-upload-form>.rona-ar-doc-btn{justify-self:start}\n#page-agent-settlements .rona-ar-doc-archive-picker{padding:10px}\n#page-agent-settlements .rona-ar-doc-archive-picker .rona-ar-doc-btn{min-height:34px}\n@media(max-width:1250px){\n  #page-agent-settlements .rona-ar-doc-columns{grid-template-columns:minmax(0,1fr)}\n}\n@media(max-width:760px){\n  #page-agent-settlements .rona-ar-documents{padding:11px}\n  #page-agent-settlements .rona-ar-doc-card{padding:11px}\n  #page-agent-settlements .rona-ar-doc-card-heading{flex-wrap:wrap}\n  #page-agent-settlements .rona-ar-doc-status{margin-left:auto}\n  #page-agent-settlements .rona-ar-doc-amount{grid-template-columns:minmax(0,1fr)}\n  #page-agent-settlements .rona-ar-doc-amount-value{\n    grid-column:1;grid-row:2;white-space:normal;font-size:20px\n  }\n  #page-agent-settlements .rona-ar-doc-amount-rule{grid-column:1;grid-row:3}\n  #page-agent-settlements .rona-ar-doc-act-block{align-items:flex-start;flex-direction:column}\n  #page-agent-settlements .rona-ar-doc-request{width:100%;justify-content:flex-start}\n}\n@media(prefers-reduced-motion:reduce){\n  #page-agent-settlements .rona-ar-doc-diagnostic-toggle{transition:none}\n}\n";
+  }
+  document.head.append(style)
+}
+
 function installDealDocumentStyle(){
   if(q('#ronaArDealDocumentStyle'))return;
   const s=el('style');s.id='ronaArDealDocumentStyle';
@@ -2363,20 +2373,41 @@ function renderDealDocuments(root,deal){
     }));
     root.append(section);return
   }
-  const layout=el('div','rona-ar-doc-columns'),l=el('div','rona-ar-doc-card'),
-    r=el('div','rona-ar-doc-card'),current=docs.currentAddendum;
-  l.append(el('div','rona-ar-doc-kicker','Агент'),
-    el('div','rona-ar-doc-name',docs.agentLegalName||deal.agentLegalName||'Не указан'));
-  l.append(el('div','rona-ar-doc-kicker','Дополнительное соглашение'));
+  const layout=el('div','rona-ar-doc-columns'),
+    l=el('div','rona-ar-doc-card rona-ar-doc-card--agreement'),
+    r=el('div','rona-ar-doc-card rona-ar-doc-card--act'),
+    current=docs.currentAddendum;
+  const fileHead=el('div','rona-ar-doc-card-heading'),
+    fileHeadText=el('div','rona-ar-doc-heading-text');
+  fileHeadText.append(el('h4','rona-ar-doc-card-title','Документы'),
+    el('div','rona-ar-doc-card-sub','Подписанное дополнительное соглашение'));
+  fileHead.append(el('span','rona-ar-doc-card-icon','▤'),fileHeadText,
+    el('span','rona-ar-doc-status'+(current?' is-ready':''),
+      current?'ДС привязано':'Нет ДС'));
+  l.append(fileHead);
+  const agentLine=el('div','rona-ar-doc-agent-row'),
+    agentName=el('span','rona-ar-doc-agent-name',
+      docs.agentLegalName||deal.agentLegalName||'Не указан');
+  agentName.title=agentName.textContent;
+  agentLine.append(el('span','rona-ar-doc-kicker','Агент'),agentName);
+  l.append(agentLine);
   if(current){
-    l.append(el('div','rona-ar-doc-name',current.reference||'ДС'),
+    const file=el('div','rona-ar-doc-file-row'),
+      name=el('div','rona-ar-doc-file-copy');
+    name.append(el('div','rona-ar-doc-name',current.reference||'ДС'),
       el('div','rona-ar-doc-note','ДС загружено и привязано к сделке'));
-    l.append(docButton('Скачать ДС',()=>void signedAgencyDownload(
-      docs.agentCompanyId,current.documentId).catch(e=>docNotice('Скачивание ДС: '+String(e.message||e)))));
+    file.append(el('span','rona-ar-doc-pdf','PDF'),name,
+      docButton('Скачать ДС',()=>void signedAgencyDownload(
+        docs.agentCompanyId,current.documentId)
+        .catch(e=>docNotice('Скачивание ДС: '+String(e.message||e)))));
+    l.append(file);
   }else{
-    l.append(el('div','rona-ar-doc-note','Для сделки пока не выбрано ДС. Можно закрепить уже загруженный документ агента или добавить новый.'));
-    renderExistingAddendumPicker(deal,String(docs.agentCompanyId||deal.agentLegalEntityId||''),l);
-    l.append(el('div','rona-ar-doc-kicker','Или загрузить новое ДС'));
+    l.append(el('div','rona-ar-doc-note',
+      'Для сделки пока не выбрано ДС. Можно закрепить уже загруженный документ агента или добавить новый.'));
+    renderExistingAddendumPicker(deal,
+      String(docs.agentCompanyId||deal.agentLegalEntityId||''),l);
+    const form=el('div','rona-ar-doc-upload-form');
+    form.append(el('div','rona-ar-doc-kicker','Или загрузить новое ДС'));
     const file=el('input');file.type='file';file.accept='application/pdf,.pdf';
     const reference=el('input');reference.type='text';reference.maxLength=180;
     reference.placeholder='ДС №... от ...';
@@ -2384,59 +2415,81 @@ function renderDealDocuments(root,deal){
     ackLabel.append(ack,el('span','','Подтверждаю подписи на ДС.'));
     const upload=docButton('Загрузить ДС',()=>void uploadDealAddendum(
       deal,docs.agentCompanyId,file,reference,ack,upload),true);
-    l.append(docField('Файл PDF',file),docField('Номер и дата',reference),ackLabel,upload);
+    form.append(docField('Файл PDF',file),docField('Номер и дата',reference),
+      ackLabel,upload);
+    l.append(form);
   }
-  const ownerPolicy=ownerApprovedManagementPolicy(deal);
-  const ownerDs1=ownerSignedDs1ForManagement(deal),term=docs.term,
+  const ownerPolicy=ownerApprovedManagementPolicy(deal),
+    ownerDs1=ownerSignedDs1ForManagement(deal),term=docs.term,
     termAligned=docs.sourceReadiness?.termAligned===true,
-    confirmedTerm=termAligned&&term?.mode==='PERCENT'&&num(term.rate)!==null;
-  r.append(el('div','rona-ar-doc-kicker','Агентское вознаграждение'));
-  const sourceInfo=el('div','rona-ar-doc-source-diagnostic',agencyDsTermDiagnostic(deal,docs));
-  sourceInfo.setAttribute('role','status');sourceInfo.setAttribute('aria-live','polite');
-  sourceInfo.style.cssText='padding:10px 12px;border:1px solid rgba(128,202,223,.24);border-radius:9px;background:rgba(9,42,61,.6);color:#c2dfed;font-size:12px;line-height:1.6;overflow-wrap:anywhere';
-  r.append(sourceInfo);
-  if(ownerPolicy)
-    r.append(el('div','rona-ar-doc-name','50% положительной чистой прибыли (правило собственника)'));
-  else if(ownerDs1)
-    r.append(el('div','rona-ar-doc-name','50% от маржи по поставке (ДС №1)'));
-  else if(confirmedTerm)
-    r.append(el('div','rona-ar-doc-name',fmt(num(term.rate)*100)+'% по действующему ДС'));
-  else if(current)
-    r.append(el('div','rona-ar-doc-note','ДС загружено и привязано к сделке.'));
-  else r.append(el('div','rona-ar-doc-note','Для расчёта требуется ДС.'));
-  const preview=ownerModel(deal,cashFactModel(deal)),reward=preview.reward;
-  if(ownerPolicy){
-    if(num(reward?.value)!==null)
-      r.append(el('div','rona-ar-doc-name','Управленческое вознаграждение: '+money(reward.value,currencyOf(deal))));
-    r.append(el('div','rona-ar-doc-note','По распоряжению собственника от 17.10.2026: 50% чистой прибыли для всех сделок ИнКом. Не создаёт платёжное обязательство.'));
-  }else if(ownerDs1){
-    if(num(reward?.value)!==null)
-      r.append(el('div','rona-ar-doc-name','По сохранённому расчёту: '+money(reward.value,currencyOf(deal))));
-    r.append(el('div','rona-ar-doc-note',
-      '50% положительной маржи по сделке. Оплата в рублях по курсу ЦБ РФ на день оплаты.'));
-  }else if(current&&num(reward?.value)===null){
-    r.append(el('div','rona-ar-doc-note','Сумма пока не подтверждена.'));
-  }
-  r.append(el('div','rona-ar-doc-kicker','Акт выполненных работ'));
-  const correction=docs.ownerCorrection,
+    confirmedTerm=termAligned&&term?.mode==='PERCENT'&&num(term.rate)!==null,
+    correction=docs.ownerCorrection,
     matchingActs=(Array.isArray(docs.acts)?docs.acts:[]).filter(a=>
       correction&&current&&String(a.owner_correction_key)===String(correction.sourceId)
-        &&String(a.addendum_key)===String(current.bindingId));
-  if(matchingActs.length){
-    r.append(renderActRecord(deal,docs,matchingActs[0]));
-  }else if(current&&correction){
-    r.append(el('div','rona-ar-doc-note','Корректировка №'+correction.version+' сохранена.'));
+        &&String(a.addendum_key)===String(current.bindingId)),
+    hasArchivedAct=matchingActs.some(a=>
+      (Array.isArray(a.documents)?a.documents:[]).some(f=>
+        f.stage==='BOTH_SIGNED'||f.stage==='OWNER_SIGNED'));
+  const actHead=el('div','rona-ar-doc-card-heading'),
+    actHeadText=el('div','rona-ar-doc-heading-text');
+  actHeadText.append(el('h4','rona-ar-doc-card-title','Вознаграждение и акт'),
+    el('div','rona-ar-doc-card-sub','Расчёт и юридическое оформление'));
+  actHead.append(el('span','rona-ar-doc-card-icon','▣'),actHeadText,
+    el('span','rona-ar-doc-status'+(hasArchivedAct?' is-ready':''),
+      hasArchivedAct?'Акт в архиве':matchingActs.length?'Акт в работе':
+        !current?'Требуется ДС':!correction?'Нужна корректировка':'Акт не выпущен'));
+  r.append(actHead);
+  const preview=ownerModel(deal,cashFactModel(deal)),reward=preview.reward,
+    amountKnown=num(reward?.value)!==null,
+    rule=ownerPolicy?'50% положительной чистой прибыли (правило собственника)':
+      ownerDs1?'50% от маржи по поставке (ДС №1)':
+        confirmedTerm?fmt(num(term.rate)*100)+'% по действующему ДС':
+          current?'Условия ДС требуют проверки':'Подписанное ДС пока не выбрано';
+  const amount=el('div','rona-ar-doc-amount');
+  const amountLabel=el('div','rona-ar-doc-kicker',
+    ownerPolicy?'Управленческое вознаграждение:':'Агентское вознаграждение');
+  amountLabel.style.textTransform='none';
+  amount.append(amountLabel,
+    el('div','rona-ar-doc-amount-value',
+      amountKnown?money(reward.value,currencyOf(deal)):'—'),
+    el('div','rona-ar-doc-amount-rule',rule));
+  if(!amountKnown)amount.append(el('div','rona-ar-doc-note',agentStatusText(reward?.status)));
+  r.append(amount);
+  const actBlock=el('div','rona-ar-doc-act-block');
+  actBlock.append(el('div','rona-ar-doc-act-title','Акт выполненных работ'));
+  if(matchingActs.length)actBlock.append(renderActRecord(deal,docs,matchingActs[0]));
+  else if(current&&correction){
+    actBlock.append(el('div','rona-ar-doc-note','Корректировка №'+correction.version+' сохранена.'));
     const issue=docButton('Сформировать и скачать акт',
       ()=>void issueFromSavedOwnerCorrection(deal,issue),true);
-    r.append(issue);
-  }else if(!correction){
-    r.append(el('div','rona-ar-doc-note','Сначала сохраните корректировку.'));
-  }else{
-    r.append(el('div','rona-ar-doc-note','Для акта требуется дополнительное соглашение.'));
-  }
+    actBlock.append(issue);
+  }else if(!correction)actBlock.append(el('div','rona-ar-doc-note','Сначала сохраните корректировку.'));
+  else actBlock.append(el('div','rona-ar-doc-note',
+    'Для акта требуется дополнительное соглашение.'));
+  r.append(actBlock);
+  const info=el('div','rona-ar-doc-diagnostic-wrapper'),
+    toggle=el('button','rona-ar-doc-diagnostic-toggle'),
+    sourceInfo=el('div','rona-ar-doc-source-diagnostic',
+      agencyDsTermDiagnostic(deal,docs));
+  sourceInfo.id='rona-ar-doc-source-details';
+  sourceInfo.setAttribute('role','status');
+  sourceInfo.setAttribute('aria-live','polite');
+  if(ownerPolicy)sourceInfo.append(el('div','rona-ar-doc-note',
+    'По распоряжению собственника от 17.10.2026: 50% чистой прибыли для всех сделок ИнКом. Не создаёт платёжное обязательство.'));
+  else if(ownerDs1)sourceInfo.append(el('div','rona-ar-doc-note',
+    '50% положительной маржи по сделке. Оплата в рублях по курсу ЦБ РФ на день оплаты.'));
+  else if(current&&!amountKnown)sourceInfo.append(el('div','rona-ar-doc-note','Сумма пока не подтверждена.'));
+  toggle.type='button';toggle.setAttribute('aria-controls',sourceInfo.id);
+  const setExpanded=expanded=>{
+    sourceInfo.classList.toggle('is-expanded',expanded);
+    toggle.setAttribute('aria-expanded',String(expanded));
+    toggle.textContent=expanded?'Скрыть условия расчёта':'Источник и условия расчёта';
+  };
+  setExpanded(!current||(!ownerPolicy&&!ownerDs1&&!confirmedTerm));
+  toggle.onclick=()=>setExpanded(toggle.getAttribute('aria-expanded')!=='true');
+  info.append(toggle,sourceInfo);r.append(info);
   layout.append(l,r);section.append(layout);root.append(section)
 }
-
 function renderExecutiveWorkspace(root,deals,deal){
   const workspace=el('div','rona-ar-workspace'),nav=el('aside','rona-ar-directory'),right=el('main','rona-ar-focus');
   nav.setAttribute('aria-label','Реестр агентских сделок');
