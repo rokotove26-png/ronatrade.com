@@ -1,0 +1,23 @@
+name: RONA Internal Network Only Mail Guard QA
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/rona-mcp-gateway/gateway-base.mjs'
+      - 'tests/internal-network-mail-guard-v1.test.mjs'
+      - '.github/workflows/internal-network-mail-guard-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  network-only-mail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify network-only internal coordination mail guard
+        run: node --test tests/internal-network-mail-guard-v1.test.mjs
