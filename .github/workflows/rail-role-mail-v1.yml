@@ -1,0 +1,24 @@
+name: Rail Role Mail Contract QA
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/rona-mcp-gateway/gateway-base.mjs'
+      - 'supabase/functions/rona-role-mail-bridge/index.ts'
+      - 'tests/rail-role-mail-v1.test.mjs'
+      - '.github/workflows/rail-role-mail-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rail-role-mail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify fixed-role mail boundary
+        run: node --test tests/rail-role-mail-v1.test.mjs
