@@ -5,6 +5,8 @@ function ronaActPdfRuntime(){
   'use strict';
   if(window.RONA_AGENT_ACT_PDF_ENGINE)return;
   const W=2480,H=3508,MM=W/210,LEFT=23*MM,RIGHT=W-23*MM,WIDTH=RIGHT-LEFT;
+  const MASTER_SHA='aaa2a7dacbd7e6e43b195b16ee382b56f3ace5e9dd2cada14de913440f561cfa';
+  const MASTER_DEAL='DEAL-2026-004',TEMPLATE_CONTRACT='RONA_AGENT_ACT_CANONICAL_PARITY_V1';
   const HASHES=Object.freeze({
     'canonical-letterhead':'fe663c16e65ce65827285d3990a7324b23fcc4ff7de797effaf0546a404a984b',
     'canonical-signature':'7479526756c5d39b64ea7223d707ca20984cd8ea2cd1f9fadbf2e6df93b3d085',
@@ -111,10 +113,11 @@ function ronaActPdfRuntime(){
   function appendCanvas(data,number,date,deal,letterhead){
     const a=data||{};
     if(a.contract!=='RONA_ACT_APPENDIX_V1'||a.dealId!==deal
-      ||!Number.isInteger(Number(a.correctionVersion))||a.currency!=='USD'
+      ||!Number.isInteger(Number(a.correctionVersion))||!/^[A-Z]{3}$/.test(safe(a.currency))
       ||!Array.isArray(a.payments)||!a.payments.length
       ||!Array.isArray(a.bankFees)||!a.bankFees.length
-      ||!Array.isArray(a.adjustmentComponents)||!a.adjustmentComponents.length)
+      ||!Array.isArray(a.adjustmentComponents)||!a.adjustmentComponents.length
+      ||!a.sourceRefs?.correctionId||!a.sourceRefs?.feeProposal||!a.sourceRefs?.bridgeProposal)
       throw new Error('ACT_PDF_APPENDIX_SOURCE_MISSING');
     const sum=(xs)=>xs.reduce((q,x)=>q+Number(x.amount),0);
     const r2=x=>Math.round((x+Number.EPSILON)*100)/100;
@@ -208,62 +211,7 @@ function ronaActPdfRuntime(){
     if(y>3240)throw new Error('ACT_PDF_APPENDIX_FOOTER_OVERFLOW');
     return canvas;
   }
-  // Separate Owner-approved appendix. AI role approvals are not a signing prerequisite.
-  function appendOwnerCanvas(input,number,date,deal,letterhead){
-    const a=input||{},c=a.ownerCalculation||{};
-    if(a.contract!=='RONA_OWNER_AGENT_ACT_APPENDIX_V1'||a.dealId!==deal
-      ||a.sourceKind!=='OWNER_APPROVED_SECTION_NOT_FINANCE_PAYABLE'
-      ||a.ownerApprovedAmount!==true||a.createsPayable!==false
-      ||!Number.isInteger(Number(a.correctionVersion))
-      ||!/^[A-Z]{3}$/.test(safe(a.currency))
-      ||!safe(a.signedAddendumId)||!safe(a.signedAddendumReference)
-      ||!/^[0-9a-f]{64}$/i.test(safe(a.signedAddendumHash))
-      ||!safe(a.correctionId)||!safe(a.sourceRef))
-      throw new Error('ACT_PDF_OWNER_APPENDIX_SOURCE_MISSING');
-    const names=['income','expenses','actualFinancialResult','taxes','netProfit','reward','ronaProfit'];
-    if(names.some(k=>typeof c[k]!=='number'||!Number.isFinite(c[k])))
-      throw new Error('ACT_PDF_OWNER_APPENDIX_CALCULATION_MISSING');
-    const near=(x,y)=>Math.abs(x-y)<=.21;
-    if(c.income<0||c.expenses<0||c.reward<0
-      ||!near(c.income-c.expenses,c.actualFinancialResult)
-      ||!near(c.actualFinancialResult-c.taxes,c.netProfit)
-      ||!near(c.netProfit-c.reward,c.ronaProfit)
-      ||!near(c.reward,Number(a.agentReward)))
-      throw new Error('ACT_PDF_OWNER_APPENDIX_ARITHMETIC_MISMATCH');
-    const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
-    const ctx=canvas.getContext('2d',{alpha:false});
-    if(!ctx)throw new Error('ACT_PDF_OWNER_APPENDIX_CANVAS_UNAVAILABLE');
-    ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.drawImage(letterhead,0,0,W,H);
-    center(ctx,'ПРИЛОЖЕНИЕ № 1',557,61,true);
-    center(ctx,'к Акту выполненных работ № '+number,634,40,true);
-    center(ctx,'от '+date+' · сделка '+deal,691,35,false);
-    center(ctx,'УТВЕРЖДЁННЫЙ ВЛАДЕЛЬЦЕМ РАСЧЁТ',790,43,true);
-    ctx.strokeStyle='#b6bdc6';ctx.lineWidth=2;line(ctx,LEFT,832,RIGHT,832);
-    let y=926;
-    const field=(title,value,strong=false)=>{
-      y=paragraph(ctx,title,LEFT+18,y,WIDTH-36,{size:31,bold:true,lineHeight:40,after:3});
-      y=paragraph(ctx,value,LEFT+18,y+4,WIDTH-36,{size:strong?43:36,bold:strong,lineHeight:47,after:18});
-      ctx.strokeStyle='#d5d9df';line(ctx,LEFT,y,RIGHT,y);y+=26;
-      if(y>3040)throw new Error('ACT_PDF_OWNER_APPENDIX_PAGE_OVERFLOW');
-    };
-    field('Подписанное ДС',safe(a.signedAddendumReference));
-    field('Сохранённая версия расчёта','№ '+a.correctionVersion+'; '+safe(a.correctionId));
-    field('Поступления',fmtMoney(c.income,a.currency));
-    field('Расходы',fmtMoney(c.expenses,a.currency));
-    field('Результат до расчётного налога',fmtMoney(c.actualFinancialResult,a.currency));
-    field('Расчётный налог в управленческом разделе',fmtMoney(c.taxes,a.currency));
-    field('Чистый результат управленческого раздела',fmtMoney(c.netProfit,a.currency));
-    field('Сумма агентского вознаграждения, утверждённая владельцем',
-      fmtMoney(a.agentReward,a.currency),true);
-    field('Результат RONA после указанного вознаграждения',
-      fmtMoney(c.ronaProfit,a.currency));
-    y=paragraph(ctx,'Основание расчёта: подписанное агентское ДС, указанная сделка и '+
-      'неизменяемая корректировка владельца. Подтверждение выплаты, выставление требования '+
-      'к оплате и подпись агента этим приложением не оформляются.',
-      LEFT,y+25,WIDTH,{size:27,lineHeight:39,after:0});
-    if(y>3260)throw new Error('ACT_PDF_OWNER_APPENDIX_FOOTER_OVERFLOW');
-    return canvas;
-  }
+  // No Owner-only summary appendix exists. Every deal uses appendCanvas() exactly.
   async function render(data,requestId){
     if(!/^[0-9a-f-]{36}$/i.test(safe(requestId)))throw new Error('ACT_PDF_REQUEST_ID_INVALID');
     const d=data||{},number=needed(d.documentNumber,'DOCUMENT_NUMBER'),
@@ -277,6 +225,25 @@ function ronaActPdfRuntime(){
       currency=needed(d.currency,'CURRENCY'),amount=Number(d.amount);
     if(!Number.isFinite(amount)||amount<0)throw new Error('ACT_PDF_AMOUNT_NOT_APPROVED');
     if(d.documentStandard!=='RONA-DOC-STANDARD v2')throw new Error('ACT_PDF_STANDARD_MISMATCH');
+    // The canonical presentation is identical for *all* deals; only source-locked fields vary.
+    const master=d.canonicalTemplate||{};
+    if(master.contract!==TEMPLATE_CONTRACT||master.masterDealId!==MASTER_DEAL
+      ||master.masterSha256!==MASTER_SHA
+      ||master.requiredAppendixContract!=='RONA_ACT_APPENDIX_V1'
+      ||master.rendererFallback!=='DENY_NON_CANONICAL')
+      throw new Error('ACT_PDF_CANONICAL_MASTER_CONTRACT_MISMATCH');
+    if(!d.financialAppendix||d.financialAppendix.contract!=='RONA_ACT_APPENDIX_V1')
+      throw new Error('ACT_PDF_NONCANONICAL_SUMMARY_APPENDIX_DENIED');
+    if(!Number.isInteger(Number(d.ownerSectionCorrectionVersion))
+       ||Number(d.financialAppendix.correctionVersion)!==Number(d.ownerSectionCorrectionVersion))
+      throw new Error('ACT_PDF_CANONICAL_CORRECTION_VERSION_REQUIRED');
+    if(d.financialAppendix.dealId!==deal||d.financialAppendix.currency!==currency)
+      throw new Error('ACT_PDF_APPENDIX_SCOPE_MISMATCH');
+    if(!safe(d.agentTaxId)||!safe(d.agentAddress)||!safe(d.agentCountry)
+       ||/^(?:агентом не подписано|не указан|не установлен|TO_VERIFY)/i.test(agentSigner))
+      throw new Error('ACT_PDF_CANONICAL_AGENT_PARTY_DETAILS_REQUIRED');
+    if(service.length<45||/^агентские услуги в рамках сделки\b/i.test(service))
+      throw new Error('ACT_PDF_CANONICAL_SERVICE_SPECIFICITY_REQUIRED');
     if(d.signatureMethod!=='OWNER_APPROVED_GRAPHIC_FACSIMILE_NOT_QES')throw new Error('ACT_PDF_SIGNING_METHOD_MISMATCH');
     if(d.shipmentMarginSource?.basis==='SHIPMENT_MARGIN'){
       const m=d.shipmentMarginSource||{},margin=Number(m.margin),
@@ -307,14 +274,9 @@ function ronaActPdfRuntime(){
     center(ctx,'№ '+number,720,47,true);
     font(ctx,42,false);ctx.textAlign='right';ctx.fillText(place+' · '+date,RIGHT,790);ctx.textAlign='left';
     let y=884;
-    const ownerUnilateral=d.financialAppendix?.contract==='RONA_OWNER_AGENT_ACT_APPENDIX_V1';
-    const introduction=ownerUnilateral
-      ?issuer+', именуемое «Принципал», в лице '+issuerSigner+
-        ', оформляет настоящий акт оказанных агентских услуг в отношении '+agent+
-        ' («Агент») по подписанному дополнительному соглашению. На данном экземпляре подпись агента отсутствует.'
-      :issuer+', именуемое в дальнейшем «Принципал», в лице '+issuerSigner+
-        ', с одной стороны, и '+agent+', именуемое в дальнейшем «Агент», в лице '+
-        agentSigner+', с другой стороны, составили настоящий акт.';
+    const introduction=issuer+', именуемое в дальнейшем «Принципал», в лице '+issuerSigner+
+      ', с одной стороны, и '+agent+', именуемое в дальнейшем «Агент», в лице '+
+      agentSigner+', с другой стороны, составили настоящий акт.';
     y=paragraph(ctx,introduction,LEFT,y,WIDTH,{size:46,lineHeight:61,after:36});
     y=paragraph(ctx,'Основание: '+ds+'. Сделка: '+deal+'.',LEFT,y,WIDTH,{size:45,lineHeight:58,after:20});
     y=paragraph(ctx,'Период оказания услуг: '+period+'.',LEFT,y,WIDTH,{size:45,lineHeight:58,after:36});
@@ -359,8 +321,6 @@ function ronaActPdfRuntime(){
     const leftDetails=paragraph(ctx,issuerDetails,LEFT,signTop+123,colWidth-20,{size:36,lineHeight:48,after:0});
     const verifiedAgentDetails=[agent,d.agentTaxId,d.agentAddress,d.agentCountry]
       .map(safe).filter(Boolean);
-    if(ownerUnilateral&&verifiedAgentDetails.length===1)
-      verifiedAgentDetails.push('Реквизиты по '+ds);
     const rightDetails=paragraph(ctx,verifiedAgentDetails.join('; '),
       rightX,signTop+123,colWidth-15,{size:35,lineHeight:47,after:0});
     const assetTop=Math.max(signTop+280,leftDetails+20);
@@ -373,19 +333,9 @@ function ronaActPdfRuntime(){
     ctx.strokeStyle='#333';line(ctx,rightX+20,assetTop+330,RIGHT-25,assetTop+330);
     // No legal/technical implementation note is printed in the Owner-approved form.
     // Canonical signature and seal remain visually present above.
-    const ownerMode=d.sourceMode==='OWNER_SIGNED_SECTION_NOT_FINANCE_PAYABLE';
-    if(ownerMode&&!d.financialAppendix)
-      throw new Error('ACT_PDF_APPENDIX_REQUIRED_FOR_OWNER');
-    const canvases=[canvas];
-    if(d.financialAppendix){
-      if(Number(d.financialAppendix.agentReward)!==amount||
-         Number(d.financialAppendix.correctionVersion)!==
-           Number(d.ownerSectionCorrectionVersion))
-        throw new Error('ACT_PDF_APPENDIX_DOCUMENT_MISMATCH');
-      canvases.push(d.financialAppendix.contract==='RONA_OWNER_AGENT_ACT_APPENDIX_V1'
-        ?appendOwnerCanvas(d.financialAppendix,number,date,deal,assets[0])
-        :appendCanvas(d.financialAppendix,number,date,deal,assets[0]));
-    }
+    if(Number(d.financialAppendix.agentReward)!==amount)
+      throw new Error('ACT_PDF_APPENDIX_DOCUMENT_MISMATCH');
+    const canvases=[canvas,appendCanvas(d.financialAppendix,number,date,deal,assets[0])];
     return {blob:makePdf(canvases),pageCount:canvases.length,filename:'RONA_Act_'+safe(deal).replace(/[^A-Za-z0-9_-]/g,'_')+
       '_'+safe(number).replace(/[^A-Za-z0-9_-]/g,'_')+'.pdf'};
   }
