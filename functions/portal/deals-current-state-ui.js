@@ -174,11 +174,12 @@ const SCRIPT=RAW
   )
   .replace(
     "function basisCell(d){var box=el('div','rona-current-deal-cell');box.append(el('span','rona-current-deal-main',basisText(d)));if(!String(d&&d.delivery_basis||'').trim())box.append(pill('Требует подтверждения','warn'));return box}",
-    "function basisReferenceNeedsApproval(d){if(!d||String(d.business_status||'').toUpperCase()!=='REGISTERED')return false;var b=String(d.delivery_basis||'').trim(),dst=String(d.destination||'').trim().split('/').pop().trim();if(!b||!dst||!(/^(CPT|DAP|CIP|DDP|DPU|FCA)\\\\b/i).test(b))return false;var place=b.replace(/^(CPT|DAP|CIP|DDP|DPU|FCA)\\\\s+/i,'').replace(/,?\\\\s*Incoterms.*$/i,'').replace(/^ст\\\\.\\\\s*/i,'').trim();if(place.toLocaleLowerCase()===dst.toLocaleLowerCase())return false;return !docsFor(d.deal_id).some(function(x){return String(x.document_kind||'').toUpperCase()==='SIGNED_ADDENDUM'})}function basisCell(d){var box=el('div','rona-current-deal-cell');if(basisReferenceNeedsApproval(d)){box.append(el('span','rona-current-deal-main','Базис уточняется'),pill('По прайсу: '+String(d.delivery_basis||'')+' | назначение: '+String(d.destination||''),'warn'));return box}box.append(el('span','rona-current-deal-main',basisText(d)));if(!String(d&&d.delivery_basis||'').trim())box.append(pill('Требует подтверждения','warn'));return box}"
+    "function basisReferenceNeedsApproval(d){if(!d||String(d.business_status||'').toUpperCase()!=='REGISTERED')return false;var b=String(d.delivery_basis||'').trim(),dst=String(d.destination||'').trim().split('/').pop().trim();if(!b||!dst)return false;var k=b.split(' ')[0].toUpperCase();if(!['CPT','DAP','CIP','DDP','DPU','FCA'].includes(k))return false;var place=b.slice(k.length).trim().split(',')[0].replace('ст.','').trim();if(place.toLocaleLowerCase()===dst.toLocaleLowerCase())return false;return !docsFor(d.deal_id).some(function(x){return String(x.document_kind||'').toUpperCase()==='SIGNED_ADDENDUM'})}function basisCell(d){var box=el('div','rona-current-deal-cell');if(basisReferenceNeedsApproval(d)){box.append(el('span','rona-current-deal-main','Базис уточняется'),pill('По прайсу: '+String(d.delivery_basis||'')+' | назначение: '+String(d.destination||''),'warn'));return box}box.append(el('span','rona-current-deal-main',basisText(d)));if(!String(d&&d.delivery_basis||'').trim())box.append(pill('Требует подтверждения','warn'));return box}"
   )
   .replace(
-    "function basisText(d){var raw=String(d&&d.delivery_basis||'').trim();if(!raw)return'Требует подтверждения';return raw.replace(/\\\\s*[,(]?\\\\s*Incoterms\\\\s*2020\\\\s*\\\\)?/ig,'').replace(/\\\\s{2,}/g,' ').replace(/\\\\s*,\\\\s*$/,'').trim()||'Требует подтверждения'}",
-    "function basisText(d){if(basisReferenceNeedsApproval(d))return'Базис уточняется';var raw=String(d&&d.delivery_basis||'').trim();if(!raw)return'Требует подтверждения';return raw.replace(/\\\\s*[,(]?\\\\s*Incoterms\\\\s*2020\\\\s*\\\\)?/ig,'').replace(/\\\\s{2,}/g,' ').replace(/\\\\s*,\\\\s*$/,'').trim()||'Требует подтверждения'}"
+    "function basisText(d){var raw=",
+    "function basisText(d){if(basisReferenceNeedsApproval(d))return'Базис уточняется';var raw="
+  )
   );
 
 if(SCRIPT.includes("setInterval(function(){refresh(false)},15000)"))throw new Error('DEALS_LEGACY_15S_POLLING_REMAINS');
@@ -194,6 +195,7 @@ if(SCRIPT.includes("if(!state)renderError(e)"))throw new Error('DEALS_STALE_SNAP
 if(!SCRIPT.includes("function basisReferenceNeedsApproval(d)"))throw new Error('DEALS_BASIS_SOURCE_LINEAGE_REVIEW_MISSING');
 if(!SCRIPT.includes("Базис уточняется"))throw new Error('DEALS_BASIS_PENDING_DISPLAY_MISSING');
 if(!SCRIPT.includes("По прайсу: "))throw new Error('DEALS_BASIS_PUBLISHED_REFERENCE_LABEL_MISSING');
+if(!SCRIPT.includes("function basisText(d){if(basisReferenceNeedsApproval(d))"))throw new Error('DEALS_BASIS_DETAILS_MUST_SHOW_SOURCE_WARNING');
 if(!SCRIPT.includes("admin-closeout-documents-v1.js?v=20261005-v4"))throw new Error('DEALS_CLOSEOUT_DOCUMENTS_RUNTIME_LOADER_MISSING');
 if(!SCRIPT.includes("finance_projection_version"))throw new Error('DEALS_FINANCE_V8_PROJECTION_MARKER_MISSING');
 if(!SCRIPT.includes("route_resolution_state")||!SCRIPT.includes("trusted_wagon_count")||!SCRIPT.includes("position_groups"))throw new Error('DEALS_RAIL_EXECUTION_V4_MARKER_MISSING');
