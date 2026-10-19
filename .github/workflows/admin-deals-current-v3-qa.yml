@@ -11,6 +11,7 @@ on:
       - 'tests/deals/admin-deals-current-v3-contract.test.mjs'
       - 'tests/deals/application-to-deal-navigation-refresh.test.mjs'
       - 'tests/deals/basis-source-destination-review.test.mjs'
+      - 'supabase/migrations/20261019193100_owner_deal_basis_provenance_projection_v1.sql'
       - 'tests/deals/registration-resource-gate-workflow.test.mjs'
       - 'supabase/migrations/20261019185900_deal_registration_resource_gate_execution_shell_v1.sql'
       - '.github/workflows/admin-deals-current-v3-qa.yml'
