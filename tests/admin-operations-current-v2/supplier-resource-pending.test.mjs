@@ -47,7 +47,8 @@ test('Post-V12 browser script compiles with 5-queue gauge and existing critical 
   assert.match(current,/failedPortalN=num\('failedPortalEvents'\)/);
   assert.match(current,/gauge\('RES-03','Ожидают ресурс',supplierPendingN/);
   assert.match(current,/gauge\('WARN-06','Критические события',criticalN/);
-  assert.match(current,/gauge\('CAUT-03','Требует действия',unseenN/);
+  assert.match(current,/gauge\('CAUT-03','Непросмотренные',unseenN/);
+  assert.doesNotMatch(current,/gauge\('CAUT-03','Требует действия'/);
   assert.match(current,/code==='WARN-06'\?ronaOpsV10OpenAttention\(\)/);
   assert.match(current,/Ресурс ожидают: '\+supplierPendingN/);
   assert.match(current,/Сбои отправки клиентских запросов: '\+String\(failedPortalN\)/);
