@@ -159,6 +159,18 @@ const SCRIPT=RAW
   .replace(
     "refresh(true);setInterval(function(){refresh(false)},15000)",
     "window.__RONA_DEALS_CURRENT_REFRESH_MODE__='NAVIGATION_INVALIDATED_NO_INTERVAL_V2';refresh(true)"
+  )
+  .replace(
+    "async function refresh(force){if(busy)return;busy=true;try{",
+    "async function refresh(force){if(busy){window.__RONA_DEALS_CURRENT_PENDING_INVALIDATION__=true;return;}busy=true;try{"
+  )
+  .replace(
+    "}finally{busy=false}}",
+    "}finally{busy=false;if(window.__RONA_DEALS_CURRENT_PENDING_INVALIDATION__){window.__RONA_DEALS_CURRENT_PENDING_INVALIDATION__=false;queueMicrotask(function(){refresh(true)})}}}"
+  )
+  .replace(
+    "if(!state)renderError(e)",
+    "renderError(e)"
   );
 
 if(SCRIPT.includes("setInterval(function(){refresh(false)},15000)"))throw new Error('DEALS_LEGACY_15S_POLLING_REMAINS');
@@ -168,6 +180,9 @@ if(!SCRIPT.includes("api('/admin/deals-current-v4')"))throw new Error('DEALS_CUR
 if(!SCRIPT.includes("queueMicrotask(function(){window.__RONA_DEALS_CURRENT_NAV_REFRESH_AT__=Date.now();refresh(true)})"))throw new Error('DEALS_NAV_MUST_REFRESH_SOURCE');
 if(!SCRIPT.includes("window.__RONA_DEALS_REQUESTED_ID__=String(id);window.__RONA_DEALS_CURRENT_NAV_REFRESH_AT__=Date.now();refresh(true)"))throw new Error('DEALS_SELECT_MUST_REFRESH_SOURCE');
 if(SCRIPT.includes("if(state)openRequestedDeal(id);else refresh(true)"))throw new Error('DEALS_STALE_DEEPLINK_FALLBACK_FORBIDDEN');
+if(!SCRIPT.includes("window.__RONA_DEALS_CURRENT_PENDING_INVALIDATION__=true"))throw new Error('DEALS_CONCURRENT_NAV_INVALIDATION_MUST_QUEUE');
+if(!SCRIPT.includes("window.__RONA_DEALS_CURRENT_PENDING_INVALIDATION__=false;queueMicrotask(function(){refresh(true)})"))throw new Error('DEALS_PENDING_INVALIDATION_MUST_RELOAD_AFTER_FLIGHT');
+if(SCRIPT.includes("if(!state)renderError(e)"))throw new Error('DEALS_STALE_SNAPSHOT_ON_RPC_FAILURE_FORBIDDEN');
 if(!SCRIPT.includes("admin-closeout-documents-v1.js?v=20261005-v4"))throw new Error('DEALS_CLOSEOUT_DOCUMENTS_RUNTIME_LOADER_MISSING');
 if(!SCRIPT.includes("finance_projection_version"))throw new Error('DEALS_FINANCE_V8_PROJECTION_MARKER_MISSING');
 if(!SCRIPT.includes("route_resolution_state")||!SCRIPT.includes("trusted_wagon_count")||!SCRIPT.includes("position_groups"))throw new Error('DEALS_RAIL_EXECUTION_V4_MARKER_MISSING');
