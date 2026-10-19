@@ -1,0 +1,28 @@
+name: Client request delivery basis source QA
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'assets/portal-runtime/client-application-form-v3.js'
+      - 'tests/client-application-business-v2/client-form-basis-payload.test.mjs'
+      - '.github/workflows/client-request-delivery-basis-source-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'assets/portal-runtime/client-application-form-v3.js'
+      - 'tests/client-application-business-v2/client-form-basis-payload.test.mjs'
+permissions:
+  contents: read
+jobs:
+  client-intake-basis-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Client payload JavaScript syntax
+        run: node --check assets/portal-runtime/client-application-form-v3.js
+      - name: Client commercial request basis/source regression
+        run: node --test tests/client-application-business-v2/client-form-basis-payload.test.mjs
