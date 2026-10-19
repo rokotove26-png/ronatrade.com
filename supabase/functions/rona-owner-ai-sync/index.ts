@@ -117,7 +117,7 @@ async function readOwnerCollectionInstructionsV1() {
      and ap.identity_id='AI-OPERATIONS-DIRECTOR'
      and ap.status='APPROVE_FOR_NEXT_STAGE'
      and ap.qa_only is not true
-    join lateral jsonb_array_elements(a.payload->'proposed_state'->'targets') as item(entry) on true
+    join lateral jsonb_array_elements(case when jsonb_typeof(a.payload->'proposed_state'->'targets')='array' then a.payload->'proposed_state'->'targets' else '[]'::jsonb end) as item(entry) on true
     join portal_private.deals d
       on d.deal_id=item.entry->>'deal_id'
      and d.lifecycle_state::text='ACTIVE'
