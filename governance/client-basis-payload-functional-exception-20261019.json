@@ -1,0 +1,20 @@
+{
+  "policy": "RONA_CLIENT_APPLICATION_BASIS_PAYLOAD_OWNER_FUNCTIONAL_EXCEPTION_V1",
+  "status": "OWNER_FUNCTIONAL_DIRECTIVE_FOR_NONVISUAL_DATA_CONTRACT_CORRECTION",
+  "directive_source": "OWNER_IN_CHAT_2026-10-19_REPEATED_CLIENT_APPLICATION_TERMS_MUST_TRANSFER_AUTOMATICALLY",
+  "issued_by": "OWNER_CHAT_DIRECTIVE_NOT_PORTAL_IMPERSONATION",
+  "protected_file": "assets/portal-runtime/client-application-form-v3.js",
+  "exact_frozen_baseline_blob_sha": "281363b3499072bca33e00f0aa11eda787c504a9",
+  "exact_authorized_payload_only_blob_sha": "4001e1b9bd47adeca85f38d330d5a4a1839ceefb",
+  "permitted_exact_edit": "Insert commercial.requested_delivery_basis immediately after commercial.price_mode in detailsPayload to transmit DAP to exact selected station in calculation mode and original published basis in publication application mode.",
+  "checks": {
+    "source_requires_byte_exact_rollback_to_frozen_blob": true,
+    "no_dom_html_css_change": true,
+    "no_client_price_value_override": true,
+    "no_automatic_owner_price_approval": true,
+    "no_publication_reference_mutation": true,
+    "strict_exact_blob": true,
+    "client_payload_qa_required": true,
+    "preserve_all_other_visual_freeze": true
+  }
+}
