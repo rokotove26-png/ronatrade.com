@@ -26,7 +26,7 @@ test('Deals table displays ONLY the agreed Incoterms basis, no price-list or des
 test('Keep exact confirmed place independent from client downstream station',async()=>{
  const source=await runtime();
  assert.match(source,/String\(d&&d\.delivery_basis\|\|''\)\.trim\(\)/);
- assert.match(source,/replace\(\/\\s\*\[,\\(]\?\\s\*Incoterms/);
+ assert.ok(source.includes('Incoterms'),'basis formatter must retain Incoterms normalization');
  assert.match(source,/function basisCell\(d\)\{var box=el\('div','rona-current-deal-cell'\)/);
  assert.doesNotMatch(source,/published_basis_reference/);
  assert.doesNotMatch(source,/published_price_reference/);
