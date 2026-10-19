@@ -254,6 +254,19 @@ function renderAdminHome(){
   const unseenActions=ready?ronaOpsV10Unseen(actions,snap):null;
   const num=name=>{const n=ready?ronaOpsV10Num(k?.[name]):null;return n===null?null:n};
   const activeN=num('activeDeals'),executionN=num('executionDeals'),actionN=num('actionsRequired'),unseenN=unseenActions===null?null:unseenActions.length,railN=num('trustedWagons'),paymentN=num('paymentsDue'),criticalN=num('criticalEvents'),clientsN=num('clientsOnline'),agentsN=num('agentsOnline'),documentsN=num('documentsTotal'),documentsAttentionN=num('documentsAttention');
+  // RESOURCE SOURCE: owner_application_workflow SUPPLIER_PENDING (not client status).
+  const supplierPendingN=num('supplierResourcePending'),
+        supplierConflictN=num('supplierResourceStageConflict'),
+        failedPortalN=num('failedPortalEvents');
+  const supplierQueue=ready&&Array.isArray(snap.supplierResourceQueue)?snap.supplierResourceQueue:[];
+  window.__RONA_ADMIN_OPERATIONS_RESOURCE_PENDING__={
+    ready:ready&&supplierPendingN!==null,
+    count:supplierPendingN,
+    stageConflicts:supplierConflictN,
+    authority:ready?snap.supplierResourceAuthority||null:null,
+    applications:supplierQueue,
+    at:Date.now()
+  };
   window.__RONA_ADMIN_OPERATIONS_ATTENTION_UNSEEN__={ready:unseenN!==null,unseen:unseenN,total:actionN,at:Date.now()};
   const stateTone=!ready?(ronaOpsV10Error?'amber':'cyan'):opsDegraded?'amber':(criticalN||0)>0?'red':(actionN||0)>0?'amber':'green';
   const stateCode=!ready?(ronaOpsV10Error?'DATA DEGRADED':'DATA SYNC'):opsDegraded?'SOURCE RECONFIRMATION':(criticalN||0)>0?'MASTER WARNING':(actionN||0)>0?'MASTER CAUTION':'SYSTEM NORMAL';
@@ -264,17 +277,20 @@ function renderAdminHome(){
     (criticalN||0)>0?('Критические события: '+criticalN):(actionN||0)>0?
     ('Открыто действий: '+actionN+' · новых: '+(unseenN===null?'—':unseenN)):'Источники доступны';
   const root=e('div',{class:'rona-flightdeck-v5','data-rona-operations-command-center':'v10','data-rona-color-network':'v6','data-rona-single-owner':'true','data-rona-flightdeck':'v5-full-rebuild','data-rona-source':'OPERATIONS_CURRENT_V2'});
-  const top=e('header',{class:'rona-fd-v5__overhead'},e('div',{class:'rona-fd-v5__identity'},e('div',{class:'rona-fd-v5__overline',text:'RONA TRADE · OPERATIONS FLIGHTDECK'}),e('h1',{class:'rona-ops-v4__title',text:'Операционный центр'}),e('div',{class:'rona-fd-v5__subtitle'},e('span',{class:'rona-fd-v5__bus-dot'}),e('span',{text:'OPERATIONS CURRENT V2'}),e('span',{text:'·'}),e('span',{text:'FACTUAL STATE ONLY'}))),e('div',{class:'rona-fd-v5__top-controls'},e('div',{class:'rona-fd-v5__annunciator is-'+stateTone},e('span',{class:'rona-fd-v5__ann-lamp'}),e('div',{},e('div',{class:'rona-fd-v5__ann-label',text:stateCode}),e('div',{class:'rona-fd-v5__ann-value',text:stateText}))),e('button',{class:'rona-fd-v5__refresh',type:'button',onclick:()=>ronaOpsV10Refresh('MANUAL')},e('span',{text:'↻'}),e('span',{text:'Refresh'}))));
+  const top=e('header',{class:'rona-fd-v5__overhead'},e('div',{class:'rona-fd-v5__identity'},e('div',{class:'rona-fd-v5__overline',text:'RONA TRADE · OPERATIONS FLIGHTDECK'}),e('h1',{class:'rona-ops-v4__title',text:'Операционный центр'}),e('div',{class:'rona-fd-v5__subtitle'},e('span',{class:'rona-fd-v5__bus-dot'}),e('span',{text:'OPERATIONS CURRENT V2'}),e('span',{text:'·'}),e('span',{text:'FACTUAL STATE ONLY'}))),e('div',{class:'rona-fd-v5__top-controls'},e('div',{class:'rona-fd-v5__annunciator is-'+stateTone},e('span',{class:'rona-fd-v5__ann-lamp'}),e('div',{},e('div',{class:'rona-fd-v5__ann-label',text:stateCode}),e('div',{class:'rona-fd-v5__ann-value',text:stateText+(supplierPendingN===null?'':' · Ресурс ожидают: '+supplierPendingN)}))),e('button',{class:'rona-fd-v5__refresh',type:'button',onclick:()=>ronaOpsV10Refresh('MANUAL')},e('span',{text:'↻'}),e('span',{text:'Refresh'}))));
 
-  const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button','data-code':code,'aria-label':label+': '+String(value),onclick:()=>code==='CAUT-03'?ronaOpsV10OpenAttention():adminHomeNavigate(target)},e('div',{class:'rona-fd-v5-gauge__top'},e('span',{class:'rona-fd-v5-gauge__code',text:code}),e('span',{class:'rona-fd-v5-gauge__lamp'})),e('div',{class:'rona-fd-v5-gauge__label',text:label}),e('div',{class:'rona-fd-v5-gauge__value',text:String(value)}),e('div',{class:'rona-fd-v5-gauge__foot',text:foot}),e('div',{class:'rona-fd-v5-gauge__rail'},e('span'),e('span'),e('span'),e('span'),e('span')));
+  const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button','data-code':code,'aria-label':label+': '+String(value),onclick:()=>code==='CAUT-03'?ronaOpsV10OpenAttention():code==='WARN-06'?ronaOpsV10OpenAttention():adminHomeNavigate(target)},e('div',{class:'rona-fd-v5-gauge__top'},e('span',{class:'rona-fd-v5-gauge__code',text:code}),e('span',{class:'rona-fd-v5-gauge__lamp'})),e('div',{class:'rona-fd-v5-gauge__label',text:label}),e('div',{class:'rona-fd-v5-gauge__value',text:String(value)}),e('div',{class:'rona-fd-v5-gauge__foot',text:foot}),e('div',{class:'rona-fd-v5-gauge__rail'},e('span'),e('span'),e('span'),e('span'),e('span')));
   const instruments=e('section',{class:'rona-fd-v5__instruments','aria-label':'Операционные показатели'});
   instruments.append(
     gauge('FLT-01','Сделки по реестру',activeN===null?'—':activeN,ready?sourceFoot('deals'):'Источник не готов','deals',sourceGood('deals')?'blue':'amber'),
     gauge('FLT-02','В исполнении по реестру',executionN===null?'—':executionN,ready?sourceFoot('deals'):'Источник не готов','deals',sourceGood('deals')?'indigo':'amber'),
+    gauge('RES-03','Ожидают ресурс',supplierPendingN===null?'—':supplierPendingN,
+      ready?(supplierPendingN===null?'Реестр поставщика недоступен':('SUPPLIER_PENDING · расхождение статусов: '+String(supplierConflictN===null?'—':supplierConflictN))):'Источник не готов',
+      'applications',ready&&supplierPendingN>0?'amber':supplierPendingN===0?'green':'cyan'),
     gauge('CAUT-03','Требует действия',unseenN===null?'—':unseenN,ready?(unseenN===null?('Статус просмотра недоступен · открыто: '+String(actionN||0)):('Непросмотренные · открыто всего: '+String(actionN||0)+(!sourceGood('actions')?' · СТАРЫЕ ЗАДАЧИ: '+Number(snap?.dataHealth?.agedOpenTasks||0):''))):'Источник не готов','home',ready&&(unseenN||0)>0?'amber':'green'),
     gauge('RAIL-04','Вагоны на контроле',!sourceGood('rail')?'—':railN===null?'—':railN,ready?(opsSources.rail==='NO_ACTIVE_MONITORING'?'НЕТ АКТИВНОГО ЖД-МОНИТОРИНГА':sourceFoot('rail')):'Источник не готов','monitoring',sourceGood('rail')?'teal':'amber'),
     gauge('FIN-05','Платежи на контроле',!sourceGood('finance')?'—':paymentN===null?'—':paymentN,ready?sourceFoot('finance'):'Источник не готов','payments',sourceGood('finance')?'gold':'amber'),
-    gauge('WARN-06','Критические события',criticalN===null?'—':criticalN,ready?(sourceGood('actions')?'Исключения по реестру':'СТАРЫЕ ОТКРЫТЫЕ ЗАДАЧИ'):'Источник не готов','home',ready&&(criticalN||0)>0?'red':'green'),
+    gauge('WARN-06','Критические события',criticalN===null?'—':criticalN,ready?(failedPortalN===null?'Ошибки портала · источник не подтверждён':('Сбои отправки клиентских запросов: '+String(failedPortalN))):'Источник не готов','home',ready&&(criticalN||0)>0?'red':'green'),
     gauge('NET-07','Клиенты в сети',clientsN===null?'—':clientsN,ready?'Активные сессии · 75 сек.':'Presence не готов','access','emerald'),
     gauge('NET-08','Агенты в сети',agentsN===null?'—':agentsN,ready?'Активные сессии · 75 сек.':'Presence не готов','access','violet')
   );
