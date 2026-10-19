@@ -179,7 +179,6 @@ const SCRIPT=RAW
   .replace(
     "function basisText(d){var raw=",
     "function basisText(d){if(basisReferenceNeedsApproval(d))return'Базис уточняется';var raw="
-  )
   );
 
 if(SCRIPT.includes("setInterval(function(){refresh(false)},15000)"))throw new Error('DEALS_LEGACY_15S_POLLING_REMAINS');
