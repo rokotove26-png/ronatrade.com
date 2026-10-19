@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 const formSource=readFileSync(new URL('../../assets/portal-runtime/client-application-form-v3.js',import.meta.url),'utf8');
 const begin=formSource.indexOf('function detailsPayload(');
 const end=formSource.indexOf('\nfunction open(item,ctx)',begin);
@@ -42,4 +43,15 @@ test('Published-price request preserves source basis even when ultimate destinat
 test('Client form uses verified input station, not a hardcoded destination',()=>{
  assert.equal(request('CALCULATION','Жомбой').commercial.requested_delivery_basis,'DAP ст. Жомбой, Incoterms 2020');
  assert.doesNotMatch(formSource,/DEAL-2026-01[2-6]/);
+});
+
+test('Frozen client portal HTML and visual source remain byte-identical aside from the exact data field',()=>{
+ const approval=JSON.parse(readFileSync(new URL('../../governance/client-basis-payload-functional-exception-20261019.json',import.meta.url),'utf8'));
+ const old="price_mode:mode==='CALCULATION'?'REQUEST_DELIVERED_PRICE':'ACCEPT_PUBLISHED_PRICE',published_price_reference:num(item.price),published_basis_reference:basis,";
+ const now="price_mode:mode==='CALCULATION'?'REQUEST_DELIVERED_PRICE':'ACCEPT_PUBLISHED_PRICE',requested_delivery_basis:mode==='CALCULATION'?('DAP ст. '+String(form.elements.destination_station.value||'').trim()+', Incoterms 2020'):basis,published_price_reference:num(item.price),published_basis_reference:basis,";
+ const blob=t=>{const b=Buffer.from(t,'utf8');return createHash('sha1').update(Buffer.from('blob '+b.length+'\0')).update(b).digest('hex');};
+ assert.equal(formSource.split(now).length,2);
+ assert.equal(blob(formSource),approval.exact_authorized_payload_only_blob_sha);
+ assert.equal(blob(formSource.replace(now,old)),approval.exact_frozen_baseline_blob_sha);
+ assert.equal(approval.checks.no_dom_html_css_change,true);
 });
