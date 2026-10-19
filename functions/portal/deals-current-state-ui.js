@@ -134,7 +134,7 @@ const SCRIPT=RAW
   )
   .replace(
     "function bindNavigation(){if(window.__RONA_DEALS_CURRENT_NAV_BOUND__)return;window.__RONA_DEALS_CURRENT_NAV_BOUND__=true;document.addEventListener('click',function(ev){var b=ev.target&&ev.target.closest?ev.target.closest('#nav button[data-page]'):null;if(!b||b.dataset.page!=='deals')return;queueMicrotask(function(){if(state)render();else refresh(true)})},true)}",
-    "function openRequestedDeal(id){id=String(id||'').trim();if(!id||!state)return false;var match=deals().find(function(d){return String(d.deal_id||'')===id});if(!match)return false;filter='ACTIVE';selected=String(match.deal_id);window.__RONA_DEALS_REQUESTED_ID__=selected;render();return true}function bindNavigation(){if(window.__RONA_DEALS_CURRENT_NAV_BOUND__)return;window.__RONA_DEALS_CURRENT_NAV_BOUND__=true;document.addEventListener('click',function(ev){var b=ev.target&&ev.target.closest?ev.target.closest('#nav button[data-page]'):null;if(!b||b.dataset.page!=='deals')return;queueMicrotask(function(){var requested=window.__RONA_DEALS_REQUESTED_ID__;if(state){if(!requested||!openRequestedDeal(requested))render()}else refresh(true).then(function(){if(requested)openRequestedDeal(requested)})})},true);window.addEventListener('rona:deal-select',function(ev){var id=ev&&ev.detail&&ev.detail.dealId;if(!id)return;window.__RONA_DEALS_REQUESTED_ID__=String(id);if(state)openRequestedDeal(id);else refresh(true).then(function(){openRequestedDeal(id)})})}"
+    "function openRequestedDeal(id){id=String(id||'').trim();if(!id||!state)return false;var match=deals().find(function(d){return String(d.deal_id||'')===id});if(!match)return false;filter='ACTIVE';selected=String(match.deal_id);window.__RONA_DEALS_REQUESTED_ID__=selected;render();return true}function bindNavigation(){if(window.__RONA_DEALS_CURRENT_NAV_BOUND__)return;window.__RONA_DEALS_CURRENT_NAV_BOUND__=true;document.addEventListener('click',function(ev){var b=ev.target&&ev.target.closest?ev.target.closest('#nav button[data-page]'):null;if(!b||b.dataset.page!=='deals')return;queueMicrotask(function(){window.__RONA_DEALS_CURRENT_NAV_REFRESH_AT__=Date.now();refresh(true)})},true);window.addEventListener('rona:deal-select',function(ev){var id=ev&&ev.detail&&ev.detail.dealId;if(!id)return;window.__RONA_DEALS_REQUESTED_ID__=String(id);window.__RONA_DEALS_CURRENT_NAV_REFRESH_AT__=Date.now();refresh(true)})}"
   )
   .replace(
     "state=next;window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__=state;render();window.__RONA_DEALS_CURRENT_STATE_ERROR__=null",
@@ -158,13 +158,16 @@ const SCRIPT=RAW
   )
   .replace(
     "refresh(true);setInterval(function(){refresh(false)},15000)",
-    "window.__RONA_DEALS_CURRENT_REFRESH_MODE__='ON_DEMAND_NO_INTERVAL_V1';refresh(true)"
+    "window.__RONA_DEALS_CURRENT_REFRESH_MODE__='NAVIGATION_INVALIDATED_NO_INTERVAL_V2';refresh(true)"
   );
 
 if(SCRIPT.includes("setInterval(function(){refresh(false)},15000)"))throw new Error('DEALS_LEGACY_15S_POLLING_REMAINS');
 if(/\bwaitsAction\b/.test(SCRIPT))throw new Error('DEALS_LEGACY_WAITS_ACTION_REFERENCE');
 if(!SCRIPT.includes("if(projection==='FINANCE_V8')return due!==null&&due>0"))throw new Error('DEALS_FINANCE_V8_DUE_NOW_RULE_MISSING');
 if(!SCRIPT.includes("api('/admin/deals-current-v4')"))throw new Error('DEALS_CURRENT_V4_ENDPOINT_MISSING');
+if(!SCRIPT.includes("queueMicrotask(function(){window.__RONA_DEALS_CURRENT_NAV_REFRESH_AT__=Date.now();refresh(true)})"))throw new Error('DEALS_NAV_MUST_REFRESH_SOURCE');
+if(!SCRIPT.includes("window.__RONA_DEALS_REQUESTED_ID__=String(id);window.__RONA_DEALS_CURRENT_NAV_REFRESH_AT__=Date.now();refresh(true)"))throw new Error('DEALS_SELECT_MUST_REFRESH_SOURCE');
+if(SCRIPT.includes("if(state)openRequestedDeal(id);else refresh(true)"))throw new Error('DEALS_STALE_DEEPLINK_FALLBACK_FORBIDDEN');
 if(!SCRIPT.includes("admin-closeout-documents-v1.js?v=20261005-v4"))throw new Error('DEALS_CLOSEOUT_DOCUMENTS_RUNTIME_LOADER_MISSING');
 if(!SCRIPT.includes("finance_projection_version"))throw new Error('DEALS_FINANCE_V8_PROJECTION_MARKER_MISSING');
 if(!SCRIPT.includes("route_resolution_state")||!SCRIPT.includes("trusted_wagon_count")||!SCRIPT.includes("position_groups"))throw new Error('DEALS_RAIL_EXECUTION_V4_MARKER_MISSING');
@@ -210,4 +213,4 @@ if(!SCRIPT.includes("return{text:'В пути',tone:'info'}"))throw new Error('D
 if(!SCRIPT.includes("'Этап','Паспорт'"))throw new Error('DEALS_CLOSEOUT_PASSPORT_COLUMN_MISSING');
 if(!SCRIPT.includes("closeoutStageCell(d),button(selected===d.deal_id?'Свернуть':'Открыть'"))throw new Error('DEALS_CLOSEOUT_OPEN_PASSPORT_ACTION_MISSING');
 
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1','x-rona-deals-refresh':'on-demand-no-interval-v1','x-rona-deals-read-model':'admin-deals-current-v4-finance-v8-rail-execution-v4','x-rona-deals-payment-basis':'finance-v8-due-now-v1','x-rona-deals-finance-cell':'paid-vs-remaining-color-v1','x-rona-deals-execution-scope':'post-rail-paid-attention-exclusive-v1','x-rona-deals-closeout':'admin-closeout-v1'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1','x-rona-deals-refresh':'navigation-invalidation-v2','x-rona-deals-read-model':'admin-deals-current-v4-finance-v8-rail-execution-v4','x-rona-deals-payment-basis':'finance-v8-due-now-v1','x-rona-deals-finance-cell':'paid-vs-remaining-color-v1','x-rona-deals-execution-scope':'post-rail-paid-attention-exclusive-v1','x-rona-deals-closeout':'admin-closeout-v1'}})}
