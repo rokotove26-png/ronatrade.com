@@ -63,6 +63,15 @@ export function patchAdminSupplierResourceV1(input){
     'resource-card'
   );
 
+  // CAUT-03 counts unread notices, NOT all actions awaiting business decisions.
+  // The previous label "Требует действия" falsely showed 0 alongside 5 pending resources.
+  output=replaceOnce(
+    output,
+    "gauge('CAUT-03','Требует действия',unseenN===null?'—':unseenN",
+    "gauge('CAUT-03','Непросмотренные',unseenN===null?'—':unseenN",
+    'unread-only-label'
+  );
+
   output=replaceOnce(
     output,
     "gauge('WARN-06','Критические события',criticalN===null?'—':criticalN,ready?(sourceGood('actions')?'Исключения по реестру':'СТАРЫЕ ОТКРЫТЫЕ ЗАДАЧИ'):'Источник не готов','home',ready&&(criticalN||0)>0?'red':'green')",
@@ -72,7 +81,7 @@ export function patchAdminSupplierResourceV1(input){
 
   if(!output.includes("gauge('RES-03','Ожидают ресурс'")||
      !output.includes("gauge('WARN-06','Критические события'")||
-     !output.includes("gauge('CAUT-03','Требует действия'")||
+     !output.includes("gauge('CAUT-03','Непросмотренные'")||
      !output.includes("window.__RONA_ADMIN_OPERATIONS_RESOURCE_PENDING__"))
     throw new Error('OPS_SUPPLIER_RESOURCE_V1_RENDER_CONTRACT_MISSING');
 
