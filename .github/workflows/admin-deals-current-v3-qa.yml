@@ -10,6 +10,7 @@ on:
       - 'functions/portal/deals-current-state-ui.js'
       - 'tests/deals/admin-deals-current-v3-contract.test.mjs'
       - 'tests/deals/application-to-deal-navigation-refresh.test.mjs'
+      - 'tests/deals/basis-source-destination-review.test.mjs'
       - 'tests/deals/registration-resource-gate-workflow.test.mjs'
       - 'supabase/migrations/20261019185900_deal_registration_resource_gate_execution_shell_v1.sql'
       - '.github/workflows/admin-deals-current-v3-qa.yml'
@@ -35,6 +36,8 @@ jobs:
         run: node --test tests/deals/admin-deals-current-v3-contract.test.mjs
       - name: Application-to-Deal fresh navigation regression
         run: node --test tests/deals/application-to-deal-navigation-refresh.test.mjs
+      - name: Source-first basis and final station review regression
+        run: node --test tests/deals/basis-source-destination-review.test.mjs
       - name: Supplier-first deal registration and workflow readiness
         run: node --test tests/deals/registration-resource-gate-workflow.test.mjs
       - name: Generated Deals runtime compiles
