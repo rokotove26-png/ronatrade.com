@@ -1,5 +1,6 @@
 import paymentsMoneyDisplayContract from './payments-money-display-contract.js';
 import {patchAdminOperationsEventRuntimeV12} from './operations-event-runtime-v12.js';
+import {patchAdminSupplierResourceV1} from './operations-resource-pending-v1.js';
 
 const CASH_OWNER='cash-r2-exclusive-v1';
 const PAYMENTS_OWNER='admin-payments-v7-native-v2';
@@ -125,6 +126,7 @@ export async function onRequest(context){
     const paymentsPatched=patchPaymentsSourceAware(await response.text());
     patched=patchCashSingleOwner(paymentsPatched);
     patched=patchAdminOperationsEventRuntimeV12(patched);
+    patched=patchAdminSupplierResourceV1(patched);
     // The Cloudflare/esbuild-compiled function.toString() snippets contain
     // __name(...) calls. These snippets execute as a classic standalone
     // browser script, outside the original bundler's private helper scope.
@@ -151,7 +153,8 @@ export async function onRequest(context){
   headers.set('x-rona-payments-current-runtime','due-now-conditional-v3');
   headers.set('x-rona-payments-money-display','max-1-v1');
   headers.set('x-rona-operations-refresh','realtime-invalidation-v12');
+  headers.set('x-rona-resource-kpi','supplier-workflow-source-v1');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
 
-export const __test={patchCashSingleOwner,patchPaymentsCurrentSemantics,patchPaymentsSourceAware,patchAdminOperationsEventRuntimeV12,CASH_OWNER,PAYMENTS_OWNER,PAYMENTS_V8_BOOTSTRAP_OWNER,RADIO_VISUAL_VERSION};
+export const __test={patchCashSingleOwner,patchPaymentsCurrentSemantics,patchPaymentsSourceAware,patchAdminOperationsEventRuntimeV12,patchAdminSupplierResourceV1,CASH_OWNER,PAYMENTS_OWNER,PAYMENTS_V8_BOOTSTRAP_OWNER,RADIO_VISUAL_VERSION};
