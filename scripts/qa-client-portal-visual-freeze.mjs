@@ -2,6 +2,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 const POLICY_PATH='governance/client-portal-visual-freeze.json';
+const CLIENT_BASIS_PAYLOAD_EXCEPTION_PATH='governance/client-basis-payload-functional-exception-20261019.json';
 const APPLICATIONS_APPROVAL_PATH='governance/client-applications-uat-v2-owner-approval.json';
 const DEALS_LOADER_APPROVAL_PATH='governance/client-deals-loader-owner-remediation-20260904.json';
 const CLIENT_LOAD_HOTFIX_APPROVAL_PATH='governance/client-load-hotfix-pr429-owner-approval-20260905.json';
@@ -40,6 +41,7 @@ const CLIENT_DEALS_CLOSEOUT_APPROVAL_PATH='governance/client-deals-attention-clo
 const CLIENT_DEALS_VISUAL_HIERARCHY_APPROVAL_PATH='governance/client-deals-visual-hierarchy-owner-approval-20261005.json';
 const CLIENT_DEAL_ATTENTION_PAYMENTS_EXIT_APPROVAL_PATH='governance/client-deal-attention-payments-exit-owner-approval-20261004.json';
 const policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));
+const clientBasisPayloadApproval=JSON.parse(await readFile(CLIENT_BASIS_PAYLOAD_EXCEPTION_PATH,'utf8'));
 const applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APPROVAL_PATH,'utf8'));
 const dealsLoaderApproval=JSON.parse(await readFile(DEALS_LOADER_APPROVAL_PATH,'utf8'));
 const clientLoadHotfixApproval=JSON.parse(await readFile(CLIENT_LOAD_HOTFIX_APPROVAL_PATH,'utf8'));
@@ -1247,8 +1249,42 @@ const clientRailAdminMirrorSupersededBy670=
   clientRail670ExceptionAuthorized&&
   clientRail670Approval.approved_protected_files.includes('assets/portal-runtime/client-rail-canonical-hero-v1.js');
 
+// One exact non-visual data-contract edit. Owner directly instructed automatic
+// carry-over of the customer's requested destination basis on 2026-10-19.
+// The frozen client portal UI baseline is NOT rebaselined. Replacing only the
+// permitted added payload field must recreate the original Git blob byte-for-byte.
+const CLIENT_BASIS_PROTECTED_FILE='assets/portal-runtime/client-application-form-v3.js';
+const CLIENT_BASIS_BEFORE="price_mode:mode==='CALCULATION'?'REQUEST_DELIVERED_PRICE':'ACCEPT_PUBLISHED_PRICE',published_price_reference:num(item.price),published_basis_reference:basis,";
+const CLIENT_BASIS_AFTER="price_mode:mode==='CALCULATION'?'REQUEST_DELIVERED_PRICE':'ACCEPT_PUBLISHED_PRICE',requested_delivery_basis:mode==='CALCULATION'?('DAP ст. '+String(form.elements.destination_station.value||'').trim()+', Incoterms 2020'):basis,published_price_reference:num(item.price),published_basis_reference:basis,";
+const exactClientBasisPayloadApproval=
+  clientBasisPayloadApproval?.policy==='RONA_CLIENT_APPLICATION_BASIS_PAYLOAD_OWNER_FUNCTIONAL_EXCEPTION_V1'&&
+  clientBasisPayloadApproval?.status==='OWNER_FUNCTIONAL_DIRECTIVE_FOR_NONVISUAL_DATA_CONTRACT_CORRECTION'&&
+  clientBasisPayloadApproval?.directive_source==='OWNER_IN_CHAT_2026-10-19_REPEATED_CLIENT_APPLICATION_TERMS_MUST_TRANSFER_AUTOMATICALLY'&&
+  clientBasisPayloadApproval?.protected_file===CLIENT_BASIS_PROTECTED_FILE&&
+  clientBasisPayloadApproval?.exact_frozen_baseline_blob_sha==='281363b3499072bca33e00f0aa11eda787c504a9'&&
+  clientBasisPayloadApproval?.exact_authorized_payload_only_blob_sha==='4001e1b9bd47adeca85f38d330d5a4a1839ceefb'&&
+  clientBasisPayloadApproval?.checks?.source_requires_byte_exact_rollback_to_frozen_blob===true&&
+  clientBasisPayloadApproval?.checks?.no_dom_html_css_change===true&&
+  clientBasisPayloadApproval?.checks?.no_client_price_value_override===true&&
+  clientBasisPayloadApproval?.checks?.strict_exact_blob===true&&
+  clientBasisPayloadApproval?.checks?.preserve_all_other_visual_freeze===true;
+let exactClientBasisPayloadOnly=false;
+if(exactClientBasisPayloadApproval){
+ const raw=await readFile(CLIENT_BASIS_PROTECTED_FILE);
+ const actualSha=createHash('sha1').update(Buffer.from('blob '+raw.length+'\0')).update(raw).digest('hex');
+ const source=raw.toString('utf8');
+ if(actualSha===clientBasisPayloadApproval.exact_authorized_payload_only_blob_sha&&
+    source.split(CLIENT_BASIS_AFTER).length===2 &&
+    source.split(CLIENT_BASIS_BEFORE).length===1){
+   const reverted=Buffer.from(source.replace(CLIENT_BASIS_AFTER,CLIENT_BASIS_BEFORE),'utf8');
+   const originalSha=createHash('sha1').update(Buffer.from('blob '+reverted.length+'\0')).update(reverted).digest('hex');
+   exactClientBasisPayloadOnly=originalSha===clientBasisPayloadApproval.exact_frozen_baseline_blob_sha;
+ }
+}
+
 const approvedModifiedFiles=new Set();
 const approvedNewRuntime=new Set();
+if(exactClientBasisPayloadOnly)approvedModifiedFiles.add(CLIENT_BASIS_PROTECTED_FILE);
 const approvedNewAttach=new Set();
 if(applicationExceptionAuthorized){
   approvedModifiedFiles.add('assets/portal-runtime/client-applications-live-render-v1.js');
