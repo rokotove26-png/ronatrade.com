@@ -171,6 +171,14 @@ const SCRIPT=RAW
   .replace(
     "if(!state)renderError(e)",
     "renderError(e)"
+  )
+  .replace(
+    "function basisCell(d){var box=el('div','rona-current-deal-cell');box.append(el('span','rona-current-deal-main',basisText(d)));if(!String(d&&d.delivery_basis||'').trim())box.append(pill('Требует подтверждения','warn'));return box}",
+    "function basisReferenceNeedsApproval(d){if(!d||String(d.business_status||'').toUpperCase()!=='REGISTERED')return false;var b=String(d.delivery_basis||'').trim(),dst=String(d.destination||'').trim().split('/').pop().trim();if(!b||!dst)return false;var k=b.split(' ')[0].toUpperCase();if(!['CPT','DAP','CIP','DDP','DPU','FCA'].includes(k))return false;var place=b.slice(k.length).trim().split(',')[0].replace('ст.','').trim();if(place.toLocaleLowerCase()===dst.toLocaleLowerCase())return false;return !docsFor(d.deal_id).some(function(x){return String(x.document_kind||'').toUpperCase()==='SIGNED_ADDENDUM'})}function basisCell(d){var box=el('div','rona-current-deal-cell');if(basisReferenceNeedsApproval(d)){box.append(el('span','rona-current-deal-main','Базис уточняется'),pill('По прайсу: '+String(d.delivery_basis||'')+' | назначение: '+String(d.destination||''),'warn'));return box}box.append(el('span','rona-current-deal-main',basisText(d)));if(!String(d&&d.delivery_basis||'').trim())box.append(pill('Требует подтверждения','warn'));return box}"
+  )
+  .replace(
+    "function basisText(d){var raw=",
+    "function basisText(d){if(basisReferenceNeedsApproval(d))return'Базис уточняется';var raw="
   );
 
 if(SCRIPT.includes("setInterval(function(){refresh(false)},15000)"))throw new Error('DEALS_LEGACY_15S_POLLING_REMAINS');
@@ -183,6 +191,10 @@ if(SCRIPT.includes("if(state)openRequestedDeal(id);else refresh(true)"))throw ne
 if(!SCRIPT.includes("window.__RONA_DEALS_CURRENT_PENDING_INVALIDATION__=true"))throw new Error('DEALS_CONCURRENT_NAV_INVALIDATION_MUST_QUEUE');
 if(!SCRIPT.includes("window.__RONA_DEALS_CURRENT_PENDING_INVALIDATION__=false;queueMicrotask(function(){refresh(true)})"))throw new Error('DEALS_PENDING_INVALIDATION_MUST_RELOAD_AFTER_FLIGHT');
 if(SCRIPT.includes("if(!state)renderError(e)"))throw new Error('DEALS_STALE_SNAPSHOT_ON_RPC_FAILURE_FORBIDDEN');
+if(!SCRIPT.includes("function basisReferenceNeedsApproval(d)"))throw new Error('DEALS_BASIS_SOURCE_LINEAGE_REVIEW_MISSING');
+if(!SCRIPT.includes("Базис уточняется"))throw new Error('DEALS_BASIS_PENDING_DISPLAY_MISSING');
+if(!SCRIPT.includes("По прайсу: "))throw new Error('DEALS_BASIS_PUBLISHED_REFERENCE_LABEL_MISSING');
+if(!SCRIPT.includes("function basisText(d){if(basisReferenceNeedsApproval(d))"))throw new Error('DEALS_BASIS_DETAILS_MUST_SHOW_SOURCE_WARNING');
 if(!SCRIPT.includes("admin-closeout-documents-v1.js?v=20261005-v4"))throw new Error('DEALS_CLOSEOUT_DOCUMENTS_RUNTIME_LOADER_MISSING');
 if(!SCRIPT.includes("finance_projection_version"))throw new Error('DEALS_FINANCE_V8_PROJECTION_MARKER_MISSING');
 if(!SCRIPT.includes("route_resolution_state")||!SCRIPT.includes("trusted_wagon_count")||!SCRIPT.includes("position_groups"))throw new Error('DEALS_RAIL_EXECUTION_V4_MARKER_MISSING');
@@ -228,4 +240,4 @@ if(!SCRIPT.includes("return{text:'В пути',tone:'info'}"))throw new Error('D
 if(!SCRIPT.includes("'Этап','Паспорт'"))throw new Error('DEALS_CLOSEOUT_PASSPORT_COLUMN_MISSING');
 if(!SCRIPT.includes("closeoutStageCell(d),button(selected===d.deal_id?'Свернуть':'Открыть'"))throw new Error('DEALS_CLOSEOUT_OPEN_PASSPORT_ACTION_MISSING');
 
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1','x-rona-deals-refresh':'navigation-invalidation-v2','x-rona-deals-read-model':'admin-deals-current-v4-finance-v8-rail-execution-v4','x-rona-deals-payment-basis':'finance-v8-due-now-v1','x-rona-deals-finance-cell':'paid-vs-remaining-color-v1','x-rona-deals-execution-scope':'post-rail-paid-attention-exclusive-v1','x-rona-deals-closeout':'admin-closeout-v1'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1','x-rona-deals-refresh':'navigation-invalidation-v2','x-rona-deals-basis':'source-destination-review-v1','x-rona-deals-read-model':'admin-deals-current-v4-finance-v8-rail-execution-v4','x-rona-deals-payment-basis':'finance-v8-due-now-v1','x-rona-deals-finance-cell':'paid-vs-remaining-color-v1','x-rona-deals-execution-scope':'post-rail-paid-attention-exclusive-v1','x-rona-deals-closeout':'admin-closeout-v1'}})}
