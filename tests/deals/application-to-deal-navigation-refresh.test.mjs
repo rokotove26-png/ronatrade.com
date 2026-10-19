@@ -28,5 +28,8 @@ test('Generated runtime compiles and retains owner source locks, without an inte
   assert.match(source,/function visibleDeals\(ds\)/);
   assert.match(source,/window\.__RONA_DEALS_CURRENT_REFRESH_MODE__='NAVIGATION_INVALIDATED_NO_INTERVAL_V2'/);
   assert.doesNotMatch(source,/setInterval\(function\(\)\{refresh\(false\)\},15000\)/);
+  assert.match(source,/__RONA_DEALS_CURRENT_PENDING_INVALIDATION__=true/);
+  assert.match(source,/__RONA_DEALS_CURRENT_PENDING_INVALIDATION__=false;queueMicrotask\(function\(\)\{refresh\(true\)\}\)/);
+  assert.doesNotMatch(source,/if\(!state\)renderError\(e\)/);
   assert.doesNotMatch(source,/DEAL-2026-01[2-6]/);
 });
