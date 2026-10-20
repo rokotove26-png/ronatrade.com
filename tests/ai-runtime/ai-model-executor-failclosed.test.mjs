@@ -33,3 +33,19 @@ test('no production unblocking or historical replay in patch',()=>{
  assert.match(src,/AUTONOMOUS_ROLES/);
  assert.match(src,/response_format:\{type:"json_schema"/);
 });
+
+test('credential fragments are redacted with real executed error sanitizer',async()=>{
+ const vm=await import('node:vm');
+ const start=src.indexOf('function safeErrorCode('),end=src.indexOf('function providerKey(');
+ assert.ok(start>=0&&end>start);
+ const fragment=src.slice(start,end)
+  .replaceAll('error:unknown','error')
+  .replaceAll('(error as any)','(error)');
+ const {safeErrorCode,safeErrorDetail}=vm.runInNewContext(fragment+';({safeErrorCode,safeErrorDetail})',{}, {timeout:500});
+ assert.equal(safeErrorCode({message:'Invalid_header_value__Bearer_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'}),'AI_EXECUTOR_ERROR_REDACTED');
+ assert.equal(safeErrorDetail({detail:'authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'}),'[REDACTED]');
+ assert.equal(safeErrorCode({message:'RPC_RONA_AI_EXECUTOR_COMMIT_ACTION_FAILED'}),'RPC_RONA_AI_EXECUTOR_COMMIT_ACTION_FAILED');
+ assert.equal(safeErrorCode({message:'GROQ_HTTP_429'}),'GROQ_HTTP_429');
+ assert.equal(safeErrorCode({message:'RUN failed key abcd!'}),'AI_EXECUTOR_ERROR_REDACTED');
+ assert.equal(safeErrorDetail({message:'CONTRACT\\nERROR'}),'CONTRACT ERROR');
+});
