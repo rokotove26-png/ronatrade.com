@@ -89,3 +89,10 @@ test('canonical binary checksum gate',()=>{
  assert.match(src,/bytes\.byteLength/);
  assert.match(src,/new Response\(bytes,/);
 });
+
+test('emergency rollback remains zero-data rather than exposing prior non-agency grants',()=>{
+ const rescue=fs.readFileSync('supabase/rollback/rona-beltrade-failclosed-20261020/index.ts','utf8');
+ assert.match(rescue,/BELTRADE_SCOPE_FAIL_CLOSED/);
+ assert.match(rescue,/status:503/);
+ assert.doesNotMatch(rescue,/partner_api_entity_grants|SELECT|storage\/v1/);
+});
