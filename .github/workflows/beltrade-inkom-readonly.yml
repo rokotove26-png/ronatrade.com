@@ -1,0 +1,25 @@
+name: BelTrade InCom Read-Only Contract QA
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/rona-beltrade-partner-v1/**'
+      - 'tests/partner-api/beltrade-inkom-readonly.test.mjs'
+      - '.github/workflows/beltrade-inkom-readonly.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scoped-readonly-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check agency scope and private-read contracts
+        run: node --test tests/partner-api/beltrade-inkom-readonly.test.mjs
+      - name: Check Edge imports
+        run: deno check --config=supabase/functions/rona-beltrade-partner-v1/deno.json supabase/functions/rona-beltrade-partner-v1/index.ts
