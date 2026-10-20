@@ -23,6 +23,7 @@ test('EVERY resource SQL needs original exact grant and six-current-addenda agen
     assert.match(sql,/ae\.agent_legal_entity_id='S-005'/,'wrong agent '+name);
     assert.match(sql,/agency_document_key/);
     assert.match(sql,/document_kind='AGENCY_CONTRACT'/);
+    assert.match(sql,/master\.document_id='AGENCY-S-005-5D4F92FF'/,'different agreement is forbidden '+name);
     assert.match(sql,/document_kind='AGENCY_ADDENDUM'/);
     assert.match(sql,new RegExp("g\\.resource='"+name+"'"),'resource permission bypass '+name);
     assert.match(sql,/g\.active=true/,'revoked resource grant not checked '+name);
