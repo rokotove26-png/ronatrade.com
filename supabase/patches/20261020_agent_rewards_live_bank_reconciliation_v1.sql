@@ -282,6 +282,7 @@ BEGIN
                     'amount',(v_legacy_line->>'amount')::numeric+v_equiv,
                     'nativeAmount',(v_legacy_line->>'nativeAmount')::numeric+v_bank.amount,
                     'aggregationStatus','BANK_PAYMENTS_MERGED_BY_COUNTERPARTY',
+                    'authorityStatus','MIXED_CANONICAL_PLUS_BANK_FX_REFERENCE__FUNDING_TO_VERIFY',
                     'bankPaymentRefs',
                        coalesce(v_legacy_line->'bankPaymentRefs','[]'::jsonb)
                        ||jsonb_build_array(jsonb_build_object(
