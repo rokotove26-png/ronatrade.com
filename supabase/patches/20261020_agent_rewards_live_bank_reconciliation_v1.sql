@@ -50,6 +50,7 @@ DECLARE
   v_equiv numeric;
   v_currency_ok boolean;
   v_has_native_payment boolean;
+  v_already_in_cash boolean;
   v_bank record;
 BEGIN
   IF jsonb_typeof(p_workspace->'deals') IS DISTINCT FROM 'array' THEN
@@ -166,6 +167,11 @@ BEGIN
           v_native_paid:=v_native_paid+v_bank.amount;
           v_has_native_payment:=true;
           v_effective_bank_time:=greatest(coalesce(v_effective_bank_time,'epoch'::timestamptz),v_bank.created_at);
+          v_already_in_cash:=EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(v_item->'cashPaymentLines')='array'
+              THEN v_item->'cashPaymentLines' ELSE '[]'::jsonb END) old_line(value)
+            WHERE old_line.value->>'paymentId'=v_bank.payment_id
+          );
           v_equiv:=NULL;
           SELECT c.accounting_amount INTO v_equiv
           FROM portal_private.payment_resource_chains_effective_v8 c
@@ -200,17 +206,24 @@ BEGIN
               v_equiv:=v_bank.amount/v_rate;
             END IF;
           END IF;
+          IF v_already_in_cash THEN
+            v_equiv:=0;
+            v_fx_source_in:='ALREADY_COUNTED_IN_APPROVED_CASH_LINES';
+            v_fx_source_out:=NULL;
+          END IF;
           IF v_equiv IS NULL THEN
             v_currency_ok:=false;
           ELSE
             v_counterparty_delta:=v_counterparty_delta+v_equiv;
-            v_lines:=v_lines || jsonb_build_array(jsonb_build_object(
+            IF NOT v_already_in_cash THEN
+              v_lines:=v_lines || jsonb_build_array(jsonb_build_object(
               'paymentId',v_bank.payment_id,'counterparty',v_name,
               'amount',v_equiv,'currency',v_accounting_ccy,
               'nativeAmount',v_bank.amount,'nativeCurrency',v_bank.currency,
               'paymentKind','COUNTERPARTY_PAYMENT',
               'source','FINANCE_BANK_CONFIRMED_DYNAMIC__SAME_DAY_BANK_FX_REFERENCE_OR_V8',
               'authorityStatus','BANK_FACT_VERIFIED__FX_REFERENCE_NOT_FUNDING_ALLOCATION'));
+            END IF;
           END IF;
           v_new_bank_refs:=v_new_bank_refs || jsonb_build_array(jsonb_build_object(
             'paymentId',v_bank.payment_id,'bankDocument',v_bank.bank_transaction_reference,
@@ -273,6 +286,14 @@ BEGIN
           AND p.payment_at>v_baseline_at AND p.created_at>v_baseline_at
         ORDER BY p.payment_at,p.payment_id
       LOOP
+        v_already_in_cash:=(
+          coalesce(v_item->'financeSourceReconciliation'->>'status','')='RECONCILED_CURRENT_FINANCE_V8'
+          AND EXISTS (
+            SELECT 1 FROM portal_private.payment_resource_chains_effective_v8 existing
+            WHERE existing.payment_key=v_bank.payment_key AND existing.deal_key=v_deal_key
+              AND existing.is_effective_execution_authority AND existing.source_locked
+          )
+        );
         v_equiv:=NULL;
         SELECT c.accounting_amount INTO v_equiv
           FROM portal_private.payment_resource_chains_effective_v8 c
@@ -303,6 +324,7 @@ BEGIN
             AND upper(btrim(fout.currency))=v_accounting_ccy;
           IF v_rate_count=1 AND v_rate>0 THEN v_equiv:=v_bank.amount/v_rate; END IF;
         END IF;
+        IF v_already_in_cash THEN v_equiv:=0; END IF;
         IF v_equiv IS NULL THEN v_currency_ok:=false;
         ELSE v_fee_delta:=v_fee_delta+v_equiv; END IF;
         v_effective_bank_time:=greatest(coalesce(v_effective_bank_time,'epoch'::timestamptz),v_bank.created_at);
