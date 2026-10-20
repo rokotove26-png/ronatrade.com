@@ -47,5 +47,5 @@ test('credential fragments are redacted with real executed error sanitizer',asyn
  assert.equal(safeErrorCode({message:'RPC_RONA_AI_EXECUTOR_COMMIT_ACTION_FAILED'}),'RPC_RONA_AI_EXECUTOR_COMMIT_ACTION_FAILED');
  assert.equal(safeErrorCode({message:'GROQ_HTTP_429'}),'GROQ_HTTP_429');
  assert.equal(safeErrorCode({message:'RUN failed key abcd!'}),'AI_EXECUTOR_ERROR_REDACTED');
- assert.equal(safeErrorDetail({message:'CONTRACT\\nERROR'}),'CONTRACT ERROR');
+ assert.equal(safeErrorDetail({message:'CONTRACT\nERROR'}),'CONTRACT ERROR');
 });
