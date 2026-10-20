@@ -4,6 +4,7 @@ on:
     paths:
       - 'supabase/functions/rona-ai-model-executor/**'
       - 'tests/ai-runtime/ai-model-executor-failclosed.test.mjs'
+      - 'scripts/ai-executor-rollback-v14.mjs'
       - '.github/workflows/ai-model-executor-failclosed.yml'
   workflow_dispatch:
 permissions:
@@ -21,5 +22,7 @@ jobs:
           deno-version: v2.x
       - name: Verify fail-closed executor role contract and credential sanitization
         run: node --test tests/ai-runtime/ai-model-executor-failclosed.test.mjs
+      - name: Verify exact pre-deployment rollback source fingerprint
+        run: node scripts/ai-executor-rollback-v14.mjs --verify-only
       - name: Typecheck Edge Function import graph
         run: deno check --config=supabase/functions/rona-ai-model-executor/deno.json supabase/functions/rona-ai-model-executor/index.ts
