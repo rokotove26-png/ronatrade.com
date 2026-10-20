@@ -49,3 +49,11 @@ test('credential fragments are redacted with real executed error sanitizer',asyn
  assert.equal(safeErrorCode({message:'RUN failed key abcd!'}),'AI_EXECUTOR_ERROR_REDACTED');
  assert.equal(safeErrorDetail({message:'CONTRACT\nERROR'}),'CONTRACT ERROR');
 });
+
+test('provider 429 ends worker batch and re-blocks production before another model call',()=>{
+ const run=src.slice(src.indexOf('async function handleRun('),src.indexOf('Deno.serve('));
+ assert.match(run,/await recordFailure\(queue,workerId,error,retryable\);if\(status===429\)/);
+ assert.match(run,/rona_ai_executor_disarm/);
+ assert.match(run,/p_reason:"GROQ_HTTP_429_RATE_LIMIT_HOLD"/);
+ assert.match(run,/if\(status===429\)break/);
+});
