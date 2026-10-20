@@ -148,71 +148,15 @@ BEGIN
       v_new_rows := jsonb_set(v_new_rows,ARRAY[(v_index-1)::text],v_updated,false);
       v_group_count:=v_group_count+1;
     END LOOP;
-    -- Derive the total merged source rows from persisted group metadata.
-    -- This stays unchanged on repeated reads (the transformation is idempotent).
+    -- Recompute the merged count from canonical breakdown on every call.
+    -- A second read produces the same metadata as the first.
     SELECT coalesce(sum(CASE
-      WHEN coalesce(x.value->>'groupedPaymentCount','') ~ '^[0-9]{1,5}
-    -- Sum only the saved historical manual values where present, otherwise
-    -- use original source amount. This never persists a new correction.
-    v_overrides := v_item->'ownerCorrection'->'payload'->'paymentLineAmounts';
-    IF v_group_count>0 AND jsonb_typeof(v_overrides)='object' THEN
-      v_changed_overrides := v_overrides;
-      FOR v_line IN SELECT x.value FROM jsonb_array_elements(v_new_rows) x(value)
-        WHERE coalesce(x.value->>'groupingStatus','')='AUTO_GROUPED_SOURCE_RESOLVED_COUNTERPARTY'
-      LOOP
-        v_members := v_line->'sourcePaymentBreakdown';
-        v_override_sum := 0;
-        v_override_used := false;
-        FOR v_member IN SELECT y.value FROM jsonb_array_elements(v_members) y(value) LOOP
-          v_member_id := v_member->>'paymentId';
-          IF v_overrides ? v_member_id THEN
-            BEGIN
-              v_override_sum := v_override_sum + (v_overrides->>v_member_id)::numeric;
-            EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range THEN
-              v_override_sum := NULL;
-              EXIT;
-            END;
-            v_override_used := true;
-          ELSE
-            v_override_sum := v_override_sum + (v_member->>'amount')::numeric;
-          END IF;
-        END LOOP;
-        IF v_override_used AND v_override_sum IS NOT NULL THEN
-          FOR v_member IN SELECT y.value FROM jsonb_array_elements(v_members) y(value) LOOP
-            v_changed_overrides:=v_changed_overrides - (v_member->>'paymentId');
-          END LOOP;
-          v_changed_overrides:=v_changed_overrides||jsonb_build_object(v_line->>'paymentId',v_override_sum);
-        END IF;
-      END LOOP;
-      IF v_changed_overrides<>v_overrides THEN
-        v_item:=jsonb_set(v_item,'{ownerCorrection,payload,paymentLineAmounts}',
-          v_changed_overrides,false);
-      END IF;
-    END IF;
-    IF v_group_count>0 THEN
-      v_item:=jsonb_set(v_item,'{cashPaymentLines}',v_new_rows,false);
-    END IF;
-    v_item:=v_item||jsonb_build_object('counterpartyPaymentGrouping',jsonb_build_object(
-      'contract','AUTO_GROUP_SOURCE_RESOLVED_BY_DEAL_COUNTERPARTY_CURRENCY_V1',
-      'scope','ALL_EXISTING_AND_FUTURE_DEALS',
-      'separatePerDealApprovalRequired',false,
-      'rowsMerged',v_group_count,
-      'rowsPendingSourceVerification',v_skipped,
-      'financialTotalsUnchanged',true,
-      'bankDocumentsRetained',true));
-    v_out:=v_out||jsonb_build_array(v_item);
-  END LOOP;
-  RETURN p_workspace||jsonb_build_object(
-    'deals',v_out,
-    'counterpartyGroupingContract','AUTO_GROUP_SOURCE_RESOLVED_BY_DEAL_COUNTERPARTY_CURRENCY_V1');
-END
-$group_cash$;
-REVOKE ALL ON FUNCTION portal_private.agent_rewards_group_cash_lines_v1(jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION portal_private.agent_rewards_group_cash_lines_v1(jsonb) FROM anon;
-REVOKE ALL ON FUNCTION portal_private.agent_rewards_group_cash_lines_v1(jsonb) FROM authenticated;
-
-        THEN greatest((x.value->>'groupedPaymentCount')::int-1,0)
-      ELSE 0 END),0)::int INTO v_group_count
+      WHEN coalesce(x.value->>'groupedPaymentCount','')<> ''
+       AND length(x.value->>'groupedPaymentCount')<=5
+       AND translate(x.value->>'groupedPaymentCount','0123456789','')=''
+      THEN greatest((x.value->>'groupedPaymentCount')::integer-1,0)
+      ELSE 0 END),0)::int
+    INTO v_group_count
     FROM jsonb_array_elements(v_new_rows) x(value);
     -- Read-only Owner overrides are re-keyed to retained primary line ID.
     -- Sum only the saved historical manual values where present, otherwise
