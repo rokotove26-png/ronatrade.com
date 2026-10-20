@@ -4,6 +4,7 @@ on:
     paths:
       - 'supabase/functions/rona-beltrade-partner-v1/**'
       - 'tests/partner-api/beltrade-inkom-readonly.test.mjs'
+      - 'supabase/rollback/rona-beltrade-failclosed-20261020/**'
       - '.github/workflows/beltrade-inkom-readonly.yml'
   workflow_dispatch:
 permissions:
