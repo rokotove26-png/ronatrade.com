@@ -312,6 +312,7 @@ BEGIN
                   'source','FINANCE_BANK_CONFIRMED_DYNAMIC__SAME_DAY_BANK_FX_REFERENCE_OR_V8',
                   'authorityStatus','BANK_FACT_VERIFIED__FX_REFERENCE_NOT_FUNDING_ALLOCATION'));
               END IF;
+            END IF;
           END IF;
           v_new_bank_refs:=v_new_bank_refs || jsonb_build_array(jsonb_build_object(
             'paymentId',v_bank.payment_id,'bankDocument',v_bank.bank_transaction_reference,
