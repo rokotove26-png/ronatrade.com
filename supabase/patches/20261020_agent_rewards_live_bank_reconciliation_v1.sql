@@ -51,6 +51,12 @@ DECLARE
   v_currency_ok boolean;
   v_has_native_payment boolean;
   v_already_in_cash boolean;
+  v_owner_line_key text;
+  v_owner_line_count int;
+  v_owner_line_delta jsonb;
+  v_owner_line_updated jsonb;
+  v_owner_line_value numeric;
+  v_owner_line_patch_status text;
   v_bank record;
 BEGIN
   IF jsonb_typeof(p_workspace->'deals') IS DISTINCT FROM 'array' THEN
@@ -62,6 +68,8 @@ BEGIN
     v_approval_id := NULL;
     v_baseline_at := NULL;
     v_has_native_payment := false;
+    v_owner_line_delta := '{}'::jsonb;
+    v_owner_line_patch_status := 'NO_NEW_BANK_LINE';
     SELECT d.id INTO v_deal_key FROM portal_private.deals d
       WHERE d.deal_id=v_item->>'dealId' AND d.lifecycle_state::text='ACTIVE' LIMIT 1;
     IF v_deal_key IS NULL THEN
@@ -216,6 +224,30 @@ BEGIN
           ELSE
             v_counterparty_delta:=v_counterparty_delta+v_equiv;
             IF NOT v_already_in_cash THEN
+              -- Owner-side saved payment-line values take precedence in the rendered
+              -- editable "Собственник" tab. Move only a unique historical line
+              -- for this verified counterparty, leaving every other owner input intact.
+              v_owner_line_count:=0;
+              v_owner_line_key:=NULL;
+              IF jsonb_typeof(v_item->'ownerCorrection'->'payload'->'paymentLineAmounts')='object'
+                 AND jsonb_typeof(v_item->'cashPaymentLines')='array' THEN
+                SELECT count(*)::int,min(x.value->>'paymentId')
+                  INTO v_owner_line_count,v_owner_line_key
+                FROM jsonb_array_elements(v_item->'cashPaymentLines') x(value)
+                WHERE upper(btrim(coalesce(x.value->>'counterparty',''))) = upper(btrim(v_name))
+                  AND v_item->'ownerCorrection'->'payload'->'paymentLineAmounts' ? (x.value->>'paymentId')
+                  AND coalesce(x.value->>'paymentKind','COUNTERPARTY_PAYMENT')='COUNTERPARTY_PAYMENT';
+              END IF;
+              IF v_owner_line_count=1 AND v_owner_line_key IS NOT NULL AND v_equiv>0
+                 AND nullif(v_item->'ownerCorrection'->'payload'->'paymentLineAmounts'->>v_owner_line_key,'') IS NOT NULL THEN
+                v_owner_line_delta:=v_owner_line_delta || jsonb_build_object(
+                  v_owner_line_key,
+                  coalesce((v_owner_line_delta->>v_owner_line_key)::numeric,0)+v_equiv
+                );
+                v_owner_line_patch_status:='UNIQUE_SOURCE_LOCKED_HISTORICAL_LINE';
+              ELSE
+                v_owner_line_patch_status:='TO_VERIFY_HISTORICAL_LINE_MAPPING';
+              END IF;
               v_lines:=v_lines || jsonb_build_array(jsonb_build_object(
               'paymentId',v_bank.payment_id,'counterparty',v_name,
               'amount',v_equiv,'currency',v_accounting_ccy,
@@ -346,6 +378,32 @@ BEGIN
                OR v_effective_bank_time>nullif(v_item->'ownerCorrection'->>'createdAt','')::timestamptz) THEN
         v_item:=jsonb_set(v_item,'{ownerCorrection,payload,openSettlementAdjustment}',
           to_jsonb(v_open_new),true);
+        IF v_currency_ok
+           AND v_owner_line_patch_status='UNIQUE_SOURCE_LOCKED_HISTORICAL_LINE'
+           AND jsonb_typeof(v_owner_line_delta)='object'
+           AND jsonb_typeof(v_item->'ownerCorrection'->'payload'->'paymentLineAmounts')='object' THEN
+          v_owner_line_updated:=v_item->'ownerCorrection'->'payload'->'paymentLineAmounts';
+          FOR v_owner_line_key IN SELECT jsonb_object_keys(v_owner_line_delta) LOOP
+            IF nullif(v_owner_line_updated->>v_owner_line_key,'') IS NULL THEN
+              v_owner_line_patch_status:='TO_VERIFY_MISSING_OWNER_AMOUNT';
+              EXIT;
+            END IF;
+            BEGIN
+              v_owner_line_value := (v_owner_line_updated->>v_owner_line_key)::numeric
+                  + (v_owner_line_delta->>v_owner_line_key)::numeric;
+            EXCEPTION WHEN invalid_text_representation THEN
+              v_owner_line_patch_status:='TO_VERIFY_INVALID_OWNER_AMOUNT';
+              EXIT;
+            END;
+            v_owner_line_updated:=jsonb_set(
+              v_owner_line_updated, ARRAY[v_owner_line_key],to_jsonb(v_owner_line_value),false);
+          END LOOP;
+          IF v_owner_line_patch_status='UNIQUE_SOURCE_LOCKED_HISTORICAL_LINE' THEN
+            v_item:=jsonb_set(v_item,
+              '{ownerCorrection,payload,paymentLineAmounts}',v_owner_line_updated,false);
+            v_owner_line_patch_status:='AUTO_UPDATED_AFTER_BANK_PAYMENT';
+          END IF;
+        END IF;
       END IF;
       IF v_currency_ok THEN
         v_new_cashout:=v_old_cashout+v_counterparty_delta;
@@ -381,6 +439,7 @@ BEGIN
           'lastBankImportAt',v_effective_bank_time,
           'currency',v_accounting_ccy,
           'reportingFxIsExactFundingAllocation',false,
+          'ownerCorrectionLineReconciliation',v_owner_line_patch_status,
           'bankPayments',v_new_bank_refs,
           'autoRefresh','READ_MODEL_DERIVED_ON_EACH_REQUEST',
           'signedAgentPayableUnchanged',true,
