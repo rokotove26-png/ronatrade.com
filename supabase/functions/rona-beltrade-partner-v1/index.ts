@@ -71,18 +71,26 @@ async function protectedDocument(req:Request,p:any,requestId:string,path:string,
   if(!obj||obj.startsWith("/")||obj.split("/").some((p:string)=>!p||p==="."||p===".."))
     return audited(partnerId,requestId,req.method,path,503,"DOCUMENT_STORAGE_PATH_INVALID",{ok:false,code:"DOCUMENT_STORAGE_UNAVAILABLE"});
   const target=base.replace(/\/+$/,"")+"/storage/v1/object/authenticated/"+encodeURIComponent(String(doc.bucket_id))+"/"+obj.split("/").map(encodeURIComponent).join("/");
-  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),15000);
-  let upstream:Response;
-  try{upstream=await fetch(target,{method:"GET",redirect:"error",signal:ctrl.signal,headers:{"authorization":"Bearer "+key,"apikey":key}});}
-  catch{return audited(partnerId,requestId,req.method,path,503,"DOCUMENT_STORAGE_FETCH_FAILED",{ok:false,code:"DOCUMENT_STORAGE_UNAVAILABLE"});}
+  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
+  let bytes:Uint8Array;
+  try{
+    const upstream=await fetch(target,{method:"GET",redirect:"error",signal:ctrl.signal,headers:{"authorization":"Bearer "+key,"apikey":key}});
+    if(!upstream.ok)throw new Error("STORAGE_FETCH_FAILED");
+    bytes=new Uint8Array(await upstream.arrayBuffer());
+  }catch{return audited(partnerId,requestId,req.method,path,503,"DOCUMENT_STORAGE_FETCH_FAILED",{ok:false,code:"DOCUMENT_STORAGE_UNAVAILABLE"});}
   finally{clearTimeout(timer)}
-  if(!upstream.ok||!upstream.body)return audited(partnerId,requestId,req.method,path,503,"DOCUMENT_STORAGE_FETCH_FAILED",{ok:false,code:"DOCUMENT_STORAGE_UNAVAILABLE"});
+  if(bytes.byteLength!==Number(doc.byte_size)||bytes.byteLength===0||bytes.byteLength>30000000)
+    return audited(partnerId,requestId,req.method,path,503,"DOCUMENT_BINARY_LENGTH_MISMATCH",{ok:false,code:"DOCUMENT_VERIFICATION_FAILED"});
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",bytes));
+  const observedSha=[...digest].map((b:number)=>b.toString(16).padStart(2,"0")).join("");
+  if(!/^[0-9a-f]{64}$/i.test(String(doc.sha256||""))||observedSha!==String(doc.sha256).toLowerCase())
+    return audited(partnerId,requestId,req.method,path,503,"DOCUMENT_SHA256_MISMATCH",{ok:false,code:"DOCUMENT_VERIFICATION_FAILED"});
   const recorded=await audited(partnerId,requestId,req.method,path,200,"DOCUMENT_BINARY_READ",{ok:true,version_number:doc.version_number});
-  if(recorded.status!==200){try{await upstream.body.cancel()}catch{}return recorded;}
+  if(recorded.status!==200)return recorded;
   const raw=String(doc.filename||"document"),filename=raw.replace(/[\r\n]/g,"").slice(0,160);
   const declared=String(doc.content_type||"").toLowerCase();
   const contentType=(declared==="application/pdf"||declared==="image/jpeg"||declared==="image/png"||declared==="application/octet-stream"||declared==="application/vnd.openxmlformats-officedocument.wordprocessingml.document")?declared:"application/octet-stream";
-  return new Response(upstream.body,{status:200,headers:{"Content-Type":contentType,"Content-Disposition":"attachment; filename=\"document\"; filename*=UTF-8''"+encodeURIComponent(filename),"Cache-Control":"private, no-store, max-age=0","X-Content-Type-Options":"nosniff","X-Frame-Options":"DENY","Content-Security-Policy":"default-src 'none'","Referrer-Policy":"no-referrer","X-RONA-Document-Version":String(doc.version_number)}});
+  return new Response(bytes,{status:200,headers:{"Content-Type":contentType,"Content-Disposition":"attachment; filename=\"document\"; filename*=UTF-8''"+encodeURIComponent(filename),"Cache-Control":"private, no-store, max-age=0","X-Content-Type-Options":"nosniff","X-Frame-Options":"DENY","Content-Security-Policy":"default-src 'none'","Referrer-Policy":"no-referrer","X-RONA-Document-Version":String(doc.version_number)}});
 }
 async function allowedResourceManifest(partnerId:string){
   const items:Record<string,string[]>={};
