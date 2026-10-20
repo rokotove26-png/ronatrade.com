@@ -80,30 +80,10 @@ BEGIN
       v_output := v_output || jsonb_build_array(v_item);
       CONTINUE;
     END IF;
-    SELECT p.record_id,o.record_id,p.created_at
-      INTO v_proposal_id,v_approval_id,v_approval_at
-    FROM portal_private.ai_coordination_records p
-    JOIN portal_private.ai_coordination_records o
-      ON o.parent_record_id=p.record_id
-      AND o.record_type='OPERATIONS_INTERNAL_DECISION'
-      AND o.identity_id='AI-OPERATIONS-DIRECTOR'
-      AND o.functional_role::text='OPERATIONS_DIRECTOR'
-      AND o.status='APPROVE_FOR_NEXT_STAGE'
-      AND o.qa_only IS NOT TRUE
-    WHERE p.target_type='DEAL'
-      AND p.target_id=v_item->>'dealId'
-      AND p.record_type='BUSINESS_CHANGE_PROPOSAL'
-      AND p.identity_id='AI-FINANCE'
-      AND p.functional_role::text='FINANCE'
-      AND p.status='PROPOSED'
-      AND p.qa_only IS NOT TRUE
-      AND p.payload->>'proposed_field'='agent_rewards.source_current_settlement_reconciliation_v1'
-      AND p.payload->>'proposed_action'='RECONCILE_AGENT_REWARDS_WITH_BANK_CONFIRMED_PAYMENT'
-    ORDER BY o.created_at DESC LIMIT 1;
-    IF v_proposal_id IS NULL THEN
-      v_output := v_output || jsonb_build_array(v_item);
-      CONTINUE;
-    END IF;
+    -- OWNER GLOBAL policy: source-confirmed payments are recalculated for
+    -- every eligible existing and future deal on each Owner RPC read.
+    -- An individual Operations/FInance proposal is not an activation switch.
+    -- Signed baseline and exact bank attribution checks below remain mandatory.
     v_baseline_at := NULLIF(v_item->'openSettlementSourceCurrentness'->>'sourceCreatedAt','')::timestamptz;
     v_cf := COALESCE(v_item->'cashFlow','{}'::jsonb);
     v_bridge := COALESCE(v_item->'ownerResultBridge','{}'::jsonb);
@@ -117,7 +97,8 @@ BEGIN
        OR nullif(v_cf->>'counterpartyCashOut','') IS NULL
        OR nullif(v_cf->>'bankFees','') IS NULL
        OR nullif(v_bridge->'open_settlement_adjustment'->>'amount','') IS NULL
-       OR v_accounting_ccy<> 'USD' THEN
+       OR char_length(v_accounting_ccy)<>3
+       OR translate(v_accounting_ccy,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','')<>'' THEN
       v_output := v_output || jsonb_build_array(
         v_item || jsonb_build_object('liveBankReconciliation',
           jsonb_build_object('status','TO_VERIFY_BASELINE','financeProposalRecordId',v_proposal_id)));
@@ -177,7 +158,7 @@ BEGIN
             AND p.finance_verification_status::text='VERIFIED'
             AND p.authority_state::text IN ('CONFIRMED','VERIFIED','AUTHORITATIVE')
             AND p.lifecycle_state::text='ACTIVE'
-            AND p.payment_at>v_baseline_at AND p.created_at>v_baseline_at
+            AND p.created_at>v_baseline_at
             AND upper(btrim(p.counterparty_name))=upper(btrim(v_name))
             AND upper(btrim(p.currency::text))=v_native_ccy
             AND (NOT v_native_preclosed OR p.payment_id=v_component->>'payment_id')
@@ -378,7 +359,7 @@ BEGIN
           AND p.finance_verification_status::text='VERIFIED'
           AND p.authority_state::text IN ('CONFIRMED','VERIFIED','AUTHORITATIVE')
           AND p.lifecycle_state::text='ACTIVE'
-          AND p.payment_at>v_baseline_at AND p.created_at>v_baseline_at
+          AND p.created_at>v_baseline_at
         ORDER BY p.payment_at,p.payment_id
       LOOP
         v_already_in_cash:=(
@@ -496,8 +477,8 @@ BEGIN
           'status',case when v_currency_ok then 'BANK_MATCHED_FX_REFERENCE' else 'BANK_MATCHED_FX_TO_VERIFY' end,
           'nativeSettlementStatus','BANK_SETTLED_CURRENT',
           'sourceVersion','FINANCE_AGENT_LIVE_BANK_RECONCILIATION_V3_COUNTERPARTY_MERGED',
-          'financeProposalRecordId',v_proposal_id,
-          'operationsApprovalRecordId',v_approval_id,
+          'activation','GLOBAL_OWNER_SOURCE_GATED_AUTOMATION',
+          'perDealActivationRequired',false,
           'baseSourceCreatedAt',v_baseline_at,
           'lastBankImportAt',v_effective_bank_time,
           'currency',v_accounting_ccy,
@@ -512,9 +493,12 @@ BEGIN
     END IF;
     v_output:=v_output || jsonb_build_array(v_item);
   END LOOP;
-  RETURN p_workspace || jsonb_build_object(
-    'deals',v_output,
-    'liveBankReconciliationContract','AUTO_SOURCE_CURRENT_BANK_WITH_FX_REFERENCE_V1');
+  RETURN portal_private.agent_rewards_group_cash_lines_v1(
+    p_workspace || jsonb_build_object(
+      'deals',v_output,
+      'liveBankReconciliationContract','AUTO_SOURCE_CURRENT_BANK_V4_ALL_DEALS',
+      'globalSourceGatePolicy','OWNER_AUTOMATIC_BANK_RECONCILIATION_WITH_SOURCE_LOCK_V1')
+  );
 END
 $agent_bank$;
 REVOKE ALL ON FUNCTION portal_private.agent_rewards_live_bank_overlay_v1(jsonb) FROM PUBLIC;
