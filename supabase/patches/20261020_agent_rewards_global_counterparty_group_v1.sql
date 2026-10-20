@@ -78,9 +78,14 @@ BEGIN
         v_amount := NULL;
         v_native_amount := NULL;
       END;
+      -- Bank fees are intentionally separate economic events, not
+      -- unresolved counterparties and not candidates for vendor grouping.
+      IF coalesce(v_line->>'paymentKind','')<>'COUNTERPARTY_PAYMENT' THEN
+        v_new_rows := v_new_rows||jsonb_build_array(v_line);
+        CONTINUE;
+      END IF;
       -- Fail closed on unresolved identity or ambiguous/uncertain amount.
-      IF coalesce(v_line->>'paymentKind','')<>'COUNTERPARTY_PAYMENT'
-         OR coalesce(v_line->>'counterpartyResolutionStatus','')<>'RESOLVED'
+      IF coalesce(v_line->>'counterpartyResolutionStatus','')<>'RESOLVED'
          OR v_cid IS NULL OR v_id IS NULL
          OR v_amount IS NULL OR v_native_amount IS NULL
          OR v_ccy !~ '^[A-Z]{3}$' OR v_native_ccy !~ '^[A-Z]{3}$' THEN
