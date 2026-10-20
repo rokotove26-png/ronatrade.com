@@ -161,9 +161,13 @@ BEGIN
     SELECT coalesce(sum(CASE
       WHEN coalesce(x.value->>'groupedPaymentCount','')<> ''
        AND length(x.value->>'groupedPaymentCount')<=5
-       AND transl    -- Update owner-side manual inputs only for cash lines merged THIS read.
-    -- Using the original lines (not the accumulated breakdown) prevents a
-    -- subsequent read from adding the same historical amount a second time.
+       AND translate(x.value->>'groupedPaymentCount','0123456789','')=''
+      THEN greatest((x.value->>'groupedPaymentCount')::integer-1,0)
+      ELSE 0 END),0)::int
+    INTO v_group_count
+    FROM jsonb_array_elements(v_new_rows) x(value);
+    -- Adjust owner overrides only for newly combined input lines.
+    -- Never sum a previously accumulated source breakdown a second time.
     v_overrides := v_item->'ownerCorrection'->'payload'->'paymentLineAmounts';
     IF v_new_merge_count>0 AND jsonb_typeof(v_overrides)='object' THEN
       v_changed_overrides:=v_overrides;
@@ -188,7 +192,6 @@ BEGIN
             AND y.value->>'paymentKind'='COUNTERPARTY_PAYMENT'
         LOOP
           v_member_id:=v_member->>'paymentId';
-          -- Reject duplicate IDs, rejected/unresolved rows and non-members.
           IF v_member_id IS NULL OR NOT EXISTS(
             SELECT 1 FROM jsonb_array_elements(v_line->'sourcePaymentBreakdown') q(value)
             WHERE q.value->>'paymentId'=v_member_id
@@ -216,23 +219,15 @@ BEGIN
           END;
           IF v_valid_override THEN
             FOR v_member IN SELECT y.value FROM jsonb_array_elements(v_rows) y(value)
-              WHERE y.value->>'paymentId'<>v_id AND
-                EXISTS(SELECT 1 FROM jsonb_array_elements(v_line->'sourcePaymentBreakdown') q(value)
-                       WHERE q.value->>'paymentId'=y.value->>'paymentId')
+              WHERE y.value->>'paymentId'<>v_id
+                AND EXISTS(SELECT 1 FROM jsonb_array_elements(v_line->'sourcePaymentBreakdown') q(value)
+                WHERE q.value->>'paymentId'=y.value->>'paymentId')
             LOOP
               v_changed_overrides:=v_changed_overrides-(v_member->>'paymentId');
             END LOOP;
             v_changed_overrides:=v_changed_overrides||
               jsonb_build_object(v_id,v_override_base+v_override_delta);
           END IF;
-        END IF;
-      END LOOP;
-      IF v_changed_overrides<>v_overrides THEN
-        v_item:=jsonb_set(v_item,'{ownerCorrection,payload,paymentLineAmounts}',
-          v_changed_overrides,false);
-      END IF;
-    END IF;
-
         END IF;
       END LOOP;
       IF v_changed_overrides<>v_overrides THEN
