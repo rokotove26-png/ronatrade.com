@@ -81,3 +81,10 @@ test('OpenAPI lists existing + new paths, bearer, binary and verified finance wa
   assert.match(OPENAPI_SPEC.paths['/v1/documents/{id}/download'].get.description,/current/);
   assert.equal(Object.keys(paths).every(p=>Object.keys(paths[p]).every(m=>m==='get')),true);
 });
+
+test('canonical binary checksum gate',()=>{
+ assert.match(src,/DOCUMENT_VERIFICATION_FAILED/);
+ assert.match(src,/crypto\.subtle\.digest/);
+ assert.match(src,/bytes\.byteLength/);
+ assert.match(src,/new Response\(bytes,/);
+});
