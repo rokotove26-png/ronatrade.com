@@ -58,6 +58,9 @@ DECLARE
   v_owner_line_updated jsonb;
   v_owner_line_value numeric;
   v_owner_line_patch_status text;
+  v_legacy_line jsonb;
+  v_line_pos bigint;
+  v_merged_line boolean;
   v_bank record;
 BEGIN
   IF jsonb_typeof(p_workspace->'deals') IS DISTINCT FROM 'array' THEN
@@ -253,24 +256,62 @@ BEGIN
                   AND v_item->'ownerCorrection'->'payload'->'paymentLineAmounts' ? (x.value->>'paymentId')
                   AND coalesce(x.value->>'paymentKind','COUNTERPARTY_PAYMENT')='COUNTERPARTY_PAYMENT';
               END IF;
+              v_merged_line := false;
               IF v_owner_line_count=1 AND v_owner_line_key IS NOT NULL AND v_equiv>0
                  AND nullif(v_item->'ownerCorrection'->'payload'->'paymentLineAmounts'->>v_owner_line_key,'') IS NOT NULL THEN
-                v_owner_line_delta:=v_owner_line_delta || jsonb_build_object(
-                  v_owner_line_key,
-                  coalesce((v_owner_line_delta->>v_owner_line_key)::numeric,0)+v_equiv
-                );
-                v_owner_line_patch_status:='UNIQUE_SOURCE_LOCKED_HISTORICAL_LINE';
-              ELSE
-                v_owner_line_patch_status:='TO_VERIFY_HISTORICAL_LINE_MAPPING';
+                -- Preserve the original canonical paymentId used by both UI tabs.
+                -- Fold new verified bank payments into that single counterparty row.
+                -- Source payment records remain separate in the bank audit trail.
+                SELECT l.value,l.ord INTO v_legacy_line,v_line_pos
+                FROM jsonb_array_elements(v_lines) WITH ORDINALITY l(value,ord)
+                WHERE l.value->>'paymentId'=v_owner_line_key
+                  AND upper(btrim(coalesce(l.value->>'counterparty','')))=upper(btrim(v_name))
+                  AND upper(btrim(coalesce(l.value->>'currency','')))=v_accounting_ccy
+                  AND upper(btrim(coalesce(l.value->>'nativeCurrency','')))=v_bank.currency
+                  AND coalesce(l.value->>'paymentKind','COUNTERPARTY_PAYMENT')='COUNTERPARTY_PAYMENT'
+                ORDER BY l.ord LIMIT 1;
+                IF v_line_pos IS NOT NULL
+                   AND nullif(v_legacy_line->>'amount','') IS NOT NULL
+                   AND nullif(v_legacy_line->>'nativeAmount','') IS NOT NULL
+                   AND jsonb_typeof(coalesce(v_legacy_line->'bankPaymentRefs','[]'::jsonb))='array'
+                   AND NOT EXISTS (
+                     SELECT 1 FROM jsonb_array_elements(coalesce(v_legacy_line->'bankPaymentRefs','[]'::jsonb)) old_ref(value)
+                     WHERE old_ref.value->>'paymentId'=v_bank.payment_id
+                   ) THEN
+                  v_legacy_line := v_legacy_line || jsonb_build_object(
+                    'amount',(v_legacy_line->>'amount')::numeric+v_equiv,
+                    'nativeAmount',(v_legacy_line->>'nativeAmount')::numeric+v_bank.amount,
+                    'aggregationStatus','BANK_PAYMENTS_MERGED_BY_COUNTERPARTY',
+                    'bankPaymentRefs',
+                       coalesce(v_legacy_line->'bankPaymentRefs','[]'::jsonb)
+                       ||jsonb_build_array(jsonb_build_object(
+                         'paymentId',v_bank.payment_id,
+                         'bankDocument',v_bank.bank_transaction_reference,
+                         'accountingAmount',v_equiv,
+                         'accountingCurrency',v_accounting_ccy,
+                         'nativeAmount',v_bank.amount,
+                         'nativeCurrency',v_bank.currency,
+                         'fxStatus','BANK_RATE_REFERENCE__FUNDING_ALLOCATION_TO_VERIFY')));
+                  v_lines:=jsonb_set(v_lines,ARRAY[(v_line_pos-1)::text],v_legacy_line,false);
+                  v_owner_line_delta:=v_owner_line_delta || jsonb_build_object(
+                    v_owner_line_key,
+                    coalesce((v_owner_line_delta->>v_owner_line_key)::numeric,0)+v_equiv);
+                  v_owner_line_patch_status:='UNIQUE_SOURCE_LOCKED_HISTORICAL_LINE';
+                  v_merged_line:=true;
+                END IF;
               END IF;
-              v_lines:=v_lines || jsonb_build_array(jsonb_build_object(
-              'paymentId',v_bank.payment_id,'counterparty',v_name,
-              'amount',v_equiv,'currency',v_accounting_ccy,
-              'nativeAmount',v_bank.amount,'nativeCurrency',v_bank.currency,
-              'paymentKind','COUNTERPARTY_PAYMENT',
-              'source','FINANCE_BANK_CONFIRMED_DYNAMIC__SAME_DAY_BANK_FX_REFERENCE_OR_V8',
-              'authorityStatus','BANK_FACT_VERIFIED__FX_REFERENCE_NOT_FUNDING_ALLOCATION'));
-            END IF;
+              IF NOT v_merged_line THEN
+                -- Fail open only for line presentation; never invent mappings.
+                -- The separate bank record still remains source-locked.
+                v_owner_line_patch_status:='TO_VERIFY_COUNTERPARTY_AGGREGATION_MAPPING';
+                v_lines:=v_lines || jsonb_build_array(jsonb_build_object(
+                  'paymentId',v_bank.payment_id,'counterparty',v_name,
+                  'amount',v_equiv,'currency',v_accounting_ccy,
+                  'nativeAmount',v_bank.amount,'nativeCurrency',v_bank.currency,
+                  'paymentKind','COUNTERPARTY_PAYMENT',
+                  'source','FINANCE_BANK_CONFIRMED_DYNAMIC__SAME_DAY_BANK_FX_REFERENCE_OR_V8',
+                  'authorityStatus','BANK_FACT_VERIFIED__FX_REFERENCE_NOT_FUNDING_ALLOCATION'));
+              END IF;
           END IF;
           v_new_bank_refs:=v_new_bank_refs || jsonb_build_array(jsonb_build_object(
             'paymentId',v_bank.payment_id,'bankDocument',v_bank.bank_transaction_reference,
@@ -398,12 +439,31 @@ BEGIN
                OR v_effective_bank_time>nullif(v_item->'ownerCorrection'->>'createdAt','')::timestamptz) THEN
         v_item:=jsonb_set(v_item,'{ownerCorrection,payload,openSettlementAdjustment}',
           to_jsonb(v_open_new),true);
-        -- A confirmed payment already appears as its own cashPaymentLines row.
-        -- Owner renders those rows *in addition to* saved manual corrections.
-        -- Never add that same bank payment to a saved Owner line: doing so
-        -- counts it twice in Owner cash expenses, unlike the Fact tab.
-        IF v_currency_ok AND v_owner_line_patch_status='UNIQUE_SOURCE_LOCKED_HISTORICAL_LINE' THEN
-          v_owner_line_patch_status:='BANK_SEPARATE_LINE__OWNER_SAVED_AMOUNT_UNCHANGED';
+        IF v_currency_ok
+           AND v_owner_line_patch_status='UNIQUE_SOURCE_LOCKED_HISTORICAL_LINE'
+           AND jsonb_typeof(v_owner_line_delta)='object'
+           AND jsonb_typeof(v_item->'ownerCorrection'->'payload'->'paymentLineAmounts')='object' THEN
+          v_owner_line_updated:=v_item->'ownerCorrection'->'payload'->'paymentLineAmounts';
+          FOR v_owner_line_key IN SELECT jsonb_object_keys(v_owner_line_delta) LOOP
+            IF nullif(v_owner_line_updated->>v_owner_line_key,'') IS NULL THEN
+              v_owner_line_patch_status:='TO_VERIFY_MISSING_OWNER_AMOUNT';
+              EXIT;
+            END IF;
+            BEGIN
+              v_owner_line_value := (v_owner_line_updated->>v_owner_line_key)::numeric
+                  + (v_owner_line_delta->>v_owner_line_key)::numeric;
+            EXCEPTION WHEN invalid_text_representation THEN
+              v_owner_line_patch_status:='TO_VERIFY_INVALID_OWNER_AMOUNT';
+              EXIT;
+            END;
+            v_owner_line_updated:=jsonb_set(
+              v_owner_line_updated, ARRAY[v_owner_line_key],to_jsonb(v_owner_line_value),false);
+          END LOOP;
+          IF v_owner_line_patch_status='UNIQUE_SOURCE_LOCKED_HISTORICAL_LINE' THEN
+            v_item:=jsonb_set(v_item,
+              '{ownerCorrection,payload,paymentLineAmounts}',v_owner_line_updated,false);
+            v_owner_line_patch_status:='BANK_MERGED_IN_SINGLE_COUNTERPARTY_ROW';
+          END IF;
         END IF;
       END IF;
       IF v_currency_ok THEN
@@ -433,7 +493,7 @@ BEGIN
         'liveBankReconciliation',jsonb_build_object(
           'status',case when v_currency_ok then 'BANK_MATCHED_FX_REFERENCE' else 'BANK_MATCHED_FX_TO_VERIFY' end,
           'nativeSettlementStatus','BANK_SETTLED_CURRENT',
-          'sourceVersion','FINANCE_AGENT_LIVE_BANK_RECONCILIATION_V2_OWNER_DEDUP',
+          'sourceVersion','FINANCE_AGENT_LIVE_BANK_RECONCILIATION_V3_COUNTERPARTY_MERGED',
           'financeProposalRecordId',v_proposal_id,
           'operationsApprovalRecordId',v_approval_id,
           'baseSourceCreatedAt',v_baseline_at,
