@@ -398,31 +398,12 @@ BEGIN
                OR v_effective_bank_time>nullif(v_item->'ownerCorrection'->>'createdAt','')::timestamptz) THEN
         v_item:=jsonb_set(v_item,'{ownerCorrection,payload,openSettlementAdjustment}',
           to_jsonb(v_open_new),true);
-        IF v_currency_ok
-           AND v_owner_line_patch_status='UNIQUE_SOURCE_LOCKED_HISTORICAL_LINE'
-           AND jsonb_typeof(v_owner_line_delta)='object'
-           AND jsonb_typeof(v_item->'ownerCorrection'->'payload'->'paymentLineAmounts')='object' THEN
-          v_owner_line_updated:=v_item->'ownerCorrection'->'payload'->'paymentLineAmounts';
-          FOR v_owner_line_key IN SELECT jsonb_object_keys(v_owner_line_delta) LOOP
-            IF nullif(v_owner_line_updated->>v_owner_line_key,'') IS NULL THEN
-              v_owner_line_patch_status:='TO_VERIFY_MISSING_OWNER_AMOUNT';
-              EXIT;
-            END IF;
-            BEGIN
-              v_owner_line_value := (v_owner_line_updated->>v_owner_line_key)::numeric
-                  + (v_owner_line_delta->>v_owner_line_key)::numeric;
-            EXCEPTION WHEN invalid_text_representation THEN
-              v_owner_line_patch_status:='TO_VERIFY_INVALID_OWNER_AMOUNT';
-              EXIT;
-            END;
-            v_owner_line_updated:=jsonb_set(
-              v_owner_line_updated, ARRAY[v_owner_line_key],to_jsonb(v_owner_line_value),false);
-          END LOOP;
-          IF v_owner_line_patch_status='UNIQUE_SOURCE_LOCKED_HISTORICAL_LINE' THEN
-            v_item:=jsonb_set(v_item,
-              '{ownerCorrection,payload,paymentLineAmounts}',v_owner_line_updated,false);
-            v_owner_line_patch_status:='AUTO_UPDATED_AFTER_BANK_PAYMENT';
-          END IF;
+        -- A confirmed payment already appears as its own cashPaymentLines row.
+        -- Owner renders those rows *in addition to* saved manual corrections.
+        -- Never add that same bank payment to a saved Owner line: doing so
+        -- counts it twice in Owner cash expenses, unlike the Fact tab.
+        IF v_currency_ok AND v_owner_line_patch_status='UNIQUE_SOURCE_LOCKED_HISTORICAL_LINE' THEN
+          v_owner_line_patch_status:='BANK_SEPARATE_LINE__OWNER_SAVED_AMOUNT_UNCHANGED';
         END IF;
       END IF;
       IF v_currency_ok THEN
@@ -452,7 +433,7 @@ BEGIN
         'liveBankReconciliation',jsonb_build_object(
           'status',case when v_currency_ok then 'BANK_MATCHED_FX_REFERENCE' else 'BANK_MATCHED_FX_TO_VERIFY' end,
           'nativeSettlementStatus','BANK_SETTLED_CURRENT',
-          'sourceVersion','FINANCE_AGENT_LIVE_BANK_RECONCILIATION_V1',
+          'sourceVersion','FINANCE_AGENT_LIVE_BANK_RECONCILIATION_V2_OWNER_DEDUP',
           'financeProposalRecordId',v_proposal_id,
           'operationsApprovalRecordId',v_approval_id,
           'baseSourceCreatedAt',v_baseline_at,
