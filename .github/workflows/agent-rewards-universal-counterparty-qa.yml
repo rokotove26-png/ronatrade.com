@@ -1,0 +1,63 @@
+name: Agent Rewards Universal Counterparty Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/patches/20261020_agent_rewards_global_counterparty_group_v1.sql'
+      - 'supabase/patches/20261020_agent_rewards_live_bank_reconciliation_v1.sql'
+      - 'supabase/tests/20261020_agent_rewards_universal_counterparty_regression.sql'
+      - '.github/workflows/agent-rewards-universal-counterparty-qa.yml'
+  pull_request:
+    paths:
+      - 'supabase/patches/20261020_agent_rewards_global_counterparty_group_v1.sql'
+      - 'supabase/patches/20261020_agent_rewards_live_bank_reconciliation_v1.sql'
+      - 'supabase/tests/20261020_agent_rewards_universal_counterparty_regression.sql'
+      - '.github/workflows/agent-rewards-universal-counterparty-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-universal-source-logic:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: agent_rewards_test
+          POSTGRES_USER: agent_test
+          POSTGRES_PASSWORD: disposable_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agent_test -d agent_rewards_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGDATABASE: agent_rewards_test
+      PGUSER: agent_test
+      PGPASSWORD: disposable_test_password
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare disposable PostgreSQL schema
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -c "CREATE ROLE anon NOLOGIN"
+          psql -X -v ON_ERROR_STOP=1 -c "CREATE ROLE authenticated NOLOGIN"
+          psql -X -v ON_ERROR_STOP=1 -c "CREATE SCHEMA portal_private"
+      - name: Install generic, source-locked grouping function
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/patches/20261020_agent_rewards_global_counterparty_group_v1.sql
+      - name: Verify all future / existing counterparty invariants
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/tests/20261020_agent_rewards_universal_counterparty_regression.sql
+      - name: Verify universal automatic integration (not per-deal enabled)
+        run: |
+          grep -q 'agent_rewards_group_cash_lines_v1(' supabase/patches/20261020_agent_rewards_live_bank_reconciliation_v1.sql
+          grep -q 'OWNER_AUTOMATIC_BANK_RECONCILIATION_WITH_SOURCE_LOCK_V1' supabase/patches/20261020_agent_rewards_live_bank_reconciliation_v1.sql
+          if grep -q 'IF v_proposal_id IS NULL THEN' supabase/patches/20261020_agent_rewards_live_bank_reconciliation_v1.sql; then
+            echo 'PER_DEAL_ACTIVATION_REGRESSION'
+            exit 1
+          fi
