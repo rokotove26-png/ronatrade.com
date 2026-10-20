@@ -239,7 +239,7 @@ export const OPENAPI_SPEC = {
       },
       "Deal": {
         "type": "object",
-        "description": "Only a previously granted Deal with current InCom agency addendum; legacy DEAL-2026-007/008 not exposed without exact current addendum.",
+        "description": "Only an individually granted Deal with a current matching agency addendum. Unrelated and unlinked Deals are never returned.",
         "properties": {
           "id": {
             "type": "string",
