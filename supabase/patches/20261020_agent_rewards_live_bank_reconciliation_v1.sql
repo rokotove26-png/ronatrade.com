@@ -51,6 +51,7 @@ DECLARE
   v_currency_ok boolean;
   v_has_native_payment boolean;
   v_already_in_cash boolean;
+  v_native_preclosed boolean;
   v_owner_line_key text;
   v_owner_line_count int;
   v_owner_line_delta jsonb;
@@ -135,9 +136,19 @@ BEGIN
     FOR v_component IN SELECT x.value FROM jsonb_array_elements(v_components) x(value) LOOP
       v_native_paid := 0;
       v_native_prior := coalesce(nullif(v_component->>'native_balance','')::numeric,0);
+      -- An earlier canonical native-bank overlay may have settled the RUB payable
+      -- before its USD reporting bridge and saved Owner input were reconciled.
+      -- In that case the existing payment is the only eligible new FX event;
+      -- native cash_amount and native balance must NOT be settled twice.
+      v_native_preclosed := v_component->>'type'='TRADE_PAYABLE'
+        AND v_native_prior=0
+        AND v_component->>'source_status'='BANK_SETTLED_CONFIRMED'
+        AND v_component->>'reporting_amount_status'='PENDING_SOURCE_LOCKED_BANK_FX_RECONCILIATION'
+        AND nullif(v_component->>'payment_id','') IS NOT NULL
+        AND coalesce(nullif(v_component->>'prior_reporting_amount','')::numeric,0)<0;
       v_name := v_component->>'counterparty';
       v_native_ccy := upper(btrim(coalesce(v_component->>'native_currency','')));
-      IF v_component->>'type'='TRADE_PAYABLE' AND v_native_prior>0
+      IF v_component->>'type'='TRADE_PAYABLE' AND (v_native_prior>0 OR v_native_preclosed)
          AND v_name IS NOT NULL AND v_native_ccy<>'' THEN
         FOR v_bank IN
           SELECT p.id as payment_key,p.payment_id,p.payment_at,p.created_at,
@@ -166,8 +177,12 @@ BEGIN
             AND p.payment_at>v_baseline_at AND p.created_at>v_baseline_at
             AND upper(btrim(p.counterparty_name))=upper(btrim(v_name))
             AND upper(btrim(p.currency::text))=v_native_ccy
+            AND (NOT v_native_preclosed OR p.payment_id=v_component->>'payment_id')
           ORDER BY p.payment_at,p.payment_id
         LOOP
+          IF v_native_preclosed AND v_native_prior=0 THEN
+            v_native_prior:=v_bank.amount;
+          END IF;
           IF v_bank.amount<=0 OR v_native_paid+v_bank.amount>v_native_prior+0.005 THEN
             v_currency_ok:=false;
             CONTINUE;
@@ -274,6 +289,10 @@ BEGIN
             'settlement_source','BANK_CONFIRMED_EXACT_DEAL_ATTRIBUTION',
             'source_status',case when abs(v_native_prior-v_native_paid)<0.005
                 then 'SETTLED_BY_BANK__RECEIPT_NOT_PROVEN' else 'PARTIAL_BANK_SETTLEMENT' end);
+          IF v_native_preclosed THEN
+            v_component:=jsonb_set(v_component,'{reporting_amount_status}',
+              to_jsonb('BANK_REFERENCE_FX_RECONCILED__FUNDING_ALLOCATION_TO_VERIFY'::text),true);
+          ELSE
           v_new_settlements:='[]'::jsonb;
           FOR v_settlement IN SELECT y.value FROM jsonb_array_elements(v_settlements) y(value) LOOP
             IF upper(btrim(coalesce(v_settlement->>'counterparty','')))=upper(btrim(v_name))
@@ -288,6 +307,7 @@ BEGIN
             v_new_settlements:=v_new_settlements || jsonb_build_array(v_settlement);
           END LOOP;
           v_settlements:=v_new_settlements;
+          END IF;
         END IF;
       END IF;
       v_new_components:=v_new_components || jsonb_build_array(v_component);
