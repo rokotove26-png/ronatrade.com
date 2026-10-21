@@ -59,8 +59,11 @@ DO $$DECLARE v jsonb;BEGIN
  RAISE EXCEPTION 'LICENSED_CASPIAN_PRIVATE_READ_NOT_WORKING'; END IF;
 END $$;
 -- Revoked LEGAL approval immediately makes old records inaccessible; no source records deleted.
-UPDATE portal_private.ai_coordination_records SET status='HOLD'
-WHERE record_id='44444444-4444-4444-8444-444444444444';
+INSERT INTO portal_private.ai_coordination_records(record_id,record_type,functional_role,status,qa_only,payload,source_refs,supersedes_id)
+VALUES('55555555-5555-4555-8555-555555555555','FUNCTIONAL_CONCLUSION','LEGAL','HOLD',false,
+ '{"confirmed":false,"recommendation":"LICENSE_WITHDRAWN","mandatory_conditions":["NO_FURTHER_USE"]}'::jsonb,
+ '["DB:telegram_market_documents:33333333-3333-4333-8333-333333333333"]'::jsonb,
+ '44444444-4444-4444-8444-444444444444');
 DO $$DECLARE v jsonb;BEGIN
  v:=portal_private.market_intelligence_admin_argus_sources_v1();
  IF v->'argusCaspian'->>'available'<>'false' THEN
