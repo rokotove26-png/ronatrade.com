@@ -48,3 +48,7 @@ test('safe rollback removes only new functions and preserves all historical data
  assert.doesNotMatch(rb,/\b(?:DELETE|TRUNCATE|DROP TABLE|UPDATE)\b/i);
  assert.doesNotMatch(m,/\bUPDATE portal_private\.(?:deals|payments|documents|owner_price_snapshots)/i);
 });
+test('append-only supersession of legal approval immediately blocks reads and new inserts',()=>{
+ assert.match(m,/newer\.supersedes_id=legal\.record_id/);
+ assert.match(m,/newer\.supersedes_id=p_legal_approval_id/);
+});
