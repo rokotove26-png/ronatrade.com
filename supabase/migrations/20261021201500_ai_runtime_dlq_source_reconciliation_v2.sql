@@ -82,7 +82,7 @@ INSERT INTO portal_private.ai_runtime_dlq_evidence_v2
  (queue_id,resolution,source_record_id,confirming_record_id,source_type,source_error_code,evidence)
 SELECT v.queue_id,v.resolution,v.source_record_id,v.confirming_record_id,v.source_type,v.last_error_code,
 v.evidence||jsonb_build_object('owner_authorization','OWNER:2026-10-21:EXECUTE_450_SOURCE_RECONCILIATION',
-'operations_gate','COORDINATION:33e08d19-bb4f-4692-bd4a-99e264e7cb1b')
+'operations_gate','OPERATIONS_DIRECTOR_AUDITED_NEXT_STAGE_DECISION')
 FROM all_verified v
 ON CONFLICT(queue_id) DO NOTHING;
 
