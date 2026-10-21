@@ -24,7 +24,7 @@ VALUES
  'records',jsonb_build_array(
  jsonb_build_object('product','АИ-92','kind','DIRECT_ASSESSMENT','low',101,'high',111),
  jsonb_build_object('product','АИ-95','kind','DIRECT_ASSESSMENT','low',151,'high',161),
- jsonb_build_object('product','ДТ','kind','DIRECT_ASSESSMENT','low',201,'high',211))))), '[]'::jsonb),
+ jsonb_build_object('product','ДТ','kind','DIRECT_ASSESSMENT','low',201,'high',211)))), '[]'::jsonb),
  ('22222222-2222-4222-8222-222222222222','OPERATIONS_INTERNAL_DECISION','OPERATIONS_DIRECTOR','APPROVE_FOR_NEXT_STAGE',false,
  '{"record_id":"11111111-1111-4111-8111-111111111111"}'::jsonb,'[]'::jsonb);
 INSERT INTO portal_private.telegram_market_documents(id,file_name,source_url,extraction_state,sha256,extracted_text)
