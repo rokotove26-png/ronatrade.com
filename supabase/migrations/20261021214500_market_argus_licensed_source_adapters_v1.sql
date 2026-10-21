@@ -18,6 +18,7 @@ WITH licensed AS (
   AND legal.record_type='FUNCTIONAL_CONCLUSION'
   AND legal.functional_role::text='LEGAL'
   AND legal.status='APPROVED' AND legal.qa_only=false
+  AND NOT EXISTS(SELECT 1 FROM portal_private.ai_coordination_records newer WHERE newer.supersedes_id=legal.record_id)
   AND legal.payload->>'confirmed'='true'
   AND coalesce(jsonb_array_length(legal.payload->'mandatory_conditions'),1)=0
   AND legal.payload->>'recommendation' LIKE '%ARGUS_INTERNAL_ANALYTICS_LICENSE_VERIFIED%'
@@ -73,6 +74,7 @@ WITH permitted AS (
   AND legal.record_type='FUNCTIONAL_CONCLUSION'
   AND legal.functional_role::text='LEGAL'
   AND legal.status='APPROVED' AND legal.qa_only=false
+  AND NOT EXISTS(SELECT 1 FROM portal_private.ai_coordination_records newer WHERE newer.supersedes_id=legal.record_id)
   AND legal.payload->>'confirmed'='true'
   AND coalesce(jsonb_array_length(legal.payload->'mandatory_conditions'),1)=0
   AND legal.payload->>'recommendation' LIKE '%ARGUS_INTERNAL_ANALYTICS_LICENSE_VERIFIED%'
@@ -160,6 +162,7 @@ BEGIN
  SELECT * INTO v_legal FROM portal_private.ai_coordination_records
  WHERE record_id=p_legal_approval_id AND record_type='FUNCTIONAL_CONCLUSION'
    AND functional_role::text='LEGAL' AND status='APPROVED' AND qa_only=false
+   AND NOT EXISTS(SELECT 1 FROM portal_private.ai_coordination_records newer WHERE newer.supersedes_id=p_legal_approval_id)
    AND payload->>'confirmed'='true'
    AND coalesce(jsonb_array_length(payload->'mandatory_conditions'),1)=0
    AND payload->>'recommendation' LIKE '%ARGUS_INTERNAL_ANALYTICS_LICENSE_VERIFIED%'
