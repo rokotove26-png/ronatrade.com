@@ -1,0 +1,55 @@
+name: Argus licensed source adapters PG17
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261021214500_market_argus_licensed_source_adapters_v1.sql'
+      - 'supabase/rollback/20261021214500_market_argus_licensed_source_adapters_v1.rollback.sql'
+      - 'tests/argus/**'
+      - '.github/workflows/argus-licensed-source-adapters.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  argus-source-contract:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture_only
+          POSTGRES_USER: postgres
+          POSTGRES_DB: argus_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d argus_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: fixture_only
+      PGDATABASE: argus_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify provider-source authority and no-publication contract
+        run: node --test tests/argus/source-locked-contract.test.mjs
+      - name: Build isolated PostgreSQL 17 test fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/argus/pg17-fixture.sql
+      - name: Compile deployable SQL on actual PostgreSQL 17 and run authority E2E
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021214500_market_argus_licensed_source_adapters_v1.sql
+          psql -v ON_ERROR_STOP=1 -f tests/argus/pg17-authority-e2e.sql
+      - name: Verify only service_role can call source readers
+        run: |
+          psql -At -c "SELECT has_function_privilege('anon','portal_private.market_intelligence_argus_caspian_payload_v1()','EXECUTE');" | grep -qx f
+          psql -At -c "SELECT has_function_privilege('authenticated','portal_private.market_intelligence_argus_caspian_payload_v1()','EXECUTE');" | grep -qx f
+          psql -At -c "SELECT has_function_privilege('service_role','portal_private.market_intelligence_argus_caspian_payload_v1()','EXECUTE');" | grep -qx t
+      - name: Function-only rollback and historical source persistence
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/rollback/20261021214500_market_argus_licensed_source_adapters_v1.rollback.sql
+          psql -At -c "SELECT to_regprocedure('portal_private.market_intelligence_argus_caspian_payload_v1()') IS NULL;" | grep -qx t
+          psql -At -c "SELECT count(*) FROM portal_private.market_intelligence_facts;" | grep -qx 3
