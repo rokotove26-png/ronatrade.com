@@ -5,7 +5,7 @@ CREATE ROLE service_role NOLOGIN;
 CREATE SCHEMA portal_private;
 CREATE TABLE portal_private.ai_coordination_records(
  record_id uuid PRIMARY KEY,record_type text,functional_role text,status text,
- qa_only boolean NOT NULL DEFAULT false,payload jsonb,source_refs jsonb
+ qa_only boolean NOT NULL DEFAULT false,payload jsonb,source_refs jsonb,supersedes_id uuid
 );
 CREATE TABLE portal_private.telegram_market_documents(
  id uuid PRIMARY KEY,file_name text,source_url text,extraction_state text,
