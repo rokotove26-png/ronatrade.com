@@ -1,0 +1,21 @@
+name: AI Executor DLQ Triage Contract
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261021192500_ai_executor_dlq_immutable_triage_v1.sql'
+      - 'supabase/rollback/20261021192500_ai_executor_dlq_immutable_triage_v1.rollback.sql'
+      - 'tests/ai-runtime/ai-model-executor-dlq-triage.test.mjs'
+      - '.github/workflows/ai-executor-dlq-triage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  technical-triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify immutable triage, access control and safe rollback
+        run: node --test tests/ai-runtime/ai-model-executor-dlq-triage.test.mjs
