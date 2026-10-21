@@ -1,0 +1,52 @@
+name: Owner Admin Argus Caspian backend wiring
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261022124500_owner_admin_argus_caspian_private_wiring_v1.sql'
+      - 'supabase/rollback/20261022124500_owner_admin_argus_caspian_private_wiring_v1.rollback.sql'
+      - 'tests/argus/owner-admin-caspian-wiring.test.mjs'
+      - 'tests/argus/pg17-owner-admin-bootstrap*'
+      - '.github/workflows/argus-owner-admin-wiring.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  argus-admin-wiring:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture_only
+          POSTGRES_USER: postgres
+          POSTGRES_DB: argus_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d argus_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: fixture_only
+      PGDATABASE: argus_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify only owner backend adapter reference differs
+        run: node --test tests/argus/owner-admin-caspian-wiring.test.mjs
+      - name: Simulate existing Owner bootstrap and private Argus readers on PostgreSQL 17
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/argus/pg17-fixture.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021214500_market_argus_licensed_source_adapters_v1.sql
+          psql -v ON_ERROR_STOP=1 -f tests/argus/pg17-owner-admin-bootstrap-fixture.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022124500_owner_admin_argus_caspian_private_wiring_v1.sql
+          psql -v ON_ERROR_STOP=1 -f tests/argus/pg17-owner-admin-bootstrap-assert.sql
+      - name: Confirm exact previous owner payload restored by rollback
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/rollback/20261022124500_owner_admin_argus_caspian_private_wiring_v1.rollback.sql
+          psql -At -c "SELECT (public.owner_analytics_admin_bootstrap_base_v1()->'canonicalAnalytics' ? 'argusCaspian');" | grep -qx f
+          psql -At -c "SELECT (public.owner_analytics_admin_bootstrap_base_v1()->>'gate');" | grep -qx 'OWNER_AUTHORIZED_AUTO_DERIVED_ANALYTICS; LEGACY_MANUAL_PUBLICATIONS_REMAIN_GATED'
