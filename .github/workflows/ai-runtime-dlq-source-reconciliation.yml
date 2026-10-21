@@ -1,0 +1,21 @@
+name: AI Runtime DLQ Source Reconciliation
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261021201500_ai_runtime_dlq_source_reconciliation_v2.sql'
+      - 'supabase/rollback/20261021201500_ai_runtime_dlq_source_reconciliation_v2.rollback.sql'
+      - 'tests/ai-runtime/ai-model-executor-dlq-source-reconciliation.test.mjs'
+      - '.github/workflows/ai-runtime-dlq-source-reconciliation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-reconciliation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assert role gates, immutable evidence, and zero DLQ replay
+        run: node --test tests/ai-runtime/ai-model-executor-dlq-source-reconciliation.test.mjs
