@@ -1,6 +1,5 @@
 -- AI Executor DLQ v1: immutable, private technical triage ledger. Never mutate or replay original queue.
 -- Owner instruction 2026-10-21: classify historic failures without rewriting business source state.
-BEGIN;
 CREATE TABLE portal_private.ai_runtime_dlq_triage_v1 (
   queue_id uuid PRIMARY KEY REFERENCES portal_private.ai_runtime_queue(id) ON DELETE RESTRICT,
   resolution text NOT NULL CHECK (resolution IN ('ARCHIVED_TECHNICAL','SOURCE_TERMINAL','REVIEW_REQUIRED')),
@@ -102,4 +101,3 @@ REVOKE ALL ON portal_private.ai_runtime_dlq_triage_current_v1 FROM PUBLIC,anon,a
 REVOKE ALL ON portal_private.ai_runtime_dlq_triage_summary_v1 FROM PUBLIC,anon,authenticated;
 GRANT SELECT ON portal_private.ai_runtime_dlq_triage_current_v1 TO service_role;
 GRANT SELECT ON portal_private.ai_runtime_dlq_triage_summary_v1 TO service_role;
-COMMIT;
