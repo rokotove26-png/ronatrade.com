@@ -1,0 +1,21 @@
+name: AI Runtime DLQ Source Assessment
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261021205000_ai_runtime_dlq_source_assessment_v3.sql'
+      - 'supabase/rollback/20261021205000_ai_runtime_dlq_source_assessment_v3.rollback.sql'
+      - 'tests/ai-runtime/ai-model-executor-dlq-assessment-v3.test.mjs'
+      - '.github/workflows/ai-runtime-dlq-assessment-v3.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-assessment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify no replay and source-verified terminal dispositions
+        run: node --test tests/ai-runtime/ai-model-executor-dlq-assessment-v3.test.mjs
