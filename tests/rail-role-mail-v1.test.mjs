@@ -6,14 +6,14 @@ const gateway = readFileSync('supabase/functions/rona-mcp-gateway/gateway-base.m
 const bridge = readFileSync('supabase/functions/rona-role-mail-bridge/index.ts','utf8');
 
 test('Rail role gets read tools only through the fixed role gate',()=>{
-  assert.match(gateway,/if\(\['COMMERCIAL_DIRECTOR','OPERATIONS_DIRECTOR','FINANCE','RAIL_LOGISTICS','ASSISTANT'\]\.includes\(cfg\.business_role\)\)tools\.push\(/);
+  assert.match(gateway,/if\(\['COMMERCIAL_DIRECTOR','OPERATIONS_DIRECTOR','FINANCE','LEGAL','RAIL_LOGISTICS','ASSISTANT'\]\.includes\(cfg\.business_role\)\)tools\.push\(/);
   for(const tool of ['mail_sync_status','mail_recent','mail_search','mail_read']) {
     assert.match(gateway,new RegExp("name:'"+tool+"'"));
   }
 });
 
 test('Rail outbound mail uses existing audited and idempotent send gate',()=>{
-  assert.match(gateway,/if\(\['COMMERCIAL_DIRECTOR','OPERATIONS_DIRECTOR','RAIL_LOGISTICS','ASSISTANT'\]\.includes\(cfg\.business_role\)\)common\.push\(\{name:'mail_send'/);
+  assert.match(gateway,/if\(\['COMMERCIAL_DIRECTOR','OPERATIONS_DIRECTOR','LEGAL','RAIL_LOGISTICS','ASSISTANT'\]\.includes\(cfg\.business_role\)\)common\.push\(\{name:'mail_send'/);
   assert.doesNotMatch(gateway,/if\(\[[^\]]*'FINANCE'[^\]]*\]\.includes\(cfg\.business_role\)\)common\.push\(\{name:'mail_send'/);
   assert.match(gateway,/IDEMPOTENCY_KEY_REUSE_CONFLICT/);
   assert.match(gateway,/if\(name==='mail_send'\)\{/);
@@ -39,5 +39,5 @@ test('Existing internal bridge allows only configured role inboxes',()=>{
 test('Mail tools do not expand Finance outbound scope',()=>{
   assert.match(gateway,/const FINANCE_MAILBOX='finance@ronaoil\.com';/);
   assert.match(gateway,/cfg\.business_role==='FINANCE'\?FINANCE_MAILBOX/);
-  assert.match(gateway,/if\(\['COMMERCIAL_DIRECTOR','OPERATIONS_DIRECTOR','RAIL_LOGISTICS','ASSISTANT'\]\.includes\(cfg\.business_role\)\)common\.push\(\{name:'mail_send'/);
+  assert.match(gateway,/if\(\['COMMERCIAL_DIRECTOR','OPERATIONS_DIRECTOR','LEGAL','RAIL_LOGISTICS','ASSISTANT'\]\.includes\(cfg\.business_role\)\)common\.push\(\{name:'mail_send'/);
 });

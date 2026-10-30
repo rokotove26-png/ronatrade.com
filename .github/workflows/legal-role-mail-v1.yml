@@ -1,0 +1,25 @@
+name: Legal role mail MCP contract
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/rona-mcp-gateway/gateway-base.mjs'
+      - 'supabase/functions/rona-role-mail-bridge/index.ts'
+      - 'tests/legal-role-mail-v1.test.mjs'
+      - 'tests/rail-role-mail-v1.test.mjs'
+      - 'tests/internal-network-mail-guard-v1.test.mjs'
+      - '.github/workflows/legal-role-mail-v1.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  legal-mail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify gateway module syntax
+        run: node --check supabase/functions/rona-mcp-gateway/gateway-base.mjs
+      - name: Verify LEGAL mailbox, Rail compatibility, send restrictions and recipient safety
+        run: node --test tests/legal-role-mail-v1.test.mjs tests/rail-role-mail-v1.test.mjs tests/internal-network-mail-guard-v1.test.mjs
