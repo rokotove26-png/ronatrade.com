@@ -40,5 +40,5 @@ test('External send retains fixed role binding, privacy and existing idempotency
   assert.match(gateway,/if\(name==='mail_send'\)/);
   assert.match(gateway,/const RAIL_MAILBOX='rail_spec@ronaoil\.com';/);
   assert.match(gateway,/const FINANCE_MAILBOX='finance@ronaoil\.com';/);
-  assert.match(gateway,/if\(\['COMMERCIAL_DIRECTOR','OPERATIONS_DIRECTOR','RAIL_LOGISTICS','ASSISTANT'\]\.includes\(cfg\.business_role\)\)common\.push\(\{name:'mail_send'/);
+  assert.match(gateway,/if\(\['COMMERCIAL_DIRECTOR','OPERATIONS_DIRECTOR','LEGAL','RAIL_LOGISTICS','ASSISTANT'\]\.includes\(cfg\.business_role\)\)common\.push\(\{name:'mail_send'/);
 });
